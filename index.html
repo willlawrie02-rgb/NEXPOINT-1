@@ -66,11 +66,21 @@
 
   .eyebrow {
     font: 600 12px/1 var(--font-body);
-    letter-spacing: 0.08em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--np-blue);
-    display: block;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     margin-bottom: 20px;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 24px;
+    height: 1.5px;
+    background: currentColor;
+    display: inline-block;
+    flex-shrink: 0;
   }
   .h2 {
     font: 600 clamp(28px, 3.2vw, 44px)/1.15 var(--font-display);
