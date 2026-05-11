@@ -1,0 +1,1889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NexPoint — Global O&P commercial connectors</title>
+<meta name="description" content="NexPoint connects distributors, labs, and clinic networks with the manufacturers, materials suppliers, and technology providers that move your business forward — across the UK, EU, North America, and Australia." />
+<link rel="icon" href="assets/nexpoint-logo.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --np-blue: #005CC8;
+    --np-blue-hover: #0066DC;
+    --np-blue-pressed: #004FAA;
+    --np-green: #8BC53F;
+    --np-green-bright: #9CD850;
+
+    --bg: #121212;
+    --bg-alt: #0d0e0f;
+    --surface: #1E1E1E;
+    --surface-input: #0A0A0A;
+
+    --fg: #FFFFFF;
+    --fg-1: #E2E2E2;
+    --fg-2: #C2C6D5;
+
+    --border: #262626;
+    --border-strong: rgba(255, 255, 255, 0.10);
+    --border-soft: rgba(255, 255, 255, 0.06);
+    --border-faint: rgba(255, 255, 255, 0.04);
+
+    --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --duration: 200ms;
+    --duration-fast: 150ms;
+
+    --container-max: 1440px;
+    --side-pad: 64px;
+
+    --font-display: 'Montserrat', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg-1); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  ::selection { background: rgba(0, 92, 200, 0.4); color: #fff; }
+
+  ::-webkit-scrollbar { height: 6px; width: 6px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 9999px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  a { color: inherit; }
+  button { font-family: inherit; }
+
+  .container { max-width: var(--container-max); margin: 0 auto; padding-left: var(--side-pad); padding-right: var(--side-pad); }
+  .section { padding: 140px 0; }
+  .section--alt { background: var(--bg-alt); }
+
+  .eyebrow {
+    font: 600 12px/1 var(--font-body);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--np-blue);
+    display: block;
+    margin-bottom: 20px;
+  }
+  .h2 {
+    font: 600 44px/52px var(--font-display);
+    letter-spacing: -0.02em;
+    color: var(--fg);
+    margin: 0 0 24px;
+  }
+  .lede {
+    font: 400 17px/28px var(--font-body);
+    color: rgba(226, 226, 226, 0.65);
+    margin: 0;
+  }
+
+  /* ─── Navbar ─── */
+  .navbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    background: rgba(18, 18, 18, 0.72);
+    backdrop-filter: saturate(140%) blur(16px);
+    -webkit-backdrop-filter: saturate(140%) blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .navbar__inner {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 14px var(--side-pad);
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  }
+  .navbar__brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+  .navbar__brand img { height: 34px; width: auto; display: block; }
+  .navbar__links { display: flex; gap: 28px; }
+  .navbar__link {
+    position: relative;
+    font: 600 12px/1 var(--font-body);
+    letter-spacing: 0.05em; text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+    text-decoration: none;
+    padding: 8px 0;
+    transition: color var(--duration) var(--ease);
+  }
+  .navbar__link:hover { color: #fff; }
+  .navbar__link.is-active { color: #fff; }
+  .navbar__link.is-active::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -2px;
+    height: 2px; background: var(--np-blue); border-radius: 1px;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 0; cursor: pointer;
+    border-radius: 4px;
+    transition: all var(--duration) var(--ease);
+  }
+  .btn--primary {
+    background: var(--np-blue); color: #fff;
+    font: 600 13px/1 var(--font-body);
+    padding: 12px 18px;
+  }
+  .btn--primary:hover { box-shadow: 0 10px 28px rgba(0, 92, 200, 0.35); }
+  .btn--primary:active { transform: scale(0.97); background: var(--np-blue-pressed); }
+
+  .btn--primary-lg {
+    background: var(--np-blue); color: #fff;
+    font: 600 16px/1 var(--font-body);
+    padding: 17px 28px;
+  }
+  .btn--primary-lg:hover { box-shadow: 0 12px 32px rgba(0, 92, 200, 0.35); }
+  .btn--primary-lg:active { transform: scale(0.97); background: var(--np-blue-pressed); }
+
+  .btn--ghost-lg {
+    background: transparent; color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    font: 600 16px/1 var(--font-body);
+    padding: 17px 28px;
+  }
+  .btn--ghost-lg:hover { border-color: rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.03); }
+
+  .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; word-wrap: normal; direction: ltr; -webkit-font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased; }
+
+  /* ─── Hero ─── */
+  .hero {
+    position: relative; min-height: 92vh; padding-top: 72px;
+    display: flex; align-items: center; overflow: hidden;
+    background:
+      radial-gradient(900px 600px at 85% 10%, rgba(0, 92, 200, 0.18), transparent 60%),
+      radial-gradient(700px 500px at 10% 90%, rgba(139, 197, 63, 0.10), transparent 60%);
+  }
+  .hero__inner {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 60px var(--side-pad) 80px;
+    display: grid; grid-template-columns: 0.7fr 1.3fr; gap: 64px;
+    align-items: center; width: 100%;
+  }
+  .hero__pill {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 6px 12px 6px 8px;
+    margin-bottom: 28px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+  }
+  .hero__pill-dot {
+    width: 7px; height: 7px; border-radius: 9999px;
+    background: var(--np-green);
+    box-shadow: 0 0 10px rgba(139, 197, 63, 0.7);
+  }
+  .hero__pill-text {
+    font: 600 11px/1 var(--font-body);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.75);
+  }
+  .hero__title {
+    font: 700 68px/74px var(--font-display);
+    letter-spacing: -0.025em;
+    color: #fff;
+    margin: 0 0 24px;
+  }
+  .hero__title-accent { color: var(--np-blue); }
+  .hero__sub {
+    font: 400 19px/30px var(--font-body);
+    color: rgba(226, 226, 226, 0.78);
+    margin: 0 0 40px;
+    max-width: 600px;
+  }
+  .hero__ctas { display: flex; flex-wrap: wrap; gap: 14px; }
+  .hero__stats { display: flex; gap: 40px; margin-top: 56px; flex-wrap: wrap; }
+  .stat__num {
+    font: 700 28px/1 var(--font-display);
+    color: #fff;
+  }
+  .stat__label {
+    font: 600 11px/1 var(--font-body);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(226, 226, 226, 0.5);
+    margin-top: 8px;
+  }
+
+  .network-card {
+    position: relative; height: 760px;
+    border-radius: 12px; overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background:
+      radial-gradient(circle at 50% 50%, rgba(0, 92, 200, 0.10), transparent 60%),
+      linear-gradient(160deg, #161818 0%, #0d0e0f 100%);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  }
+  .network-card__header {
+    position: absolute; top: 16px; left: 20px; right: 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none;
+  }
+  .network-card__label {
+    font: 600 11px/1 var(--font-body);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(226, 226, 226, 0.45);
+  }
+  .network-card__live {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 600 11px/1 var(--font-body);
+    letter-spacing: 0.06em;
+    color: rgba(226, 226, 226, 0.55);
+  }
+  .network-card__live-dot {
+    width: 6px; height: 6px; border-radius: 9999px;
+    background: var(--np-green);
+    box-shadow: 0 0 8px var(--np-green);
+  }
+  .network-card svg { display: block; width: 100%; height: 100%; }
+
+  /* ─── Partners strip ─── */
+  .partners {
+    background: var(--bg-alt);
+    border-top: 1px solid var(--border-faint);
+    border-bottom: 1px solid var(--border-faint);
+  }
+  .partners__inner {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 40px var(--side-pad);
+    display: grid; grid-template-columns: 220px 1fr; gap: 48px; align-items: center;
+  }
+  .partners__label {
+    font: 600 11px/1.4 var(--font-body);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(226, 226, 226, 0.5);
+  }
+  .partners__list {
+    display: flex; flex-wrap: wrap; gap: 40px; align-items: center;
+  }
+  .partners__list span {
+    font: 600 18px/1 var(--font-display);
+    color: rgba(255, 255, 255, 0.45);
+    letter-spacing: -0.01em;
+  }
+
+  /* ─── Services ─── */
+  .services__head {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 64px;
+    align-items: end; margin-bottom: 64px;
+  }
+  .services__title {
+    font: 600 44px/52px var(--font-display);
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin: 0;
+  }
+  .services__lede {
+    font: 400 17px/28px var(--font-body);
+    color: rgba(226, 226, 226, 0.65);
+    margin: 0; max-width: 480px; justify-self: end;
+  }
+  .services__grid {
+    display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px;
+  }
+  .service-card {
+    background: var(--surface);
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 32px;
+    transition: border-color var(--duration) var(--ease), transform var(--duration) var(--ease);
+  }
+  .service-card:hover {
+    border-color: var(--np-blue);
+    transform: translateY(-2px);
+  }
+  .service-card--w8 { grid-column: span 8; }
+  .service-card--w4 { grid-column: span 4; }
+  .service-card__icon {
+    width: 48px; height: 48px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 24px;
+  }
+  .service-card__icon--blue {
+    background: rgba(0, 92, 200, 0.10);
+    border: 1px solid rgba(0, 92, 200, 0.20);
+    color: var(--np-blue);
+  }
+  .service-card__icon--green {
+    background: rgba(139, 197, 63, 0.10);
+    border: 1px solid rgba(139, 197, 63, 0.20);
+    color: var(--np-green);
+  }
+  .service-card__icon span { font-size: 26px; }
+  .service-card h3 {
+    font: 600 22px/30px var(--font-display);
+    color: #fff;
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+  .service-card p {
+    font: 400 15px/24px var(--font-body);
+    color: rgba(226, 226, 226, 0.65);
+    margin: 0 0 20px;
+  }
+  .service-card__chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    font: 600 10px/1 var(--font-body);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(226, 226, 226, 0.7);
+  }
+
+  /* ─── Value chain ─── */
+  .value-chain__intro {
+    max-width: 760px;
+    margin-bottom: 80px;
+  }
+  .value-chain__rail {
+    position: relative;
+  }
+  .value-chain__line {
+    position: absolute; top: 40px; left: 8%; right: 8%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 92, 200, 0.45), rgba(0, 92, 200, 0.45), transparent);
+    z-index: 0;
+  }
+  .value-chain__grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px;
+    position: relative; z-index: 1;
+  }
+  .vc-step { display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .vc-step__node {
+    position: relative;
+    width: 80px; height: 80px; border-radius: 9999px;
+    background: #121212;
+    border: 1px solid rgba(0, 92, 200, 0.4);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 24px;
+    color: var(--np-blue);
+  }
+  .vc-step__node span.material-symbols-outlined { font-size: 30px; }
+  .vc-step--center .vc-step__node { box-shadow: 0 0 32px rgba(0, 92, 200, 0.25); }
+  .vc-step__index {
+    position: absolute; top: -10px; right: -10px;
+    width: 24px; height: 24px; border-radius: 9999px;
+    background: var(--bg-alt);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    display: flex; align-items: center; justify-content: center;
+    font: 600 10px/1 var(--font-body);
+    color: rgba(255, 255, 255, 0.7);
+  }
+  .vc-step__label {
+    font: 600 17px/1 var(--font-display);
+    color: #fff;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+  .vc-step__sub {
+    font: 600 11px/1.4 var(--font-body);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(226, 226, 226, 0.45);
+  }
+  .value-chain__cta {
+    margin-top: 64px;
+    padding: 20px 24px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    display: flex; align-items: center; gap: 16px;
+    flex-wrap: wrap; justify-content: space-between;
+  }
+  .value-chain__cta-text {
+    display: flex; align-items: center; gap: 16px;
+    color: rgba(226, 226, 226, 0.8);
+    font: 400 15px/22px var(--font-body);
+  }
+  .value-chain__cta-text .material-symbols-outlined { color: var(--np-blue); font-size: 22px; }
+  .value-chain__cta-link {
+    font: 600 13px/1 var(--font-body);
+    color: var(--np-blue);
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .value-chain__cta-link .material-symbols-outlined { font-size: 16px; }
+
+  /* ─── Focus areas ─── */
+  .focus__head {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    gap: 32px; margin-bottom: 64px; flex-wrap: wrap;
+  }
+  .focus__title {
+    font: 600 44px/52px var(--font-display);
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin: 0;
+    padding: 4px 0 4px 24px;
+    border-left: 3px solid var(--np-green);
+  }
+  .focus__lede {
+    font: 400 16px/24px var(--font-body);
+    color: rgba(226, 226, 226, 0.55);
+    margin: 0; max-width: 420px;
+  }
+  .focus__groups { display: grid; gap: 64px; }
+  .focus__group-label {
+    font: 600 12px/1 var(--font-body);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--np-blue);
+    margin-bottom: 24px;
+  }
+  .focus__grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+  }
+  .area-card {
+    display: flex; flex-direction: column; gap: 20px;
+    padding: 24px;
+    background: rgba(30, 30, 30, 0.45);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    transition: all var(--duration) var(--ease);
+    cursor: default;
+  }
+  .area-card:hover {
+    background: var(--surface);
+    border-color: var(--np-blue);
+  }
+  .area-card__icon {
+    color: rgba(255, 255, 255, 0.85);
+    transition: color var(--duration);
+  }
+  .area-card__icon span.material-symbols-outlined { font-size: 28px; }
+  .area-card:hover .area-card__icon { color: var(--np-blue); }
+  .area-card__title {
+    font: 600 16px/1.3 var(--font-body);
+    color: #fff;
+    margin-bottom: 6px;
+  }
+  .area-card__sub {
+    font: 400 13px/1.4 var(--font-body);
+    color: rgba(226, 226, 226, 0.5);
+  }
+
+  /* ─── Global reach ─── */
+  .reach__inner {
+    display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 80px;
+    align-items: center;
+  }
+  .reach__title {
+    font: 600 44px/52px var(--font-display);
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin: 0 0 24px;
+  }
+  .reach__lede {
+    font: 400 17px/28px var(--font-body);
+    color: rgba(226, 226, 226, 0.65);
+    margin: 0 0 40px;
+    max-width: 540px;
+  }
+  .markets {
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .markets__header {
+    display: flex; align-items: baseline; gap: 14px;
+    padding: 18px 20px;
+    background: rgba(0, 92, 200, 0.06);
+  }
+  .markets__header-num {
+    font: 700 26px/1 var(--font-display);
+    color: #fff;
+    letter-spacing: -0.01em;
+  }
+  .markets__header-label {
+    font: 600 11px/1 var(--font-body);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(226, 226, 226, 0.6);
+  }
+  .market-row {
+    display: grid; grid-template-columns: 20px 1fr;
+    gap: 16px; align-items: center;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border-faint);
+  }
+  .market-row:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+  .market-row__dot {
+    width: 8px; height: 8px; border-radius: 9999px;
+    background: var(--np-green);
+    box-shadow: 0 0 8px rgba(139, 197, 63, 0.5);
+  }
+  .market-row__name { font: 600 15px/1.2 var(--font-body); color: #fff; }
+  .market-row__city { font: 400 12px/1.2 var(--font-body); color: rgba(226, 226, 226, 0.45); margin-top: 4px; }
+
+  .map-card {
+    padding: 6px; border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  }
+  .map-card__inner {
+    position: relative;
+    height: 460px; border-radius: 8px; overflow: hidden;
+    background: linear-gradient(160deg, #161818 0%, #0d0e0f 100%);
+  }
+  .map-card__header {
+    position: absolute; top: 14px; left: 18px; right: 18px;
+    z-index: 2; pointer-events: none;
+  }
+  .map-card__header-label {
+    font: 600 11px/1 var(--font-body);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(226, 226, 226, 0.55);
+  }
+  .map-card__inner svg { display: block; width: 100%; height: 100%; }
+  .map-card__inner path.arc { stroke-dasharray: 4 4; transition: stroke-dasharray 600ms; }
+  .map-card:hover path.arc { stroke-dasharray: 0; }
+  .map-card__footer {
+    position: absolute; bottom: 14px; left: 18px; right: 18px;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none;
+  }
+  .map-card__footer-label {
+    font: 600 10px/1 var(--font-body);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.4);
+  }
+  .map-card__live {
+    display: inline-flex; align-items: center; gap: 6px;
+    font: 600 10px/1 var(--font-body);
+    letter-spacing: 0.08em; color: rgba(255, 255, 255, 0.55);
+  }
+  .map-card__live-dot {
+    width: 6px; height: 6px; border-radius: 9999px;
+    background: var(--np-green);
+    box-shadow: 0 0 6px var(--np-green);
+  }
+
+  /* ─── Why NexPoint ─── */
+  .why__head {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 64px;
+    margin-bottom: 80px;
+  }
+  .why__title {
+    font: 600 44px/52px var(--font-display);
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin: 0;
+  }
+  .why__lede {
+    font: 400 17px/28px var(--font-body);
+    color: rgba(226, 226, 226, 0.65);
+    margin: 0; align-self: end;
+  }
+  .why__grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+  }
+  .why-card {
+    padding: 32px 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    position: relative; overflow: hidden;
+  }
+  .why-card__num {
+    font: 700 56px/1 var(--font-display);
+    color: var(--np-blue);
+    margin-bottom: 24px;
+    letter-spacing: -0.02em;
+  }
+  .why-card h4 {
+    font: 600 20px/28px var(--font-display);
+    color: #fff;
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+  .why-card p {
+    font: 400 14px/22px var(--font-body);
+    color: rgba(226, 226, 226, 0.6);
+    margin: 0;
+  }
+
+  /* ─── Book call ─── */
+  .book {
+    padding: 140px 0;
+    background:
+      radial-gradient(700px 500px at 90% 10%, rgba(0, 92, 200, 0.10), transparent 60%),
+      #121212;
+  }
+  .book__inner {
+    display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 64px;
+    align-items: start;
+  }
+  .book__title {
+    font: 600 44px/52px var(--font-display);
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin: 0 0 24px;
+  }
+  .book__lede {
+    font: 400 17px/28px var(--font-body);
+    color: rgba(226, 226, 226, 0.65);
+    margin: 0 0 40px; max-width: 480px;
+  }
+  .book__bullets { display: flex; flex-direction: column; gap: 16px; }
+  .book__bullet { display: flex; align-items: flex-start; gap: 16px; }
+  .book__bullet-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--np-blue);
+    flex-shrink: 0;
+  }
+  .book__bullet-icon .material-symbols-outlined { font-size: 20px; }
+  .book__bullet-k { font: 600 15px/1.3 var(--font-body); color: #fff; }
+  .book__bullet-v { font: 400 14px/1.5 var(--font-body); color: rgba(226, 226, 226, 0.55); margin-top: 4px; }
+  .book__write {
+    margin-top: 48px; padding: 20px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+  }
+  .book__write-label {
+    font: 600 11px/1 var(--font-body);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: rgba(226, 226, 226, 0.45);
+    margin-bottom: 8px;
+  }
+  .book__write-row { display: flex; align-items: center; gap: 12px; }
+  .book__write-row .material-symbols-outlined { color: var(--np-blue); font-size: 20px; }
+  .book__write-row a {
+    font: 500 15px/1 var(--font-body);
+    color: #fff;
+    text-decoration: none;
+  }
+
+  .book-card {
+    background: rgba(30, 30, 30, 0.6);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 36px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  }
+  .book-card__head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 24px;
+  }
+  .book-card__step {
+    font: 600 11px/1 var(--font-body);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--np-blue);
+    margin-bottom: 8px;
+  }
+  .book-card__title {
+    font: 600 22px/30px var(--font-display);
+    color: #fff; margin: 0;
+  }
+  .book-card__tz {
+    display: flex; gap: 6px; align-items: center;
+    font: 400 12px/1 var(--font-body);
+    color: rgba(226, 226, 226, 0.5);
+  }
+  .book-card__tz .material-symbols-outlined { font-size: 16px; }
+
+  .field-label {
+    display: block;
+    font: 600 11px/1 var(--font-body);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: rgba(226, 226, 226, 0.6);
+    margin-bottom: 8px;
+  }
+  .field-input {
+    width: 100%;
+    background: var(--surface-input); color: #fff;
+    border: 1px solid #2a2a2a; border-radius: 4px;
+    padding: 12px 14px;
+    font: 400 15px/1.3 var(--font-body);
+    outline: none;
+    transition: border-color var(--duration);
+  }
+  .field-input:focus { border-color: var(--np-blue); }
+  textarea.field-input { min-height: 84px; resize: vertical; }
+
+  .date-strip {
+    display: flex; gap: 8px; overflow-x: auto;
+    padding-bottom: 4px; margin-bottom: 28px;
+  }
+  .date-pill {
+    flex: 0 0 auto; min-width: 84px;
+    padding: 12px 10px; border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(226, 226, 226, 0.85);
+    cursor: pointer; text-align: center;
+    transition: all var(--duration-fast);
+  }
+  .date-pill.is-selected {
+    background: var(--np-blue);
+    border-color: var(--np-blue);
+    color: #fff;
+  }
+  .date-pill__wd {
+    font: 600 10px/1 var(--font-body);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    opacity: 0.7; margin-bottom: 6px;
+  }
+  .date-pill__d { font: 600 17px/1 var(--font-display); }
+  .date-pill__m {
+    font: 500 11px/1 var(--font-body);
+    opacity: 0.7; margin-top: 6px;
+  }
+
+  .slots {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 8px; margin-bottom: 32px;
+  }
+  .slot {
+    padding: 14px 0; border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(226, 226, 226, 0.85);
+    font: 600 14px/1 var(--font-body);
+    cursor: pointer;
+    transition: all var(--duration-fast);
+  }
+  .slot.is-selected {
+    background: var(--np-blue);
+    border-color: var(--np-blue);
+    color: #fff;
+  }
+
+  .book-card__submit {
+    width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    background: var(--np-blue); color: #fff; border: 0;
+    font: 600 15px/1 var(--font-body);
+    padding: 16px; border-radius: 4px; cursor: pointer;
+    transition: box-shadow var(--duration);
+  }
+  .book-card__submit:hover { box-shadow: 0 10px 28px rgba(0, 92, 200, 0.35); }
+  .book-card__submit .material-symbols-outlined { font-size: 18px; }
+
+  .book-card__back {
+    background: transparent; border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px; padding: 8px 12px; cursor: pointer;
+    font: 600 11px/1 var(--font-body);
+    letter-spacing: 0.04em; color: rgba(255, 255, 255, 0.7);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .book-card__back .material-symbols-outlined { font-size: 14px; }
+
+  .audiences {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 8px; margin-bottom: 24px;
+  }
+  .audience-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-radius: 6px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #fff; cursor: pointer; text-align: left;
+    font: 500 13px/1.2 var(--font-body);
+    transition: all var(--duration-fast);
+  }
+  .audience-btn .material-symbols-outlined {
+    font-size: 18px; color: rgba(255, 255, 255, 0.6);
+  }
+  .audience-btn.is-selected {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--np-blue);
+  }
+  .audience-btn.is-selected .material-symbols-outlined { color: var(--np-blue); }
+
+  .form-grid-2 {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; margin-bottom: 16px;
+  }
+  .form-row { margin-bottom: 16px; }
+  .form-row--last { margin-bottom: 24px; }
+
+  .confirmed {
+    text-align: center; padding: 40px 0;
+  }
+  .confirmed__icon {
+    width: 64px; height: 64px; border-radius: 9999px;
+    background: rgba(139, 197, 63, 0.12);
+    border: 1px solid rgba(139, 197, 63, 0.4);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 24px;
+    color: var(--np-green);
+  }
+  .confirmed__icon .material-symbols-outlined { font-size: 32px; }
+  .confirmed h3 {
+    font: 600 26px/34px var(--font-display);
+    color: #fff; margin: 0 0 12px;
+  }
+  .confirmed p {
+    font: 400 16px/26px var(--font-body);
+    color: rgba(226, 226, 226, 0.65);
+    margin: 0 0 24px;
+  }
+  .confirmed__chip {
+    display: inline-flex; align-items: center; gap: 12px;
+    padding: 12px 18px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    font: 500 14px/1 var(--font-body);
+    color: #fff;
+  }
+  .confirmed__chip .material-symbols-outlined {
+    font-size: 18px; color: var(--np-blue);
+  }
+
+  /* ─── Footer ─── */
+  .footer {
+    background: var(--bg-alt);
+    border-top: 1px solid var(--border-soft);
+  }
+  .footer__inner {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 80px var(--side-pad) 40px;
+    display: grid;
+    grid-template-columns: 1.4fr repeat(3, 1fr) 1.2fr;
+    gap: 40px;
+  }
+  .footer__brand img { height: 44px; width: auto; display: block; margin-bottom: 24px; }
+  .footer__brand p {
+    font: 400 14px/22px var(--font-body);
+    color: rgba(194, 198, 213, 0.65);
+    margin: 0; max-width: 280px;
+  }
+  .footer__col h5 {
+    font: 600 12px/1 var(--font-body);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: #fff; margin: 0 0 20px;
+  }
+  .footer__col ul {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .footer__col a {
+    font: 400 14px/1 var(--font-body);
+    color: rgba(194, 198, 213, 0.65);
+    text-decoration: none;
+    transition: color var(--duration);
+  }
+  .footer__col a:hover { color: #fff; }
+
+  .footer__contact-mail {
+    font: 500 14px/1 var(--font-body);
+    color: #fff; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .footer__contact-mail .material-symbols-outlined { font-size: 16px; color: var(--np-blue); }
+  .footer__contact-loc {
+    font: 400 13px/1.5 var(--font-body);
+    color: rgba(194, 198, 213, 0.6);
+  }
+  .footer__contact { display: flex; flex-direction: column; gap: 12px; }
+  .footer__socials { display: flex; gap: 8px; margin-top: 8px; }
+  .footer__socials a {
+    width: 36px; height: 36px; border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex; align-items: center; justify-content: center;
+    transition: all var(--duration);
+    text-decoration: none;
+    color: #fff;
+  }
+  .footer__socials a:hover {
+    background: rgba(0, 92, 200, 0.15);
+    border-color: var(--np-blue);
+  }
+  .footer__socials .material-symbols-outlined { font-size: 18px; }
+  .footer__bar {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 24px var(--side-pad);
+    border-top: 1px solid var(--border-faint);
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 24px; flex-wrap: wrap;
+  }
+  .footer__bar span,
+  .footer__bar a {
+    font: 400 12px/1 var(--font-body);
+    color: rgba(194, 198, 213, 0.5);
+    text-decoration: none;
+  }
+  .footer__bar-links { display: flex; gap: 24px; }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 1100px) {
+    .hero__inner { grid-template-columns: 1fr; gap: 48px; }
+    .hero__title { font-size: 52px; line-height: 60px; }
+    .reach__inner { grid-template-columns: 1fr; gap: 48px; }
+    .why__head { grid-template-columns: 1fr; gap: 32px; }
+    .services__head { grid-template-columns: 1fr; gap: 32px; }
+    .services__lede { justify-self: start; }
+    .footer__inner { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 900px) {
+    :root { --side-pad: 32px; }
+    .section { padding: 96px 0; }
+    .book { padding: 96px 0; }
+    .book__inner { grid-template-columns: 1fr; gap: 48px; }
+    .book__inner > * { max-width: 640px; width: 100%; margin-left: auto; margin-right: auto; }
+    .hero__title { font-size: 44px; line-height: 52px; }
+    .h2, .services__title, .reach__title, .focus__title, .why__title, .book__title { font-size: 32px; line-height: 40px; }
+    .services__grid { grid-template-columns: 1fr; }
+    .service-card--w8, .service-card--w4 { grid-column: span 1; }
+    .focus__grid { grid-template-columns: repeat(2, 1fr); }
+    .why__grid { grid-template-columns: repeat(2, 1fr); }
+    .value-chain__grid { grid-template-columns: repeat(2, 1fr); gap: 32px; }
+    .value-chain__line { display: none; }
+    .navbar__links { display: none; }
+    .footer__inner { grid-template-columns: 1fr 1fr; gap: 32px; padding-top: 48px; }
+  }
+  @media (max-width: 560px) {
+    .hero__title { font-size: 36px; line-height: 44px; }
+    .focus__grid, .why__grid { grid-template-columns: 1fr; }
+    .footer__inner { grid-template-columns: 1fr; }
+    .slots { grid-template-columns: repeat(3, 1fr); }
+    .form-grid-2 { grid-template-columns: 1fr; }
+    .audiences { grid-template-columns: 1fr; }
+    .book-card { padding: 24px; }
+    .book-card__head { flex-wrap: wrap; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ───── Navbar ───── -->
+<header class="navbar">
+  <nav class="navbar__inner">
+    <a href="#top" class="navbar__brand" data-nav="top">
+      <img src="assets/nexpoint-logo.png" alt="NexPoint" />
+    </a>
+    <div class="navbar__links">
+      <a href="#services"    class="navbar__link" data-nav="services">Services</a>
+      <a href="#value-chain" class="navbar__link" data-nav="value-chain">Value chain</a>
+      <a href="#focus"       class="navbar__link" data-nav="focus">Focus areas</a>
+      <a href="#network"     class="navbar__link" data-nav="network">Network</a>
+      <a href="#expertise"   class="navbar__link" data-nav="expertise">Why us</a>
+    </div>
+    <button class="btn btn--primary" data-nav="book">
+      <span class="material-symbols-outlined" style="font-size:16px;">event</span>
+      Book intro call
+    </button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ───── Hero ───── -->
+<section id="top" class="hero">
+  <div class="hero__inner">
+    <div>
+      <h1 class="hero__title">
+        The commercial bridge for <span class="hero__title-accent">Orthotics &amp; Prosthetics</span> partners worldwide.
+      </h1>
+      <p class="hero__sub">
+        NexPoint helps O&amp;P companies to expand into new markets, build strategic partnerships, and connect with the right suppliers, labs, clinics, and technology providers.
+      </p>
+      <div class="hero__ctas">
+        <button class="btn btn--primary-lg" data-nav="book">
+          <span class="material-symbols-outlined" style="font-size:18px;">event</span>
+          Book a 30-min intro call
+        </button>
+        <button class="btn btn--ghost-lg" data-nav="network">Explore our network</button>
+      </div>
+      <div class="hero__stats">
+        <div>
+          <div class="stat__num">5</div>
+          <div class="stat__label">core markets</div>
+        </div>
+        <div>
+          <div class="stat__num">200+</div>
+          <div class="stat__label">active introductions</div>
+        </div>
+        <div>
+          <div class="stat__num">20+</div>
+          <div class="stat__label">Years of O&amp;P relationships</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="network-card">
+      <div class="network-card__header">
+        <span class="network-card__label">Live network</span>
+      </div>
+      <svg viewBox="30 30 460 460" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <radialGradient id="hubGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stop-color="#005CC8" stop-opacity="0.45" />
+            <stop offset="100%" stop-color="#005CC8" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="lineFade" cx="260" cy="240" r="220" gradientUnits="userSpaceOnUse">
+            <stop offset="0%"   stop-color="rgba(0,92,200,0.7)" />
+            <stop offset="60%"  stop-color="rgba(0,92,200,0.35)" />
+            <stop offset="100%" stop-color="rgba(255,255,255,0.06)" />
+          </radialGradient>
+        </defs>
+
+        <!-- grid -->
+        <g stroke="rgba(255,255,255,0.03)">
+          <line x1="0" y1="0"   x2="520" y2="0"   /><line x1="0" y1="52"  x2="520" y2="52"  />
+          <line x1="0" y1="104" x2="520" y2="104" /><line x1="0" y1="156" x2="520" y2="156" />
+          <line x1="0" y1="208" x2="520" y2="208" /><line x1="0" y1="260" x2="520" y2="260" />
+          <line x1="0" y1="312" x2="520" y2="312" /><line x1="0" y1="364" x2="520" y2="364" />
+          <line x1="0" y1="416" x2="520" y2="416" /><line x1="0" y1="468" x2="520" y2="468" />
+          <line x1="0"   y1="0" x2="0"   y2="520" /><line x1="52"  y1="0" x2="52"  y2="520" />
+          <line x1="104" y1="0" x2="104" y2="520" /><line x1="156" y1="0" x2="156" y2="520" />
+          <line x1="208" y1="0" x2="208" y2="520" /><line x1="260" y1="0" x2="260" y2="520" />
+          <line x1="312" y1="0" x2="312" y2="520" /><line x1="364" y1="0" x2="364" y2="520" />
+          <line x1="416" y1="0" x2="416" y2="520" /><line x1="468" y1="0" x2="468" y2="520" />
+        </g>
+
+        <!-- hub halo -->
+        <circle cx="260" cy="240" r="120" fill="url(#hubGlow)" />
+
+        <!-- spokes -->
+        <line x1="260" y1="240" x2="80"  y2="80"  stroke="url(#lineFade)" stroke-width="1" />
+        <line x1="260" y1="240" x2="440" y2="80"  stroke="url(#lineFade)" stroke-width="1" />
+        <line x1="260" y1="240" x2="60"  y2="240" stroke="url(#lineFade)" stroke-width="1" />
+        <line x1="260" y1="240" x2="460" y2="240" stroke="url(#lineFade)" stroke-width="1" />
+        <line x1="260" y1="240" x2="90"  y2="400" stroke="url(#lineFade)" stroke-width="1" />
+        <line x1="260" y1="240" x2="430" y2="400" stroke="url(#lineFade)" stroke-width="1" />
+
+        <!-- traveling pulses -->
+        <circle r="2.5" fill="#005CC8">
+          <animateMotion dur="3s" repeatCount="indefinite" begin="0s" path="M 260,240 L 80,80" />
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="3s" repeatCount="indefinite" begin="0s" />
+        </circle>
+        <circle r="2.5" fill="#8BC53F">
+          <animateMotion dur="4s" repeatCount="indefinite" begin="0.4s" path="M 260,240 L 440,80" />
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="4s" repeatCount="indefinite" begin="0.4s" />
+        </circle>
+        <circle r="2.5" fill="#005CC8">
+          <animateMotion dur="5s" repeatCount="indefinite" begin="0.8s" path="M 260,240 L 60,240" />
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="5s" repeatCount="indefinite" begin="0.8s" />
+        </circle>
+        <circle r="2.5" fill="#8BC53F">
+          <animateMotion dur="3s" repeatCount="indefinite" begin="1.2s" path="M 260,240 L 460,240" />
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="3s" repeatCount="indefinite" begin="1.2s" />
+        </circle>
+        <circle r="2.5" fill="#8BC53F">
+          <animateMotion dur="4s" repeatCount="indefinite" begin="1.6s" path="M 260,240 L 90,400" />
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="4s" repeatCount="indefinite" begin="1.6s" />
+        </circle>
+        <circle r="2.5" fill="#005CC8">
+          <animateMotion dur="5s" repeatCount="indefinite" begin="2.0s" path="M 260,240 L 430,400" />
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="5s" repeatCount="indefinite" begin="2.0s" />
+        </circle>
+
+        <!-- hub -->
+        <circle cx="260" cy="240" r="44" fill="none" stroke="rgba(255,255,255,0.08)" />
+        <circle cx="260" cy="240" r="38" fill="#121212" stroke="#005CC8" stroke-width="1.5" />
+        <circle cx="260" cy="240" r="38" fill="none" stroke="#005CC8" stroke-width="1">
+          <animate attributeName="r" values="38;46;38" dur="3s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.4;0;0.4" dur="3s" repeatCount="indefinite" />
+        </circle>
+        <text x="260" y="245" text-anchor="middle" fill="#fff"
+              font-family="Montserrat" font-weight="700" font-size="15" letter-spacing="-0.01em">NexPoint</text>
+
+        <!-- outer nodes -->
+        <g font-family="Inter" font-weight="600" font-size="13" letter-spacing="0.04em" fill="rgba(255,255,255,0.85)">
+          <g>
+            <circle cx="80" cy="80" r="22" fill="#121212" stroke="#8BC53F" stroke-width="1.25" />
+            <circle cx="80" cy="80" r="3" fill="#8BC53F" />
+            <text x="80" y="120" text-anchor="middle">Manufacturer</text>
+          </g>
+          <g>
+            <circle cx="440" cy="80" r="22" fill="#121212" stroke="#8BC53F" stroke-width="1.25" />
+            <circle cx="440" cy="80" r="3" fill="#8BC53F" />
+            <text x="440" y="120" text-anchor="middle">Materials</text>
+          </g>
+          <g>
+            <circle cx="60" cy="240" r="22" fill="#121212" stroke="#005CC8" stroke-width="1.25" />
+            <circle cx="60" cy="240" r="3" fill="#005CC8" />
+            <text x="60" y="280" text-anchor="middle">Lab</text>
+          </g>
+          <g>
+            <circle cx="460" cy="240" r="22" fill="#121212" stroke="#8BC53F" stroke-width="1.25" />
+            <circle cx="460" cy="240" r="3" fill="#8BC53F" />
+            <text x="460" y="280" text-anchor="middle">Technology</text>
+          </g>
+          <g>
+            <circle cx="90" cy="400" r="22" fill="#121212" stroke="#8BC53F" stroke-width="1.25" />
+            <circle cx="90" cy="400" r="3" fill="#8BC53F" />
+            <text x="90" y="440" text-anchor="middle">Distributor</text>
+          </g>
+          <g>
+            <circle cx="430" cy="400" r="22" fill="#121212" stroke="#005CC8" stroke-width="1.25" />
+            <circle cx="430" cy="400" r="3" fill="#005CC8" />
+            <text x="430" y="440" text-anchor="middle">Clinic</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ───── Services ───── -->
+<section id="services" class="section">
+  <div class="container">
+    <div class="services__head">
+      <div>
+        <span class="eyebrow">What we do</span>
+        <h2 class="services__title">Five ways we shorten the path<br />between you and the right partner.</h2>
+      </div>
+      <p class="services__lede">
+        Whether you are a manufacturer, materials supplier, technology provider, lab, or clinical organisation, NexPoint works by identifying qualified commercial opportunities, aligning the right strategic partners, and creating clear pathways for international growth and market expansion.
+      </p>
+    </div>
+
+    <div class="services__grid">
+      <article class="service-card service-card--w8">
+        <div class="service-card__icon service-card__icon--blue">
+          <span class="material-symbols-outlined">public</span>
+        </div>
+        <h3>Market entry &amp; expansion</h3>
+        <p>A staged commercial roadmap into the UK, EU, North American, or APAC markets — covering regulatory landscape, distribution model, pricing, and the first ten introductions that actually move.</p>
+        <div class="service-card__chips">
+          <span class="chip">Strategy</span>
+          <span class="chip">Regulatory</span>
+          <span class="chip">GTM</span>
+        </div>
+      </article>
+      <article class="service-card service-card--w4">
+        <div class="service-card__icon service-card__icon--green">
+          <span class="material-symbols-outlined">handshake</span>
+        </div>
+        <h3>Distributor &amp; partner search</h3>
+        <p>Targeted outreach to vetted distributors and lab partners aligned with your category, geography, and growth profile.</p>
+      </article>
+      <article class="service-card service-card--w4">
+        <div class="service-card__icon service-card__icon--blue">
+          <span class="material-symbols-outlined">hub</span>
+        </div>
+        <h3>Supplier network access</h3>
+        <p>Direct lines into top-tier carbon fiber, EVA, polypropylene, and component suppliers.</p>
+      </article>
+      <article class="service-card service-card--w4">
+        <div class="service-card__icon service-card__icon--green">
+          <span class="material-symbols-outlined">science</span>
+        </div>
+        <h3>Materials opportunities</h3>
+        <p>Position advanced polymers, composites, and clinical consumables in the markets that need them.</p>
+      </article>
+      <article class="service-card service-card--w4">
+        <div class="service-card__icon service-card__icon--blue">
+          <span class="material-symbols-outlined">precision_manufacturing</span>
+        </div>
+        <h3>Technology introductions</h3>
+        <p>Bring digital design, central fabrication, and clinical software to forward-thinking O&amp;P operators.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ───── Value chain ───── -->
+<section id="value-chain" class="section section--alt">
+  <div class="container">
+    <div class="value-chain__intro">
+      <span class="eyebrow">The O&amp;P value chain</span>
+      <h2 class="h2">We sit at the intersection of every stage of the industry.</h2>
+      <p class="lede">For distributors, labs, and clinics, that means an unfair advantage in negotiating upstream — and a faster route to the products and technologies that change patient outcomes.</p>
+    </div>
+
+    <div class="value-chain__rail">
+      <div class="value-chain__line"></div>
+      <div class="value-chain__grid">
+        <div class="vc-step">
+          <div class="vc-step__node">
+            <span class="material-symbols-outlined">person</span>
+            <span class="vc-step__index">01</span>
+          </div>
+          <div class="vc-step__label">Patient</div>
+          <div class="vc-step__sub">End user</div>
+        </div>
+        <div class="vc-step">
+          <div class="vc-step__node">
+            <span class="material-symbols-outlined">medical_services</span>
+            <span class="vc-step__index">02</span>
+          </div>
+          <div class="vc-step__label">Clinic</div>
+          <div class="vc-step__sub">Clinical care</div>
+        </div>
+        <div class="vc-step vc-step--center">
+          <div class="vc-step__node">
+            <span class="material-symbols-outlined">biotech</span>
+            <span class="vc-step__index">03</span>
+          </div>
+          <div class="vc-step__label">Lab</div>
+          <div class="vc-step__sub">Custom fabrication</div>
+        </div>
+        <div class="vc-step">
+          <div class="vc-step__node">
+            <span class="material-symbols-outlined">factory</span>
+            <span class="vc-step__index">04</span>
+          </div>
+          <div class="vc-step__label">Manufacturer</div>
+          <div class="vc-step__sub">Scale production</div>
+        </div>
+        <div class="vc-step">
+          <div class="vc-step__node">
+            <span class="material-symbols-outlined">conveyor_belt</span>
+            <span class="vc-step__index">05</span>
+          </div>
+          <div class="vc-step__label">Supplier</div>
+          <div class="vc-step__sub">Raw materials</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="value-chain__cta">
+      <div class="value-chain__cta-text">
+        <span class="material-symbols-outlined">arrow_outward</span>
+        <span>Where do you sit in the chain? We'll map the partners on either side of you.</span>
+      </div>
+      <a href="#book" class="value-chain__cta-link" data-nav="book">
+        Map my position
+        <span class="material-symbols-outlined">arrow_forward</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ───── Focus areas ───── -->
+<section id="focus" class="section">
+  <div class="container">
+    <div class="focus__head">
+      <h2 class="focus__title">Specialized focus areas</h2>
+      <p class="focus__lede">Every introduction is matched to the category, scale, and clinical workflow of your business.</p>
+    </div>
+
+    <div class="focus__groups">
+      <div>
+        <div class="focus__group-label">Devices</div>
+        <div class="focus__grid">
+          <div class="area-card">
+            <div class="area-card__icon"><span class="material-symbols-outlined">accessibility_new</span></div>
+            <div>
+              <div class="area-card__title">Prosthetics</div>
+              <div class="area-card__sub">Upper &amp; lower limb</div>
+            </div>
+          </div>
+          <div class="area-card">
+            <div class="area-card__icon"><span class="material-symbols-outlined">footprint</span></div>
+            <div>
+              <div class="area-card__title">Custom orthotics</div>
+              <div class="area-card__sub">AFO · KAFO · TLSO</div>
+            </div>
+          </div>
+          <div class="area-card">
+            <div class="area-card__icon"><span class="material-symbols-outlined">view_in_ar</span></div>
+            <div>
+              <div class="area-card__title">3D-printed insoles</div>
+              <div class="area-card__sub">Digital workflow</div>
+            </div>
+          </div>
+          <div class="area-card">
+            <div class="area-card__icon"><span class="material-symbols-outlined">inventory</span></div>
+            <div>
+              <div class="area-card__title">Prefab insoles</div>
+              <div class="area-card__sub">Volume + retail</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="focus__group-label">Materials &amp; tech</div>
+        <div class="focus__grid">
+          <div class="area-card">
+            <div class="area-card__icon"><span class="material-symbols-outlined">science</span></div>
+            <div>
+              <div class="area-card__title">O&amp;P materials</div>
+              <div class="area-card__sub">Carbon · EVA · PP</div>
+            </div>
+          </div>
+          <div class="area-card">
+            <div class="area-card__icon"><span class="material-symbols-outlined">settings_input_component</span></div>
+            <div>
+              <div class="area-card__title">Lab equipment</div>
+              <div class="area-card__sub">Vacuum · CNC · ovens</div>
+            </div>
+          </div>
+          <div class="area-card">
+            <div class="area-card__icon"><span class="material-symbols-outlined">cloud_sync</span></div>
+            <div>
+              <div class="area-card__title">Digital manufacturing</div>
+              <div class="area-card__sub">Digital design · CFAB</div>
+            </div>
+          </div>
+          <div class="area-card">
+            <div class="area-card__icon"><span class="material-symbols-outlined">monitor_heart</span></div>
+            <div>
+              <div class="area-card__title">Clinical technology</div>
+              <div class="area-card__sub">Sensors · gait · EMR</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───── Global reach ───── -->
+<section id="network" class="section">
+  <div class="container">
+    <div class="reach__inner">
+      <div>
+        <span class="eyebrow">Global reach</span>
+        <h2 class="reach__title">Local fluency in the five markets that matter most.</h2>
+        <p class="reach__lede">
+          We bridge global borders with local expertise. Direct access to decision-makers across the UK, USA, Europe, Canada, and Australia.
+        </p>
+
+        <div class="markets">
+          <div class="markets__header">
+            <span class="markets__header-num">500+</span>
+            <span class="markets__header-label">Contacts across our network</span>
+          </div>
+          <div class="market-row">
+            <span class="market-row__dot"></span>
+            <div class="market-row__name">Canada</div>
+          </div>
+          <div class="market-row">
+            <span class="market-row__dot"></span>
+            <div class="market-row__name">United States</div>
+          </div>
+          <div class="market-row">
+            <span class="market-row__dot"></span>
+            <div class="market-row__name">United Kingdom</div>
+          </div>
+          <div class="market-row">
+            <span class="market-row__dot"></span>
+            <div class="market-row__name">EMEA</div>
+          </div>
+          <div class="market-row">
+            <span class="market-row__dot"></span>
+            <div class="market-row__name">Australia</div>
+          </div>
+          <div class="market-row">
+            <span class="market-row__dot"></span>
+            <div class="market-row__name">New Zealand</div>
+          </div>
+          <div class="market-row">
+            <span class="market-row__dot"></span>
+            <div class="market-row__name">Asia</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="map-card">
+        <div class="map-card__inner">
+          <div class="map-card__header">
+            <span class="map-card__header-label">Global network</span>
+          </div>
+          <svg viewBox="0 0 640 460" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <radialGradient id="cityGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%"   stop-color="#005CC8" stop-opacity="0.6" />
+                <stop offset="100%" stop-color="#005CC8" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <g id="landmass-dots" fill="rgba(255,255,255,0.18)"></g>
+            <g id="map-arcs"></g>
+
+            <!-- region markers -->
+            <g font-family="Inter" font-weight="600" font-size="10" letter-spacing="0.06em" fill="rgba(255,255,255,0.7)">
+              <g>
+                <circle cx="160" cy="140" r="18" fill="url(#cityGlow)" />
+                <circle cx="160" cy="140" r="3" fill="#fff" />
+                <circle cx="160" cy="140" r="3" fill="#005CC8">
+                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="0s" />
+                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="0s" />
+                </circle>
+                <text x="168" y="132">CANADA</text>
+              </g>
+              <g>
+                <circle cx="200" cy="200" r="18" fill="url(#cityGlow)" />
+                <circle cx="200" cy="200" r="3" fill="#fff" />
+                <circle cx="200" cy="200" r="3" fill="#005CC8">
+                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="0.4s" />
+                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="0.4s" />
+                </circle>
+                <text x="208" y="192">USA</text>
+              </g>
+              <g>
+                <circle cx="305" cy="150" r="18" fill="url(#cityGlow)" />
+                <circle cx="305" cy="150" r="3" fill="#fff" />
+                <circle cx="305" cy="150" r="3" fill="#005CC8">
+                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="0.8s" />
+                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="0.8s" />
+                </circle>
+                <text x="313" y="142">UK</text>
+              </g>
+              <g>
+                <circle cx="375" cy="195" r="18" fill="url(#cityGlow)" />
+                <circle cx="375" cy="195" r="3" fill="#fff" />
+                <circle cx="375" cy="195" r="3" fill="#005CC8">
+                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="1.2s" />
+                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="1.2s" />
+                </circle>
+                <text x="383" y="187">EMEA</text>
+              </g>
+              <g>
+                <circle cx="500" cy="180" r="18" fill="url(#cityGlow)" />
+                <circle cx="500" cy="180" r="3" fill="#fff" />
+                <circle cx="500" cy="180" r="3" fill="#005CC8">
+                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="0.6s" />
+                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="0.6s" />
+                </circle>
+                <text x="508" y="172">ASIA</text>
+              </g>
+              <g>
+                <circle cx="540" cy="345" r="18" fill="url(#cityGlow)" />
+                <circle cx="540" cy="345" r="3" fill="#fff" />
+                <circle cx="540" cy="345" r="3" fill="#005CC8">
+                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="1.0s" />
+                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="1.0s" />
+                </circle>
+                <text x="478" y="337">AUSTRALIA</text>
+              </g>
+              <g>
+                <circle cx="590" cy="360" r="18" fill="url(#cityGlow)" />
+                <circle cx="590" cy="360" r="3" fill="#fff" />
+                <circle cx="590" cy="360" r="3" fill="#005CC8">
+                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="1.4s" />
+                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="1.4s" />
+                </circle>
+                <text x="598" y="378">NZ</text>
+              </g>
+            </g>
+          </svg>
+          <div class="map-card__footer">
+            <span class="map-card__footer-label">7 regions · 500+ contacts</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───── Why NexPoint ───── -->
+<section id="expertise" class="section section--alt">
+  <div class="container">
+    <div class="why__head">
+      <h2 class="why__title">Why distributors, labs, and clinics choose NexPoint.</h2>
+      <p class="why__lede">
+        The introductions are warm, the briefings are honest, and we will only put names on the table that move the needle. No retainers without a clear commercial brief.
+      </p>
+    </div>
+
+    <div class="why__grid">
+      <article class="why-card">
+        <div class="why-card__num">01</div>
+        <h4>Deep O&amp;P knowledge</h4>
+        <p>Decades of combined experience inside O&amp;P manufacturing, fabrication, and clinical care. We speak your language because we have stood in your role.</p>
+      </article>
+      <article class="why-card">
+        <div class="why-card__num">02</div>
+        <h4>High-level rolodex</h4>
+        <p>Active relationships with distributors, lab owners, clinic groups, and technology leaders across five core markets.</p>
+      </article>
+      <article class="why-card">
+        <div class="why-card__num">03</div>
+        <h4>Commercial sharpness</h4>
+        <p>Pragmatic GTM strategy, pricing tactics, and B2B contract negotiation — not slide-deck theory.</p>
+      </article>
+      <article class="why-card">
+        <div class="why-card__num">04</div>
+        <h4>Technical edge</h4>
+        <p>We do not just connect. We understand digital workflows, materials, fabrication, and the clinical mechanics of your product.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ───── Book call ───── -->
+<section id="book" class="book">
+  <div class="container">
+    <div class="book__inner">
+      <div>
+        <span class="eyebrow">Book a 30-minute call</span>
+        <h2 class="book__title">Let's map your global footprint.</h2>
+        <p class="book__lede">
+          Pick a slot that works.
+        </p>
+
+        <div class="book__bullets">
+          <div class="book__bullet">
+            <div class="book__bullet-icon"><span class="material-symbols-outlined">schedule</span></div>
+            <div>
+              <div class="book__bullet-k">30 minutes</div>
+              <div class="book__bullet-v">Video call · no slides · no pitch deck</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="book__write">
+          <div class="book__write-label">Prefer to write?</div>
+          <div class="book__write-row">
+            <span class="material-symbols-outlined">mail</span>
+            <a href="mailto:connect@nexpoint.co.uk">connect@nexpoint.co.uk</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="book-card" id="bookCard">
+        <!-- populated by JS -->
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ───── Footer ───── -->
+<footer class="footer">
+  <div class="footer__inner">
+    <div class="footer__brand">
+      <img src="assets/nexpoint-logo.png" alt="NexPoint" />
+      <p>Connecting the Orthotics &amp; Prosthetics industry globally. UK · USA · EU · Canada · Australia.</p>
+    </div>
+    <div class="footer__col">
+      <h5>Services</h5>
+      <ul>
+        <li><a href="#">Market entry</a></li>
+        <li><a href="#">Partner search</a></li>
+        <li><a href="#">Supplier network</a></li>
+        <li><a href="#">Materials</a></li>
+        <li><a href="#">Technology</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>Company</h5>
+      <ul>
+        <li><a href="#">About</a></li>
+        <li><a href="#">Network</a></li>
+        <li><a href="#">Press</a></li>
+        <li><a href="#">Careers</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>Resources</h5>
+      <ul>
+        <li><a href="#">O&amp;P value chain</a></li>
+        <li><a href="#">Geographies</a></li>
+        <li><a href="#">Case studies</a></li>
+        <li><a href="#">Privacy</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>Get in touch</h5>
+      <div class="footer__contact">
+        <a href="mailto:connect@nexpoint.co.uk" class="footer__contact-mail">
+          <span class="material-symbols-outlined">mail</span>
+          connect@nexpoint.co.uk
+        </a>
+        <span class="footer__contact-loc">London · New York · Berlin</span>
+        <div class="footer__socials">
+          <a href="#" aria-label="Link"><span class="material-symbols-outlined">link</span></a>
+          <a href="#" aria-label="Website"><span class="material-symbols-outlined">language</span></a>
+          <a href="#" aria-label="Share"><span class="material-symbols-outlined">share</span></a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer__bar">
+    <span>© 2026 NexPoint Ltd. All rights reserved.</span>
+    <div class="footer__bar-links">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Cookies</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // ─── Smooth scroll + nav active-state ───
+  const NAV_OFFSET = 70;
+  const SECTIONS = ['top','services','value-chain','focus','network','expertise','book'];
+
+  function scrollToId(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    window.scrollTo({ top: el.offsetTop - NAV_OFFSET, behavior: 'smooth' });
+  }
+  document.querySelectorAll('[data-nav]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      scrollToId(el.getAttribute('data-nav'));
+    });
+  });
+
+  const navLinks = Array.from(document.querySelectorAll('.navbar__link'));
+  function updateActive() {
+    const y = window.scrollY + 140;
+    let current = 'top';
+    for (const id of SECTIONS) {
+      const el = document.getElementById(id);
+      if (el && el.offsetTop <= y) current = id;
+    }
+    navLinks.forEach(l => l.classList.toggle('is-active', l.getAttribute('data-nav') === current));
+  }
+  window.addEventListener('scroll', updateActive, { passive: true });
+  updateActive();
+
+  // ─── Map landmass dot grid (generated to match the prototype's mask) ───
+  const NS = 'http://www.w3.org/2000/svg';
+  const dots = document.getElementById('landmass-dots');
+  if (dots) {
+    const inLand = (c, r) => (
+      (c >= 4  && c <= 12 && r >= 4  && r <= 10) || // N America
+      (c >= 10 && c <= 14 && r >= 10 && r <= 15) || // S America
+      (c >= 14 && c <= 19 && r >= 4  && r <= 9)  || // Europe
+      (c >= 15 && c <= 20 && r >= 9  && r <= 14) || // Africa
+      (c >= 20 && c <= 28 && r >= 4  && r <= 10) || // Asia
+      (c >= 25 && c <= 29 && r >= 12 && r <= 15)    // Oceania
+    );
+    const frag = document.createDocumentFragment();
+    for (let r = 0; r < 18; r++) {
+      for (let c = 0; c < 32; c++) {
+        if (!inLand(c, r)) continue;
+        const x = c * 20 + 10;
+        const y = r * 25 + 10;
+        const dot = document.createElementNS(NS, 'circle');
+        dot.setAttribute('cx', x);
+        dot.setAttribute('cy', y);
+        dot.setAttribute('r', '1.2');
+        frag.appendChild(dot);
+      }
+    }
+    dots.appendChild(frag);
+  }
+
+  // ─── All-pairs connection arcs between region markers ───
+  const arcs = document.getElementById('map-arcs');
+  if (arcs) {
+    const MARKERS = [
+      { x: 160, y: 140 }, // Canada
+      { x: 200, y: 200 }, // USA
+      { x: 305, y: 150 }, // UK
+      { x: 375, y: 195 }, // EMEA
+      { x: 500, y: 180 }, // Asia
+      { x: 540, y: 345 }, // Australia
+      { x: 590, y: 360 }, // NZ
+    ];
+    const cx0 = MARKERS.reduce((s, m) => s + m.x, 0) / MARKERS.length;
+    const cy0 = MARKERS.reduce((s, m) => s + m.y, 0) / MARKERS.length;
+    const colors = ['rgba(0,92,200,0.32)', 'rgba(139,197,63,0.24)'];
+    const frag = document.createDocumentFragment();
+
+    for (let i = 0; i < MARKERS.length; i++) {
+      for (let j = i + 1; j < MARKERS.length; j++) {
+        const a = MARKERS[i];
+        const b = MARKERS[j];
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.hypot(dx, dy) || 1;
+        // perpendicular unit vector
+        const px = -dy / len;
+        const py = dx / len;
+        // bow scales with arc length, capped
+        const bow = Math.min(len * 0.22, 90);
+        // pick the perpendicular side that points away from the marker centroid
+        const sign = (px * (mx - cx0) + py * (my - cy0)) >= 0 ? 1 : -1;
+        const ccx = mx + sign * px * bow;
+        const ccy = my + sign * py * bow;
+
+        const path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', `M ${a.x} ${a.y} Q ${ccx.toFixed(1)} ${ccy.toFixed(1)} ${b.x} ${b.y}`);
+        path.setAttribute('class', 'arc');
+        path.setAttribute('stroke', colors[(i + j) % 2]);
+        path.setAttribute('stroke-width', '1');
+        path.setAttribute('fill', 'none');
+        frag.appendChild(path);
+      }
+    }
+    arcs.appendChild(frag);
+  }
+
+  // ─── Booking flow ───
+  const bookCard = document.getElementById('bookCard');
+  const SLOTS = ['09:30', '11:00', '14:00', '15:30', '17:00'];
+  const AUDIENCES = [
+    { id: 'distributor', label: 'Distributor / reseller', icon: 'local_shipping' },
+    { id: 'lab',         label: 'Lab / fabrication',      icon: 'biotech' },
+    { id: 'clinic',      label: 'Clinic / clinic group',  icon: 'medical_services' },
+    { id: 'other',       label: 'Manufacturer or other',  icon: 'more_horiz' },
+  ];
+
+  // Build next 14 weekdays starting tomorrow
+  const days = (() => {
+    const arr = [];
+    let d = new Date();
+    while (arr.length < 14) {
+      d = new Date(d.getTime() + 86400000);
+      if (d.getDay() !== 0 && d.getDay() !== 6) arr.push(new Date(d));
+    }
+    return arr;
+  })();
+
+  const state = {
+    dayIdx: 2,
+    slot: '14:00',
+    audience: 'distributor',
+    name: '',
+    email: '',
+    company: '',
+    notes: '',
+    step: 1,
+    confirmed: false,
+  };
+
+  const fmtShort = (d) => d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+  const fmtFull  = (d) => d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function render() {
+    if (state.confirmed) {
+      bookCard.innerHTML = `
+        <div class="confirmed">
+          <div class="confirmed__icon"><span class="material-symbols-outlined">check</span></div>
+          <h3>Call confirmed.</h3>
+          <p>A calendar invite is on its way to <span style="color:#fff">${esc(state.email) || 'your inbox'}</span>.</p>
+          <div class="confirmed__chip">
+            <span class="material-symbols-outlined">event</span>
+            ${esc(fmtFull(days[state.dayIdx]))} · ${esc(state.slot)} GMT
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (state.step === 1) {
+      bookCard.innerHTML = `
+        <div class="book-card__head">
+          <div>
+            <div class="book-card__step">Step 1 of 2</div>
+            <h3 class="book-card__title">Pick a time</h3>
+          </div>
+          <div class="book-card__tz">
+            <span class="material-symbols-outlined">schedule</span>
+            GMT / London
+          </div>
+        </div>
+
+        <label class="field-label">Date</label>
+        <div class="date-strip" id="dateStrip">
+          ${days.map((d, i) => `
+            <button class="date-pill ${i === state.dayIdx ? 'is-selected' : ''}" data-day="${i}">
+              <div class="date-pill__wd">${esc(d.toLocaleDateString('en-GB', { weekday: 'short' }))}</div>
+              <div class="date-pill__d">${d.getDate()}</div>
+              <div class="date-pill__m">${esc(d.toLocaleDateString('en-GB', { month: 'short' }))}</div>
+            </button>
+          `).join('')}
+        </div>
+
+        <label class="field-label">Available slots · ${esc(fmtShort(days[state.dayIdx]))}</label>
+        <div class="slots" id="slots">
+          ${SLOTS.map(s => `
+            <button class="slot ${s === state.slot ? 'is-selected' : ''}" data-slot="${s}">${s}</button>
+          `).join('')}
+        </div>
+
+        <button class="book-card__submit" id="continueBtn">
+          Continue
+          <span class="material-symbols-outlined">arrow_forward</span>
+        </button>
+      `;
+
+      bookCard.querySelectorAll('[data-day]').forEach(btn => {
+        btn.addEventListener('click', () => { state.dayIdx = +btn.dataset.day; render(); });
+      });
+      bookCard.querySelectorAll('[data-slot]').forEach(btn => {
+        btn.addEventListener('click', () => { state.slot = btn.dataset.slot; render(); });
+      });
+      bookCard.querySelector('#continueBtn').addEventListener('click', () => {
+        state.step = 2; render();
+      });
+      return;
+    }
+
+    // Step 2
+    bookCard.innerHTML = `
+      <div class="book-card__head">
+        <div>
+          <div class="book-card__step">Step 2 of 2</div>
+          <h3 class="book-card__title">Your details</h3>
+        </div>
+        <button class="book-card__back" id="backBtn">
+          <span class="material-symbols-outlined">arrow_back</span>
+          ${esc(fmtShort(days[state.dayIdx]))} · ${esc(state.slot)}
+        </button>
+      </div>
+
+      <label class="field-label">You are a…</label>
+      <div class="audiences" id="audiences">
+        ${AUDIENCES.map(a => `
+          <button class="audience-btn ${a.id === state.audience ? 'is-selected' : ''}" data-audience="${a.id}">
+            <span class="material-symbols-outlined">${a.icon}</span>
+            ${esc(a.label)}
+          </button>
+        `).join('')}
+      </div>
+
+      <div class="form-grid-2">
+        <div>
+          <label class="field-label">Name</label>
+          <input class="field-input" id="f-name" value="${esc(state.name)}" />
+        </div>
+        <div>
+          <label class="field-label">Email</label>
+          <input class="field-input" id="f-email" type="email" value="${esc(state.email)}" />
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="field-label">Company</label>
+        <input class="field-input" id="f-company" value="${esc(state.company)}" />
+      </div>
+      <div class="form-row form-row--last">
+        <label class="field-label">What should we come prepared on? (optional)</label>
+        <textarea class="field-input" id="f-notes" rows="3">${esc(state.notes)}</textarea>
+      </div>
+
+      <button class="book-card__submit" id="confirmBtn">
+        Confirm booking
+        <span class="material-symbols-outlined">check</span>
+      </button>
+    `;
+
+    bookCard.querySelector('#backBtn').addEventListener('click', () => { state.step = 1; render(); });
+    bookCard.querySelectorAll('[data-audience]').forEach(btn => {
+      btn.addEventListener('click', () => { state.audience = btn.dataset.audience; render(); });
+    });
+    bookCard.querySelector('#f-name').addEventListener('input', e => { state.name = e.target.value; });
+    bookCard.querySelector('#f-email').addEventListener('input', e => { state.email = e.target.value; });
+    bookCard.querySelector('#f-company').addEventListener('input', e => { state.company = e.target.value; });
+    bookCard.querySelector('#f-notes').addEventListener('input', e => { state.notes = e.target.value; });
+    bookCard.querySelector('#confirmBtn').addEventListener('click', () => {
+      state.confirmed = true; render();
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
