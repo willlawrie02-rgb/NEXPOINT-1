@@ -730,7 +730,20 @@
     transition: box-shadow var(--duration);
   }
   .book-card__submit:hover { box-shadow: 0 10px 28px rgba(0, 92, 200, 0.35); }
+  .book-card__submit:disabled { opacity: 0.65; cursor: progress; box-shadow: none; }
+  .book-card__submit:disabled .material-symbols-outlined { animation: spin 1s linear infinite; }
   .book-card__submit .material-symbols-outlined { font-size: 18px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .form-error {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: rgba(229, 72, 77, 0.08);
+    border: 1px solid rgba(229, 72, 77, 0.32);
+    color: #ff9ea1;
+    font: 500 13px/1.5 var(--font-body);
+  }
 
   .form-grid-2 {
     display: grid; grid-template-columns: 1fr 1fr;
@@ -1632,16 +1645,48 @@
 
   // ─── Contact form ───
   const bookCard = document.getElementById('bookCard');
+  const WEB3FORMS_KEY = 'ef8a53a0-bb4a-49e9-86c8-77b1c297edc6';
 
   const state = {
     name: '',
     email: '',
     company: '',
     notes: '',
+    sending: false,
     submitted: false,
+    error: '',
   };
 
   const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  async function submitForm() {
+    state.sending = true; state.error = ''; render();
+    try {
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_KEY,
+          subject: `New intro request from ${state.name}${state.company ? ' (' + state.company + ')' : ''}`,
+          from_name: state.name,
+          name: state.name,
+          email: state.email,
+          company: state.company || '(not provided)',
+          message: state.notes || '(no notes)',
+          botcheck: '',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        state.submitted = true;
+      } else {
+        state.error = data.message || 'Something went wrong. Please email connect@nexpoint.co.uk.';
+      }
+    } catch (err) {
+      state.error = 'Network error. Please email connect@nexpoint.co.uk.';
+    }
+    state.sending = false; render();
+  }
 
   function render() {
     if (state.submitted) {
@@ -1666,25 +1711,27 @@
       <div class="form-grid-2">
         <div>
           <label class="field-label">Name</label>
-          <input class="field-input" id="f-name" value="${esc(state.name)}" />
+          <input class="field-input" id="f-name" value="${esc(state.name)}" ${state.sending ? 'disabled' : ''} />
         </div>
         <div>
           <label class="field-label">Email</label>
-          <input class="field-input" id="f-email" type="email" value="${esc(state.email)}" />
+          <input class="field-input" id="f-email" type="email" value="${esc(state.email)}" ${state.sending ? 'disabled' : ''} />
         </div>
       </div>
       <div class="form-row">
         <label class="field-label">Company</label>
-        <input class="field-input" id="f-company" value="${esc(state.company)}" />
+        <input class="field-input" id="f-company" value="${esc(state.company)}" ${state.sending ? 'disabled' : ''} />
       </div>
       <div class="form-row form-row--last">
         <label class="field-label">What should we come prepared on? (optional)</label>
-        <textarea class="field-input" id="f-notes" rows="3">${esc(state.notes)}</textarea>
+        <textarea class="field-input" id="f-notes" rows="3" ${state.sending ? 'disabled' : ''}>${esc(state.notes)}</textarea>
       </div>
 
-      <button class="book-card__submit" id="confirmBtn">
-        Send request
-        <span class="material-symbols-outlined">arrow_forward</span>
+      ${state.error ? `<div class="form-error">${esc(state.error)}</div>` : ''}
+
+      <button class="book-card__submit" id="confirmBtn" ${state.sending ? 'disabled' : ''}>
+        ${state.sending ? 'Sending…' : 'Send request'}
+        <span class="material-symbols-outlined">${state.sending ? 'progress_activity' : 'arrow_forward'}</span>
       </button>
     `;
 
@@ -1693,12 +1740,13 @@
     bookCard.querySelector('#f-company').addEventListener('input', e => { state.company = e.target.value; });
     bookCard.querySelector('#f-notes').addEventListener('input', e => { state.notes = e.target.value; });
     bookCard.querySelector('#confirmBtn').addEventListener('click', () => {
+      if (state.sending) return;
       if (!state.name || !state.email) {
         const f = !state.name ? bookCard.querySelector('#f-name') : bookCard.querySelector('#f-email');
         f.focus();
         return;
       }
-      state.submitted = true; render();
+      submitForm();
     });
   }
 
