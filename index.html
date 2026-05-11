@@ -109,7 +109,7 @@
     display: flex; align-items: center; justify-content: space-between; gap: 24px;
   }
   .navbar__brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
-  .navbar__brand img { height: 34px; width: auto; display: block; }
+  .navbar__brand img { height: 68px; width: auto; display: block; }
   .navbar__links { display: flex; gap: 28px; }
   .navbar__link {
     position: relative;
@@ -487,8 +487,8 @@
 
   /* ─── Global reach ─── */
   .reach__inner {
-    display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: var(--gap-lg);
-    align-items: center;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap-lg);
+    align-items: end;
   }
   .reach__title {
     font: 600 clamp(28px, 3.2vw, 44px)/1.15 var(--font-display);
@@ -506,6 +506,7 @@
     border: 1px solid var(--border-soft);
     border-radius: 8px;
     overflow: hidden;
+    height: 420px;
   }
   .markets__header {
     display: flex; align-items: baseline; gap: 14px;
@@ -547,7 +548,7 @@
   }
   .map-card__inner {
     position: relative;
-    aspect-ratio: 640 / 460;
+    height: 420px;
     border-radius: 8px; overflow: hidden;
     background: linear-gradient(160deg, #161818 0%, #0d0e0f 100%);
   }
