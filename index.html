@@ -38,8 +38,10 @@
     --duration: 200ms;
     --duration-fast: 150ms;
 
-    --container-max: 1440px;
-    --side-pad: 64px;
+    --container-max: 1360px;
+    --side-pad: clamp(20px, 4.5vw, 64px);
+    --section-pad: clamp(64px, 9vh, 120px);
+    --gap-lg: clamp(32px, 4vw, 64px);
 
     --font-display: 'Montserrat', system-ui, sans-serif;
     --font-body: 'Inter', system-ui, sans-serif;
@@ -47,6 +49,8 @@
 
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg-1); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  html, body { overflow-x: hidden; }
+  img, svg { max-width: 100%; }
   ::selection { background: rgba(0, 92, 200, 0.4); color: #fff; }
 
   ::-webkit-scrollbar { height: 6px; width: 6px; }
@@ -57,7 +61,7 @@
   button { font-family: inherit; }
 
   .container { max-width: var(--container-max); margin: 0 auto; padding-left: var(--side-pad); padding-right: var(--side-pad); }
-  .section { padding: 140px 0; }
+  .section { padding: var(--section-pad) 0; }
   .section--alt { background: var(--bg-alt); }
 
   .eyebrow {
@@ -69,13 +73,13 @@
     margin-bottom: 20px;
   }
   .h2 {
-    font: 600 44px/52px var(--font-display);
+    font: 600 clamp(28px, 3.2vw, 44px)/1.15 var(--font-display);
     letter-spacing: -0.02em;
     color: var(--fg);
-    margin: 0 0 24px;
+    margin: 0 0 20px;
   }
   .lede {
-    font: 400 17px/28px var(--font-body);
+    font: 400 clamp(15px, 1.2vw, 17px)/1.6 var(--font-body);
     color: rgba(226, 226, 226, 0.65);
     margin: 0;
   }
@@ -147,7 +151,7 @@
 
   /* ─── Hero ─── */
   .hero {
-    position: relative; min-height: 92vh; padding-top: 72px;
+    position: relative; min-height: min(92vh, 920px); padding-top: 72px;
     display: flex; align-items: center; overflow: hidden;
     background:
       radial-gradient(900px 600px at 85% 10%, rgba(0, 92, 200, 0.18), transparent 60%),
@@ -156,8 +160,8 @@
   .hero__inner {
     max-width: var(--container-max);
     margin: 0 auto;
-    padding: 60px var(--side-pad) 80px;
-    display: grid; grid-template-columns: 0.7fr 1.3fr; gap: 64px;
+    padding: clamp(32px, 5vh, 60px) var(--side-pad) clamp(40px, 6vh, 80px);
+    display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: var(--gap-lg);
     align-items: center; width: 100%;
   }
   .hero__pill {
@@ -180,22 +184,22 @@
     color: rgba(255, 255, 255, 0.75);
   }
   .hero__title {
-    font: 700 68px/74px var(--font-display);
+    font: 700 clamp(34px, 4.3vw, 60px)/1.08 var(--font-display);
     letter-spacing: -0.025em;
     color: #fff;
-    margin: 0 0 24px;
+    margin: 0 0 clamp(16px, 1.6vw, 24px);
   }
   .hero__title-accent { color: var(--np-blue); }
   .hero__sub {
-    font: 400 19px/30px var(--font-body);
+    font: 400 clamp(15px, 1.3vw, 18px)/1.55 var(--font-body);
     color: rgba(226, 226, 226, 0.78);
-    margin: 0 0 40px;
-    max-width: 600px;
+    margin: 0 0 clamp(24px, 3vw, 36px);
+    max-width: 580px;
   }
-  .hero__ctas { display: flex; flex-wrap: wrap; gap: 14px; }
-  .hero__stats { display: flex; gap: 40px; margin-top: 56px; flex-wrap: wrap; }
+  .hero__ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+  .hero__stats { display: flex; gap: clamp(24px, 3vw, 48px); margin-top: clamp(28px, 4vh, 44px); flex-wrap: wrap; }
   .stat__num {
-    font: 700 28px/1 var(--font-display);
+    font: 700 clamp(22px, 1.9vw, 28px)/1 var(--font-display);
     color: #fff;
   }
   .stat__label {
@@ -207,7 +211,10 @@
   }
 
   .network-card {
-    position: relative; height: 760px;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-height: min(72vh, 620px);
     border-radius: 12px; overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background:
@@ -268,17 +275,17 @@
 
   /* ─── Services ─── */
   .services__head {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 64px;
-    align-items: end; margin-bottom: 64px;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap-lg);
+    align-items: end; margin-bottom: clamp(36px, 5vh, 56px);
   }
   .services__title {
-    font: 600 44px/52px var(--font-display);
+    font: 600 clamp(28px, 3.2vw, 44px)/1.15 var(--font-display);
     letter-spacing: -0.02em;
     color: #fff;
     margin: 0;
   }
   .services__lede {
-    font: 400 17px/28px var(--font-body);
+    font: 400 clamp(15px, 1.2vw, 17px)/1.6 var(--font-body);
     color: rgba(226, 226, 226, 0.65);
     margin: 0; max-width: 480px; justify-self: end;
   }
@@ -289,7 +296,7 @@
     background: var(--surface);
     border: 1px solid #2a2a2a;
     border-radius: 8px;
-    padding: 32px;
+    padding: clamp(20px, 2vw, 32px);
     transition: border-color var(--duration) var(--ease), transform var(--duration) var(--ease);
   }
   .service-card:hover {
@@ -315,15 +322,15 @@
   }
   .service-card__icon span { font-size: 26px; }
   .service-card h3 {
-    font: 600 22px/30px var(--font-display);
+    font: 600 clamp(18px, 1.6vw, 22px)/1.3 var(--font-display);
     color: #fff;
-    margin: 0 0 14px;
+    margin: 0 0 12px;
     letter-spacing: -0.01em;
   }
   .service-card p {
-    font: 400 15px/24px var(--font-body);
+    font: 400 clamp(14px, 1.1vw, 15px)/1.55 var(--font-body);
     color: rgba(226, 226, 226, 0.65);
-    margin: 0 0 20px;
+    margin: 0 0 18px;
   }
   .service-card__chips { display: flex; gap: 8px; flex-wrap: wrap; }
   .chip {
@@ -340,13 +347,13 @@
   /* ─── Value chain ─── */
   .value-chain__intro {
     max-width: 760px;
-    margin-bottom: 80px;
+    margin-bottom: clamp(40px, 6vh, 72px);
   }
   .value-chain__rail {
     position: relative;
   }
   .value-chain__line {
-    position: absolute; top: 40px; left: 8%; right: 8%; height: 1px;
+    position: absolute; top: clamp(28px, 3vw, 40px); left: 8%; right: 8%; height: 1px;
     background: linear-gradient(90deg, transparent, rgba(0, 92, 200, 0.45), rgba(0, 92, 200, 0.45), transparent);
     z-index: 0;
   }
@@ -357,14 +364,14 @@
   .vc-step { display: flex; flex-direction: column; align-items: center; text-align: center; }
   .vc-step__node {
     position: relative;
-    width: 80px; height: 80px; border-radius: 9999px;
+    width: clamp(56px, 6vw, 80px); height: clamp(56px, 6vw, 80px); border-radius: 9999px;
     background: #121212;
     border: 1px solid rgba(0, 92, 200, 0.4);
     display: flex; align-items: center; justify-content: center;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     color: var(--np-blue);
   }
-  .vc-step__node span.material-symbols-outlined { font-size: 30px; }
+  .vc-step__node span.material-symbols-outlined { font-size: clamp(22px, 2.2vw, 30px); }
   .vc-step--center .vc-step__node { box-shadow: 0 0 32px rgba(0, 92, 200, 0.25); }
   .vc-step__index {
     position: absolute; top: -10px; right: -10px;
@@ -413,22 +420,22 @@
   /* ─── Focus areas ─── */
   .focus__head {
     display: flex; justify-content: space-between; align-items: flex-end;
-    gap: 32px; margin-bottom: 64px; flex-wrap: wrap;
+    gap: 32px; margin-bottom: clamp(40px, 5vh, 56px); flex-wrap: wrap;
   }
   .focus__title {
-    font: 600 44px/52px var(--font-display);
+    font: 600 clamp(28px, 3.2vw, 44px)/1.15 var(--font-display);
     letter-spacing: -0.02em;
     color: #fff;
     margin: 0;
-    padding: 4px 0 4px 24px;
+    padding: 4px 0 4px 20px;
     border-left: 3px solid var(--np-green);
   }
   .focus__lede {
-    font: 400 16px/24px var(--font-body);
+    font: 400 clamp(14px, 1.15vw, 16px)/1.55 var(--font-body);
     color: rgba(226, 226, 226, 0.55);
     margin: 0; max-width: 420px;
   }
-  .focus__groups { display: grid; gap: 64px; }
+  .focus__groups { display: grid; gap: clamp(36px, 5vh, 56px); }
   .focus__group-label {
     font: 600 12px/1 var(--font-body);
     letter-spacing: 0.08em;
@@ -470,19 +477,19 @@
 
   /* ─── Global reach ─── */
   .reach__inner {
-    display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 80px;
+    display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: var(--gap-lg);
     align-items: center;
   }
   .reach__title {
-    font: 600 44px/52px var(--font-display);
+    font: 600 clamp(28px, 3.2vw, 44px)/1.15 var(--font-display);
     letter-spacing: -0.02em;
     color: #fff;
-    margin: 0 0 24px;
+    margin: 0 0 20px;
   }
   .reach__lede {
-    font: 400 17px/28px var(--font-body);
+    font: 400 clamp(15px, 1.2vw, 17px)/1.6 var(--font-body);
     color: rgba(226, 226, 226, 0.65);
-    margin: 0 0 40px;
+    margin: 0 0 32px;
     max-width: 540px;
   }
   .markets {
@@ -530,7 +537,8 @@
   }
   .map-card__inner {
     position: relative;
-    height: 460px; border-radius: 8px; overflow: hidden;
+    aspect-ratio: 640 / 460;
+    border-radius: 8px; overflow: hidden;
     background: linear-gradient(160deg, #161818 0%, #0d0e0f 100%);
   }
   .map-card__header {
@@ -569,17 +577,17 @@
 
   /* ─── Why NexPoint ─── */
   .why__head {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 64px;
-    margin-bottom: 80px;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap-lg);
+    margin-bottom: clamp(40px, 5vh, 64px);
   }
   .why__title {
-    font: 600 44px/52px var(--font-display);
+    font: 600 clamp(28px, 3.2vw, 44px)/1.15 var(--font-display);
     letter-spacing: -0.02em;
     color: #fff;
     margin: 0;
   }
   .why__lede {
-    font: 400 17px/28px var(--font-body);
+    font: 400 clamp(15px, 1.2vw, 17px)/1.6 var(--font-body);
     color: rgba(226, 226, 226, 0.65);
     margin: 0; align-self: end;
   }
@@ -587,51 +595,51 @@
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
   }
   .why-card {
-    padding: 32px 28px;
+    padding: clamp(20px, 2vw, 32px) clamp(18px, 1.8vw, 28px);
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
     position: relative; overflow: hidden;
   }
   .why-card__num {
-    font: 700 56px/1 var(--font-display);
+    font: 700 clamp(36px, 3.8vw, 56px)/1 var(--font-display);
     color: var(--np-blue);
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     letter-spacing: -0.02em;
   }
   .why-card h4 {
-    font: 600 20px/28px var(--font-display);
+    font: 600 clamp(17px, 1.4vw, 20px)/1.35 var(--font-display);
     color: #fff;
-    margin: 0 0 14px;
+    margin: 0 0 12px;
     letter-spacing: -0.01em;
   }
   .why-card p {
-    font: 400 14px/22px var(--font-body);
+    font: 400 clamp(13px, 1.05vw, 14px)/1.55 var(--font-body);
     color: rgba(226, 226, 226, 0.6);
     margin: 0;
   }
 
   /* ─── Book call ─── */
   .book {
-    padding: 140px 0;
+    padding: var(--section-pad) 0;
     background:
       radial-gradient(700px 500px at 90% 10%, rgba(0, 92, 200, 0.10), transparent 60%),
       #121212;
   }
   .book__inner {
-    display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 64px;
+    display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: var(--gap-lg);
     align-items: start;
   }
   .book__title {
-    font: 600 44px/52px var(--font-display);
+    font: 600 clamp(28px, 3.2vw, 44px)/1.15 var(--font-display);
     letter-spacing: -0.02em;
     color: #fff;
-    margin: 0 0 24px;
+    margin: 0 0 20px;
   }
   .book__lede {
-    font: 400 17px/28px var(--font-body);
+    font: 400 clamp(15px, 1.2vw, 17px)/1.6 var(--font-body);
     color: rgba(226, 226, 226, 0.65);
-    margin: 0 0 40px; max-width: 480px;
+    margin: 0 0 32px; max-width: 480px;
   }
   .book__bullets { display: flex; flex-direction: column; gap: 16px; }
   .book__bullet { display: flex; align-items: flex-start; gap: 16px; }
@@ -714,54 +722,6 @@
   .field-input:focus { border-color: var(--np-blue); }
   textarea.field-input { min-height: 84px; resize: vertical; }
 
-  .date-strip {
-    display: flex; gap: 8px; overflow-x: auto;
-    padding-bottom: 4px; margin-bottom: 28px;
-  }
-  .date-pill {
-    flex: 0 0 auto; min-width: 84px;
-    padding: 12px 10px; border-radius: 6px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: rgba(226, 226, 226, 0.85);
-    cursor: pointer; text-align: center;
-    transition: all var(--duration-fast);
-  }
-  .date-pill.is-selected {
-    background: var(--np-blue);
-    border-color: var(--np-blue);
-    color: #fff;
-  }
-  .date-pill__wd {
-    font: 600 10px/1 var(--font-body);
-    letter-spacing: 0.08em; text-transform: uppercase;
-    opacity: 0.7; margin-bottom: 6px;
-  }
-  .date-pill__d { font: 600 17px/1 var(--font-display); }
-  .date-pill__m {
-    font: 500 11px/1 var(--font-body);
-    opacity: 0.7; margin-top: 6px;
-  }
-
-  .slots {
-    display: grid; grid-template-columns: repeat(5, 1fr);
-    gap: 8px; margin-bottom: 32px;
-  }
-  .slot {
-    padding: 14px 0; border-radius: 6px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: rgba(226, 226, 226, 0.85);
-    font: 600 14px/1 var(--font-body);
-    cursor: pointer;
-    transition: all var(--duration-fast);
-  }
-  .slot.is-selected {
-    background: var(--np-blue);
-    border-color: var(--np-blue);
-    color: #fff;
-  }
-
   .book-card__submit {
     width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
     background: var(--np-blue); color: #fff; border: 0;
@@ -771,37 +731,6 @@
   }
   .book-card__submit:hover { box-shadow: 0 10px 28px rgba(0, 92, 200, 0.35); }
   .book-card__submit .material-symbols-outlined { font-size: 18px; }
-
-  .book-card__back {
-    background: transparent; border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px; padding: 8px 12px; cursor: pointer;
-    font: 600 11px/1 var(--font-body);
-    letter-spacing: 0.04em; color: rgba(255, 255, 255, 0.7);
-    display: inline-flex; align-items: center; gap: 6px;
-  }
-  .book-card__back .material-symbols-outlined { font-size: 14px; }
-
-  .audiences {
-    display: grid; grid-template-columns: repeat(2, 1fr);
-    gap: 8px; margin-bottom: 24px;
-  }
-  .audience-btn {
-    display: flex; align-items: center; gap: 10px;
-    padding: 12px 14px; border-radius: 6px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #fff; cursor: pointer; text-align: left;
-    font: 500 13px/1.2 var(--font-body);
-    transition: all var(--duration-fast);
-  }
-  .audience-btn .material-symbols-outlined {
-    font-size: 18px; color: rgba(255, 255, 255, 0.6);
-  }
-  .audience-btn.is-selected {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: var(--np-blue);
-  }
-  .audience-btn.is-selected .material-symbols-outlined { color: var(--np-blue); }
 
   .form-grid-2 {
     display: grid; grid-template-columns: 1fr 1fr;
@@ -852,10 +781,10 @@
   .footer__inner {
     max-width: var(--container-max);
     margin: 0 auto;
-    padding: 80px var(--side-pad) 40px;
+    padding: clamp(48px, 7vh, 80px) var(--side-pad) clamp(24px, 3vh, 40px);
     display: grid;
-    grid-template-columns: 1.4fr repeat(3, 1fr) 1.2fr;
-    gap: 40px;
+    grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)) minmax(0, 1.3fr);
+    gap: clamp(24px, 3vw, 48px);
   }
   .footer__brand img { height: 44px; width: auto; display: block; margin-bottom: 24px; }
   .footer__brand p {
@@ -924,39 +853,31 @@
 
   /* ─── Responsive ─── */
   @media (max-width: 1100px) {
-    .hero__inner { grid-template-columns: 1fr; gap: 48px; }
-    .hero__title { font-size: 52px; line-height: 60px; }
-    .reach__inner { grid-template-columns: 1fr; gap: 48px; }
-    .why__head { grid-template-columns: 1fr; gap: 32px; }
-    .services__head { grid-template-columns: 1fr; gap: 32px; }
+    .hero__inner { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+    .network-card { max-width: 560px; margin: 0 auto; max-height: none; }
+    .reach__inner { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+    .why__head { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+    .services__head { grid-template-columns: minmax(0, 1fr); gap: 28px; }
     .services__lede { justify-self: start; }
     .footer__inner { grid-template-columns: 1fr 1fr; }
   }
   @media (max-width: 900px) {
-    :root { --side-pad: 32px; }
-    .section { padding: 96px 0; }
-    .book { padding: 96px 0; }
-    .book__inner { grid-template-columns: 1fr; gap: 48px; }
+    .book__inner { grid-template-columns: minmax(0, 1fr); gap: 40px; }
     .book__inner > * { max-width: 640px; width: 100%; margin-left: auto; margin-right: auto; }
-    .hero__title { font-size: 44px; line-height: 52px; }
-    .h2, .services__title, .reach__title, .focus__title, .why__title, .book__title { font-size: 32px; line-height: 40px; }
-    .services__grid { grid-template-columns: 1fr; }
+    .services__grid { grid-template-columns: minmax(0, 1fr); }
     .service-card--w8, .service-card--w4 { grid-column: span 1; }
-    .focus__grid { grid-template-columns: repeat(2, 1fr); }
-    .why__grid { grid-template-columns: repeat(2, 1fr); }
-    .value-chain__grid { grid-template-columns: repeat(2, 1fr); gap: 32px; }
+    .focus__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .why__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .value-chain__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
     .value-chain__line { display: none; }
     .navbar__links { display: none; }
-    .footer__inner { grid-template-columns: 1fr 1fr; gap: 32px; padding-top: 48px; }
+    .footer__inner { grid-template-columns: 1fr 1fr; gap: 32px; }
   }
   @media (max-width: 560px) {
-    .hero__title { font-size: 36px; line-height: 44px; }
-    .focus__grid, .why__grid { grid-template-columns: 1fr; }
-    .footer__inner { grid-template-columns: 1fr; }
-    .slots { grid-template-columns: repeat(3, 1fr); }
-    .form-grid-2 { grid-template-columns: 1fr; }
-    .audiences { grid-template-columns: 1fr; }
-    .book-card { padding: 24px; }
+    .focus__grid, .why__grid { grid-template-columns: minmax(0, 1fr); }
+    .footer__inner { grid-template-columns: minmax(0, 1fr); }
+    .form-grid-2 { grid-template-columns: minmax(0, 1fr); }
+    .book-card { padding: 22px; }
     .book-card__head { flex-wrap: wrap; gap: 12px; }
   }
 </style>
@@ -977,8 +898,8 @@
       <a href="#expertise"   class="navbar__link" data-nav="expertise">Why us</a>
     </div>
     <button class="btn btn--primary" data-nav="book">
-      <span class="material-symbols-outlined" style="font-size:16px;">event</span>
-      Book intro call
+      Get in touch
+      <span class="material-symbols-outlined" style="font-size:16px;">arrow_forward</span>
     </button>
   </nav>
 </header>
@@ -997,8 +918,8 @@
       </p>
       <div class="hero__ctas">
         <button class="btn btn--primary-lg" data-nav="book">
-          <span class="material-symbols-outlined" style="font-size:18px;">event</span>
-          Book a 30-min intro call
+          Request an intro call
+          <span class="material-symbols-outlined" style="font-size:18px;">arrow_forward</span>
         </button>
         <button class="btn btn--ghost-lg" data-nav="network">Explore our network</button>
       </div>
@@ -1022,7 +943,7 @@
       <div class="network-card__header">
         <span class="network-card__label">Live network</span>
       </div>
-      <svg viewBox="30 30 460 460" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox="0 0 520 520" preserveAspectRatio="xMidYMid meet">
         <defs>
           <radialGradient id="hubGlow" cx="50%" cy="50%" r="50%">
             <stop offset="0%"   stop-color="#005CC8" stop-opacity="0.45" />
@@ -1140,7 +1061,7 @@
     <div class="services__head">
       <div>
         <span class="eyebrow">What we do</span>
-        <h2 class="services__title">Five ways we shorten the path<br />between you and the right partner.</h2>
+        <h2 class="services__title">Five ways we shorten the path between you and the right partner.</h2>
       </div>
       <p class="services__lede">
         Whether you are a manufacturer, materials supplier, technology provider, lab, or clinical organisation, NexPoint works by identifying qualified commercial opportunities, aligning the right strategic partners, and creating clear pathways for international growth and market expansion.
@@ -1517,21 +1438,11 @@
   <div class="container">
     <div class="book__inner">
       <div>
-        <span class="eyebrow">Book a 30-minute call</span>
+        <span class="eyebrow">Get in touch</span>
         <h2 class="book__title">Let's map your global footprint.</h2>
         <p class="book__lede">
-          Pick a slot that works.
+          Send a few details and we'll be in touch within one working day to schedule a 30-minute intro call.
         </p>
-
-        <div class="book__bullets">
-          <div class="book__bullet">
-            <div class="book__bullet-icon"><span class="material-symbols-outlined">schedule</span></div>
-            <div>
-              <div class="book__bullet-k">30 minutes</div>
-              <div class="book__bullet-v">Video call · no slides · no pitch deck</div>
-            </div>
-          </div>
-        </div>
 
         <div class="book__write">
           <div class="book__write-label">Prefer to write?</div>
@@ -1719,129 +1630,37 @@
     arcs.appendChild(frag);
   }
 
-  // ─── Booking flow ───
+  // ─── Contact form ───
   const bookCard = document.getElementById('bookCard');
-  const SLOTS = ['09:30', '11:00', '14:00', '15:30', '17:00'];
-  const AUDIENCES = [
-    { id: 'distributor', label: 'Distributor / reseller', icon: 'local_shipping' },
-    { id: 'lab',         label: 'Lab / fabrication',      icon: 'biotech' },
-    { id: 'clinic',      label: 'Clinic / clinic group',  icon: 'medical_services' },
-    { id: 'other',       label: 'Manufacturer or other',  icon: 'more_horiz' },
-  ];
-
-  // Build next 14 weekdays starting tomorrow
-  const days = (() => {
-    const arr = [];
-    let d = new Date();
-    while (arr.length < 14) {
-      d = new Date(d.getTime() + 86400000);
-      if (d.getDay() !== 0 && d.getDay() !== 6) arr.push(new Date(d));
-    }
-    return arr;
-  })();
 
   const state = {
-    dayIdx: 2,
-    slot: '14:00',
-    audience: 'distributor',
     name: '',
     email: '',
     company: '',
     notes: '',
-    step: 1,
-    confirmed: false,
+    submitted: false,
   };
 
-  const fmtShort = (d) => d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
-  const fmtFull  = (d) => d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   function render() {
-    if (state.confirmed) {
+    if (state.submitted) {
       bookCard.innerHTML = `
         <div class="confirmed">
           <div class="confirmed__icon"><span class="material-symbols-outlined">check</span></div>
-          <h3>Call confirmed.</h3>
-          <p>A calendar invite is on its way to <span style="color:#fff">${esc(state.email) || 'your inbox'}</span>.</p>
-          <div class="confirmed__chip">
-            <span class="material-symbols-outlined">event</span>
-            ${esc(fmtFull(days[state.dayIdx]))} · ${esc(state.slot)} GMT
-          </div>
+          <h3>Thanks — message received.</h3>
+          <p>We'll be in touch at <span style="color:#fff">${esc(state.email) || 'your inbox'}</span> within one working day.</p>
         </div>
       `;
       return;
     }
 
-    if (state.step === 1) {
-      bookCard.innerHTML = `
-        <div class="book-card__head">
-          <div>
-            <div class="book-card__step">Step 1 of 2</div>
-            <h3 class="book-card__title">Pick a time</h3>
-          </div>
-          <div class="book-card__tz">
-            <span class="material-symbols-outlined">schedule</span>
-            GMT / London
-          </div>
-        </div>
-
-        <label class="field-label">Date</label>
-        <div class="date-strip" id="dateStrip">
-          ${days.map((d, i) => `
-            <button class="date-pill ${i === state.dayIdx ? 'is-selected' : ''}" data-day="${i}">
-              <div class="date-pill__wd">${esc(d.toLocaleDateString('en-GB', { weekday: 'short' }))}</div>
-              <div class="date-pill__d">${d.getDate()}</div>
-              <div class="date-pill__m">${esc(d.toLocaleDateString('en-GB', { month: 'short' }))}</div>
-            </button>
-          `).join('')}
-        </div>
-
-        <label class="field-label">Available slots · ${esc(fmtShort(days[state.dayIdx]))}</label>
-        <div class="slots" id="slots">
-          ${SLOTS.map(s => `
-            <button class="slot ${s === state.slot ? 'is-selected' : ''}" data-slot="${s}">${s}</button>
-          `).join('')}
-        </div>
-
-        <button class="book-card__submit" id="continueBtn">
-          Continue
-          <span class="material-symbols-outlined">arrow_forward</span>
-        </button>
-      `;
-
-      bookCard.querySelectorAll('[data-day]').forEach(btn => {
-        btn.addEventListener('click', () => { state.dayIdx = +btn.dataset.day; render(); });
-      });
-      bookCard.querySelectorAll('[data-slot]').forEach(btn => {
-        btn.addEventListener('click', () => { state.slot = btn.dataset.slot; render(); });
-      });
-      bookCard.querySelector('#continueBtn').addEventListener('click', () => {
-        state.step = 2; render();
-      });
-      return;
-    }
-
-    // Step 2
     bookCard.innerHTML = `
       <div class="book-card__head">
         <div>
-          <div class="book-card__step">Step 2 of 2</div>
-          <h3 class="book-card__title">Your details</h3>
+          <div class="book-card__step">Tell us about you</div>
+          <h3 class="book-card__title">Request an intro call</h3>
         </div>
-        <button class="book-card__back" id="backBtn">
-          <span class="material-symbols-outlined">arrow_back</span>
-          ${esc(fmtShort(days[state.dayIdx]))} · ${esc(state.slot)}
-        </button>
-      </div>
-
-      <label class="field-label">You are a…</label>
-      <div class="audiences" id="audiences">
-        ${AUDIENCES.map(a => `
-          <button class="audience-btn ${a.id === state.audience ? 'is-selected' : ''}" data-audience="${a.id}">
-            <span class="material-symbols-outlined">${a.icon}</span>
-            ${esc(a.label)}
-          </button>
-        `).join('')}
       </div>
 
       <div class="form-grid-2">
@@ -1864,21 +1683,22 @@
       </div>
 
       <button class="book-card__submit" id="confirmBtn">
-        Confirm booking
-        <span class="material-symbols-outlined">check</span>
+        Send request
+        <span class="material-symbols-outlined">arrow_forward</span>
       </button>
     `;
 
-    bookCard.querySelector('#backBtn').addEventListener('click', () => { state.step = 1; render(); });
-    bookCard.querySelectorAll('[data-audience]').forEach(btn => {
-      btn.addEventListener('click', () => { state.audience = btn.dataset.audience; render(); });
-    });
     bookCard.querySelector('#f-name').addEventListener('input', e => { state.name = e.target.value; });
     bookCard.querySelector('#f-email').addEventListener('input', e => { state.email = e.target.value; });
     bookCard.querySelector('#f-company').addEventListener('input', e => { state.company = e.target.value; });
     bookCard.querySelector('#f-notes').addEventListener('input', e => { state.notes = e.target.value; });
     bookCard.querySelector('#confirmBtn').addEventListener('click', () => {
-      state.confirmed = true; render();
+      if (!state.name || !state.email) {
+        const f = !state.name ? bookCard.querySelector('#f-name') : bookCard.querySelector('#f-email');
+        f.focus();
+        return;
+      }
+      state.submitted = true; render();
     });
   }
 
