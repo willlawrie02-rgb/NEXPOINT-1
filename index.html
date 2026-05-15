@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>NexPoint — Global O&P commercial connectors</title>
-<meta name="description" content="NexPoint connects distributors, labs, and clinic networks with the manufacturers, materials suppliers, and technology providers that move your business forward — across the UK, EU, North America, and Australia." />
+<meta name="description" content="NexPoint helps Orthotics &amp; Prosthetics, healthcare, and manufacturing companies expand internationally through strategic partnerships, qualified introductions, channel development, and commercial growth support." />
 <link rel="icon" href="assets/nexpoint-logo.png" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -163,10 +163,23 @@
   .hero {
     position: relative; min-height: min(92vh, 920px); padding-top: 72px;
     display: flex; align-items: center; overflow: hidden;
-    background:
-      radial-gradient(900px 600px at 85% 10%, rgba(0, 92, 200, 0.18), transparent 60%),
-      radial-gradient(700px 500px at 10% 90%, rgba(139, 197, 63, 0.10), transparent 60%);
   }
+  .hero__bg {
+    position: absolute; inset: 0; z-index: 0;
+    background-image: url("assets/img/hero-globe.jpg");
+    background-size: cover; background-position: center;
+    opacity: 0.18;
+    filter: grayscale(40%) contrast(1.1);
+    pointer-events: none;
+  }
+  .hero__bg::after {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(900px 600px at 85% 10%, rgba(0, 92, 200, 0.30), transparent 60%),
+      radial-gradient(700px 500px at 10% 90%, rgba(139, 197, 63, 0.16), transparent 60%),
+      linear-gradient(180deg, rgba(18,18,18,0.55) 0%, rgba(18,18,18,0.75) 100%);
+  }
+  .hero > * { position: relative; z-index: 1; }
   .hero__inner {
     max-width: var(--container-max);
     margin: 0 auto;
@@ -306,12 +319,38 @@
     background: var(--surface);
     border: 1px solid #2a2a2a;
     border-radius: 8px;
-    padding: clamp(20px, 2vw, 32px);
+    overflow: hidden;
     transition: border-color var(--duration) var(--ease), transform var(--duration) var(--ease);
+    display: flex; flex-direction: column;
   }
   .service-card:hover {
     border-color: var(--np-blue);
     transform: translateY(-2px);
+  }
+  .service-card__media {
+    position: relative; aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: #0d0e0f;
+    border-bottom: 1px solid var(--border);
+  }
+  .service-card__media img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    filter: grayscale(30%) brightness(0.7) contrast(1.05);
+    transition: filter 400ms var(--ease), transform 600ms var(--ease);
+  }
+  .service-card:hover .service-card__media img {
+    filter: grayscale(0%) brightness(0.85) contrast(1.05);
+    transform: scale(1.05);
+  }
+  .service-card__media::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(18,18,18,0) 50%, rgba(30,30,30,0.55) 100%);
+  }
+  .service-card__body {
+    padding: clamp(20px, 2vw, 28px);
+    display: flex; flex-direction: column; flex: 1;
   }
   .service-card--w8 { grid-column: span 8; }
   .service-card--w4 { grid-column: span 4; }
@@ -485,6 +524,69 @@
     color: rgba(226, 226, 226, 0.5);
   }
 
+  /* ─── In Action gallery ─── */
+  .in-action__head {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    gap: 32px; margin-bottom: clamp(32px, 4vh, 48px); flex-wrap: wrap;
+  }
+  .in-action__title {
+    font: 600 clamp(28px, 3.2vw, 44px)/1.15 var(--font-display);
+    letter-spacing: -0.02em; color: #fff; margin: 0;
+  }
+  .in-action__lede {
+    font: 400 clamp(14px, 1.15vw, 16px)/1.55 var(--font-body);
+    color: rgba(226, 226, 226, 0.55);
+    margin: 0; max-width: 460px;
+  }
+  .in-action__grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+  }
+  .in-action__tile {
+    position: relative; aspect-ratio: 4 / 5;
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: default;
+  }
+  .in-action__tile img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    filter: grayscale(20%) brightness(0.78) contrast(1.02);
+    transition: filter var(--duration) var(--ease), transform 500ms var(--ease);
+  }
+  .in-action__tile:hover img {
+    filter: grayscale(0%) brightness(0.92) contrast(1.05);
+    transform: scale(1.04);
+  }
+  .in-action__tile::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(18,18,18,0) 35%, rgba(18,18,18,0.85) 100%);
+    pointer-events: none;
+  }
+  .in-action__tile-body {
+    position: absolute; left: 18px; right: 18px; bottom: 16px;
+    z-index: 1;
+  }
+  .in-action__tile-label {
+    font: 600 10px/1 var(--font-body);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--np-green);
+    margin-bottom: 8px;
+  }
+  .in-action__tile-title {
+    font: 600 clamp(15px, 1.3vw, 18px)/1.3 var(--font-display);
+    color: #fff;
+    letter-spacing: -0.01em;
+  }
+  @media (max-width: 900px) {
+    .in-action__grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .in-action__grid { grid-template-columns: 1fr; }
+    .in-action__tile { aspect-ratio: 16 / 10; }
+  }
+
   /* ─── Global reach ─── */
   .reach__inner {
     display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap-lg);
@@ -588,8 +690,46 @@
 
   /* ─── Why NexPoint ─── */
   .why__head {
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap-lg);
+    display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: var(--gap-lg);
     margin-bottom: clamp(40px, 5vh, 64px);
+    align-items: center;
+  }
+  .why__head-text { align-self: center; }
+  .why__photo {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-soft);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  }
+  .why__photo img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    filter: grayscale(15%) brightness(0.85) contrast(1.05);
+    transition: transform 800ms var(--ease);
+  }
+  .why__photo:hover img { transform: scale(1.04); }
+  .why__photo::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 45%, rgba(13,14,15,0.7) 100%);
+    pointer-events: none;
+  }
+  .why__photo-caption {
+    position: absolute; left: 22px; right: 22px; bottom: 20px;
+    z-index: 1;
+  }
+  .why__photo-caption-label {
+    font: 600 10px/1 var(--font-body);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--np-green);
+    margin-bottom: 8px;
+  }
+  .why__photo-caption-text {
+    font: 500 clamp(15px, 1.2vw, 17px)/1.35 var(--font-display);
+    color: #fff;
+    letter-spacing: -0.01em;
   }
   .why__title {
     font: 600 clamp(28px, 3.2vw, 44px)/1.15 var(--font-display);
@@ -632,11 +772,25 @@
 
   /* ─── Book call ─── */
   .book {
+    position: relative; overflow: hidden;
     padding: var(--section-pad) 0;
-    background:
-      radial-gradient(700px 500px at 90% 10%, rgba(0, 92, 200, 0.10), transparent 60%),
-      #121212;
+    background: #121212;
   }
+  .book__bg {
+    position: absolute; inset: 0; z-index: 0;
+    background-image: url("assets/img/book-map.jpg");
+    background-size: cover; background-position: center;
+    opacity: 0.10;
+    filter: grayscale(60%) contrast(1.1);
+    pointer-events: none;
+  }
+  .book__bg::after {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(700px 500px at 90% 10%, rgba(0, 92, 200, 0.18), transparent 60%),
+      linear-gradient(180deg, rgba(18,18,18,0.65) 0%, rgba(18,18,18,0.85) 100%);
+  }
+  .book > * { position: relative; z-index: 1; }
   .book__inner {
     display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: var(--gap-lg);
     align-items: start;
@@ -807,7 +961,7 @@
     margin: 0 auto;
     padding: clamp(48px, 7vh, 80px) var(--side-pad) clamp(24px, 3vh, 40px);
     display: grid;
-    grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)) minmax(0, 1.3fr);
+    grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
     gap: clamp(24px, 3vw, 48px);
   }
   .footer__brand img { height: 44px; width: auto; display: block; margin-bottom: 24px; }
@@ -932,13 +1086,14 @@
 
 <!-- ───── Hero ───── -->
 <section id="top" class="hero">
+  <div class="hero__bg" aria-hidden="true"></div>
   <div class="hero__inner">
     <div>
       <h1 class="hero__title">
-        The commercial bridge for <span class="hero__title-accent">Orthotics &amp; Prosthetics</span> partners worldwide.
+        The commercial bridge for <span class="hero__title-accent">Orthotics &amp; Prosthetics</span> worldwide.
       </h1>
       <p class="hero__sub">
-        NexPoint helps O&amp;P companies to expand into new markets, build strategic partnerships, and connect with the right suppliers, labs, clinics, and technology providers.
+        NexPoint helps O&amp;P, healthcare, and manufacturing companies expand into new markets through strategic partnerships, qualified introductions, channel development, and commercial growth support.
       </p>
       <div class="hero__ctas">
         <button class="btn btn--primary-lg" data-nav="book">
@@ -949,16 +1104,16 @@
       </div>
       <div class="hero__stats">
         <div>
-          <div class="stat__num">5</div>
-          <div class="stat__label">core markets</div>
+          <div class="stat__num">1,000+</div>
+          <div class="stat__label">Industry contacts</div>
         </div>
         <div>
-          <div class="stat__num">200+</div>
-          <div class="stat__label">active introductions</div>
-        </div>
-        <div>
-          <div class="stat__num">20+</div>
+          <div class="stat__num">15+</div>
           <div class="stat__label">Years of O&amp;P relationships</div>
+        </div>
+        <div>
+          <div class="stat__num">Global</div>
+          <div class="stat__label">Market reach</div>
         </div>
       </div>
     </div>
@@ -1085,53 +1240,64 @@
     <div class="services__head">
       <div>
         <span class="eyebrow">What we do</span>
-        <h2 class="services__title">Five ways we shorten the path between you and the right partner.</h2>
+        <h2 class="services__title">Three services. One commercial bridge into global O&amp;P markets.</h2>
       </div>
       <p class="services__lede">
-        Whether you are a manufacturer, materials supplier, technology provider, lab, or clinical organisation, NexPoint works by identifying qualified commercial opportunities, aligning the right strategic partners, and creating clear pathways for international growth and market expansion.
+        NexPoint helps companies enter, scale, and accelerate within the Orthotics &amp; Prosthetics sector — combining strategic advisory, direct business development, and channel partner development under a single commercial relationship.
       </p>
     </div>
 
     <div class="services__grid">
-      <article class="service-card service-card--w8">
-        <div class="service-card__icon service-card__icon--blue">
-          <span class="material-symbols-outlined">public</span>
+      <article class="service-card service-card--w4">
+        <div class="service-card__media">
+          <img src="assets/img/service-consultancy.jpg" alt="O&amp;P Market Consultancy — selling orthopedic products and components" loading="lazy" />
         </div>
-        <h3>Market entry &amp; expansion</h3>
-        <p>A staged commercial roadmap into the UK, EU, North American, or APAC markets — covering regulatory landscape, distribution model, pricing, and the first ten introductions that actually move.</p>
-        <div class="service-card__chips">
-          <span class="chip">Strategy</span>
-          <span class="chip">Regulatory</span>
-          <span class="chip">GTM</span>
+        <div class="service-card__body">
+          <div class="service-card__icon service-card__icon--blue">
+            <span class="material-symbols-outlined">insights</span>
+          </div>
+          <h3>O&amp;P Market Consultancy</h3>
+          <p>Industry-specific commercial strategy for companies entering or expanding within Orthotics &amp; Prosthetics — O&amp;P-focused sales strategies, market-entry plans, positioning, messaging, and go-to-market sales plays, informed by deep market knowledge and an established international network.</p>
+          <div class="service-card__chips">
+            <span class="chip">Strategy</span>
+            <span class="chip">Go-to-market</span>
+            <span class="chip">Positioning</span>
+          </div>
         </div>
       </article>
       <article class="service-card service-card--w4">
-        <div class="service-card__icon service-card__icon--green">
-          <span class="material-symbols-outlined">handshake</span>
+        <div class="service-card__media">
+          <img src="assets/img/service-business-dev.jpg" alt="Targeted Business Development" loading="lazy" />
         </div>
-        <h3>Distributor &amp; partner search</h3>
-        <p>Targeted outreach to vetted distributors and lab partners aligned with your category, geography, and growth profile.</p>
+        <div class="service-card__body">
+          <div class="service-card__icon service-card__icon--green">
+            <span class="material-symbols-outlined">my_location</span>
+          </div>
+          <h3>Targeted Business Development</h3>
+          <p>Direct market access into specific territories — identifying target customers, key decision-makers, and qualified opportunities across manufacturers, clinics, labs, and healthcare providers. A commercial extension to your sales function that accelerates traction without relying on cold outreach.</p>
+          <div class="service-card__chips">
+            <span class="chip">Direct access</span>
+            <span class="chip">Territory</span>
+            <span class="chip">Qualified intros</span>
+          </div>
+        </div>
       </article>
       <article class="service-card service-card--w4">
-        <div class="service-card__icon service-card__icon--blue">
-          <span class="material-symbols-outlined">hub</span>
+        <div class="service-card__media">
+          <img src="assets/img/service-channel.jpg" alt="Channel &amp; Reseller Development" loading="lazy" />
         </div>
-        <h3>Supplier network access</h3>
-        <p>Direct lines into top-tier carbon fiber, EVA, polypropylene, and component suppliers.</p>
-      </article>
-      <article class="service-card service-card--w4">
-        <div class="service-card__icon service-card__icon--green">
-          <span class="material-symbols-outlined">science</span>
+        <div class="service-card__body">
+          <div class="service-card__icon service-card__icon--blue">
+            <span class="material-symbols-outlined">hub</span>
+          </div>
+          <h3>Channel &amp; Reseller Development</h3>
+          <p>Identify, qualify, and engage suitable O&amp;P-focused reseller and distribution partners for technologies, materials, manufacturing solutions, and digital workflows — building scalable indirect sales channels through trusted regional partners with existing market presence.</p>
+          <div class="service-card__chips">
+            <span class="chip">Distribution</span>
+            <span class="chip">Channel growth</span>
+            <span class="chip">Partner search</span>
+          </div>
         </div>
-        <h3>Materials opportunities</h3>
-        <p>Position advanced polymers, composites, and clinical consumables in the markets that need them.</p>
-      </article>
-      <article class="service-card service-card--w4">
-        <div class="service-card__icon service-card__icon--blue">
-          <span class="material-symbols-outlined">precision_manufacturing</span>
-        </div>
-        <h3>Technology introductions</h3>
-        <p>Bring digital design, central fabrication, and clinical software to forward-thinking O&amp;P operators.</p>
       </article>
     </div>
   </div>
@@ -1143,7 +1309,7 @@
     <div class="value-chain__intro">
       <span class="eyebrow">The O&amp;P value chain</span>
       <h2 class="h2">We sit at the intersection of every stage of the industry.</h2>
-      <p class="lede">For distributors, labs, and clinics, that means an unfair advantage in negotiating upstream — and a faster route to the products and technologies that change patient outcomes.</p>
+      <p class="lede">From raw materials through to the patient, our network spans the full O&amp;P value chain — giving manufacturers, suppliers, technology providers, labs, and clinical groups a faster route to the partners on either side of them.</p>
     </div>
 
     <div class="value-chain__rail">
@@ -1209,75 +1375,121 @@
 <section id="focus" class="section">
   <div class="container">
     <div class="focus__head">
-      <h2 class="focus__title">Specialized focus areas</h2>
-      <p class="focus__lede">Every introduction is matched to the category, scale, and clinical workflow of your business.</p>
+      <h2 class="focus__title">Industries we serve</h2>
+      <p class="focus__lede">O&amp;P is our home market. Our network and commercial experience extends into the adjacent healthcare, manufacturing, and clinical technology sectors that surround it.</p>
     </div>
 
     <div class="focus__groups">
       <div>
-        <div class="focus__group-label">Devices</div>
+        <div class="focus__group-label">Primary — Orthotics &amp; Prosthetics</div>
         <div class="focus__grid">
           <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">accessibility_new</span></div>
+            <div class="area-card__icon"><span class="material-symbols-outlined">factory</span></div>
             <div>
-              <div class="area-card__title">Prosthetics</div>
-              <div class="area-card__sub">Upper &amp; lower limb</div>
+              <div class="area-card__title">O&amp;P manufacturers</div>
+              <div class="area-card__sub">Devices · components</div>
             </div>
           </div>
           <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">footprint</span></div>
+            <div class="area-card__icon"><span class="material-symbols-outlined">biotech</span></div>
             <div>
-              <div class="area-card__title">Custom orthotics</div>
-              <div class="area-card__sub">AFO · KAFO · TLSO</div>
+              <div class="area-card__title">Fabrication labs</div>
+              <div class="area-card__sub">Custom · CFAB · digital</div>
             </div>
           </div>
           <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">view_in_ar</span></div>
+            <div class="area-card__icon"><span class="material-symbols-outlined">medical_services</span></div>
             <div>
-              <div class="area-card__title">3D-printed insoles</div>
-              <div class="area-card__sub">Digital workflow</div>
+              <div class="area-card__title">Clinical groups</div>
+              <div class="area-card__sub">Multi-site networks</div>
             </div>
           </div>
           <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">inventory</span></div>
+            <div class="area-card__icon"><span class="material-symbols-outlined">local_shipping</span></div>
             <div>
-              <div class="area-card__title">Prefab insoles</div>
-              <div class="area-card__sub">Volume + retail</div>
+              <div class="area-card__title">Distributors</div>
+              <div class="area-card__sub">Regional · specialist</div>
             </div>
           </div>
         </div>
       </div>
       <div>
-        <div class="focus__group-label">Materials &amp; tech</div>
+        <div class="focus__group-label">Secondary — Adjacent sectors</div>
         <div class="focus__grid">
-          <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">science</span></div>
-            <div>
-              <div class="area-card__title">O&amp;P materials</div>
-              <div class="area-card__sub">Carbon · EVA · PP</div>
-            </div>
-          </div>
-          <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">settings_input_component</span></div>
-            <div>
-              <div class="area-card__title">Lab equipment</div>
-              <div class="area-card__sub">Vacuum · CNC · ovens</div>
-            </div>
-          </div>
-          <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">cloud_sync</span></div>
-            <div>
-              <div class="area-card__title">Digital manufacturing</div>
-              <div class="area-card__sub">Digital design · CFAB</div>
-            </div>
-          </div>
           <div class="area-card">
             <div class="area-card__icon"><span class="material-symbols-outlined">monitor_heart</span></div>
             <div>
-              <div class="area-card__title">Clinical technology</div>
-              <div class="area-card__sub">Sensors · gait · EMR</div>
+              <div class="area-card__title">Healthcare &amp; clinical tech</div>
+              <div class="area-card__sub">Devices · sensors · EMR</div>
             </div>
           </div>
+          <div class="area-card">
+            <div class="area-card__icon"><span class="material-symbols-outlined">view_in_ar</span></div>
+            <div>
+              <div class="area-card__title">Additive manufacturing</div>
+              <div class="area-card__sub">3D printing · digital workflows</div>
+            </div>
+          </div>
+          <div class="area-card">
+            <div class="area-card__icon"><span class="material-symbols-outlined">precision_manufacturing</span></div>
+            <div>
+              <div class="area-card__title">Medical manufacturing</div>
+              <div class="area-card__sub">Volume production · components</div>
+            </div>
+          </div>
+          <div class="area-card">
+            <div class="area-card__icon"><span class="material-symbols-outlined">science</span></div>
+            <div>
+              <div class="area-card__title">Materials &amp; consumables</div>
+              <div class="area-card__sub">Polymers · composites · films</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───── Industries in action ───── -->
+<section class="section section--alt">
+  <div class="container">
+    <div class="in-action__head">
+      <div>
+        <span class="eyebrow">In action</span>
+        <h2 class="in-action__title">Where NexPoint adds commercial value.</h2>
+      </div>
+      <p class="in-action__lede">
+        From the factory floor to the clinic — we operate across every stage of the O&amp;P and adjacent healthcare value chain.
+      </p>
+    </div>
+
+    <div class="in-action__grid">
+      <div class="in-action__tile">
+        <img src="assets/img/action-manufacturing.jpg" alt="Manufacturing" loading="lazy" />
+        <div class="in-action__tile-body">
+          <div class="in-action__tile-label">Manufacturing</div>
+          <div class="in-action__tile-title">Devices, components, &amp; production</div>
+        </div>
+      </div>
+      <div class="in-action__tile">
+        <img src="assets/img/action-fabrication.jpg" alt="Fabrication labs" loading="lazy" />
+        <div class="in-action__tile-body">
+          <div class="in-action__tile-label">Fabrication</div>
+          <div class="in-action__tile-title">Labs, digital workflows, &amp; CFAB</div>
+        </div>
+      </div>
+      <div class="in-action__tile">
+        <img src="assets/img/action-clinical.jpg" alt="Clinical care" loading="lazy" />
+        <div class="in-action__tile-body">
+          <div class="in-action__tile-label">Clinical</div>
+          <div class="in-action__tile-title">Clinic networks &amp; patient outcomes</div>
+        </div>
+      </div>
+      <div class="in-action__tile">
+        <img src="assets/img/action-global.jpg" alt="Global network" loading="lazy" />
+        <div class="in-action__tile-body">
+          <div class="in-action__tile-label">Global</div>
+          <div class="in-action__tile-title">International market access</div>
         </div>
       </div>
     </div>
@@ -1290,15 +1502,15 @@
     <div class="reach__inner">
       <div>
         <span class="eyebrow">Global reach</span>
-        <h2 class="reach__title">Local fluency in the five markets that matter most.</h2>
+        <h2 class="reach__title">Local fluency across the markets that matter most.</h2>
         <p class="reach__lede">
-          We bridge global borders with local expertise. Direct access to decision-makers across the UK, USA, Europe, Canada, and Australia.
+          We bridge global borders with local expertise — direct access to O&amp;P decision-makers across the UK, Europe, North America, the Middle East, and Australia.
         </p>
 
         <div class="markets">
           <div class="markets__header">
-            <span class="markets__header-num">500+</span>
-            <span class="markets__header-label">Contacts across our network</span>
+            <span class="markets__header-num">1,000+</span>
+            <span class="markets__header-label">Trusted contacts across our network</span>
           </div>
           <div class="market-row">
             <span class="market-row__dot"></span>
@@ -1414,7 +1626,7 @@
             </g>
           </svg>
           <div class="map-card__footer">
-            <span class="map-card__footer-label">7 regions · 500+ contacts</span>
+            <span class="map-card__footer-label">Global reach · 1,000+ contacts</span>
           </div>
         </div>
       </div>
@@ -1426,39 +1638,60 @@
 <section id="expertise" class="section section--alt">
   <div class="container">
     <div class="why__head">
-      <h2 class="why__title">Why distributors, labs, and clinics choose NexPoint.</h2>
-      <p class="why__lede">
-        The introductions are warm, the briefings are honest, and we will only put names on the table that move the needle. No retainers without a clear commercial brief.
-      </p>
+      <div class="why__head-text">
+        <h2 class="why__title">Why companies choose NexPoint to grow in O&amp;P.</h2>
+        <p class="why__lede" style="margin-top:20px;">
+          We're not a consultancy and we're not a lead-gen agency. We're a commercial partner — built on 15+ years inside Orthotics &amp; Prosthetics and ~1,000 trusted relationships across the global industry.
+        </p>
+      </div>
+      <div class="why__photo">
+        <img src="assets/img/why-partnership.jpg" alt="Long-term commercial partnerships" loading="lazy" />
+        <div class="why__photo-caption">
+          <div class="why__photo-caption-label">Built on trust</div>
+          <div class="why__photo-caption-text">Long-term commercial partnerships, not transactional consulting.</div>
+        </div>
+      </div>
     </div>
 
     <div class="why__grid">
       <article class="why-card">
         <div class="why-card__num">01</div>
-        <h4>Deep O&amp;P knowledge</h4>
-        <p>Decades of combined experience inside O&amp;P manufacturing, fabrication, and clinical care. We speak your language because we have stood in your role.</p>
+        <h4>Direct access to decision-makers</h4>
+        <p>Our ~1,000 trusted contacts include manufacturers, distributors, fabrication labs, clinical groups, and technology leaders across the UK, Europe, North America, the Middle East, and Australia.</p>
       </article>
       <article class="why-card">
         <div class="why-card__num">02</div>
-        <h4>High-level rolodex</h4>
-        <p>Active relationships with distributors, lab owners, clinic groups, and technology leaders across five core markets.</p>
+        <h4>Industry-native, not generic</h4>
+        <p>15+ years inside O&amp;P manufacturing, fabrication, and clinical workflows. We bring market reality and commercial fluency — not slide-deck theory.</p>
       </article>
       <article class="why-card">
         <div class="why-card__num">03</div>
-        <h4>Commercial sharpness</h4>
-        <p>Pragmatic GTM strategy, pricing tactics, and B2B contract negotiation — not slide-deck theory.</p>
+        <h4>Flexible commercial models</h4>
+        <p>Engage as a strategic advisor, on success-based terms, or as a recurring commercial partner. Aligned with your stage, risk profile, and growth goals.</p>
       </article>
       <article class="why-card">
         <div class="why-card__num">04</div>
-        <h4>Technical edge</h4>
-        <p>We do not just connect. We understand digital workflows, materials, fabrication, and the clinical mechanics of your product.</p>
+        <h4>A shorter path to traction</h4>
+        <p>We compress the cost and complexity of international expansion by going direct to the right people — qualified commercial conversations, not cold outreach.</p>
       </article>
+    </div>
+
+    <div class="value-chain__cta" style="margin-top: clamp(40px, 5vh, 64px);">
+      <div class="value-chain__cta-text">
+        <span class="material-symbols-outlined">arrow_outward</span>
+        <span>Exploring a new market, a new partner, or a new commercial channel? Let's talk.</span>
+      </div>
+      <a href="#book" class="value-chain__cta-link" data-nav="book">
+        Request an intro call
+        <span class="material-symbols-outlined">arrow_forward</span>
+      </a>
     </div>
   </div>
 </section>
 
 <!-- ───── Book call ───── -->
 <section id="book" class="book">
+  <div class="book__bg" aria-hidden="true"></div>
   <div class="container">
     <div class="book__inner">
       <div>
@@ -1491,34 +1724,23 @@
   <div class="footer__inner">
     <div class="footer__brand">
       <img src="assets/nexpoint-logo.png" alt="NexPoint" />
-      <p>Connecting the Orthotics &amp; Prosthetics industry globally. UK · USA · EU · Canada · Australia.</p>
+      <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, and Australia.</p>
     </div>
     <div class="footer__col">
       <h5>Services</h5>
       <ul>
-        <li><a href="#">Market entry</a></li>
-        <li><a href="#">Partner search</a></li>
-        <li><a href="#">Supplier network</a></li>
-        <li><a href="#">Materials</a></li>
-        <li><a href="#">Technology</a></li>
+        <li><a href="#services" data-nav="services">O&amp;P Market Consultancy</a></li>
+        <li><a href="#services" data-nav="services">Business Development</a></li>
+        <li><a href="#services" data-nav="services">Channel &amp; Reseller</a></li>
       </ul>
     </div>
     <div class="footer__col">
-      <h5>Company</h5>
+      <h5>Explore</h5>
       <ul>
-        <li><a href="#">About</a></li>
-        <li><a href="#">Network</a></li>
-        <li><a href="#">Press</a></li>
-        <li><a href="#">Careers</a></li>
-      </ul>
-    </div>
-    <div class="footer__col">
-      <h5>Resources</h5>
-      <ul>
-        <li><a href="#">O&amp;P value chain</a></li>
-        <li><a href="#">Geographies</a></li>
-        <li><a href="#">Case studies</a></li>
-        <li><a href="#">Privacy</a></li>
+        <li><a href="#value-chain" data-nav="value-chain">O&amp;P value chain</a></li>
+        <li><a href="#focus" data-nav="focus">Industries</a></li>
+        <li><a href="#network" data-nav="network">Global network</a></li>
+        <li><a href="#expertise" data-nav="expertise">Why NexPoint</a></li>
       </ul>
     </div>
     <div class="footer__col">
@@ -1528,11 +1750,12 @@
           <span class="material-symbols-outlined">mail</span>
           hello@nexpoint.co.uk
         </a>
-        <span class="footer__contact-loc">London · New York · Berlin</span>
         <div class="footer__socials">
-          <a href="#" aria-label="Link"><span class="material-symbols-outlined">link</span></a>
-          <a href="#" aria-label="Website"><span class="material-symbols-outlined">language</span></a>
-          <a href="#" aria-label="Share"><span class="material-symbols-outlined">share</span></a>
+          <a href="https://www.linkedin.com/company/nexpoint-global/" target="_blank" rel="noopener" aria-label="LinkedIn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/>
+            </svg>
+          </a>
         </div>
       </div>
     </div>
