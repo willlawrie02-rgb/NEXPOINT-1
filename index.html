@@ -268,6 +268,8 @@
     box-shadow: 0 0 8px var(--np-green);
   }
   .network-card svg { display: block; width: 100%; height: 100%; }
+  .network-card .ring-spin     { transform-origin: 300px 300px; animation: spin 40s linear infinite; }
+  .network-card .ring-spin-rev { transform-origin: 300px 300px; animation: spin 60s linear infinite reverse; }
 
   /* ─── Partners strip ─── */
   .partners {
@@ -353,6 +355,7 @@
     display: flex; flex-direction: column; flex: 1;
   }
   .service-card--w8 { grid-column: span 8; }
+  .service-card--w6 { grid-column: span 6; }
   .service-card--w4 { grid-column: span 4; }
   .service-card__icon {
     width: 48px; height: 48px; border-radius: 8px;
@@ -401,48 +404,91 @@
   .value-chain__rail {
     position: relative;
   }
-  .value-chain__line {
-    position: absolute; top: clamp(28px, 3vw, 40px); left: 8%; right: 8%; height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(0, 92, 200, 0.45), rgba(0, 92, 200, 0.45), transparent);
-    z-index: 0;
+  .vc-chain {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
   }
-  .value-chain__grid {
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px;
-    position: relative; z-index: 1;
+  .vc-step {
+    flex: 0 0 auto;
+    width: clamp(116px, 14vw, 184px);
+    display: flex; flex-direction: column; align-items: center; text-align: center;
   }
-  .vc-step { display: flex; flex-direction: column; align-items: center; text-align: center; }
   .vc-step__node {
     position: relative;
-    width: clamp(56px, 6vw, 80px); height: clamp(56px, 6vw, 80px); border-radius: 9999px;
-    background: #121212;
-    border: 1px solid rgba(0, 92, 200, 0.4);
+    width: clamp(64px, 6.4vw, 86px); height: clamp(64px, 6.4vw, 86px);
+    border-radius: 9999px;
     display: flex; align-items: center; justify-content: center;
-    margin-bottom: 20px;
-    color: var(--np-blue);
+    margin-bottom: 18px;
+    color: #fff;
+    background:
+      radial-gradient(circle at 38% 30%, rgba(0, 92, 200, 0.30), transparent 72%),
+      linear-gradient(160deg, #1b1e24 0%, #101115 100%);
+    border: 1.5px solid rgba(0, 92, 200, 0.55);
+    box-shadow: 0 0 0 6px rgba(0, 92, 200, 0.05), 0 12px 30px rgba(0, 0, 0, 0.5);
+    transition: transform 200ms var(--ease), box-shadow 200ms var(--ease), border-color 200ms var(--ease);
   }
-  .vc-step__node span.material-symbols-outlined { font-size: clamp(22px, 2.2vw, 30px); }
-  .vc-step--center .vc-step__node { box-shadow: 0 0 32px rgba(0, 92, 200, 0.25); }
+  .vc-step__node span.material-symbols-outlined { font-size: clamp(26px, 2.5vw, 34px); }
+  .vc-step:hover .vc-step__node {
+    transform: translateY(-4px);
+    border-color: var(--np-green);
+    box-shadow: 0 0 0 6px rgba(139, 197, 63, 0.10), 0 0 30px rgba(0, 92, 200, 0.4), 0 16px 36px rgba(0, 0, 0, 0.55);
+  }
   .vc-step__index {
-    position: absolute; top: -10px; right: -10px;
-    width: 24px; height: 24px; border-radius: 9999px;
-    background: var(--bg-alt);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    position: absolute; top: -9px; right: -9px;
+    width: 28px; height: 28px; border-radius: 9999px;
+    background: var(--np-blue);
+    border: 2px solid var(--bg-alt);
     display: flex; align-items: center; justify-content: center;
-    font: 600 10px/1 var(--font-body);
-    color: rgba(255, 255, 255, 0.7);
+    font: 700 11px/1 var(--font-body);
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(0, 92, 200, 0.5);
   }
   .vc-step__label {
-    font: 600 17px/1 var(--font-display);
+    font: 700 clamp(15px, 1.5vw, 18px)/1.25 var(--font-display);
     color: #fff;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     letter-spacing: -0.01em;
   }
   .vc-step__sub {
-    font: 600 11px/1.4 var(--font-body);
-    letter-spacing: 0.08em;
+    font: 600 10.5px/1.45 var(--font-body);
+    letter-spacing: 0.07em;
     text-transform: uppercase;
-    color: rgba(226, 226, 226, 0.45);
+    color: rgba(226, 226, 226, 0.5);
   }
+  /* Chain connectors */
+  .vc-link {
+    flex: 1 1 auto;
+    min-width: 20px;
+    height: clamp(64px, 6.4vw, 86px);
+    display: flex; align-items: center; justify-content: center;
+    gap: 1px;
+  }
+  .vc-link__bar {
+    position: relative;
+    flex: 1;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(0, 92, 200, 0.65), rgba(139, 197, 63, 0.65));
+    overflow: hidden;
+  }
+  .vc-link__bar::after {
+    content: "";
+    position: absolute; top: 50%; left: 0; margin-top: -2px;
+    width: 16px; height: 4px; border-radius: 4px;
+    background: linear-gradient(90deg, transparent, #8BC53F, transparent);
+    animation: vc-flow-x 2.8s linear infinite;
+  }
+  .vc-link:nth-of-type(4) .vc-link__bar::after { animation-delay: 0.7s; }
+  .vc-link:nth-of-type(6) .vc-link__bar::after { animation-delay: 1.4s; }
+  .vc-link:nth-of-type(8) .vc-link__bar::after { animation-delay: 2.1s; }
+  .vc-link__arrow {
+    flex: 0 0 auto;
+    font-size: 20px;
+    color: rgba(139, 197, 63, 0.95);
+  }
+  @keyframes vc-flow-x { from { left: -16px; } to { left: 100%; } }
+  @keyframes vc-flow-y { from { top: -16px; } to { top: 100%; } }
   .value-chain__cta {
     margin-top: 64px;
     padding: 20px 24px;
@@ -517,11 +563,6 @@
   .area-card__title {
     font: 600 16px/1.3 var(--font-body);
     color: #fff;
-    margin-bottom: 6px;
-  }
-  .area-card__sub {
-    font: 400 13px/1.4 var(--font-body);
-    color: rgba(226, 226, 226, 0.5);
   }
 
   /* ─── In Action gallery ─── */
@@ -1043,11 +1084,26 @@
     .book__inner { grid-template-columns: minmax(0, 1fr); gap: 40px; }
     .book__inner > * { max-width: 640px; width: 100%; margin-left: auto; margin-right: auto; }
     .services__grid { grid-template-columns: minmax(0, 1fr); }
-    .service-card--w8, .service-card--w4 { grid-column: span 1; }
+    .service-card--w8, .service-card--w6, .service-card--w4 { grid-column: span 1; }
     .focus__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .why__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .value-chain__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
-    .value-chain__line { display: none; }
+    .vc-chain { flex-direction: column; align-items: center; }
+    .vc-step { width: 100%; max-width: 300px; }
+    .vc-link {
+      width: clamp(64px, 6.4vw, 86px); height: 46px;
+      flex-direction: column;
+    }
+    .vc-link__bar {
+      width: 2px; height: auto;
+      background: linear-gradient(180deg, rgba(0, 92, 200, 0.65), rgba(139, 197, 63, 0.65));
+    }
+    .vc-link__bar::after {
+      top: 0; left: 50%; margin-top: 0; margin-left: -2px;
+      width: 4px; height: 16px;
+      background: linear-gradient(180deg, transparent, #8BC53F, transparent);
+      animation-name: vc-flow-y;
+    }
+    .vc-link__arrow { transform: rotate(90deg); }
     .navbar__links { display: none; }
     .footer__inner { grid-template-columns: 1fr 1fr; gap: 32px; }
   }
@@ -1108,7 +1164,7 @@
           <div class="stat__label">Industry contacts</div>
         </div>
         <div>
-          <div class="stat__num">15+</div>
+          <div class="stat__num">20+</div>
           <div class="stat__label">Years of O&amp;P relationships</div>
         </div>
         <div>
@@ -1120,113 +1176,135 @@
 
     <div class="network-card">
       <div class="network-card__header">
-        <span class="network-card__label">Live network</span>
+        <span class="network-card__live">
+          <span class="network-card__live-dot"></span>The NexPoint Network
+        </span>
       </div>
-      <svg viewBox="0 0 520 520" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet">
         <defs>
           <radialGradient id="hubGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"   stop-color="#005CC8" stop-opacity="0.45" />
+            <stop offset="0%"   stop-color="#005CC8" stop-opacity="0.55" />
+            <stop offset="55%"  stop-color="#005CC8" stop-opacity="0.10" />
             <stop offset="100%" stop-color="#005CC8" stop-opacity="0" />
           </radialGradient>
-          <radialGradient id="lineFade" cx="260" cy="240" r="220" gradientUnits="userSpaceOnUse">
-            <stop offset="0%"   stop-color="rgba(0,92,200,0.7)" />
-            <stop offset="60%"  stop-color="rgba(0,92,200,0.35)" />
-            <stop offset="100%" stop-color="rgba(255,255,255,0.06)" />
+          <linearGradient id="spoke" gradientUnits="userSpaceOnUse" x1="300" y1="300" x2="0" y2="0">
+            <stop offset="0%"   stop-color="#3D8EEB" stop-opacity="0.85" />
+            <stop offset="55%"  stop-color="#8BC53F" stop-opacity="0.55" />
+            <stop offset="100%" stop-color="#8BC53F" stop-opacity="0.25" />
+          </linearGradient>
+          <radialGradient id="haloG" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stop-color="#8BC53F" stop-opacity="0.55" />
+            <stop offset="100%" stop-color="#8BC53F" stop-opacity="0" />
           </radialGradient>
+          <radialGradient id="nodeFill" cx="40%" cy="35%" r="70%">
+            <stop offset="0%"   stop-color="#1a2218" />
+            <stop offset="100%" stop-color="#0B0E14" />
+          </radialGradient>
+          <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2.2" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
         </defs>
 
-        <!-- grid -->
-        <g stroke="rgba(255,255,255,0.03)">
-          <line x1="0" y1="0"   x2="520" y2="0"   /><line x1="0" y1="52"  x2="520" y2="52"  />
-          <line x1="0" y1="104" x2="520" y2="104" /><line x1="0" y1="156" x2="520" y2="156" />
-          <line x1="0" y1="208" x2="520" y2="208" /><line x1="0" y1="260" x2="520" y2="260" />
-          <line x1="0" y1="312" x2="520" y2="312" /><line x1="0" y1="364" x2="520" y2="364" />
-          <line x1="0" y1="416" x2="520" y2="416" /><line x1="0" y1="468" x2="520" y2="468" />
-          <line x1="0"   y1="0" x2="0"   y2="520" /><line x1="52"  y1="0" x2="52"  y2="520" />
-          <line x1="104" y1="0" x2="104" y2="520" /><line x1="156" y1="0" x2="156" y2="520" />
-          <line x1="208" y1="0" x2="208" y2="520" /><line x1="260" y1="0" x2="260" y2="520" />
-          <line x1="312" y1="0" x2="312" y2="520" /><line x1="364" y1="0" x2="364" y2="520" />
-          <line x1="416" y1="0" x2="416" y2="520" /><line x1="468" y1="0" x2="468" y2="520" />
+        <!-- Faint grid -->
+        <g stroke="rgba(255,255,255,0.025)" stroke-width="1">
+          <line x1="0" y1="150" x2="600" y2="150" /><line x1="0" y1="300" x2="600" y2="300" />
+          <line x1="0" y1="450" x2="600" y2="450" />
+          <line x1="150" y1="0" x2="150" y2="600" /><line x1="300" y1="0" x2="300" y2="600" />
+          <line x1="450" y1="0" x2="450" y2="600" />
         </g>
 
-        <!-- hub halo -->
-        <circle cx="260" cy="240" r="120" fill="url(#hubGlow)" />
+        <!-- Concentric guide rings -->
+        <circle cx="300" cy="300" r="245" fill="none" stroke="rgba(255,255,255,0.04)" />
+        <circle cx="300" cy="300" r="180" fill="none" stroke="rgba(255,255,255,0.05)" />
 
-        <!-- spokes -->
-        <line x1="260" y1="240" x2="80"  y2="80"  stroke="url(#lineFade)" stroke-width="1" />
-        <line x1="260" y1="240" x2="440" y2="80"  stroke="url(#lineFade)" stroke-width="1" />
-        <line x1="260" y1="240" x2="60"  y2="240" stroke="url(#lineFade)" stroke-width="1" />
-        <line x1="260" y1="240" x2="460" y2="240" stroke="url(#lineFade)" stroke-width="1" />
-        <line x1="260" y1="240" x2="90"  y2="400" stroke="url(#lineFade)" stroke-width="1" />
-        <line x1="260" y1="240" x2="430" y2="400" stroke="url(#lineFade)" stroke-width="1" />
+        <!-- Rotating dashed rings -->
+        <g class="ring-spin">
+          <circle cx="300" cy="300" r="215" fill="none" stroke="rgba(139,197,63,0.22)" stroke-width="1" stroke-dasharray="2 10" />
+        </g>
+        <g class="ring-spin-rev">
+          <circle cx="300" cy="300" r="125" fill="none" stroke="rgba(61,142,235,0.30)" stroke-width="1" stroke-dasharray="1 8" />
+        </g>
 
-        <!-- traveling pulses -->
-        <circle r="2.5" fill="#005CC8">
-          <animateMotion dur="3s" repeatCount="indefinite" begin="0s" path="M 260,240 L 80,80" />
-          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="3s" repeatCount="indefinite" begin="0s" />
-        </circle>
-        <circle r="2.5" fill="#8BC53F">
-          <animateMotion dur="4s" repeatCount="indefinite" begin="0.4s" path="M 260,240 L 440,80" />
-          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="4s" repeatCount="indefinite" begin="0.4s" />
-        </circle>
-        <circle r="2.5" fill="#005CC8">
-          <animateMotion dur="5s" repeatCount="indefinite" begin="0.8s" path="M 260,240 L 60,240" />
-          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="5s" repeatCount="indefinite" begin="0.8s" />
-        </circle>
-        <circle r="2.5" fill="#8BC53F">
-          <animateMotion dur="3s" repeatCount="indefinite" begin="1.2s" path="M 260,240 L 460,240" />
-          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="3s" repeatCount="indefinite" begin="1.2s" />
-        </circle>
-        <circle r="2.5" fill="#8BC53F">
-          <animateMotion dur="4s" repeatCount="indefinite" begin="1.6s" path="M 260,240 L 90,400" />
-          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="4s" repeatCount="indefinite" begin="1.6s" />
-        </circle>
-        <circle r="2.5" fill="#005CC8">
-          <animateMotion dur="5s" repeatCount="indefinite" begin="2.0s" path="M 260,240 L 430,400" />
-          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="5s" repeatCount="indefinite" begin="2.0s" />
+        <!-- Hub glow -->
+        <circle cx="300" cy="300" r="170" fill="url(#hubGlow)" />
+
+        <!-- Spokes -->
+        <g stroke-width="1.5" stroke-linecap="round" fill="none">
+          <line x1="300" y1="300" x2="130" y2="140" stroke="url(#spoke)" />
+          <line x1="300" y1="300" x2="470" y2="140" stroke="url(#spoke)" />
+          <line x1="300" y1="300" x2="100" y2="300" stroke="url(#spoke)" />
+          <line x1="300" y1="300" x2="500" y2="300" stroke="url(#spoke)" />
+          <line x1="300" y1="300" x2="130" y2="460" stroke="url(#spoke)" />
+          <line x1="300" y1="300" x2="470" y2="460" stroke="url(#spoke)" />
+        </g>
+
+        <!-- Outward-traveling green pulses -->
+        <g filter="url(#softGlow)">
+          <circle r="3.5" fill="#8BC53F"><animateMotion dur="4s"   repeatCount="indefinite"             path="M 300,300 L 130,140" /><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="4s"   repeatCount="indefinite" /></circle>
+          <circle r="3.5" fill="#8BC53F"><animateMotion dur="4.5s" repeatCount="indefinite" begin="0.6s" path="M 300,300 L 470,140" /><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="4.5s" repeatCount="indefinite" begin="0.6s" /></circle>
+          <circle r="3.5" fill="#8BC53F"><animateMotion dur="5s"   repeatCount="indefinite" begin="1.2s" path="M 300,300 L 100,300" /><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="5s"   repeatCount="indefinite" begin="1.2s" /></circle>
+          <circle r="3.5" fill="#8BC53F"><animateMotion dur="5s"   repeatCount="indefinite" begin="1.8s" path="M 300,300 L 500,300" /><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="5s"   repeatCount="indefinite" begin="1.8s" /></circle>
+          <circle r="3.5" fill="#8BC53F"><animateMotion dur="4.5s" repeatCount="indefinite" begin="2.4s" path="M 300,300 L 130,460" /><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="4.5s" repeatCount="indefinite" begin="2.4s" /></circle>
+          <circle r="3.5" fill="#8BC53F"><animateMotion dur="4s"   repeatCount="indefinite" begin="3.0s" path="M 300,300 L 470,460" /><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="4s"   repeatCount="indefinite" begin="3.0s" /></circle>
+        </g>
+
+        <!-- Hub -->
+        <circle cx="300" cy="300" r="96" fill="#0B0E14" stroke="rgba(0,92,200,0.20)" stroke-width="14" />
+        <circle cx="300" cy="300" r="92" fill="#0B0E14" stroke="#3D8EEB" stroke-width="1.5" />
+        <circle cx="300" cy="300" r="92" fill="none" stroke="#3D8EEB" stroke-width="1.25" opacity="0.6">
+          <animate attributeName="r" values="92;112;92" dur="3.6s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.55;0;0.55" dur="3.6s" repeatCount="indefinite" />
         </circle>
 
-        <!-- hub -->
-        <circle cx="260" cy="240" r="44" fill="none" stroke="rgba(255,255,255,0.08)" />
-        <circle cx="260" cy="240" r="38" fill="#121212" stroke="#005CC8" stroke-width="1.5" />
-        <circle cx="260" cy="240" r="38" fill="none" stroke="#005CC8" stroke-width="1">
-          <animate attributeName="r" values="38;46;38" dur="3s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.4;0;0.4" dur="3s" repeatCount="indefinite" />
-        </circle>
-        <text x="260" y="245" text-anchor="middle" fill="#fff"
-              font-family="Montserrat" font-weight="700" font-size="15" letter-spacing="-0.01em">NexPoint</text>
+        <!-- Hub text -->
+        <text x="300" y="295" text-anchor="middle" fill="#fff" font-family="Montserrat" font-weight="800" font-size="34" letter-spacing="-0.025em">NexPoint</text>
+        <line x1="262" y1="312" x2="338" y2="312" stroke="rgba(139,197,63,0.55)" stroke-width="1.25" />
+        <text x="300" y="334" text-anchor="middle" fill="#E8F2D5" font-family="Inter" font-weight="700" font-size="12" letter-spacing="0.18em">1,000+ CONTACTS</text>
 
-        <!-- outer nodes -->
-        <g font-family="Inter" font-weight="600" font-size="13" letter-spacing="0.04em" fill="rgba(255,255,255,0.85)">
+        <!-- Outer nodes -->
+        <g font-family="Montserrat" font-weight="700" font-size="15" letter-spacing="-0.005em" fill="#FFFFFF">
           <g>
-            <circle cx="80" cy="80" r="22" fill="#121212" stroke="#8BC53F" stroke-width="1.25" />
-            <circle cx="80" cy="80" r="3" fill="#8BC53F" />
-            <text x="80" y="120" text-anchor="middle">Manufacturer</text>
+            <circle cx="130" cy="140" r="36" fill="url(#haloG)" />
+            <circle cx="130" cy="140" r="22" fill="url(#nodeFill)" stroke="#8BC53F" stroke-width="1.5" />
+            <circle cx="130" cy="140" r="5" fill="#8BC53F"><animate attributeName="opacity" values="1;0.5;1" dur="2.6s" repeatCount="indefinite" /></circle>
+            <rect x="60" y="184" width="140" height="28" rx="14" fill="rgba(8,11,16,0.92)" stroke="rgba(139,197,63,0.55)" />
+            <text x="130" y="203" text-anchor="middle">Manufacturer</text>
           </g>
           <g>
-            <circle cx="440" cy="80" r="22" fill="#121212" stroke="#8BC53F" stroke-width="1.25" />
-            <circle cx="440" cy="80" r="3" fill="#8BC53F" />
-            <text x="440" y="120" text-anchor="middle">Materials</text>
+            <circle cx="470" cy="140" r="36" fill="url(#haloG)" />
+            <circle cx="470" cy="140" r="22" fill="url(#nodeFill)" stroke="#8BC53F" stroke-width="1.5" />
+            <circle cx="470" cy="140" r="5" fill="#8BC53F"><animate attributeName="opacity" values="1;0.5;1" dur="2.6s" begin="0.4s" repeatCount="indefinite" /></circle>
+            <rect x="400" y="184" width="140" height="28" rx="14" fill="rgba(8,11,16,0.92)" stroke="rgba(139,197,63,0.55)" />
+            <text x="470" y="203" text-anchor="middle">Materials</text>
           </g>
           <g>
-            <circle cx="60" cy="240" r="22" fill="#121212" stroke="#005CC8" stroke-width="1.25" />
-            <circle cx="60" cy="240" r="3" fill="#005CC8" />
-            <text x="60" y="280" text-anchor="middle">Lab</text>
+            <circle cx="100" cy="300" r="36" fill="url(#haloG)" />
+            <circle cx="100" cy="300" r="22" fill="url(#nodeFill)" stroke="#8BC53F" stroke-width="1.5" />
+            <circle cx="100" cy="300" r="5" fill="#8BC53F"><animate attributeName="opacity" values="1;0.5;1" dur="2.6s" begin="0.8s" repeatCount="indefinite" /></circle>
+            <rect x="30" y="344" width="140" height="28" rx="14" fill="rgba(8,11,16,0.92)" stroke="rgba(139,197,63,0.55)" />
+            <text x="100" y="363" text-anchor="middle">Lab</text>
           </g>
           <g>
-            <circle cx="460" cy="240" r="22" fill="#121212" stroke="#8BC53F" stroke-width="1.25" />
-            <circle cx="460" cy="240" r="3" fill="#8BC53F" />
-            <text x="460" y="280" text-anchor="middle">Technology</text>
+            <circle cx="500" cy="300" r="36" fill="url(#haloG)" />
+            <circle cx="500" cy="300" r="22" fill="url(#nodeFill)" stroke="#8BC53F" stroke-width="1.5" />
+            <circle cx="500" cy="300" r="5" fill="#8BC53F"><animate attributeName="opacity" values="1;0.5;1" dur="2.6s" begin="1.2s" repeatCount="indefinite" /></circle>
+            <rect x="430" y="344" width="140" height="28" rx="14" fill="rgba(8,11,16,0.92)" stroke="rgba(139,197,63,0.55)" />
+            <text x="500" y="363" text-anchor="middle">Technology</text>
           </g>
           <g>
-            <circle cx="90" cy="400" r="22" fill="#121212" stroke="#8BC53F" stroke-width="1.25" />
-            <circle cx="90" cy="400" r="3" fill="#8BC53F" />
-            <text x="90" y="440" text-anchor="middle">Distributor</text>
+            <circle cx="130" cy="460" r="36" fill="url(#haloG)" />
+            <circle cx="130" cy="460" r="22" fill="url(#nodeFill)" stroke="#8BC53F" stroke-width="1.5" />
+            <circle cx="130" cy="460" r="5" fill="#8BC53F"><animate attributeName="opacity" values="1;0.5;1" dur="2.6s" begin="1.6s" repeatCount="indefinite" /></circle>
+            <rect x="60" y="504" width="140" height="28" rx="14" fill="rgba(8,11,16,0.92)" stroke="rgba(139,197,63,0.55)" />
+            <text x="130" y="523" text-anchor="middle">Distributor</text>
           </g>
           <g>
-            <circle cx="430" cy="400" r="22" fill="#121212" stroke="#005CC8" stroke-width="1.25" />
-            <circle cx="430" cy="400" r="3" fill="#005CC8" />
-            <text x="430" y="440" text-anchor="middle">Clinic</text>
+            <circle cx="470" cy="460" r="36" fill="url(#haloG)" />
+            <circle cx="470" cy="460" r="22" fill="url(#nodeFill)" stroke="#8BC53F" stroke-width="1.5" />
+            <circle cx="470" cy="460" r="5" fill="#8BC53F"><animate attributeName="opacity" values="1;0.5;1" dur="2.6s" begin="2.0s" repeatCount="indefinite" /></circle>
+            <rect x="400" y="504" width="140" height="28" rx="14" fill="rgba(8,11,16,0.92)" stroke="rgba(139,197,63,0.55)" />
+            <text x="470" y="523" text-anchor="middle">Clinic</text>
           </g>
         </g>
       </svg>
@@ -1243,31 +1321,14 @@
         <h2 class="services__title">Three services. One commercial bridge into global O&amp;P markets.</h2>
       </div>
       <p class="services__lede">
-        NexPoint helps companies enter, scale, and accelerate within the Orthotics &amp; Prosthetics sector — combining strategic advisory, direct business development, and channel partner development under a single commercial relationship.
+        We help O&amp;P, healthcare, and manufacturing companies grow internationally through three forms of qualified introduction — direct customer access in new territories, reseller and distribution partnerships, and commercial partners for university spin-outs taking new technology to market. Every introduction comes with the market context and commercial fluency, built on 20+ years inside O&amp;P and ~1,000 trusted relationships, to turn it into traction.
       </p>
     </div>
 
     <div class="services__grid">
       <article class="service-card service-card--w4">
         <div class="service-card__media">
-          <img src="assets/img/service-consultancy.jpg" alt="O&amp;P Market Consultancy — selling orthopedic products and components" loading="lazy" />
-        </div>
-        <div class="service-card__body">
-          <div class="service-card__icon service-card__icon--blue">
-            <span class="material-symbols-outlined">insights</span>
-          </div>
-          <h3>O&amp;P Market Consultancy</h3>
-          <p>Industry-specific commercial strategy for companies entering or expanding within Orthotics &amp; Prosthetics — O&amp;P-focused sales strategies, market-entry plans, positioning, messaging, and go-to-market sales plays, informed by deep market knowledge and an established international network.</p>
-          <div class="service-card__chips">
-            <span class="chip">Strategy</span>
-            <span class="chip">Go-to-market</span>
-            <span class="chip">Positioning</span>
-          </div>
-        </div>
-      </article>
-      <article class="service-card service-card--w4">
-        <div class="service-card__media">
-          <img src="assets/img/service-business-dev.jpg" alt="Targeted Business Development" loading="lazy" />
+          <img src="assets/img/service-business-dev-handshake.jpg" alt="Targeted Business Development" loading="lazy" />
         </div>
         <div class="service-card__body">
           <div class="service-card__icon service-card__icon--green">
@@ -1275,16 +1336,11 @@
           </div>
           <h3>Targeted Business Development</h3>
           <p>Direct market access into specific territories — identifying target customers, key decision-makers, and qualified opportunities across manufacturers, clinics, labs, and healthcare providers. A commercial extension to your sales function that accelerates traction without relying on cold outreach.</p>
-          <div class="service-card__chips">
-            <span class="chip">Direct access</span>
-            <span class="chip">Territory</span>
-            <span class="chip">Qualified intros</span>
-          </div>
         </div>
       </article>
       <article class="service-card service-card--w4">
         <div class="service-card__media">
-          <img src="assets/img/service-channel.jpg" alt="Channel &amp; Reseller Development" loading="lazy" />
+          <img src="assets/img/service-channel-warehouse.jpg" alt="Channel &amp; Reseller Development" loading="lazy" />
         </div>
         <div class="service-card__body">
           <div class="service-card__icon service-card__icon--blue">
@@ -1292,11 +1348,18 @@
           </div>
           <h3>Channel &amp; Reseller Development</h3>
           <p>Identify, qualify, and engage suitable O&amp;P-focused reseller and distribution partners for technologies, materials, manufacturing solutions, and digital workflows — building scalable indirect sales channels through trusted regional partners with existing market presence.</p>
-          <div class="service-card__chips">
-            <span class="chip">Distribution</span>
-            <span class="chip">Channel growth</span>
-            <span class="chip">Partner search</span>
+        </div>
+      </article>
+      <article class="service-card service-card--w4">
+        <div class="service-card__media">
+          <img src="assets/img/service-spinout-engineer.jpg" alt="University Spin-out Commercialisation" loading="lazy" />
+        </div>
+        <div class="service-card__body">
+          <div class="service-card__icon service-card__icon--green">
+            <span class="material-symbols-outlined">lightbulb</span>
           </div>
+          <h3>University Spin-out Commercialisation</h3>
+          <p>Help university spin-outs and early-stage startups commercialise their IP — qualified introductions to potential buyers, licensees, and strategic partners across the O&amp;P, healthcare, and manufacturing sectors. A direct route from research to market that bypasses the years of cold outreach typical for first-time commercialisation teams.</p>
         </div>
       </article>
     </div>
@@ -1309,12 +1372,11 @@
     <div class="value-chain__intro">
       <span class="eyebrow">The O&amp;P value chain</span>
       <h2 class="h2">We sit at the intersection of every stage of the industry.</h2>
-      <p class="lede">From raw materials through to the patient, our network spans the full O&amp;P value chain — giving manufacturers, suppliers, technology providers, labs, and clinical groups a faster route to the partners on either side of them.</p>
+      <p class="lede">Our network spans every stage of the O&amp;P chain — from the patient through to raw material supply. Most businesses straddle more than one — labs that also finish in-house, supply their own materials, or dispense clinically — and we help map the right partners on either side of where you sit.</p>
     </div>
 
     <div class="value-chain__rail">
-      <div class="value-chain__line"></div>
-      <div class="value-chain__grid">
+      <div class="vc-chain">
         <div class="vc-step">
           <div class="vc-step__node">
             <span class="material-symbols-outlined">person</span>
@@ -1323,29 +1385,45 @@
           <div class="vc-step__label">Patient</div>
           <div class="vc-step__sub">End user</div>
         </div>
+        <div class="vc-link" aria-hidden="true">
+          <span class="vc-link__bar"></span>
+          <span class="material-symbols-outlined vc-link__arrow">arrow_forward</span>
+        </div>
         <div class="vc-step">
           <div class="vc-step__node">
             <span class="material-symbols-outlined">medical_services</span>
             <span class="vc-step__index">02</span>
           </div>
           <div class="vc-step__label">Clinic</div>
-          <div class="vc-step__sub">Clinical care</div>
+          <div class="vc-step__sub">Consult &amp; prescribe</div>
         </div>
-        <div class="vc-step vc-step--center">
-          <div class="vc-step__node">
-            <span class="material-symbols-outlined">biotech</span>
-            <span class="vc-step__index">03</span>
-          </div>
-          <div class="vc-step__label">Lab</div>
-          <div class="vc-step__sub">Custom fabrication</div>
+        <div class="vc-link" aria-hidden="true">
+          <span class="vc-link__bar"></span>
+          <span class="material-symbols-outlined vc-link__arrow">arrow_forward</span>
         </div>
         <div class="vc-step">
           <div class="vc-step__node">
-            <span class="material-symbols-outlined">factory</span>
+            <span class="material-symbols-outlined">precision_manufacturing</span>
+            <span class="vc-step__index">03</span>
+          </div>
+          <div class="vc-step__label">Lab / Manufacturer</div>
+          <div class="vc-step__sub">Custom &amp; prefab production</div>
+        </div>
+        <div class="vc-link" aria-hidden="true">
+          <span class="vc-link__bar"></span>
+          <span class="material-symbols-outlined vc-link__arrow">arrow_forward</span>
+        </div>
+        <div class="vc-step">
+          <div class="vc-step__node">
+            <span class="material-symbols-outlined">handyman</span>
             <span class="vc-step__index">04</span>
           </div>
-          <div class="vc-step__label">Manufacturer</div>
-          <div class="vc-step__sub">Scale production</div>
+          <div class="vc-step__label">Finishing</div>
+          <div class="vc-step__sub">Trim, pad &amp; assemble</div>
+        </div>
+        <div class="vc-link" aria-hidden="true">
+          <span class="vc-link__bar"></span>
+          <span class="material-symbols-outlined vc-link__arrow">arrow_forward</span>
         </div>
         <div class="vc-step">
           <div class="vc-step__node">
@@ -1353,7 +1431,7 @@
             <span class="vc-step__index">05</span>
           </div>
           <div class="vc-step__label">Supplier</div>
-          <div class="vc-step__sub">Raw materials</div>
+          <div class="vc-step__sub">Raw materials &amp; components</div>
         </div>
       </div>
     </div>
@@ -1376,74 +1454,26 @@
   <div class="container">
     <div class="focus__head">
       <h2 class="focus__title">Industries we serve</h2>
-      <p class="focus__lede">O&amp;P is our home market. Our network and commercial experience extends into the adjacent healthcare, manufacturing, and clinical technology sectors that surround it.</p>
+      <p class="focus__lede">Orthotics &amp; Prosthetics is our home market. We help companies across clinical technology, manufacturing, and materials bring their products into it.</p>
     </div>
 
     <div class="focus__groups">
-      <div>
-        <div class="focus__group-label">Primary — Orthotics &amp; Prosthetics</div>
-        <div class="focus__grid">
-          <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">factory</span></div>
-            <div>
-              <div class="area-card__title">O&amp;P manufacturers</div>
-              <div class="area-card__sub">Devices · components</div>
-            </div>
-          </div>
-          <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">biotech</span></div>
-            <div>
-              <div class="area-card__title">Fabrication labs</div>
-              <div class="area-card__sub">Custom · CFAB · digital</div>
-            </div>
-          </div>
-          <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">medical_services</span></div>
-            <div>
-              <div class="area-card__title">Clinical groups</div>
-              <div class="area-card__sub">Multi-site networks</div>
-            </div>
-          </div>
-          <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">local_shipping</span></div>
-            <div>
-              <div class="area-card__title">Distributors</div>
-              <div class="area-card__sub">Regional · specialist</div>
-            </div>
-          </div>
+      <div class="focus__grid">
+        <div class="area-card">
+          <div class="area-card__icon"><span class="material-symbols-outlined">monitor_heart</span></div>
+          <div class="area-card__title">Clinical technology</div>
         </div>
-      </div>
-      <div>
-        <div class="focus__group-label">Secondary — Adjacent sectors</div>
-        <div class="focus__grid">
-          <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">monitor_heart</span></div>
-            <div>
-              <div class="area-card__title">Healthcare &amp; clinical tech</div>
-              <div class="area-card__sub">Devices · sensors · EMR</div>
-            </div>
-          </div>
-          <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">view_in_ar</span></div>
-            <div>
-              <div class="area-card__title">Additive manufacturing</div>
-              <div class="area-card__sub">3D printing · digital workflows</div>
-            </div>
-          </div>
-          <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">precision_manufacturing</span></div>
-            <div>
-              <div class="area-card__title">Medical manufacturing</div>
-              <div class="area-card__sub">Volume production · components</div>
-            </div>
-          </div>
-          <div class="area-card">
-            <div class="area-card__icon"><span class="material-symbols-outlined">science</span></div>
-            <div>
-              <div class="area-card__title">Materials &amp; consumables</div>
-              <div class="area-card__sub">Polymers · composites · films</div>
-            </div>
-          </div>
+        <div class="area-card">
+          <div class="area-card__icon"><span class="material-symbols-outlined">view_in_ar</span></div>
+          <div class="area-card__title">Additive manufacturing technology</div>
+        </div>
+        <div class="area-card">
+          <div class="area-card__icon"><span class="material-symbols-outlined">factory</span></div>
+          <div class="area-card__title">General manufacturing technology</div>
+        </div>
+        <div class="area-card">
+          <div class="area-card__icon"><span class="material-symbols-outlined">science</span></div>
+          <div class="area-card__title">Materials &amp; consumables</div>
         </div>
       </div>
     </div>
@@ -1641,7 +1671,7 @@
       <div class="why__head-text">
         <h2 class="why__title">Why companies choose NexPoint to grow in O&amp;P.</h2>
         <p class="why__lede" style="margin-top:20px;">
-          We're not a consultancy and we're not a lead-gen agency. We're a commercial partner — built on 15+ years inside Orthotics &amp; Prosthetics and ~1,000 trusted relationships across the global industry.
+          We're not a consultancy and we're not a lead-gen agency. We're a commercial partner — built on 20+ years inside Orthotics &amp; Prosthetics and ~1,000 trusted relationships across the global industry.
         </p>
       </div>
       <div class="why__photo">
@@ -1662,7 +1692,7 @@
       <article class="why-card">
         <div class="why-card__num">02</div>
         <h4>Industry-native, not generic</h4>
-        <p>15+ years inside O&amp;P manufacturing, fabrication, and clinical workflows. We bring market reality and commercial fluency — not slide-deck theory.</p>
+        <p>20+ years inside O&amp;P manufacturing, fabrication, and clinical workflows. We bring market reality and commercial fluency — not slide-deck theory.</p>
       </article>
       <article class="why-card">
         <div class="why-card__num">03</div>
@@ -1729,9 +1759,9 @@
     <div class="footer__col">
       <h5>Services</h5>
       <ul>
-        <li><a href="#services" data-nav="services">O&amp;P Market Consultancy</a></li>
         <li><a href="#services" data-nav="services">Business Development</a></li>
         <li><a href="#services" data-nav="services">Channel &amp; Reseller</a></li>
+        <li><a href="#services" data-nav="services">Spin-out Commercialisation</a></li>
       </ul>
     </div>
     <div class="footer__col">
