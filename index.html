@@ -164,20 +164,21 @@
     position: relative; min-height: min(92vh, 920px); padding-top: 72px;
     display: flex; align-items: center; overflow: hidden;
   }
-  .hero__bg {
+  .hero .hero__bg {
     position: absolute; inset: 0; z-index: 0;
-    background-image: url("assets/img/hero-globe.jpg");
+    background-image: url("assets/img/hero-earth-night.jpg");
     background-size: cover; background-position: center;
-    opacity: 0.18;
-    filter: grayscale(40%) contrast(1.1);
+    opacity: 1;
+    filter: contrast(1.05) saturate(1.1);
     pointer-events: none;
   }
   .hero__bg::after {
     content: ""; position: absolute; inset: 0;
     background:
-      radial-gradient(900px 600px at 85% 10%, rgba(0, 92, 200, 0.30), transparent 60%),
-      radial-gradient(700px 500px at 10% 90%, rgba(139, 197, 63, 0.16), transparent 60%),
-      linear-gradient(180deg, rgba(18,18,18,0.55) 0%, rgba(18,18,18,0.75) 100%);
+      radial-gradient(80% 90% at 25% 50%, rgba(18,18,18,0.78) 0%, rgba(18,18,18,0.35) 50%, transparent 80%),
+      radial-gradient(900px 600px at 85% 10%, rgba(0, 92, 200, 0.22), transparent 60%),
+      radial-gradient(700px 500px at 10% 90%, rgba(139, 197, 63, 0.10), transparent 60%),
+      linear-gradient(180deg, rgba(18,18,18,0.10) 0%, rgba(18,18,18,0.10) 100%);
   }
   .hero > * { position: relative; z-index: 1; }
   .hero__inner {
@@ -811,16 +812,32 @@
   }
   .why-card {
     padding: clamp(20px, 2vw, 32px) clamp(18px, 1.8vw, 28px);
-    background: var(--surface);
+    background: linear-gradient(165deg, #1f1f1f 0%, #171717 100%);
     border: 1px solid var(--border);
     border-radius: 8px;
     position: relative; overflow: hidden;
+    transition: transform 200ms var(--ease), border-color 200ms var(--ease), box-shadow 200ms var(--ease);
   }
+  .why-card::before {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--np-blue), var(--np-green));
+    opacity: 0.65;
+    transition: opacity 200ms var(--ease);
+  }
+  .why-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--np-blue);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 0 28px rgba(0, 92, 200, 0.18);
+  }
+  .why-card:hover::before { opacity: 1; }
   .why-card__num {
-    font: 700 clamp(36px, 3.8vw, 56px)/1 var(--font-display);
-    color: var(--np-blue);
-    margin-bottom: 20px;
-    letter-spacing: -0.02em;
+    font: 800 clamp(40px, 4vw, 60px)/1 var(--font-display);
+    background: linear-gradient(135deg, #3D8EEB 0%, #8BC53F 135%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+    margin-bottom: 18px;
+    letter-spacing: -0.03em;
   }
   .why-card h4 {
     font: 600 clamp(17px, 1.4vw, 20px)/1.35 var(--font-display);
@@ -1344,7 +1361,7 @@
         <h2 class="services__title">Three services. One commercial bridge into global O&amp;P markets.</h2>
       </div>
       <p class="services__lede">
-        We help O&amp;P, healthcare, and manufacturing companies grow internationally through three forms of qualified introduction — direct customer access in new territories, reseller and distribution partnerships, and commercial partners for university spin-outs taking new technology to market. Every introduction comes with the market context and commercial fluency, built on 20+ years inside O&amp;P and ~1,000 trusted relationships, to turn it into traction.
+        We help O&amp;P, healthcare, and manufacturing companies grow internationally through three forms of qualified introduction — direct customer access in new territories, reseller and distribution partnerships, and commercial partners for university spinouts taking new technology to market. Every introduction comes with the market context and commercial fluency, built on 20+ years inside O&amp;P and ~1,000 trusted relationships, to turn it into traction.
       </p>
     </div>
 
@@ -1358,7 +1375,7 @@
             <span class="material-symbols-outlined">my_location</span>
           </div>
           <h3>Targeted Business Development</h3>
-          <p>Direct market access into specific territories — identifying target customers, key decision-makers, and qualified opportunities across manufacturers, clinics, labs, and healthcare providers. A commercial extension to your sales function that accelerates traction without relying on cold outreach.</p>
+          <p>Direct market access into specific territories — identifying target customers, key decision makers, and qualified opportunities across manufacturers, clinics, labs, and healthcare providers. A commercial extension to your sales function that accelerates traction without relying on cold outreach.</p>
         </div>
       </article>
       <article class="service-card service-card--w4">
@@ -1370,19 +1387,19 @@
             <span class="material-symbols-outlined">hub</span>
           </div>
           <h3>Channel &amp; Reseller Development</h3>
-          <p>Identify, qualify, and engage suitable O&amp;P-focused reseller and distribution partners for technologies, materials, manufacturing solutions, and digital workflows — building scalable indirect sales channels through trusted regional partners with existing market presence.</p>
+          <p>Identify, qualify, and engage suitable O&amp;P focused reseller and distribution partners for technologies, materials, manufacturing solutions, and digital workflows — building scalable indirect sales channels through trusted regional partners with existing market presence.</p>
         </div>
       </article>
       <article class="service-card service-card--w4">
         <div class="service-card__media">
-          <img src="assets/img/service-spinout-engineer.jpg" alt="University Spin-out Commercialisation" loading="lazy" />
+          <img src="assets/img/service-spinout-engineer.jpg" alt="University Spinout Commercialisation" loading="lazy" />
         </div>
         <div class="service-card__body">
           <div class="service-card__icon service-card__icon--green">
             <span class="material-symbols-outlined">lightbulb</span>
           </div>
-          <h3>University Spin-out Commercialisation</h3>
-          <p>Help university spin-outs and early-stage startups commercialise their IP — qualified introductions to potential buyers, licensees, and strategic partners across the O&amp;P, healthcare, and manufacturing sectors. A direct route from research to market that bypasses the years of cold outreach typical for first-time commercialisation teams.</p>
+          <h3>University Spinout Commercialisation</h3>
+          <p>Help university spinouts and early stage startups commercialise their IP — qualified introductions to potential buyers, licensees, and strategic partners across the O&amp;P, healthcare, and manufacturing sectors. A direct route from research to market that bypasses the years of cold outreach typical for first time commercialisation teams.</p>
         </div>
       </article>
     </div>
@@ -1395,7 +1412,7 @@
     <div class="value-chain__intro">
       <span class="eyebrow">The O&amp;P value chain</span>
       <h2 class="h2">We sit at the intersection of every stage of the industry.</h2>
-      <p class="lede">Our network spans every stage of the O&amp;P chain — from the patient through to raw material supply. Most businesses straddle more than one — labs that also finish in-house, supply their own materials, or dispense clinically — and we help map the right partners on either side of where you sit.</p>
+      <p class="lede">Our network spans every stage of the O&amp;P chain — from the patient through to raw material supply. Most businesses straddle more than one — labs that also finish in house, supply their own materials, or dispense clinically — and we help map the right partners on either side of where you sit.</p>
     </div>
 
     <div class="value-chain__rail">
@@ -1479,14 +1496,14 @@
       <div class="why__head-text">
         <h2 class="why__title">Why companies choose NexPoint to grow in O&amp;P.</h2>
         <p class="why__lede" style="margin-top:20px;">
-          We're not a consultancy and we're not a lead-gen agency. We're a commercial partner — built on 20+ years inside Orthotics &amp; Prosthetics and ~1,000 trusted relationships across the global industry.
+          We're not a consultancy and we're not a lead gen agency. We're a commercial partner — built on 20+ years inside Orthotics &amp; Prosthetics and ~1,000 trusted relationships across the global industry.
         </p>
       </div>
       <div class="why__photo">
-        <img src="assets/img/why-partnership.jpg" alt="Long-term commercial partnerships" loading="lazy" />
+        <img src="assets/img/why-partnership.jpg" alt="Long term commercial partnerships" loading="lazy" />
         <div class="why__photo-caption">
           <div class="why__photo-caption-label">Built on trust</div>
-          <div class="why__photo-caption-text">Long-term commercial partnerships, not transactional consulting.</div>
+          <div class="why__photo-caption-text">Long term commercial partnerships, not transactional consulting.</div>
         </div>
       </div>
     </div>
@@ -1494,18 +1511,18 @@
     <div class="why__grid">
       <article class="why-card">
         <div class="why-card__num">01</div>
-        <h4>Direct access to decision-makers</h4>
+        <h4>Direct access to decision makers</h4>
         <p>Our ~1,000 trusted contacts include manufacturers, distributors, fabrication labs, clinical groups, and technology leaders across the UK, Europe, North America, the Middle East, and Australia.</p>
       </article>
       <article class="why-card">
         <div class="why-card__num">02</div>
-        <h4>Industry-native, not generic</h4>
-        <p>20+ years inside O&amp;P manufacturing, fabrication, and clinical workflows. We bring market reality and commercial fluency — not slide-deck theory.</p>
+        <h4>Industry native, not generic</h4>
+        <p>20+ years inside O&amp;P manufacturing, fabrication, and clinical workflows. We bring market reality and commercial fluency — not slide deck theory.</p>
       </article>
       <article class="why-card">
         <div class="why-card__num">03</div>
         <h4>Flexible commercial models</h4>
-        <p>Engage as a strategic advisor, on success-based terms, or as a recurring commercial partner. Aligned with your stage, risk profile, and growth goals.</p>
+        <p>Engage as a strategic advisor, on success based terms, or as a recurring commercial partner. Aligned with your stage, risk profile, and growth goals.</p>
       </article>
       <article class="why-card">
         <div class="why-card__num">04</div>
@@ -1586,7 +1603,7 @@
         <span class="eyebrow">Global reach</span>
         <h2 class="reach__title">Local fluency across the markets that matter most.</h2>
         <p class="reach__lede">
-          We bridge global borders with local expertise — direct access to O&amp;P decision-makers across the UK, Europe, North America, the Middle East, and Australia.
+          We bridge global borders with local expertise — direct access to O&amp;P decision makers across the UK, Europe, North America, the Middle East, and Australia.
         </p>
 
         <div class="markets">
@@ -1654,74 +1671,74 @@
             <!-- region markers -->
             <g font-family="Inter" font-weight="600" font-size="10" letter-spacing="0.06em" fill="rgba(255,255,255,0.85)">
               <g>
-                <circle cx="160" cy="140" r="28" fill="url(#cityGlow)" />
-                <circle cx="160" cy="140" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                <circle cx="164" cy="145" r="28" fill="url(#cityGlow)" />
+                <circle cx="164" cy="145" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
                   <animate attributeName="r" values="6;20;6" dur="2.8s" begin="0s" repeatCount="indefinite" />
                   <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="0s" repeatCount="indefinite" />
                 </circle>
-                <circle cx="160" cy="140" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
-                <circle cx="160" cy="140" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
-                <text x="172" y="132">CANADA</text>
+                <circle cx="164" cy="145" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="164" cy="145" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="176" y="138">CANADA</text>
               </g>
               <g>
-                <circle cx="200" cy="200" r="28" fill="url(#cityGlow)" />
-                <circle cx="200" cy="200" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                <circle cx="173" cy="173" r="28" fill="url(#cityGlow)" />
+                <circle cx="173" cy="173" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
                   <animate attributeName="r" values="6;20;6" dur="2.8s" begin="0.4s" repeatCount="indefinite" />
                   <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="0.4s" repeatCount="indefinite" />
                 </circle>
-                <circle cx="200" cy="200" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
-                <circle cx="200" cy="200" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
-                <text x="212" y="192">USA</text>
+                <circle cx="173" cy="173" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="173" cy="173" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="185" y="166">USA</text>
               </g>
               <g>
-                <circle cx="305" cy="150" r="28" fill="url(#cityGlow)" />
-                <circle cx="305" cy="150" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                <circle cx="316" cy="154" r="28" fill="url(#cityGlow)" />
+                <circle cx="316" cy="154" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
                   <animate attributeName="r" values="6;20;6" dur="2.8s" begin="0.8s" repeatCount="indefinite" />
                   <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="0.8s" repeatCount="indefinite" />
                 </circle>
-                <circle cx="305" cy="150" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
-                <circle cx="305" cy="150" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
-                <text x="317" y="142">UK</text>
+                <circle cx="316" cy="154" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="316" cy="154" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="328" y="147">UK</text>
               </g>
               <g>
-                <circle cx="375" cy="195" r="28" fill="url(#cityGlow)" />
-                <circle cx="375" cy="195" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                <circle cx="363" cy="183" r="28" fill="url(#cityGlow)" />
+                <circle cx="363" cy="183" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
                   <animate attributeName="r" values="6;20;6" dur="2.8s" begin="1.2s" repeatCount="indefinite" />
                   <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="1.2s" repeatCount="indefinite" />
                 </circle>
-                <circle cx="375" cy="195" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
-                <circle cx="375" cy="195" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
-                <text x="387" y="187">EMEA</text>
+                <circle cx="363" cy="183" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="363" cy="183" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="375" y="176">EMEA</text>
               </g>
               <g>
-                <circle cx="500" cy="180" r="28" fill="url(#cityGlow)" />
-                <circle cx="500" cy="180" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                <circle cx="515" cy="183" r="28" fill="url(#cityGlow)" />
+                <circle cx="515" cy="183" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
                   <animate attributeName="r" values="6;20;6" dur="2.8s" begin="0.6s" repeatCount="indefinite" />
                   <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="0.6s" repeatCount="indefinite" />
                 </circle>
-                <circle cx="500" cy="180" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
-                <circle cx="500" cy="180" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
-                <text x="512" y="172">ASIA</text>
+                <circle cx="515" cy="183" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="515" cy="183" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="527" y="176">ASIA</text>
               </g>
               <g>
-                <circle cx="540" cy="345" r="28" fill="url(#cityGlow)" />
-                <circle cx="540" cy="345" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                <circle cx="534" cy="297" r="28" fill="url(#cityGlow)" />
+                <circle cx="534" cy="297" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
                   <animate attributeName="r" values="6;20;6" dur="2.8s" begin="1.0s" repeatCount="indefinite" />
                   <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="1.0s" repeatCount="indefinite" />
                 </circle>
-                <circle cx="540" cy="345" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
-                <circle cx="540" cy="345" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
-                <text x="476" y="337">AUSTRALIA</text>
+                <circle cx="534" cy="297" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="534" cy="297" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="468" y="289">AUSTRALIA</text>
               </g>
               <g>
-                <circle cx="590" cy="360" r="28" fill="url(#cityGlow)" />
-                <circle cx="590" cy="360" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                <circle cx="591" cy="325" r="28" fill="url(#cityGlow)" />
+                <circle cx="591" cy="325" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
                   <animate attributeName="r" values="6;20;6" dur="2.8s" begin="1.4s" repeatCount="indefinite" />
                   <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="1.4s" repeatCount="indefinite" />
                 </circle>
-                <circle cx="590" cy="360" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
-                <circle cx="590" cy="360" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
-                <text x="602" y="372">NZ</text>
+                <circle cx="591" cy="325" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="591" cy="325" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="603" y="318">NZ</text>
               </g>
             </g>
           </svg>
@@ -1743,7 +1760,7 @@
         <span class="eyebrow">Get in touch</span>
         <h2 class="book__title">Let's map your global footprint.</h2>
         <p class="book__lede">
-          Send a few details and we'll be in touch within one working day to schedule a 30-minute intro call.
+          Send a few details and we'll be in touch within one working day to schedule a 30 minute intro call.
         </p>
 
         <div class="book__write">
@@ -1776,7 +1793,7 @@
       <ul>
         <li><a href="#services" data-nav="services">Business Development</a></li>
         <li><a href="#services" data-nav="services">Channel &amp; Reseller</a></li>
-        <li><a href="#services" data-nav="services">Spin-out Commercialisation</a></li>
+        <li><a href="#services" data-nav="services">Spinout Commercialisation</a></li>
       </ul>
     </div>
     <div class="footer__col">
@@ -1846,31 +1863,49 @@
   window.addEventListener('scroll', updateActive, { passive: true });
   updateActive();
 
-  // ─── Map landmass dot grid (generated to match the prototype's mask) ───
+  // ─── Dotted world map (land mask: per-row [colStart,colEnd] segments, 60×24 grid) ───
   const NS = 'http://www.w3.org/2000/svg';
   const dots = document.getElementById('landmass-dots');
   if (dots) {
-    const inLand = (c, r) => (
-      (c >= 4  && c <= 12 && r >= 4  && r <= 10) || // N America
-      (c >= 10 && c <= 14 && r >= 10 && r <= 15) || // S America
-      (c >= 14 && c <= 19 && r >= 4  && r <= 9)  || // Europe
-      (c >= 15 && c <= 20 && r >= 9  && r <= 14) || // Africa
-      (c >= 20 && c <= 28 && r >= 4  && r <= 10) || // Asia
-      (c >= 25 && c <= 29 && r >= 12 && r <= 15)    // Oceania
-    );
+    const LAND = [
+      [[9,19],[23,28],[39,55]],
+      [[3,6],[8,21],[23,29],[30,33],[37,57]],
+      [[3,7],[8,22],[23,29],[29,34],[36,58]],
+      [[4,7],[8,23],[25,28],[28,35],[36,58]],
+      [[7,22],[28,29],[30,36],[37,58]],
+      [[8,21],[29,36],[37,57]],
+      [[9,21],[29,35],[36,54],[56,57]],
+      [[9,21],[28,34],[40,47],[48,55],[56,57]],
+      [[10,20],[28,40],[41,47],[48,55]],
+      [[13,19],[28,41],[42,47],[48,54]],
+      [[14,19],[28,41],[43,47],[49,53]],
+      [[16,20],[28,41],[43,46],[49,54]],
+      [[17,20],[27,41],[43,45],[50,55]],
+      [[18,21],[27,40],[45,46],[50,56]],
+      [[18,26],[29,40],[49,56]],
+      [[17,27],[30,40],[50,56]],
+      [[18,28],[31,39],[51,55]],
+      [[18,28],[31,39],[50,57]],
+      [[19,28],[32,38],[49,58]],
+      [[19,27],[32,38],[49,58]],
+      [[20,26],[33,37],[50,57]],
+      [[20,25],[33,36],[51,56],[58,59]],
+      [[21,25],[58,59]],
+      [[21,24]],
+    ];
+    const OX = 40, OY = 116, STEP = 9.5;
     const frag = document.createDocumentFragment();
-    for (let r = 0; r < 18; r++) {
-      for (let c = 0; c < 32; c++) {
-        if (!inLand(c, r)) continue;
-        const x = c * 20 + 10;
-        const y = r * 25 + 10;
-        const dot = document.createElementNS(NS, 'circle');
-        dot.setAttribute('cx', x);
-        dot.setAttribute('cy', y);
-        dot.setAttribute('r', '1.2');
-        frag.appendChild(dot);
-      }
-    }
+    LAND.forEach((segs, r) => {
+      segs.forEach(([c0, c1]) => {
+        for (let c = c0; c <= c1; c++) {
+          const dot = document.createElementNS(NS, 'circle');
+          dot.setAttribute('cx', (OX + c * STEP).toFixed(1));
+          dot.setAttribute('cy', (OY + r * STEP).toFixed(1));
+          dot.setAttribute('r', '1.5');
+          frag.appendChild(dot);
+        }
+      });
+    });
     dots.appendChild(frag);
   }
 
@@ -1878,13 +1913,13 @@
   const arcs = document.getElementById('map-arcs');
   if (arcs) {
     const MARKERS = [
-      { x: 160, y: 140 }, // Canada
-      { x: 200, y: 200 }, // USA
-      { x: 305, y: 150 }, // UK
-      { x: 375, y: 195 }, // EMEA
-      { x: 500, y: 180 }, // Asia
-      { x: 540, y: 345 }, // Australia
-      { x: 590, y: 360 }, // NZ
+      { x: 164, y: 145 }, // Canada
+      { x: 173, y: 173 }, // USA
+      { x: 316, y: 154 }, // UK
+      { x: 363, y: 183 }, // EMEA
+      { x: 515, y: 183 }, // Asia
+      { x: 534, y: 297 }, // Australia
+      { x: 591, y: 325 }, // NZ
     ];
     const cx0 = MARKERS.reduce((s, m) => s + m.x, 0) / MARKERS.length;
     const cy0 = MARKERS.reduce((s, m) => s + m.y, 0) / MARKERS.length;
