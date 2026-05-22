@@ -542,26 +542,49 @@
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
   }
   .area-card {
-    display: flex; flex-direction: column; gap: 20px;
-    padding: 24px;
+    display: flex; flex-direction: column;
     background: rgba(30, 30, 30, 0.45);
     border: 1px solid var(--border);
     border-radius: 8px;
-    transition: all var(--duration) var(--ease);
+    overflow: hidden;
+    transition: border-color var(--duration) var(--ease), transform var(--duration) var(--ease), background var(--duration) var(--ease);
     cursor: default;
   }
   .area-card:hover {
     background: var(--surface);
     border-color: var(--np-blue);
+    transform: translateY(-2px);
+  }
+  .area-card__media {
+    position: relative; aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: #0d0e0f;
+    border-bottom: 1px solid var(--border);
+  }
+  .area-card__media img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    filter: grayscale(30%) brightness(0.7) contrast(1.05);
+    transition: filter 400ms var(--ease), transform 600ms var(--ease);
+  }
+  .area-card:hover .area-card__media img {
+    filter: grayscale(0%) brightness(0.85) contrast(1.05);
+    transform: scale(1.05);
+  }
+  .area-card__body {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 20px;
   }
   .area-card__icon {
+    display: flex;
     color: rgba(255, 255, 255, 0.85);
     transition: color var(--duration);
   }
-  .area-card__icon span.material-symbols-outlined { font-size: 28px; }
+  .area-card__icon span.material-symbols-outlined { font-size: 24px; }
   .area-card:hover .area-card__icon { color: var(--np-blue); }
   .area-card__title {
-    font: 600 16px/1.3 var(--font-body);
+    font: 600 15px/1.3 var(--font-body);
     color: #fff;
   }
 
@@ -1127,9 +1150,9 @@
     <div class="navbar__links">
       <a href="#services"    class="navbar__link" data-nav="services">Services</a>
       <a href="#value-chain" class="navbar__link" data-nav="value-chain">Value chain</a>
+      <a href="#expertise"   class="navbar__link" data-nav="expertise">Why us</a>
       <a href="#focus"       class="navbar__link" data-nav="focus">Focus areas</a>
       <a href="#network"     class="navbar__link" data-nav="network">Network</a>
-      <a href="#expertise"   class="navbar__link" data-nav="expertise">Why us</a>
     </div>
     <button class="btn btn--primary" data-nav="book">
       Get in touch
@@ -1449,8 +1472,63 @@
   </div>
 </section>
 
+<!-- ───── Why NexPoint ───── -->
+<section id="expertise" class="section">
+  <div class="container">
+    <div class="why__head">
+      <div class="why__head-text">
+        <h2 class="why__title">Why companies choose NexPoint to grow in O&amp;P.</h2>
+        <p class="why__lede" style="margin-top:20px;">
+          We're not a consultancy and we're not a lead-gen agency. We're a commercial partner — built on 20+ years inside Orthotics &amp; Prosthetics and ~1,000 trusted relationships across the global industry.
+        </p>
+      </div>
+      <div class="why__photo">
+        <img src="assets/img/why-partnership.jpg" alt="Long-term commercial partnerships" loading="lazy" />
+        <div class="why__photo-caption">
+          <div class="why__photo-caption-label">Built on trust</div>
+          <div class="why__photo-caption-text">Long-term commercial partnerships, not transactional consulting.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="why__grid">
+      <article class="why-card">
+        <div class="why-card__num">01</div>
+        <h4>Direct access to decision-makers</h4>
+        <p>Our ~1,000 trusted contacts include manufacturers, distributors, fabrication labs, clinical groups, and technology leaders across the UK, Europe, North America, the Middle East, and Australia.</p>
+      </article>
+      <article class="why-card">
+        <div class="why-card__num">02</div>
+        <h4>Industry-native, not generic</h4>
+        <p>20+ years inside O&amp;P manufacturing, fabrication, and clinical workflows. We bring market reality and commercial fluency — not slide-deck theory.</p>
+      </article>
+      <article class="why-card">
+        <div class="why-card__num">03</div>
+        <h4>Flexible commercial models</h4>
+        <p>Engage as a strategic advisor, on success-based terms, or as a recurring commercial partner. Aligned with your stage, risk profile, and growth goals.</p>
+      </article>
+      <article class="why-card">
+        <div class="why-card__num">04</div>
+        <h4>A shorter path to traction</h4>
+        <p>We compress the cost and complexity of international expansion by going direct to the right people — qualified commercial conversations, not cold outreach.</p>
+      </article>
+    </div>
+
+    <div class="value-chain__cta" style="margin-top: clamp(40px, 5vh, 64px);">
+      <div class="value-chain__cta-text">
+        <span class="material-symbols-outlined">arrow_outward</span>
+        <span>Exploring a new market, a new partner, or a new commercial channel? Let's talk.</span>
+      </div>
+      <a href="#book" class="value-chain__cta-link" data-nav="book">
+        Request an intro call
+        <span class="material-symbols-outlined">arrow_forward</span>
+      </a>
+    </div>
+  </div>
+</section>
+
 <!-- ───── Focus areas ───── -->
-<section id="focus" class="section">
+<section id="focus" class="section section--alt">
   <div class="container">
     <div class="focus__head">
       <h2 class="focus__title">Industries we serve</h2>
@@ -1460,20 +1538,40 @@
     <div class="focus__groups">
       <div class="focus__grid">
         <div class="area-card">
-          <div class="area-card__icon"><span class="material-symbols-outlined">monitor_heart</span></div>
-          <div class="area-card__title">Clinical technology</div>
+          <div class="area-card__media">
+            <img src="assets/img/area-clinical-tech.jpg" alt="Clinical technology" loading="lazy" />
+          </div>
+          <div class="area-card__body">
+            <div class="area-card__icon"><span class="material-symbols-outlined">monitor_heart</span></div>
+            <div class="area-card__title">Clinical technology</div>
+          </div>
         </div>
         <div class="area-card">
-          <div class="area-card__icon"><span class="material-symbols-outlined">view_in_ar</span></div>
-          <div class="area-card__title">Additive manufacturing technology</div>
+          <div class="area-card__media">
+            <img src="assets/img/area-additive-mfg.jpg" alt="Additive manufacturing technology" loading="lazy" />
+          </div>
+          <div class="area-card__body">
+            <div class="area-card__icon"><span class="material-symbols-outlined">view_in_ar</span></div>
+            <div class="area-card__title">Additive manufacturing technology</div>
+          </div>
         </div>
         <div class="area-card">
-          <div class="area-card__icon"><span class="material-symbols-outlined">factory</span></div>
-          <div class="area-card__title">General manufacturing technology</div>
+          <div class="area-card__media">
+            <img src="assets/img/area-general-mfg.jpg" alt="General manufacturing technology" loading="lazy" />
+          </div>
+          <div class="area-card__body">
+            <div class="area-card__icon"><span class="material-symbols-outlined">factory</span></div>
+            <div class="area-card__title">General manufacturing technology</div>
+          </div>
         </div>
         <div class="area-card">
-          <div class="area-card__icon"><span class="material-symbols-outlined">science</span></div>
-          <div class="area-card__title">Materials &amp; consumables</div>
+          <div class="area-card__media">
+            <img src="assets/img/area-materials.jpg" alt="Materials &amp; consumables" loading="lazy" />
+          </div>
+          <div class="area-card__body">
+            <div class="area-card__icon"><span class="material-symbols-outlined">science</span></div>
+            <div class="area-card__title">Materials &amp; consumables</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1481,7 +1579,7 @@
 </section>
 
 <!-- ───── Global reach ───── -->
-<section id="network" class="section section--alt">
+<section id="network" class="section">
   <div class="container">
     <div class="reach__inner">
       <div>
@@ -1535,77 +1633,95 @@
           <svg viewBox="0 0 640 460" preserveAspectRatio="xMidYMid slice">
             <defs>
               <radialGradient id="cityGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%"   stop-color="#005CC8" stop-opacity="0.6" />
+                <stop offset="0%"   stop-color="#3D8EEB" stop-opacity="0.7" />
+                <stop offset="100%" stop-color="#3D8EEB" stop-opacity="0" />
+              </radialGradient>
+              <radialGradient id="mapHalo" cx="48%" cy="52%" r="58%">
+                <stop offset="0%"   stop-color="#005CC8" stop-opacity="0.18" />
+                <stop offset="55%"  stop-color="#005CC8" stop-opacity="0.05" />
                 <stop offset="100%" stop-color="#005CC8" stop-opacity="0" />
               </radialGradient>
+              <filter id="mapGlow" x="-60%" y="-60%" width="220%" height="220%">
+                <feGaussianBlur stdDeviation="2" result="b" />
+                <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
             </defs>
-            <g id="landmass-dots" fill="rgba(255,255,255,0.18)"></g>
+
+            <rect x="0" y="0" width="640" height="460" fill="url(#mapHalo)" />
+            <g id="landmass-dots" fill="rgba(255,255,255,0.2)"></g>
             <g id="map-arcs"></g>
 
             <!-- region markers -->
-            <g font-family="Inter" font-weight="600" font-size="10" letter-spacing="0.06em" fill="rgba(255,255,255,0.7)">
+            <g font-family="Inter" font-weight="600" font-size="10" letter-spacing="0.06em" fill="rgba(255,255,255,0.85)">
               <g>
-                <circle cx="160" cy="140" r="18" fill="url(#cityGlow)" />
-                <circle cx="160" cy="140" r="3" fill="#fff" />
-                <circle cx="160" cy="140" r="3" fill="#005CC8">
-                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="0s" />
-                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="0s" />
+                <circle cx="160" cy="140" r="28" fill="url(#cityGlow)" />
+                <circle cx="160" cy="140" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                  <animate attributeName="r" values="6;20;6" dur="2.8s" begin="0s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="0s" repeatCount="indefinite" />
                 </circle>
-                <text x="168" y="132">CANADA</text>
+                <circle cx="160" cy="140" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="160" cy="140" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="172" y="132">CANADA</text>
               </g>
               <g>
-                <circle cx="200" cy="200" r="18" fill="url(#cityGlow)" />
-                <circle cx="200" cy="200" r="3" fill="#fff" />
-                <circle cx="200" cy="200" r="3" fill="#005CC8">
-                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="0.4s" />
-                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="0.4s" />
+                <circle cx="200" cy="200" r="28" fill="url(#cityGlow)" />
+                <circle cx="200" cy="200" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                  <animate attributeName="r" values="6;20;6" dur="2.8s" begin="0.4s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="0.4s" repeatCount="indefinite" />
                 </circle>
-                <text x="208" y="192">USA</text>
+                <circle cx="200" cy="200" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="200" cy="200" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="212" y="192">USA</text>
               </g>
               <g>
-                <circle cx="305" cy="150" r="18" fill="url(#cityGlow)" />
-                <circle cx="305" cy="150" r="3" fill="#fff" />
-                <circle cx="305" cy="150" r="3" fill="#005CC8">
-                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="0.8s" />
-                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="0.8s" />
+                <circle cx="305" cy="150" r="28" fill="url(#cityGlow)" />
+                <circle cx="305" cy="150" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                  <animate attributeName="r" values="6;20;6" dur="2.8s" begin="0.8s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="0.8s" repeatCount="indefinite" />
                 </circle>
-                <text x="313" y="142">UK</text>
+                <circle cx="305" cy="150" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="305" cy="150" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="317" y="142">UK</text>
               </g>
               <g>
-                <circle cx="375" cy="195" r="18" fill="url(#cityGlow)" />
-                <circle cx="375" cy="195" r="3" fill="#fff" />
-                <circle cx="375" cy="195" r="3" fill="#005CC8">
-                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="1.2s" />
-                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="1.2s" />
+                <circle cx="375" cy="195" r="28" fill="url(#cityGlow)" />
+                <circle cx="375" cy="195" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                  <animate attributeName="r" values="6;20;6" dur="2.8s" begin="1.2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="1.2s" repeatCount="indefinite" />
                 </circle>
-                <text x="383" y="187">EMEA</text>
+                <circle cx="375" cy="195" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="375" cy="195" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="387" y="187">EMEA</text>
               </g>
               <g>
-                <circle cx="500" cy="180" r="18" fill="url(#cityGlow)" />
-                <circle cx="500" cy="180" r="3" fill="#fff" />
-                <circle cx="500" cy="180" r="3" fill="#005CC8">
-                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="0.6s" />
-                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="0.6s" />
+                <circle cx="500" cy="180" r="28" fill="url(#cityGlow)" />
+                <circle cx="500" cy="180" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                  <animate attributeName="r" values="6;20;6" dur="2.8s" begin="0.6s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="0.6s" repeatCount="indefinite" />
                 </circle>
-                <text x="508" y="172">ASIA</text>
+                <circle cx="500" cy="180" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="500" cy="180" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="512" y="172">ASIA</text>
               </g>
               <g>
-                <circle cx="540" cy="345" r="18" fill="url(#cityGlow)" />
-                <circle cx="540" cy="345" r="3" fill="#fff" />
-                <circle cx="540" cy="345" r="3" fill="#005CC8">
-                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="1.0s" />
-                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="1.0s" />
+                <circle cx="540" cy="345" r="28" fill="url(#cityGlow)" />
+                <circle cx="540" cy="345" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                  <animate attributeName="r" values="6;20;6" dur="2.8s" begin="1.0s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="1.0s" repeatCount="indefinite" />
                 </circle>
-                <text x="478" y="337">AUSTRALIA</text>
+                <circle cx="540" cy="345" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="540" cy="345" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="476" y="337">AUSTRALIA</text>
               </g>
               <g>
-                <circle cx="590" cy="360" r="18" fill="url(#cityGlow)" />
-                <circle cx="590" cy="360" r="3" fill="#fff" />
-                <circle cx="590" cy="360" r="3" fill="#005CC8">
-                  <animate attributeName="r" values="3;9;3" dur="2.4s" repeatCount="indefinite" begin="1.4s" />
-                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" begin="1.4s" />
+                <circle cx="590" cy="360" r="28" fill="url(#cityGlow)" />
+                <circle cx="590" cy="360" r="6" fill="none" stroke="#8BC53F" stroke-width="1.25" opacity="0.7">
+                  <animate attributeName="r" values="6;20;6" dur="2.8s" begin="1.4s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.7;0;0.7" dur="2.8s" begin="1.4s" repeatCount="indefinite" />
                 </circle>
-                <text x="598" y="378">NZ</text>
+                <circle cx="590" cy="360" r="6" fill="#0d0e0f" stroke="#3D8EEB" stroke-width="1.5" />
+                <circle cx="590" cy="360" r="2.6" fill="#8BC53F" filter="url(#mapGlow)" />
+                <text x="602" y="372">NZ</text>
               </g>
             </g>
           </svg>
@@ -1614,61 +1730,6 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- ───── Why NexPoint ───── -->
-<section id="expertise" class="section">
-  <div class="container">
-    <div class="why__head">
-      <div class="why__head-text">
-        <h2 class="why__title">Why companies choose NexPoint to grow in O&amp;P.</h2>
-        <p class="why__lede" style="margin-top:20px;">
-          We're not a consultancy and we're not a lead-gen agency. We're a commercial partner — built on 20+ years inside Orthotics &amp; Prosthetics and ~1,000 trusted relationships across the global industry.
-        </p>
-      </div>
-      <div class="why__photo">
-        <img src="assets/img/why-partnership.jpg" alt="Long-term commercial partnerships" loading="lazy" />
-        <div class="why__photo-caption">
-          <div class="why__photo-caption-label">Built on trust</div>
-          <div class="why__photo-caption-text">Long-term commercial partnerships, not transactional consulting.</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="why__grid">
-      <article class="why-card">
-        <div class="why-card__num">01</div>
-        <h4>Direct access to decision-makers</h4>
-        <p>Our ~1,000 trusted contacts include manufacturers, distributors, fabrication labs, clinical groups, and technology leaders across the UK, Europe, North America, the Middle East, and Australia.</p>
-      </article>
-      <article class="why-card">
-        <div class="why-card__num">02</div>
-        <h4>Industry-native, not generic</h4>
-        <p>20+ years inside O&amp;P manufacturing, fabrication, and clinical workflows. We bring market reality and commercial fluency — not slide-deck theory.</p>
-      </article>
-      <article class="why-card">
-        <div class="why-card__num">03</div>
-        <h4>Flexible commercial models</h4>
-        <p>Engage as a strategic advisor, on success-based terms, or as a recurring commercial partner. Aligned with your stage, risk profile, and growth goals.</p>
-      </article>
-      <article class="why-card">
-        <div class="why-card__num">04</div>
-        <h4>A shorter path to traction</h4>
-        <p>We compress the cost and complexity of international expansion by going direct to the right people — qualified commercial conversations, not cold outreach.</p>
-      </article>
-    </div>
-
-    <div class="value-chain__cta" style="margin-top: clamp(40px, 5vh, 64px);">
-      <div class="value-chain__cta-text">
-        <span class="material-symbols-outlined">arrow_outward</span>
-        <span>Exploring a new market, a new partner, or a new commercial channel? Let's talk.</span>
-      </div>
-      <a href="#book" class="value-chain__cta-link" data-nav="book">
-        Request an intro call
-        <span class="material-symbols-outlined">arrow_forward</span>
-      </a>
     </div>
   </div>
 </section>
@@ -1758,7 +1819,7 @@
 (function () {
   // ─── Smooth scroll + nav active-state ───
   const NAV_OFFSET = 70;
-  const SECTIONS = ['top','services','value-chain','focus','network','expertise','book'];
+  const SECTIONS = ['top','services','value-chain','expertise','focus','network','book'];
 
   function scrollToId(id) {
     const el = document.getElementById(id);
@@ -1827,8 +1888,10 @@
     ];
     const cx0 = MARKERS.reduce((s, m) => s + m.x, 0) / MARKERS.length;
     const cy0 = MARKERS.reduce((s, m) => s + m.y, 0) / MARKERS.length;
-    const colors = ['rgba(0,92,200,0.32)', 'rgba(139,197,63,0.24)'];
+    const colors = ['rgba(61,142,235,0.5)', 'rgba(139,197,63,0.42)'];
     const frag = document.createDocumentFragment();
+    const pulses = [];
+    let k = 0;
 
     for (let i = 0; i < MARKERS.length; i++) {
       for (let j = i + 1; j < MARKERS.length; j++) {
@@ -1848,16 +1911,43 @@
         const sign = (px * (mx - cx0) + py * (my - cy0)) >= 0 ? 1 : -1;
         const ccx = mx + sign * px * bow;
         const ccy = my + sign * py * bow;
+        const d = `M ${a.x} ${a.y} Q ${ccx.toFixed(1)} ${ccy.toFixed(1)} ${b.x} ${b.y}`;
 
         const path = document.createElementNS(NS, 'path');
-        path.setAttribute('d', `M ${a.x} ${a.y} Q ${ccx.toFixed(1)} ${ccy.toFixed(1)} ${b.x} ${b.y}`);
+        path.setAttribute('d', d);
         path.setAttribute('class', 'arc');
         path.setAttribute('stroke', colors[(i + j) % 2]);
-        path.setAttribute('stroke-width', '1');
+        path.setAttribute('stroke-width', '1.25');
         path.setAttribute('fill', 'none');
         frag.appendChild(path);
+
+        // traveling pulse along every 3rd arc
+        if (k % 3 === 0) {
+          const dur = 3 + (k % 4) * 0.5;
+          const begin = (k % 6) * 0.5;
+          const pulse = document.createElementNS(NS, 'circle');
+          pulse.setAttribute('r', '2.6');
+          pulse.setAttribute('fill', '#8BC53F');
+          const am = document.createElementNS(NS, 'animateMotion');
+          am.setAttribute('dur', dur + 's');
+          am.setAttribute('repeatCount', 'indefinite');
+          am.setAttribute('begin', begin + 's');
+          am.setAttribute('path', d);
+          const ao = document.createElementNS(NS, 'animate');
+          ao.setAttribute('attributeName', 'opacity');
+          ao.setAttribute('values', '0;1;1;0');
+          ao.setAttribute('keyTimes', '0;0.15;0.85;1');
+          ao.setAttribute('dur', dur + 's');
+          ao.setAttribute('repeatCount', 'indefinite');
+          ao.setAttribute('begin', begin + 's');
+          pulse.appendChild(am);
+          pulse.appendChild(ao);
+          pulses.push(pulse);
+        }
+        k++;
       }
     }
+    pulses.forEach(p => frag.appendChild(p));
     arcs.appendChild(frag);
   }
 
