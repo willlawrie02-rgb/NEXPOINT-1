@@ -493,45 +493,45 @@
   .value-chain__cta {
     position: relative;
     margin-top: 64px;
-    padding: clamp(20px, 2.2vw, 28px) clamp(24px, 2.5vw, 32px);
+    padding: clamp(16px, 1.8vw, 22px) clamp(20px, 2.2vw, 28px);
     background:
       radial-gradient(900px 320px at 0% 50%, rgba(0, 92, 200, 0.20), transparent 60%),
       radial-gradient(700px 300px at 100% 50%, rgba(139, 197, 63, 0.10), transparent 60%),
       linear-gradient(160deg, rgba(30, 30, 30, 0.55) 0%, rgba(20, 20, 20, 0.55) 100%);
     border: 1px solid rgba(0, 92, 200, 0.4);
     border-radius: 14px;
-    display: flex; align-items: center; gap: 20px;
+    display: flex; align-items: center; gap: 18px;
     flex-wrap: wrap; justify-content: space-between;
-    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4), 0 0 28px rgba(0, 92, 200, 0.14);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 24px rgba(0, 92, 200, 0.12);
     transition: border-color 200ms var(--ease), box-shadow 200ms var(--ease), transform 200ms var(--ease);
   }
   .value-chain__cta:hover {
     border-color: var(--np-blue);
     transform: translateY(-2px);
-    box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5), 0 0 36px rgba(0, 92, 200, 0.28);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), 0 0 32px rgba(0, 92, 200, 0.24);
   }
   .value-chain__cta-text {
-    display: flex; align-items: center; gap: 18px;
+    display: flex; align-items: center; gap: 14px;
     color: rgba(255, 255, 255, 0.96);
-    font: 500 clamp(18px, 1.6vw, 22px)/1.5 var(--font-body);
+    font: 500 clamp(15px, 1.3vw, 17px)/1.5 var(--font-body);
   }
   .value-chain__cta-text .material-symbols-outlined {
     color: var(--np-blue);
-    font-size: clamp(22px, 1.9vw, 26px);
-    width: clamp(42px, 3.6vw, 50px);
-    height: clamp(42px, 3.6vw, 50px);
+    font-size: clamp(20px, 1.7vw, 22px);
+    width: clamp(36px, 3vw, 42px);
+    height: clamp(36px, 3vw, 42px);
     border-radius: 9999px;
     background: rgba(0, 92, 200, 0.16);
     border: 1px solid rgba(0, 92, 200, 0.45);
     display: inline-flex; align-items: center; justify-content: center;
     flex: 0 0 auto;
-    box-shadow: 0 0 16px rgba(0, 92, 200, 0.28);
+    box-shadow: 0 0 14px rgba(0, 92, 200, 0.22);
   }
   .value-chain__cta-link {
-    font: 600 clamp(15px, 1.2vw, 17px)/1 var(--font-body);
+    font: 600 clamp(13px, 1vw, 15px)/1 var(--font-body);
     color: #fff;
     background: var(--np-blue);
-    padding: 12px 20px;
+    padding: 10px 18px;
     border-radius: 6px;
     text-decoration: none;
     display: inline-flex; align-items: center; gap: 8px;
@@ -545,7 +545,7 @@
     transform: scale(0.97);
     background: var(--np-blue-pressed);
   }
-  .value-chain__cta-link .material-symbols-outlined { font-size: 18px; }
+  .value-chain__cta-link .material-symbols-outlined { font-size: 16px; }
 
   /* ─── Focus areas ─── */
   .focus__head {
@@ -574,7 +574,7 @@
     margin-bottom: 24px;
   }
   .focus__grid {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px;
   }
   .area-card {
     display: flex; flex-direction: column;
@@ -1587,8 +1587,8 @@
 <section id="focus" class="section section--alt">
   <div class="container">
     <div class="focus__head">
-      <h2 class="focus__title">Industries we serve</h2>
-      <p class="focus__lede">Orthotics &amp; Prosthetics is our home market. We help companies across clinical technology, manufacturing, and materials bring their products into it.</p>
+      <h2 class="focus__title">Quality Suppliers we help</h2>
+      <p class="focus__lede">Orthotics &amp; Prosthetics is our core market. We help companies in clinical technology, manufacturing, and materials bring their products into our community of customers.</p>
     </div>
 
     <div class="focus__groups">
@@ -1627,6 +1627,15 @@
           <div class="area-card__body">
             <div class="area-card__icon"><span class="material-symbols-outlined">science</span></div>
             <div class="area-card__title">Materials &amp; consumables</div>
+          </div>
+        </div>
+        <div class="area-card">
+          <div class="area-card__media">
+            <img src="assets/img/area-finishing-hardware.jpg" alt="Finishing Hardware" loading="lazy" />
+          </div>
+          <div class="area-card__body">
+            <div class="area-card__icon"><span class="material-symbols-outlined">handyman</span></div>
+            <div class="area-card__title">Finishing Hardware</div>
           </div>
         </div>
       </div>
@@ -1799,7 +1808,7 @@
         <span class="eyebrow">Get in touch</span>
         <h2 class="book__title">Let's map your global footprint.</h2>
         <p class="book__lede">
-          Send a few details and we'll be in touch within one working day to schedule a 30 minute intro call.
+          Send a few details and we'll be in touch soon to schedule a 30 minute intro call.
         </p>
 
         <div class="book__write">
