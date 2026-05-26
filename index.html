@@ -715,7 +715,8 @@
   }
   .map-card__inner {
     position: relative;
-    height: 420px;
+    aspect-ratio: 640 / 460;
+    max-height: 460px;
     border-radius: 8px; overflow: hidden;
     background: linear-gradient(160deg, #161818 0%, #0d0e0f 100%);
   }
@@ -1647,7 +1648,7 @@
           <div class="map-card__header">
             <span class="map-card__header-label">Global network</span>
           </div>
-          <svg viewBox="0 0 640 460" preserveAspectRatio="xMidYMid slice">
+          <svg viewBox="0 0 640 460" preserveAspectRatio="xMidYMid meet">
             <defs>
               <radialGradient id="cityGlow" cx="50%" cy="50%" r="50%">
                 <stop offset="0%"   stop-color="#3D8EEB" stop-opacity="0.7" />
