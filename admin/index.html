@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint Admin — Opportunity Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d0e0f;--surface:#161718;--line:#2a2a2a;--ink:#e2e2e2;--mut:rgba(226,226,226,.6);
+    --blue:#005CC8;--blue-br:#3D8EEB;--green:#9CD850;--amber:#E8B23A;--red:#ff6b6b;
+    --font-d:'Montserrat',system-ui,sans-serif;--font-b:'Inter',system-ui,sans-serif}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--blue-br)}
+  h1,h2,h3{font-family:var(--font-d)}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+  header{position:sticky;top:0;z-index:10;background:#0d0e0fee;backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .bar{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+  .brand{font:700 17px/1 var(--font-d);color:#fff}
+  .brand span{color:var(--green)}
+  .who{font-size:13px;color:var(--mut)}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-b);font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:5px;border:none;cursor:pointer;transition:all .15s}
+  .btn-pri{background:var(--blue);color:#fff}.btn-pri:hover{background:#0066DC}
+  .btn-gh{background:transparent;color:var(--mut);border:1px solid var(--line)}.btn-gh:hover{color:#fff;border-color:#444}
+  .btn-grn{background:rgba(156,216,80,.16);color:var(--green);border:1px solid rgba(156,216,80,.3)}
+  .btn-amb{background:rgba(232,178,58,.14);color:var(--amber);border:1px solid rgba(232,178,58,.3)}
+  .btn-sm{padding:6px 11px;font-size:12.5px}
+  .btn-danger{background:transparent;color:var(--red);border:1px solid rgba(255,107,107,.3)}
+
+  /* login */
+  #login{max-width:380px;margin:14vh auto 0;text-align:center}
+  #login h1{font-size:24px;color:#fff;margin-bottom:6px}
+  #login p{color:var(--mut);font-size:14px;margin-bottom:26px}
+  #login input{width:100%;background:#0a0a0a;border:1px solid var(--line);border-radius:5px;color:var(--ink);font-family:var(--font-b);font-size:15px;padding:12px 14px;margin-bottom:12px;outline:none}
+  #login input:focus{border-color:var(--blue)}
+  #login .btn-pri{width:100%;justify-content:center;padding:12px}
+  .err{color:var(--red);font-size:13px;margin-top:10px;min-height:18px}
+  .hint{color:var(--mut);font-size:12px;margin-top:14px}
+
+  /* list */
+  main{padding:28px 0 90px}
+  .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
+  .toolbar h2{font-size:20px;color:#fff}
+  .filters{display:flex;gap:8px}
+  .chip{font:600 12.5px/1 var(--font-b);padding:7px 13px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer}
+  .chip.on{background:rgba(0,92,200,.18);border-color:var(--blue);color:var(--blue-br)}
+  .row{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:9px;padding:16px 18px;margin-bottom:12px;display:flex;gap:16px;align-items:flex-start}
+  .row.published{border-left-color:var(--green)}.row.draft{border-left-color:var(--amber)}.row.withheld{border-left-color:#777}
+  .row .main{flex:1;min-width:0}
+  .row .top{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:5px}
+  .badge{font:700 10px/1 var(--font-b);letter-spacing:.07em;color:#0d0e0f;padding:4px 8px;border-radius:3px}
+  .badge.published{background:var(--green)}.badge.draft{background:var(--amber)}.badge.withheld{background:#888}
+  .ref{font:600 12px/1 var(--font-b);color:var(--mut);letter-spacing:.04em}
+  .pill{font:600 10.5px/1 var(--font-b);letter-spacing:.05em;padding:4px 8px;border-radius:3px;background:#13325a;color:#acf}
+  .pill.alt{background:#222;color:var(--mut)}
+  .row h3{font:600 16px/1.3 var(--font-d);color:#fff;margin:2px 0 4px}
+  .row .ground{font-size:12px;color:var(--amber)}
+  .row .acts{display:flex;gap:7px;flex-wrap:wrap;align-items:center;flex-shrink:0}
+
+  /* editor modal */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px;z-index:50}
+  .overlay.open{display:flex}
+  .modal{background:var(--surface);border:1px solid var(--line);border-radius:12px;width:100%;max-width:720px;padding:26px 28px}
+  .modal h2{font-size:19px;color:#fff;margin-bottom:18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .field{margin-bottom:14px}
+  .field.full{grid-column:1/-1}
+  label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-bottom:5px;letter-spacing:.02em}
+  label .opt{color:#666;font-weight:400}
+  input,select,textarea{width:100%;background:#0a0a0a;border:1px solid var(--line);border-radius:5px;color:var(--ink);font-family:var(--font-b);font-size:14px;padding:9px 12px;outline:none}
+  textarea{resize:vertical;min-height:64px;line-height:1.5}
+  textarea.code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+  input:focus,select:focus,textarea:focus{border-color:var(--blue)}
+  .priv-box{background:#241a08;border:1px solid #5a4416;border-radius:8px;padding:14px 16px;margin:6px 0 14px}
+  .priv-box .lab{font:700 10px/1 var(--font-b);letter-spacing:.1em;color:var(--amber);margin-bottom:10px}
+  .modal-acts{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+  .modal-acts .right{display:flex;gap:10px}
+  .save-err{color:var(--red);font-size:13px}
+  .muted{color:var(--mut);font-size:12.5px}
+  .empty{text-align:center;color:var(--mut);padding:60px 0}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- LOGIN -->
+  <div id="login" style="display:none">
+    <h1>NexPoint <span style="color:var(--green)">Admin</span></h1>
+    <p>Sign in to manage the opportunity board.</p>
+    <form onsubmit="event.preventDefault();doLogin()">
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr"></div>
+    <div class="hint">Admin access only. If you can't get in, the account or its email may not be on the allowlist.</div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="admin" style="display:none">
+    <header><div class="wrap bar">
+      <div class="brand">NexPoint <span>Admin</span></div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <span class="who" id="whoami"></span>
+        <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+      </div>
+    </div></header>
+    <main><div class="wrap">
+      <div class="toolbar">
+        <h2>Opportunity board</h2>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="filters" id="filters">
+            <button class="chip on" data-f="all">All</button>
+            <button class="chip" data-f="published">Published</button>
+            <button class="chip" data-f="draft">Draft</button>
+            <button class="chip" data-f="withheld">Withheld</button>
+          </div>
+          <button class="btn btn-pri btn-sm" onclick="openEditor(null)">+ New</button>
+        </div>
+      </div>
+      <div id="list"></div>
+    </div></main>
+  </div>
+</div>
+
+<!-- EDITOR -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <h2 id="edTitle">Edit opportunity</h2>
+    <div class="grid">
+      <div class="field"><label>Reference <span class="opt">(NX-####)</span></label><input id="f_ref" placeholder="NX-2620"></div>
+      <div class="field"><label>Status</label><select id="f_status"><option value="draft">Draft</option><option value="published">Published</option><option value="withheld">Withheld</option></select></div>
+      <div class="field"><label>Direction</label><select id="f_dir"><option>OFFERING</option><option>SEEKING</option><option>TWO-WAY</option></select></div>
+      <div class="field"><label>Category</label><select id="f_cat"><option value="manufacturing">Manufacturing &amp; Capacity</option><option value="materials">Materials &amp; Products</option><option value="partnership">Partnerships &amp; Franchise</option><option value="succession">Succession &amp; Acquisition</option><option value="equipment">Equipment &amp; Technology</option><option value="talent">Talent &amp; People</option></select></div>
+      <div class="field full"><label>Title</label><input id="f_title" placeholder="The card headline"></div>
+      <div class="field full"><label>Regions <span class="opt">(comma-separated)</span></label><input id="f_regions" placeholder="North America, United Kingdom"></div>
+      <div class="field full"><label>Summary</label><textarea id="f_sum"></textarea></div>
+      <div class="field full"><label>Best fit <span class="opt">(HTML ok, e.g. &lt;b&gt;Best fit:&lt;/b&gt; …)</span></label><textarea id="f_fit"></textarea></div>
+      <div class="field full"><label>Tags <span class="opt">(comma-separated)</span></label><input id="f_tags" placeholder="Succession, Confidential"></div>
+      <div class="field full"><label>Detail <span class="opt">(HTML, use &lt;p&gt;…&lt;/p&gt;)</span></label><textarea id="f_detail" style="min-height:120px"></textarea></div>
+      <div class="field full"><label>Signals <span class="opt">(JSON: list of [headline, caption] pairs)</span></label><textarea id="f_signals" class="code"></textarea></div>
+      <div class="field full"><label>Locked teaser <span class="opt">(JSON: list of [label, blurred-value] pairs)</span></label><textarea id="f_locked" class="code"></textarea></div>
+    </div>
+    <div class="priv-box">
+      <div class="lab">PRIVATE — NEVER PUBLISHED</div>
+      <div class="grid">
+        <div class="field"><label>Grounded in <span class="opt">(deal slug, comma for several)</span></label><input id="f_deal" placeholder="talarmade"></div>
+        <div class="field"><label>Confidentiality</label><input id="f_conf" placeholder="standard"></div>
+        <div class="field full"><label>Terms <span class="opt">(optional)</span></label><input id="f_terms"></div>
+        <div class="field full"><label>Products <span class="opt">(comma-separated, optional)</span></label><input id="f_products"></div>
+      </div>
+    </div>
+    <div class="modal-acts">
+      <button class="btn btn-danger btn-sm" id="edDelete" onclick="del()">Delete</button>
+      <div style="display:flex;align-items:center;gap:14px">
+        <span class="save-err" id="saveErr"></span>
+        <div class="right">
+          <button class="btn btn-gh" onclick="closeEditor()">Cancel</button>
+          <button class="btn btn-pri" onclick="save()">Save</button>
+        </div>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:12px">Saving writes straight to the live database. Published cards appear on the board immediately.</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];   // UI gate; real gate is database RLS
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let briefs=[];let filter='all';let editingId=null;
+const $=id=>document.getElementById(id);
+const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
+
+// ---- auth ----
+async function boot(){
+  const {data}=await sb.auth.getSession();
+  const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)) showAdmin(s.user); else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email)){
+    $('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+  }
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const email=$('email').value.trim(),password=$('pw').value;
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  showAdmin(data.user);
+}
+async function signOut(){await sb.auth.signOut();location.reload();}
+
+// ---- list ----
+async function showAdmin(user){
+  $('login').style.display='none';$('admin').style.display='block';
+  $('whoami').textContent=user.email;
+  await load();
+}
+async function load(){
+  const {data,error}=await sb.from('briefs').select('*').order('sort',{ascending:true});
+  if(error){$('list').innerHTML=`<div class="empty">Couldn't load: ${error.message}</div>`;return;}
+  briefs=data||[];render();
+}
+$('filters').addEventListener('click',e=>{
+  if(!e.target.classList.contains('chip'))return;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  e.target.classList.add('on');filter=e.target.dataset.f;render();
+});
+function dealStr(d){return Array.isArray(d)?d.join(' · '):(d||'—');}
+function render(){
+  const rows=briefs.filter(b=>filter==='all'||b.status===filter);
+  if(!rows.length){$('list').innerHTML='<div class="empty">Nothing here yet.</div>';return;}
+  $('list').innerHTML=rows.map(b=>`
+    <div class="row ${b.status}">
+      <div class="main">
+        <div class="top">
+          <span class="badge ${b.status}">${b.status.toUpperCase()}</span>
+          <span class="ref">${b.ref||''}</span>
+          <span class="pill">${b.dir||''}</span>
+          <span class="pill alt">${b.cat||''}</span>
+        </div>
+        <h3>${b.title||'(untitled)'}</h3>
+        <div class="ground">Grounded in ${dealStr(b.deal)}</div>
+      </div>
+      <div class="acts">
+        ${b.status!=='published'?`<button class="btn btn-grn btn-sm" onclick="setStatus('${b.id}','published')">Publish</button>`:''}
+        ${b.status!=='withheld'?`<button class="btn btn-amb btn-sm" onclick="setStatus('${b.id}','withheld')">Withhold</button>`:''}
+        ${b.status!=='draft'?`<button class="btn btn-gh btn-sm" onclick="setStatus('${b.id}','draft')">Draft</button>`:''}
+        <button class="btn btn-gh btn-sm" onclick="openEditor('${b.id}')">Edit</button>
+      </div>
+    </div>`).join('');
+}
+async function setStatus(id,status){
+  const {error}=await sb.from('briefs').update({status}).eq('id',id);
+  if(error){alert('Failed: '+error.message);return;}
+  await load();
+}
+
+// ---- editor ----
+function openEditor(id){
+  editingId=id;
+  const b=id?briefs.find(x=>x.id===id):null;
+  $('edTitle').textContent=b?`Edit ${b.ref}`:'New opportunity';
+  $('edDelete').style.display=b?'inline-flex':'none';
+  $('saveErr').textContent='';
+  const g=(k,d='')=>b?(b[k]??d):d;
+  $('f_ref').value=(g('ref')||'').replace(/^BRIEF\s+/i,'');
+  $('f_status').value=g('status','draft');
+  $('f_dir').value=g('dir','OFFERING');
+  $('f_cat').value=g('cat','materials');
+  $('f_title').value=g('title');
+  $('f_regions').value=(g('regions',[])||[]).join(', ');
+  $('f_sum').value=g('sum');
+  $('f_fit').value=g('fit');
+  $('f_tags').value=(g('tags',[])||[]).join(', ');
+  $('f_detail').value=g('detail');
+  $('f_signals').value=JSON.stringify(g('signals',[])||[],null,1);
+  $('f_locked').value=JSON.stringify(g('locked',[])||[],null,1);
+  $('f_deal').value=dealVal(g('deal'));
+  $('f_conf').value=g('confidentiality','standard');
+  $('f_terms').value=g('terms')||'';
+  $('f_products').value=(g('products',[])||[]).join(', ');
+  $('editOverlay').classList.add('open');
+}
+function dealVal(d){return Array.isArray(d)?d.join(', '):(d||'');}
+function closeEditor(){$('editOverlay').classList.remove('open');editingId=null;}
+function csv(v){return v.split(',').map(s=>s.trim()).filter(Boolean);}
+async function save(){
+  $('saveErr').textContent='';
+  let signals,locked;
+  try{signals=JSON.parse($('f_signals').value||'[]');}catch(e){$('saveErr').textContent='Signals isn\'t valid JSON';return;}
+  try{locked=JSON.parse($('f_locked').value||'[]');}catch(e){$('saveErr').textContent='Locked isn\'t valid JSON';return;}
+  const refRaw=$('f_ref').value.trim().toUpperCase().replace(/^BRIEF\s+/,'');
+  if(!/^NX-\d+$/.test(refRaw)){$('saveErr').textContent='Reference must look like NX-2620';return;}
+  const id=editingId||('nx-'+refRaw.split('-')[1]);
+  const dealParts=csv($('f_deal').value);
+  const rec={
+    id, ref:'BRIEF '+refRaw, status:$('f_status').value, dir:$('f_dir').value, cat:$('f_cat').value,
+    title:$('f_title').value.trim(),
+    regions:csv($('f_regions').value), sum:$('f_sum').value.trim(), fit:$('f_fit').value.trim(),
+    tags:csv($('f_tags').value), detail:$('f_detail').value.trim(), signals, locked,
+    deal: dealParts.length>1?dealParts:(dealParts[0]||null),
+    confidentiality:$('f_conf').value.trim()||null, terms:$('f_terms').value.trim()||null,
+    products:csv($('f_products').value)
+  };
+  if(!editingId){rec.sort=(Math.max(0,...briefs.map(b=>b.sort||0))+10);}
+  const {error}=await sb.from('briefs').upsert(rec);
+  if(error){$('saveErr').textContent=error.message;return;}
+  closeEditor();await load();
+}
+async function del(){
+  if(!editingId)return;
+  const b=briefs.find(x=>x.id===editingId);
+  if(!confirm(`Delete ${b.ref} — "${b.title}"? This cannot be undone.`))return;
+  const {error}=await sb.from('briefs').delete().eq('id',editingId);
+  if(error){$('saveErr').textContent=error.message;return;}
+  closeEditor();await load();
+}
+$('editOverlay').addEventListener('click',e=>{if(e.target===$('editOverlay'))closeEditor();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeEditor();});
+
+boot();
+</script>
+</body>
+</html>

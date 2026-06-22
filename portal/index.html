@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The NexPoint Network</title>
+<link rel="icon" href="/assets/nexpoint-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --font-display:'Montserrat',system-ui,sans-serif;--font-body:'Inter',system-ui,sans-serif;
+    --bg:#121212; --bg-alt:#0d0e0f; --surface:#1E1E1E; --surface-input:#0A0A0A;
+    --on-surface:#E2E2E2; --on-surface-var:rgba(226,226,226,.65);
+    --outline:rgba(226,226,226,.45); --outline-var:#2A2A2A;
+    --border:#262626; --border-card:#2A2A2A; --border-soft:rgba(255,255,255,.06);
+    --blue:#005CC8; --blue-hover:#0066DC; --blue-pressed:#004FAA; --blue-bright:#3D8EEB;
+    --green:#8BC53F; --green-bright:#9CD850;
+    --radius:4px; --radius-lg:8px; --radius-xl:12px;
+    --ease:cubic-bezier(.2,.8,.2,1); --dur:200ms;
+    --container-max:1360px; --side-pad:clamp(20px,4.5vw,64px); --section-pad:clamp(72px,10vh,132px);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--on-surface);font-family:var(--font-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  h1,h2,h3,h4,.font-display{font-family:var(--font-display)}
+  a{color:inherit;text-decoration:none}
+  img,svg{max-width:100%}
+  ::selection{background:rgba(0,92,200,.4);color:#fff}
+  ::-webkit-scrollbar{height:6px;width:6px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:9999px}
+  ::-webkit-scrollbar-track{background:transparent}
+  .container{max-width:var(--container-max);margin:0 auto;padding:0 var(--side-pad)}
+
+  /* eyebrow + label */
+  .eyebrow{font:600 12px/1 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--blue);display:inline-flex;align-items:center;gap:10px;margin-bottom:20px}
+  .eyebrow::before{content:"";width:24px;height:1.5px;background:currentColor;display:inline-block;flex-shrink:0}
+  .eyebrow--green{color:var(--green)}
+  .label{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);font-weight:600;font-size:14px;padding:13px 22px;border-radius:var(--radius);border:none;cursor:pointer;transition:all var(--dur) var(--ease);text-decoration:none;white-space:nowrap}
+  .btn-primary{background:var(--blue);color:#fff}
+  .btn-primary:hover{background:var(--blue-hover);box-shadow:0 10px 28px rgba(0,92,200,.35)}
+  .btn-primary:active{transform:scale(.97);background:var(--blue-pressed)}
+  .btn-ghost{background:transparent;color:#fff;padding:13px 14px}
+  .btn-ghost:hover{color:var(--green)}
+  .btn-outline{background:transparent;border:1px solid rgba(255,255,255,.18);color:#fff}
+  .btn-outline:hover{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.03)}
+
+  /* ---------- header ---------- */
+  header{position:sticky;top:0;z-index:50;background:rgba(18,18,18,.72);backdrop-filter:saturate(140%) blur(16px);-webkit-backdrop-filter:saturate(140%) blur(16px);border-bottom:1px solid rgba(255,255,255,.06)}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:72px;gap:24px}
+  .wordmark{display:inline-flex;align-items:center;line-height:0}
+  .wordmark img{height:52px;width:auto;display:block}
+  .nav-links{display:flex;gap:28px;align-items:center}
+  .nav-links a{font:600 12px/1 var(--font-body);letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.55);transition:color var(--dur) var(--ease);white-space:nowrap}
+  .nav-links a:hover{color:#fff}
+  @media(max-width:1080px) and (min-width:901px){.wordmark img{height:46px}.nav-links{gap:18px}.nav-links a{font-size:11.5px;letter-spacing:.03em}#navAccess{padding:11px 16px}}
+  @media(max-width:900px){.nav-links a.hide-m{display:none}}
+  @media(max-width:600px){.nav{height:62px}.nav-links{gap:12px}#navAccess{padding:10px 14px;font-size:13px}}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;padding:clamp(104px,14vh,150px) 0 clamp(72px,10vh,112px);overflow:hidden}
+  .hero-bg{position:absolute;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(900px 600px at 88% 6%,rgba(0,92,200,.22),transparent 60%),radial-gradient(720px 520px at 4% 96%,rgba(139,197,63,.10),transparent 60%)}
+  .hero .container{position:relative;z-index:1}
+  .hero h1{font:700 clamp(34px,4.3vw,60px)/1.07 var(--font-display);letter-spacing:-.025em;color:#fff;max-width:880px;margin:0 0 22px}
+  .hero h1 em{font-style:normal;color:var(--blue)}
+  .hero p.lede{font:400 clamp(15px,1.25vw,18px)/1.6 var(--font-body);color:rgba(226,226,226,.78);max-width:620px;margin-bottom:36px}
+  .hero-ctas{display:flex;gap:14px;flex-wrap:wrap}
+  .proof{background:var(--bg-alt);border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft)}
+  .proof .container{padding-top:clamp(28px,4vh,44px);padding-bottom:clamp(28px,4vh,44px)}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);margin:0}
+  .stat{padding:6px clamp(16px,3vw,40px)}
+  .stat+.stat{border-left:1px solid var(--border-soft)}
+  .stat b{display:block;font:800 clamp(24px,2vw,30px)/1 var(--font-display);letter-spacing:-.02em;
+    background:linear-gradient(135deg,#3D8EEB 0%,#8BC53F 135%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+  .stat b i{font-style:normal}
+  .stat span{display:block;margin-top:10px;font-size:13px;color:var(--outline);line-height:1.45}
+  @media(max-width:760px){.stats{grid-template-columns:1fr}.stat{padding:18px 0}.stat+.stat{border-left:none;border-top:1px solid var(--border-soft)}}
+
+  /* ---------- principle strip ---------- */
+  .principles{border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);background:var(--bg-alt)}
+  .principles .container{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding-top:clamp(40px,6vh,64px);padding-bottom:clamp(40px,6vh,64px)}
+  @media(max-width:860px){.principles .container{grid-template-columns:1fr}}
+  .principle{position:relative;background:linear-gradient(165deg,#1f1f1f 0%,#171717 100%);border:1px solid var(--border);border-radius:var(--radius-lg);padding:clamp(22px,2vw,30px);overflow:hidden;transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+  .principle::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--green));opacity:.65;transition:opacity var(--dur) var(--ease)}
+  .principle:hover{transform:translateY(-4px);border-color:var(--blue);box-shadow:0 18px 40px rgba(0,0,0,.5),0 0 28px rgba(0,92,200,.18)}
+  .principle:hover::before{opacity:1}
+  .principle .label{color:var(--blue-bright);display:flex;align-items:center;gap:10px}
+  .principle p{margin-top:12px;font-size:14.5px;line-height:23px;color:var(--on-surface-var)}
+  .pnum{display:inline-flex;width:24px;height:24px;border:1px solid var(--blue);border-radius:50%;align-items:center;justify-content:center;font-size:11px;color:var(--blue-bright);flex-shrink:0}
+
+  /* ---------- board ---------- */
+  .board{padding:var(--section-pad) 0 40px}
+  .board-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:34px}
+  .board-head h2{font:600 clamp(28px,3.2vw,44px)/1.15 var(--font-display);letter-spacing:-.02em;color:#fff}
+  .board-head .eyebrow{margin-bottom:12px}
+  .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(139,197,63,.7);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(139,197,63,.5)}70%{box-shadow:0 0 0 8px rgba(139,197,63,0)}100%{box-shadow:0 0 0 0 rgba(139,197,63,0)}}
+  .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px}
+  .chip{font-family:var(--font-body);font-size:13px;font-weight:500;padding:8px 16px;border-radius:9999px;border:1px solid var(--outline-var);background:transparent;color:var(--on-surface-var);cursor:pointer;transition:all var(--dur) var(--ease)}
+  .chip:hover{border-color:var(--outline);color:#fff}
+  .chip.active{background:rgba(0,92,200,.18);border-color:var(--blue);color:var(--blue-bright)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:20px}
+  .card{background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-xl);padding:26px;display:flex;flex-direction:column;cursor:pointer;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+  .card:hover{border-color:var(--blue);transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.45)}
+  .card-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+  .ref{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--outline)}
+  .dir{font-size:10px;font-weight:600;letter-spacing:.08em;padding:5px 10px;border-radius:9999px;text-transform:uppercase}
+  .dir.offering{background:rgba(139,197,63,.12);border:1px solid rgba(139,197,63,.3);color:var(--green)}
+  .dir.seeking{background:rgba(0,92,200,.12);border:1px solid rgba(0,92,200,.3);color:var(--blue-bright)}
+  .card h3{font:600 clamp(18px,1.6vw,21px)/1.3 var(--font-display);letter-spacing:-.01em;color:#fff;margin-bottom:10px}
+  .card .sum{font-size:14px;line-height:22px;color:var(--on-surface-var);flex:1}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 0}
+  .tag{font-size:11px;font-weight:600;letter-spacing:.04em;padding:5px 10px;border-radius:9999px;background:rgba(255,255,255,.04);color:var(--on-surface-var);border:1px solid rgba(255,255,255,.08)}
+  .fit{margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);font-size:12.5px;line-height:19px;color:var(--outline)}
+  .fit b{color:var(--green);font-weight:600}
+  .card-cta{margin-top:18px;font-size:13.5px;font-weight:600;color:var(--blue-bright);display:flex;align-items:center;gap:6px}
+  .card-cta svg{transition:transform var(--dur) var(--ease)}
+  .card:hover .card-cta svg{transform:translateX(3px)}
+
+  /* membership wall + member states */
+  .wall{position:relative;border:1px solid rgba(0,92,200,.4);border-radius:var(--radius-xl);padding:clamp(40px,6vw,64px) 40px;text-align:center;margin-bottom:32px;overflow:hidden;
+    background:radial-gradient(900px 320px at 0% 0%,rgba(0,92,200,.20),transparent 60%),radial-gradient(700px 300px at 100% 100%,rgba(139,197,63,.10),transparent 60%),linear-gradient(160deg,rgba(30,30,30,.55),rgba(20,20,20,.55));box-shadow:0 12px 30px rgba(0,0,0,.35),0 0 24px rgba(0,92,200,.12)}
+  .wall .eyebrow{justify-content:center}
+  .wall h3{font:600 clamp(20px,2vw,25px)/1.3 var(--font-display);letter-spacing:-.01em;color:#fff;max-width:580px;margin:0 auto 14px}
+  .wall p{font-size:15px;line-height:24px;color:var(--on-surface-var);max-width:540px;margin:0 auto 28px}
+  .wall .note{font-size:12.5px;color:var(--outline);margin-top:18px;display:flex;gap:8px;justify-content:center;align-items:center}
+  .preview-blur{filter:blur(7px);opacity:.4;pointer-events:none;user-select:none}
+  .member-strip{display:none;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:rgba(139,197,63,.08);border:1px solid rgba(139,197,63,.3);border-radius:var(--radius-lg);padding:16px 22px;margin-bottom:26px}
+  .member-strip .who{font-size:14px;color:var(--on-surface)}
+  .member-strip .who b{color:var(--green)}
+  .member-strip .sub{font-size:12.5px;color:var(--outline);margin-top:2px}
+  .matched-home{display:none;margin-bottom:36px}
+  .matched-home h3{font:600 20px/1.3 var(--font-display);color:#fff;margin-bottom:6px}
+  .matched-home .sub{font-size:13px;color:var(--outline);margin-bottom:18px}
+  .match-why{margin-top:14px;font-size:12.5px;color:var(--green);background:rgba(139,197,63,.08);border:1px solid rgba(139,197,63,.25);border-radius:var(--radius);padding:8px 12px}
+  .badge-match{font-size:10px;font-weight:600;letter-spacing:.08em;padding:4px 10px;border-radius:9999px;background:var(--green);color:#121212;margin-left:8px}
+
+  /* ---------- how it works ---------- */
+  .how{padding:var(--section-pad) 0}
+  .how h2{font:600 clamp(28px,3.2vw,44px)/1.15 var(--font-display);letter-spacing:-.02em;color:#fff;margin:0 0 48px}
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+  @media(max-width:980px){.steps{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:600px){.steps{grid-template-columns:1fr}}
+  .step{background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-xl);padding:28px;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+  .step:hover{border-color:var(--blue);transform:translateY(-2px)}
+  .step .n{display:block;font:800 clamp(28px,3vw,40px)/1 var(--font-display);letter-spacing:-.02em;margin-bottom:6px;background:linear-gradient(135deg,#3D8EEB 0%,#8BC53F 135%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+  .step h3{font:600 17px/1.3 var(--font-display);color:#fff;margin:14px 0 8px}
+  .step p{font-size:13.5px;line-height:21px;color:var(--on-surface-var)}
+
+  /* ---------- post a brief (CTA banner) ---------- */
+  .post{padding:40px 0 var(--section-pad)}
+  .post-inner{position:relative;border:1px solid rgba(0,92,200,.4);border-radius:14px;padding:clamp(40px,5vw,64px) clamp(24px,4vw,56px);overflow:hidden;
+    background:radial-gradient(900px 320px at 0% 50%,rgba(0,92,200,.20),transparent 60%),radial-gradient(700px 300px at 100% 50%,rgba(139,197,63,.10),transparent 60%),linear-gradient(160deg,rgba(30,30,30,.55),rgba(20,20,20,.55));
+    box-shadow:0 12px 30px rgba(0,0,0,.35),0 0 24px rgba(0,92,200,.12);transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease),transform var(--dur) var(--ease)}
+  .post-inner:hover{border-color:var(--blue);transform:translateY(-2px);box-shadow:0 18px 40px rgba(0,0,0,.45),0 0 32px rgba(0,92,200,.24)}
+  .post h2{font:600 clamp(26px,3.2vw,42px)/1.15 var(--font-display);letter-spacing:-.02em;color:#fff;max-width:620px}
+  .post p{margin:14px 0 28px;color:var(--on-surface-var);max-width:560px}
+
+  /* ---------- footer (matches homepage) ---------- */
+  .footer{background:var(--bg-alt);border-top:1px solid var(--border-soft)}
+  .footer__inner{max-width:var(--container-max);margin:0 auto;padding:clamp(48px,7vh,80px) var(--side-pad) clamp(24px,3vh,40px);display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr);gap:clamp(24px,3vw,48px)}
+  .footer__brand img{height:44px;width:auto;display:block;margin-bottom:24px}
+  .footer__brand p{font:400 14px/22px var(--font-body);color:rgba(194,198,213,.65);margin:0;max-width:280px}
+  .footer__col h5{font:600 12px/1 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:#fff;margin:0 0 20px}
+  .footer__col ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:12px}
+  .footer__col a{font:400 14px/1 var(--font-body);color:rgba(194,198,213,.65);text-decoration:none;transition:color var(--dur) var(--ease);cursor:pointer}
+  .footer__col a:hover{color:#fff}
+  .footer__contact-mail{font:500 14px/1 var(--font-body);color:#fff;text-decoration:none}
+  .footer__contact{display:flex;flex-direction:column;gap:12px}
+  .footer__socials{display:flex;gap:8px;margin-top:8px}
+  .footer__socials a{width:36px;height:36px;border-radius:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;transition:all var(--dur) var(--ease);text-decoration:none;color:#fff}
+  .footer__socials a:hover{background:rgba(0,92,200,.15);border-color:var(--blue)}
+  .footer__bar{max-width:var(--container-max);margin:0 auto;padding:24px var(--side-pad);border-top:1px solid var(--border-soft);display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap}
+  .footer__bar span,.footer__bar a{font:400 12px/1.5 var(--font-body);color:rgba(194,198,213,.5);text-decoration:none}
+  .footer__bar span{max-width:700px}
+  .footer__bar-links{display:flex;gap:24px;flex-shrink:0}
+  @media(max-width:760px){.footer__inner{grid-template-columns:1fr 1fr}}
+  @media(max-width:480px){.footer__inner{grid-template-columns:1fr}}
+
+  /* ---------- modal / overlay ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(8,9,10,.7);backdrop-filter:blur(6px);z-index:100;display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:48px 20px}
+  .overlay.open{display:flex}
+  .modal{background:var(--surface);border:1px solid rgba(255,255,255,.1);border-radius:14px;max-width:680px;width:100%;padding:40px;position:relative;animation:rise .25s var(--ease);box-shadow:0 24px 64px rgba(0,0,0,.5)}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @media(max-width:600px){.modal{padding:26px 20px}}
+  .close{position:absolute;top:18px;right:18px;background:var(--surface-high,#2A2A2A);border:1px solid rgba(255,255,255,.08);color:var(--on-surface-var);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:15px;transition:all var(--dur) var(--ease)}
+  .close:hover{color:#fff;border-color:rgba(255,255,255,.3)}
+  .modal .ref{display:block;margin-bottom:14px}
+  .modal h2{font:600 26px/1.25 var(--font-display);letter-spacing:-.01em;color:#fff;margin:8px 0 18px}
+  .modal .body{font-size:15px;line-height:24px;color:var(--on-surface-var)}
+  .modal .body p{margin-bottom:14px}
+  .sig{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:22px 0}
+  .sig div{background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:14px}
+  .sig b{display:block;font-family:var(--font-display);font-size:16px;color:var(--green);margin-bottom:3px}
+  .sig span{font-size:12px;color:var(--outline)}
+  .locked{margin:24px 0;border:1px dashed var(--outline-var);border-radius:var(--radius-lg);padding:20px 22px;background:rgba(13,14,15,.6)}
+  .locked .label{color:var(--blue-bright);display:flex;gap:8px;align-items:center;margin-bottom:12px}
+  .locked ul{list-style:none}
+  .locked li{font-size:14px;color:var(--outline);padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;gap:12px}
+  .locked li:last-child{border-bottom:none}
+  .blurval{filter:blur(5px);user-select:none;color:var(--on-surface-var)}
+  .locked .note{font-size:12.5px;color:var(--outline);margin-top:12px}
+  .modal-actions{display:flex;gap:12px;margin-top:26px;flex-wrap:wrap}
+
+  /* form */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}
+  @media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+  .field{display:flex;flex-direction:column;gap:7px}
+  .field.full{grid-column:1/-1}
+  .field label{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--on-surface-var)}
+  .field input,.field select,.field textarea{background:var(--surface-input);border:1px solid var(--outline-var);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14.5px;padding:12px 14px;outline:none;transition:border-color var(--dur) var(--ease)}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue)}
+  .field textarea{min-height:96px;resize:vertical}
+  .privacy{display:flex;gap:10px;align-items:flex-start;margin-top:18px;font-size:12.5px;color:var(--outline);line-height:19px}
+  .privacy svg{flex-shrink:0;margin-top:2px}
+  .success{text-align:center;padding:30px 10px}
+  .success .ok{width:56px;height:56px;border-radius:50%;background:rgba(139,197,63,.15);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;color:var(--green);font-size:24px}
+  .success h2{margin-bottom:12px}
+  .success p{color:var(--on-surface-var);font-size:15px;max-width:420px;margin:0 auto}
+
+  /* ---------- connector chat ---------- */
+  .chat-shell{max-width:580px;width:100%;background:var(--surface);border:1px solid rgba(255,255,255,.12);border-radius:14px;display:flex;flex-direction:column;max-height:86vh;animation:rise .25s var(--ease);position:relative;margin:auto;box-shadow:0 24px 64px rgba(0,0,0,.5)}
+  .chat-head{padding:16px 22px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px}
+  .chat-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#3D8EEB,#8BC53F);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .chat-avatar span{width:9px;height:9px;border-radius:50%;background:#fff;display:block;animation:pulse 2s infinite}
+  .chat-head h4{font:600 14.5px/1.2 var(--font-display);color:#fff}
+  .chat-head .sub{font-size:11.5px;color:var(--outline)}
+  .chat-prog{margin-left:auto;font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--outline)}
+  .chat-msgs{padding:22px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;min-height:320px}
+  .msg{max-width:86%;padding:12px 16px;border-radius:10px;font-size:14.5px;line-height:21px;animation:rise .2s var(--ease)}
+  .msg.bot{background:var(--surface);border:1px solid rgba(255,255,255,.07);color:var(--on-surface);align-self:flex-start;border-bottom-left-radius:3px}
+  .msg.user{background:rgba(0,92,200,.28);border:1px solid rgba(0,92,200,.55);color:#fff;align-self:flex-end;border-bottom-right-radius:3px}
+  .typing{display:inline-flex;gap:4px;padding:14px 16px;background:var(--surface);border:1px solid rgba(255,255,255,.07);border-radius:10px;border-bottom-left-radius:3px;align-self:flex-start}
+  .typing i{width:6px;height:6px;border-radius:50%;background:var(--outline);animation:blink 1.2s infinite}
+  .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+  .chat-input{padding:16px 22px 20px;border-top:1px solid rgba(255,255,255,.08)}
+  .chat-input .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip.sel{background:rgba(139,197,63,.16);border-color:var(--green);color:var(--green)}
+  .chip.confirm{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+  .chat-input .hint{font-size:11.5px;color:var(--outline);margin-bottom:10px}
+  .mini-form{display:flex;flex-direction:column;gap:10px}
+  .mini-form input{background:var(--surface-input);border:1px solid var(--outline-var);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14px;padding:11px 14px;outline:none}
+  .mini-form input:focus{border-color:var(--blue)}
+
+  /* scroll-reveal (matches homepage) */
+  .reveal{opacity:0;transform:translateY(24px);transition:opacity .6s var(--ease),transform .6s var(--ease)}
+  .reveal.is-in{opacity:1;transform:none}
+  .principle:nth-child(2).reveal{transition-delay:.08s}
+  .principle:nth-child(3).reveal{transition-delay:.16s}
+  .steps .step:nth-child(2).reveal{transition-delay:.08s}
+  .steps .step:nth-child(3).reveal{transition-delay:.16s}
+  .steps .step:nth-child(4).reveal{transition-delay:.24s}
+  @media(prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .reveal{opacity:1!important;transform:none!important}
+    *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container nav">
+    <a href="/" class="wordmark" aria-label="NexPoint home"><img src="/assets/nexpoint-logo.png" alt="NexPoint"></a>
+    <nav class="nav-links">
+      <a href="#briefs" class="hide-m">Opportunities</a>
+      <a href="#how" class="hide-m">How It Works</a>
+      <a href="#post" class="hide-m">Post an opportunity</a>
+      <a href="#" id="navSignIn" onclick="event.preventDefault();openSignIn()">Sign in</a>
+      <button class="btn btn-primary" id="navAccess" onclick="openGate()">Become a member</button>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="container">
+    <span class="eyebrow eyebrow--green">The NexPoint Network</span>
+    <h1>The best deals in this industry<br>still happen <em>person to person.</em></h1>
+    <p class="lede">NexPoint turns forty years of working relationships into live, verified opportunities for labs and clinics, manufacturing capacity, products, technology, talent and exits. None of it reaches the open market, and every introduction is made by people who know both sides.</p>
+    <div class="hero-ctas">
+      <a class="btn btn-primary" href="#briefs" onclick="if(!member){event.preventDefault();openGate()}">View live opportunities</a>
+      <a class="btn btn-ghost" href="#how">How introductions work →</a>
+    </div>
+  </div>
+</section>
+
+<!-- PROOF -->
+<section class="proof">
+  <div class="container">
+    <div class="stats reveal">
+      <div class="stat"><b id="statLiveCount">13</b><span>opportunities live on the board right now</span></div>
+      <div class="stat"><b>5</b><span>continents of manufacturers, clinics, distributors &amp; makers</span></div>
+      <div class="stat"><b>40 <i>yrs</i></b><span>of personal industry relationships</span></div>
+      <div class="stat"><b>1-to-1</b><span>every introduction made in person</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- PRINCIPLES -->
+<section class="principles">
+  <div class="container">
+    <div class="principle reveal">
+      <span class="label"><span class="pnum">1</span> Discretion as standard</span>
+      <p>Each opportunity describes the deal, not the party. Many of our partners trade on discretion, and conversations stay private until both sides choose to meet, the way good deals have always been done.</p>
+    </div>
+    <div class="principle reveal">
+      <span class="label"><span class="pnum">2</span> Verified, not listed</span>
+      <p>This is not a marketplace. Every opportunity is held by NexPoint on behalf of a partner we know personally, capacity we've seen, products we've handled, people we trust.</p>
+    </div>
+    <div class="principle reveal">
+      <span class="label"><span class="pnum">3</span> Introduced, not sold</span>
+      <p>Nothing is bought here. When an opportunity fits your operation, we make a personal introduction and step back. The relationship, and the deal, is yours.</p>
+    </div>
+  </div>
+</section>
+
+<!-- BOARD -->
+<section class="board" id="briefs">
+  <div class="container">
+    <div class="board-head reveal">
+      <div>
+        <span class="eyebrow eyebrow--green"><span class="live-dot"></span>Live now</span>
+        <h2>Current opportunities in the network</h2>
+      </div>
+      <a class="btn btn-ghost" href="#post">Have something the network should know about? →</a>
+    </div>
+    <div class="wall reveal" id="wall">
+      <span class="eyebrow eyebrow--green">Members only · membership is free</span>
+      <h3>Two minutes of questions. Then the board opens, already matched to you.</h3>
+      <p>Tell us who you are and what you're after. The board opens with the opportunities that fit you flagged, new opportunities reach you before they're widely seen, and Chris or Will reads every profile personally, where there's an obvious fit, you'll hear from one of us directly.</p>
+      <button class="btn btn-primary" onclick="openGate()">Introduce yourself, 2 minutes</button>
+      <div class="note"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CD850" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg> Seen by NexPoint only. Never shared without your say-so.</div>
+    </div>
+    <div class="member-strip" id="memberStrip"></div>
+    <div class="matched-home" id="matchedHome"></div>
+    <div class="filters" id="filters" style="display:none">
+      <button class="chip active" data-f="all">All opportunities</button>
+      <button class="chip" data-f="manufacturing">Manufacturing &amp; Capacity</button>
+      <button class="chip" data-f="materials">Materials &amp; Products</button>
+      <button class="chip" data-f="partnership">Partnerships &amp; Franchise</button>
+      <button class="chip" data-f="succession">Succession &amp; Acquisition</button>
+      <button class="chip" data-f="equipment">Equipment &amp; Technology</button>
+      <button class="chip" data-f="talent">Talent &amp; People</button>
+    </div>
+    <div class="grid preview-blur" id="grid"></div>
+  </div>
+</section>
+
+<!-- HOW -->
+<section class="how" id="how">
+  <div class="container">
+    <h2>From opportunity to introduction, quietly</h2>
+    <div class="steps">
+      <div class="step reveal"><span class="n">01</span><h3>Read the opportunity</h3><p>Each opportunity describes a real, current opportunity, anonymised, but verified by us first-hand, usually across a table or on a call. Enough to know if it fits. Never enough to identify anyone.</p></div>
+      <div class="step reveal"><span class="n">02</span><h3>Introduce yourself</h3><p>Two minutes at the desk, who you are, your volumes, your systems, what you're after. Chris or Will reads every profile personally. Nobody else sees it.</p></div>
+      <div class="step reveal"><span class="n">03</span><h3>A person weighs the fit</h3><p>Not an algorithm's guess. One of us reviews every request, usually within two working days. If it isn't right, we'll tell you why, and keep looking on your behalf.</p></div>
+      <div class="step reveal"><span class="n">04</span><h3>A personal introduction</h3><p>When both sides agree, we introduce you directly, names, faces, facilities. From there the conversation is yours; we stay close to help it land.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- POST -->
+<section class="post" id="post">
+  <div class="container">
+    <div class="post-inner reveal">
+      <h2>Capacity to fill? A product to place? A quiet exit to plan?</h2>
+      <p>Tell us once. We hold your name back, put it to the network, and bring you matched, qualified conversations, instead of you knocking on doors one at a time.</p>
+      <button class="btn btn-primary" onclick="member?openForm('','','post'):openGate()">Start at the desk, 2 minutes</button>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer__inner reveal">
+    <div class="footer__brand">
+      <a href="/" aria-label="NexPoint home"><img src="/assets/nexpoint-logo.png" alt="NexPoint"></a>
+      <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, and Australia.</p>
+    </div>
+    <div class="footer__col">
+      <h5>The Network</h5>
+      <ul>
+        <li><a href="#briefs">Opportunities</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#post">Post an opportunity</a></li>
+        <li><a onclick="event.preventDefault();openGate()">Become a member</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>NexPoint</h5>
+      <ul>
+        <li><a href="/">Main site</a></li>
+        <li><a href="/#services">Services</a></li>
+        <li><a href="/#network">Global network</a></li>
+        <li><a href="/#expertise">Why NexPoint</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>Get in touch</h5>
+      <div class="footer__contact">
+        <a href="mailto:hello@nexpoint.co.uk" class="footer__contact-mail">hello@nexpoint.co.uk</a>
+        <div class="footer__socials">
+          <a href="https://www.linkedin.com/company/nexpoint-global/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer__bar">
+    <span>&copy; 2026 NexPoint Ltd. All rights reserved. Opportunities are illustrative summaries held in confidence; identities, pricing and locations are never published.</span>
+    <div class="footer__bar-links">
+      <a href="privacy.html">Privacy</a>
+      <a href="/">Main site</a>
+    </div>
+  </div>
+</footer>
+
+<!-- CONNECTOR CHAT -->
+<div class="overlay" id="chatOverlay">
+  <div class="chat-shell">
+    <button class="close" onclick="closeAll()">✕</button>
+    <div class="chat-head">
+      <div class="chat-avatar"><span></span></div>
+      <div><h4>The NexPoint Desk</h4><div class="sub">Read personally by Chris &amp; Will · confidential</div></div>
+      <span class="chat-prog" id="chatProg"></span>
+    </div>
+    <div class="chat-msgs" id="chatMsgs"></div>
+    <div class="chat-input" id="chatInputArea"></div>
+  </div>
+</div>
+
+<!-- BRIEF MODAL -->
+<div class="overlay" id="briefOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal">
+    <button class="close" onclick="closeAll()">✕</button>
+    <div id="briefContent"></div>
+  </div>
+</div>
+
+<!-- FORM MODAL -->
+<div class="overlay" id="formOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal">
+    <button class="close" onclick="closeAll()">✕</button>
+    <div id="formContent"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var els=document.querySelectorAll('.reveal');
+  if(!els.length)return;
+  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce||!('IntersectionObserver' in window)){els.forEach(function(e){e.classList.add('is-in')});return;}
+  var io=new IntersectionObserver(function(entries,obs){
+    entries.forEach(function(en){if(en.isIntersecting){en.target.classList.add('is-in');obs.unobserve(en.target);}});
+  },{rootMargin:'0px 0px -10% 0px',threshold:0.12});
+  els.forEach(function(e){io.observe(e)});
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+let briefs=
+/* === BRIEFS_DATA_START : auto-generated from briefs.json by _system/build_portal.py - do not edit by hand === */
+[
+  {
+    "id": "nx-2581",
+    "ref": "BRIEF NX-2581",
+    "cat": "succession",
+    "dir": "SEEKING",
+    "title": "A UK group wants to buy its way into North America",
+    "regions": [
+      "North America"
+    ],
+    "sum": "An established, well-funded UK operation with a strong clinical reputation is looking to enter the North American market by acquisition. If you own a lab and have ever wondered what it might be worth, this is a conversation nobody will know you had.",
+    "fit": "<b>Best fit:</b> North American lab owners open to a full or partial exit, even loosely, even years out.",
+    "tags": [
+      "Acquisition mandate",
+      "Funded buyer",
+      "Exploratory welcome"
+    ],
+    "signals": [
+      [
+        "Funded",
+        "established 20+ year operation"
+      ],
+      [
+        "Direct",
+        "line to the owner, fast answers"
+      ],
+      [
+        "Flexible",
+        "full sale, partial, or earn-out"
+      ],
+      [
+        "Silent",
+        "exploratory conversations"
+      ]
+    ],
+    "detail": "<p>Cross-border buyers rarely advertise, and owners rarely admit they’d sell, which is why these deals usually only happen between people who already know each other. We know both ends of this one.</p><p>The mandate is genuine and the buyer is patient: full acquisition, partial stake, or a structured earn-out that keeps you involved as long as you want to be. An exploratory conversation commits you to nothing and is held in complete confidence, including from your own team.</p>",
+    "locked": [
+      [
+        "Buyer identity & track record",
+        "██████ ██████ (UK)"
+      ],
+      [
+        "Acquisition criteria & range",
+        "$██M – $██M"
+      ],
+      [
+        "Deal structures offered",
+        "3 models"
+      ],
+      [
+        "Advisory support",
+        "Via NexPoint"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2584",
+    "ref": "BRIEF NX-2584",
+    "cat": "materials",
+    "dir": "OFFERING",
+    "title": "The foaming filaments your FDM line is missing",
+    "regions": [
+      "Global"
+    ],
+    "sum": "A European materials maker, already supplying the biggest names in printed footwear and orthotics, offers variable-shore foaming filaments where temperature controls stiffness through a single print. Network members get a negotiated discount, sample boxes, and tuned print profiles.",
+    "fit": "<b>Best fit:</b> labs running FDM in production (or seriously moving to it); high-volume operations interested in OEM or rep arrangements.",
+    "tags": [
+      "FDM materials",
+      "Variable-shore foaming",
+      "Network discount"
+    ],
+    "signals": [
+      [
+        "One print",
+        "multiple stiffnesses, temperature-controlled shore"
+      ],
+      [
+        "15%",
+        "network discount on materials"
+      ],
+      [
+        "New",
+        "production capacity opening in the US"
+      ],
+      [
+        "Profiles",
+        "provided per printer & slicer"
+      ]
+    ],
+    "detail": "<p>Most TPUs give you one shore hardness; with these foaming materials, print temperature controls stiffness, so a single structure can run soft under the heel and firm through the arch. The maker’s foaming TPU, lightweight PLA and PETG lines lead the printed-footwear space, and orthotics is their second-biggest market and growing.</p><p>Through the network: a standing materials discount, sample boxes (including shore variants and a PEBA alternative that never reach the webshop), and downloadable print profiles, plus honest advice that the material rewards a competent operator and punishes a casual one. A dedicated prosthetic range in three skin tones serves liner and cosmesis work.</p><p>For bigger players: new US production capacity comes online this summer with room to grow, the maker is open to OEM bundling under your brand or theirs, and is actively considering representation arrangements for the US market.</p>",
+    "locked": [
+      [
+        "Maker identity",
+        "██████████ (NL)"
+      ],
+      [
+        "Discount code & terms",
+        "On joining"
+      ],
+      [
+        "Unlisted materials",
+        "██A · ██A · PEBA"
+      ],
+      [
+        "US capacity & rep terms",
+        "From ████ 2026"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2587",
+    "ref": "BRIEF NX-2587",
+    "cat": "equipment",
+    "dir": "OFFERING",
+    "title": "The additive platform war has reached O&P, quietly",
+    "regions": [
+      "Global"
+    ],
+    "sum": "Two global additive manufacturing platform makers are competing hard for this industry right now: new large-capacity hardware, aggressive support, and a strong appetite for credible clinical and lab partners to build the category with. We know the people on both sides.",
+    "fit": "<b>Best fit:</b> labs weighing a first move into powder or resin; established printers considering a platform switch while the leverage is good.",
+    "tags": [
+      "Additive manufacturing",
+      "Platform partnerships",
+      "First-mover terms"
+    ],
+    "signals": [
+      [
+        "2",
+        "global platform makers actively courting"
+      ],
+      [
+        "New",
+        "large-capacity hardware just launched"
+      ],
+      [
+        "FDM · powder · resin",
+        "expertise on tap"
+      ],
+      [
+        "Leverage",
+        "best while they compete"
+      ]
+    ],
+    "detail": "<p>When platform makers fight, partners win. A major new large-format machine has just launched, the incumbent responded within days, and both sides are hunting for reference partners in clinical and custom manufacturing, which means support packages and commercial terms that won’t exist once the dust settles.</p><p>One of them has also told us plainly that its dealer network is too generalist for this industry, it wants specialist O&P resellers, which is a separate opportunity for the right distributor or service business.</p><p>NexPoint works with both camps and holds deep, vendor-neutral expertise across FDM, powder and resin routes, including the unglamorous truths about which materials and workflows actually survive a production floor. We’ll help you pick a side before we introduce you to it.</p>",
+    "locked": [
+      [
+        "Platform identities",
+        "██████ · ██████"
+      ],
+      [
+        "Launch hardware & specs",
+        "██-litre build volume"
+      ],
+      [
+        "Partner programme terms",
+        "On introduction"
+      ],
+      [
+        "Reference installations",
+        "██ sites"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2589",
+    "ref": "BRIEF NX-2589",
+    "cat": "equipment",
+    "dir": "OFFERING",
+    "title": "The machines that finish the job, looking for Europe",
+    "regions": [
+      "UK & Europe"
+    ],
+    "sum": "The maker that dominates North American finishing rooms, grinders, buffers, stitchers, has never seriously entered Europe. Price-performance kept the European incumbents out of its home market; now it wants a route in the other direction: a rep, a partner, or a European hub.",
+    "fit": "<b>Best fit:</b> equipment distributors and service businesses with lab or clinic relationships; established players open to adding a complementary line.",
+    "tags": [
+      "Finishing equipment",
+      "Distribution mandate",
+      "Established brand"
+    ],
+    "signals": [
+      [
+        "Dominant",
+        "in North America & strong in Australia"
+      ],
+      [
+        "Price-performance",
+        "kept rivals out of its home market"
+      ],
+      [
+        "Flexible",
+        "rep, partner or hub models"
+      ],
+      [
+        "Untapped",
+        "brand in Europe"
+      ]
+    ],
+    "detail": "<p>Two European brands have had the UK and continental finishing-equipment market largely to themselves for years. The North American leader, whose price-performance has kept those same brands out of its own market, is now exploring Europe, and is realistic about how: possibly direct for the ones-and-twos, ideally through a partner with existing relationships, plausibly via a continental logistics hub serving the UK and Northern Europe together.</p><p>Honest network intelligence says the UK lab market alone is small; the continental orthopaedic sector is the bigger prize. We’re looking for the right partner to have that conversation.</p>",
+    "locked": [
+      [
+        "Maker identity",
+        "██████ ████████████ (CA)"
+      ],
+      [
+        "Commercial terms",
+        "Commission per sale"
+      ],
+      [
+        "Product & pricing detail",
+        "Catalogue on introduction"
+      ],
+      [
+        "Market study",
+        "NexPoint research available"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2592",
+    "ref": "BRIEF NX-2592",
+    "cat": "talent",
+    "dir": "TWO-WAY",
+    "title": "Good people are coming loose. Good homes are looking.",
+    "regions": [
+      "United Kingdom",
+      "Europe"
+    ],
+    "sum": "Closures and consolidation keep releasing experienced O&P talent, clinicians, technicians, sometimes whole intact teams, while members elsewhere can’t hire. We hold both sides of this, confidentially, all the time.",
+    "fit": "<b>Best fit:</b> employers who need skills they can’t advertise for; talent who want to move, or build, without their current employer hearing about it.",
+    "tags": [
+      "Clinicians & technicians",
+      "Whole teams",
+      "Confidential both ways"
+    ],
+    "signals": [
+      [
+        "Whole teams",
+        "sometimes available after closures"
+      ],
+      [
+        "Both ways",
+        "employers & talent held confidentially"
+      ],
+      [
+        "Proven",
+        "one spin-out became a thriving lab"
+      ],
+      [
+        "Now",
+        "displacement is happening this year"
+      ]
+    ],
+    "detail": "<p>When a facility closes, the headlines are about the facility. The opportunity is the people, trained, experienced, often loyal to each other, and suddenly free. One team we helped after a closure went on to build a successful lab of their own; that route is open again.</p><p>If you’re hiring, tell us what you actually need, not the job-ad version. If you’re restless, displaced, or watching your employer wobble, tell us before the market does. Nobody hears either side from us.</p>",
+    "locked": [
+      [
+        "Talent currently available",
+        "██ individuals · █ teams"
+      ],
+      [
+        "Members currently hiring",
+        "██ operations"
+      ],
+      [
+        "Spin-out case study",
+        "Full story on introduction"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2598",
+    "ref": "BRIEF NX-2598",
+    "cat": "succession",
+    "dir": "OFFERING",
+    "title": "Retiring? Your customers never need to know.",
+    "regions": [
+      "North America",
+      "UK"
+    ],
+    "sum": "We confidentially match retiring lab owners with continuity partners who absorb production completely, same products, same fit, same turnaround, while you keep the brand, the relationships, and a business you can run from a desk. Or sell outright.",
+    "fit": "<b>Best fit:</b> owners within 1–5 years of exit; labs carrying loyal customers but no successor; anyone who would rather wind down the workload than the business.",
+    "tags": [
+      "Succession",
+      "Brand continuity",
+      "Confidential"
+    ],
+    "signals": [
+      [
+        "Zero",
+        "disruption to your customers"
+      ],
+      [
+        "Days",
+        "to transition after a crisis"
+      ],
+      [
+        "Keep",
+        "your brand & relationships"
+      ],
+      [
+        "Sell",
+        "outright if preferred"
+      ]
+    ],
+    "detail": "<p>It has been done before, quietly and well: a lab owner steps back, production moves to an established partner facility, and the customers simply keep receiving the product they’ve always known. One partner in our network has absorbed a lab almost overnight after an unexpected facility loss, and the customers never noticed.</p><p>If you are thinking about the next five years, talk to us before you talk to anyone. The earlier the conversation, the more options you keep.</p>",
+    "locked": [
+      [
+        "Continuity partner profiles",
+        "██ qualified operators"
+      ],
+      [
+        "Valuation guidance",
+        "On introduction"
+      ],
+      [
+        "Reference transition (anonymised)",
+        "Full case available"
+      ],
+      [
+        "Deal structures seen",
+        "Asset · brand-retain · earn-out"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2601",
+    "ref": "BRIEF NX-2601",
+    "cat": "equipment",
+    "dir": "TWO-WAY",
+    "title": "Machinery moves quietly here",
+    "regions": [
+      "Global"
+    ],
+    "sum": "Mills, printers, ovens and scanners change hands inside the network before they ever reach the open market. A standing, confidential exchange for members retiring equipment, or hunting for it.",
+    "fit": "<b>Best fit:</b> any member upgrading, downsizing, or expanding a production floor.",
+    "tags": [
+      "Equipment exchange",
+      "Members only",
+      "No public listings"
+    ],
+    "signals": [
+      [
+        "First",
+        "refusal inside the network"
+      ],
+      [
+        "Verified",
+        "condition & provenance"
+      ],
+      [
+        "Quiet",
+        "no public listing"
+      ],
+      [
+        "Both",
+        "sides anonymised"
+      ]
+    ],
+    "detail": "<p>When a facility upgrades or consolidates, good machinery goes looking for a home, and the best deals never get advertised. Recent closures have shown both sides of this: vans full of equipment finding new homes in days, and good machines nearly skipped for want of a buyer. Members tell us what they’re retiring or what they need; we match quietly in both directions.</p><p>New equipment moves here too: the network holds referral arrangements with selected makers, including a scanner manufacturer whose terms include a member discount, where an introduction costs you nothing and lands below list.</p>",
+    "locked": [
+      [
+        "Current equipment register",
+        "██ items live"
+      ],
+      [
+        "Asking ranges",
+        "On introduction"
+      ],
+      [
+        "Seller/buyer profiles",
+        "Verified members"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2604",
+    "ref": "BRIEF NX-2604",
+    "cat": "manufacturing",
+    "dir": "OFFERING",
+    "title": "Your factory. Inside theirs.",
+    "regions": [
+      "Americas",
+      "Asia-Pacific"
+    ],
+    "sum": "Not capacity. Not outsourcing. A dedicated space on an established factory floor, your own line, your own trained team, your own named production manager, making your product your way: your materials, your corrections, your finish, your branded packaging. Everything a factory of your own gives you, except the part where you have to run one.",
+    "fit": "<b>Best fit:</b> labs and clinical groups at 50+ pairs/day; owners facing staffing pressure, growth beyond capacity, or a move from traditional to digital.",
+    "tags": [
+      "Factory-within-a-factory",
+      "Dedicated line & team",
+      "Your brand, your spec"
+    ],
+    "signals": [
+      [
+        "Dedicated",
+        "floor space, line & team"
+      ],
+      [
+        "Your way",
+        "materials · corrections · finish · packaging"
+      ],
+      [
+        "Zero",
+        "HR, materials or logistics to manage"
+      ],
+      [
+        "Built-in",
+        "multi-region redundancy"
+      ]
+    ],
+    "detail": "<p>The world’s biggest sportswear brands haven’t owned their factories for decades. What they own is a dedicated space inside someone else’s, a team, a line and a standard that belong entirely to them, inside a building they never have to manage. This opportunity offers the same model for custom devices.</p><p>An established multi-site manufacturer allocates a section of its production floor to you alone. The team on that line is trained on <em>your</em> product, your heel cups, your top covers, your colours, your packaging, and held to your standard, not theirs. Lines belonging to very different companies run side by side in this facility today, and the products that leave them are indistinguishable from those the owners once made in-house. When one well-known operation switched, nobody outside the building noticed.</p><p>You interface with one named production manager, as you would with your own factory floor, “rush this one through”, “change how we do the heels”, and it happens. People, payroll, training, materials inventory and inbound/outbound logistics are all theirs to worry about. Production is mirrored across facilities on different continents, so a fire, a typhoon or a labour shortage in one region never reaches your customers.</p><p>For owners considering retirement, the model extends all the way: a fully operated back end, some have gone as far as shipping through the partner’s own lanes, while you keep the brand, the relationships, and a business you can run from a desk.</p>",
+    "locked": [
+      [
+        "Partner identity & facilities",
+        "██████ ██████ · ██████, ██████"
+      ],
+      [
+        "Unit economics & commission structure",
+        "$██ – $██ per pair"
+      ],
+      [
+        "Reference customers",
+        "██████ · ████ ████"
+      ],
+      [
+        "Materials & product library",
+        "██ shell systems"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2606",
+    "ref": "BRIEF NX-2606",
+    "cat": "materials",
+    "dir": "OFFERING",
+    "title": "A prefab range, without five years of tooling",
+    "regions": [
+      "Global"
+    ],
+    "sum": "Three established manufacturers in the network, two in the UK, one in Australia, have proven prefab ranges and are open to distributors, labs and direct-to-consumer partners in new territories. Tooling paid for, margins healthy, samples available.",
+    "fit": "<b>Best fit:</b> labs and clinics wanting to add prefab without R&D; distributors hunting a quality line for the US, Middle East, Europe, NZ or India.",
+    "tags": [
+      "Prefab & semi-custom",
+      "Modular systems",
+      "White-label possible"
+    ],
+    "signals": [
+      [
+        "3",
+        "verified makers, one conversation"
+      ],
+      [
+        "Modular",
+        "post, wedge & cover options chair-side"
+      ],
+      [
+        "Flexible",
+        "minimums, mix sizes & models"
+      ],
+      [
+        "Open",
+        "to white-label and OEM"
+      ]
+    ],
+    "detail": "<p>Everyone doing customs eventually wants a prefab line; almost nobody wants to spend years and serious money on tooling. The network currently holds three proven options.</p><p>One is a premium modular system from a leading Australian lab, clinically led, documented to the hilt, including a genuinely clinical anti-shear diabetic insert; volumes already in the tens of thousands, and open to OEM. One is an established UK modular clinical range, base shells with component packs (stabilisers, wedges, posts), heat-mouldable and grindable, with a new posterior-tibial-specific model, flexible minimums across sizes, and active appetite for the US, Middle East, New Zealand, India and ~30 uncovered European countries. The third is a UK-manufactured volume line with numerous styles and sizes at a sharply competitive price.</p><p>Tell us your market and positioning and we’ll point you at the right maker, not all three.</p>",
+    "locked": [
+      [
+        "Maker identities",
+        "██████ (AU) · ██████ · ███ (UK)"
+      ],
+      [
+        "Transfer pricing",
+        "$██–██/pair, volume dependent"
+      ],
+      [
+        "Range documentation",
+        "Marketing packs on introduction"
+      ],
+      [
+        "Sample programme",
+        "Boxes shipped on request"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2609",
+    "ref": "BRIEF NX-2609",
+    "cat": "materials",
+    "dir": "OFFERING",
+    "title": "A mouldable graphite composite, 14× stiffer, seeking distribution",
+    "regions": [
+      "UK & Europe"
+    ],
+    "sum": "A patented, thermoformable graphite composite shell (1.5 mm) removes the hassle of forming carbon, gait plates, inserts and high-stiffness devices without the labour. The manufacturer is opening selected new territories to established distributors.",
+    "fit": "<b>Best fit:</b> labs running positive-mould workflows (typically 50–100 pairs/month of shells) and distributors serving clinical, podiatric or sports-performance markets in the UK and Europe.",
+    "tags": [
+      "Advanced composite",
+      "Thermoformable",
+      "Territory exclusivity available"
+    ],
+    "signals": [
+      [
+        "14×",
+        "stiffness vs standard"
+      ],
+      [
+        "1.5 mm",
+        "finished thickness"
+      ],
+      [
+        "1M+",
+        "devices produced by maker"
+      ],
+      [
+        "Exclusive",
+        "territory model proven"
+      ]
+    ],
+    "detail": "<p>Forming carbon is slow, skilled work, especially where inserts and gait plates are involved. This composite moulds like a standard thermoplastic and finishes millimetres thin, at a stiffness conventional materials can’t reach.</p><p>The manufacturer already runs a successful exclusive-territory model elsewhere and is selective about partners: established distribution, clinical credibility, and the ability to support fitting guidance. Sample packs and full technical literature are available through NexPoint for qualified parties.</p>",
+    "locked": [
+      [
+        "Manufacturer & provenance",
+        "██████ ██████ (N. America)"
+      ],
+      [
+        "Wholesale pricing tiers",
+        "$█.██ – $██.██"
+      ],
+      [
+        "Existing territory references",
+        "██████ (Canada)"
+      ],
+      [
+        "Technical dossier & test data",
+        "Available on introduction"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2611",
+    "ref": "BRIEF NX-2611",
+    "cat": "manufacturing",
+    "dir": "SEEKING",
+    "title": "Wanted: a premium cork programme",
+    "regions": [
+      "North America"
+    ],
+    "sum": "An established, fast-growing US direct-to-consumer brand wants to add a semi-custom cork line, full-length shells with a defined library of postings and arch options, not a mass-produced commodity. They have the audience and the ad engine; they need the maker.",
+    "fit": "<b>Best fit:</b> manufacturers working in cork or EVA-cork hybrids who can support a defined modification library at consistent quality.",
+    "tags": [
+      "Cork & natural materials",
+      "Semi-custom",
+      "D2C volumes"
+    ],
+    "signals": [
+      [
+        "Premium",
+        "positioning, not the cheap end"
+      ],
+      [
+        "Defined",
+        "posting & arch-height library"
+      ],
+      [
+        "Growing",
+        "volumes driven by paid acquisition"
+      ],
+      [
+        "Recurring",
+        "programme, not a one-off order"
+      ]
+    ],
+    "detail": "<p>The semi-custom middle ground, between true customs and commodity prefabs, is where several network brands are heading, and this one is committed: customs are dialled in, the audience is paying, and cork is the material they want for a premium tier.</p><p>What they can’t find is a maker offering cork shells with modifications already engineered in, supination/pronation postings, arch-height variants, rather than a plain shell or a one-at-a-time custom. If that’s you, or could be, this is a direct conversation with the decision-makers.</p>",
+    "locked": [
+      [
+        "Brand identity",
+        "██████ ████ (US)"
+      ],
+      [
+        "Volume indications",
+        "███–███/month initial"
+      ],
+      [
+        "Spec & modification library",
+        "Draft available"
+      ],
+      [
+        "Commercial structure",
+        "Per-pair, recurring"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2613",
+    "ref": "BRIEF NX-2613",
+    "cat": "partnership",
+    "dir": "OFFERING",
+    "title": "Launch a lab without a factory",
+    "regions": [
+      "United Kingdom"
+    ],
+    "sum": "A franchise-style opening for clinical talent: start or restart an O&P business with the entire production engine, custom manufacturing, prefab range, even app and database tooling, supplied from day one by an established global operation.",
+    "fit": "<b>Best fit:</b> displaced or restless O&P talent; clinicians with a customer base and no appetite for building a factory; teams spun out of closures.",
+    "tags": [
+      "Franchise model",
+      "Zero capex production",
+      "Software included"
+    ],
+    "signals": [
+      [
+        "Day-one",
+        "full production line"
+      ],
+      [
+        "10",
+        "full-stack developers behind the tooling"
+      ],
+      [
+        "Part-own",
+        "your destiny"
+      ],
+      [
+        "Proven",
+        "elsewhere in network"
+      ]
+    ],
+    "detail": "<p>The hardest part of starting a lab is the lab. This partner removes it entirely: your devices manufactured to your specification, a prefab product range to sell alongside, custom apps and database infrastructure if you need them, while you own the clinical relationships and the brand.</p><p>We are particularly interested in hearing from talent displaced by recent facility closures, and from anyone who has been quietly thinking about going out on their own.</p>",
+    "locked": [
+      [
+        "Franchisor identity",
+        "██████ ██████"
+      ],
+      [
+        "Commercial structure",
+        "Revenue share ██%"
+      ],
+      [
+        "Territory availability",
+        "██ regions open"
+      ],
+      [
+        "Software & tooling demo",
+        "On introduction"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2614",
+    "ref": "BRIEF NX-2614",
+    "cat": "materials",
+    "dir": "OFFERING",
+    "title": "Clinically-evidenced insoles, hunting for America",
+    "regions": [
+      "North America"
+    ],
+    "sum": "A PE-backed UK manufacturer with two clinically-led prefab ranges: a diabetic offloading insole with a formal clinical trial publishing this autumn, and an evidence-based biomechanical range already piloted in national health-service clinics. It wants US distribution and lab partners in place before the trial lands.",
+    "fit": "<b>Best fit:</b> US distributors and clinical-channel players in podiatry, wound care and physical therapy; labs wanting an evidenced diabetic SKU.",
+    "tags": [
+      "Diabetic offloading",
+      "Clinical evidence",
+      "Trial publishing soon"
+    ],
+    "signals": [
+      [
+        "Sept",
+        "clinical trial publication, the commercial trigger"
+      ],
+      [
+        "NHS-piloted",
+        "biomechanical range, 5 models"
+      ],
+      [
+        "PE-funded",
+        "for international expansion"
+      ],
+      [
+        "8 yrs",
+        "of product development behind it"
+      ]
+    ],
+    "detail": "<p>Most prefab insoles are sold on price. These are sold on evidence: the diabetic range took eight years to develop, is built for the at-risk foot (pressure redistribution and shear absorption), and has a formal clinical trial publishing in September, a once-only marketing moment that rewards whoever holds the territory when it lands. The biomechanical range carries its own published health-service pilot data and a structured clinical-education programme.</p><p>The maker is newly PE-backed with capital explicitly earmarked for new geographies, and realistic about the US route: clinical channels and the right partner, not the cheapest shelf. Volume pricing tiers are generous and the principals are warm, senior and quick to engage.</p>",
+    "locked": [
+      [
+        "Maker identity",
+        "████████ (UK)"
+      ],
+      [
+        "Distributor pricing tiers",
+        "£██.██ to £██.██"
+      ],
+      [
+        "Trial design & data",
+        "Under embargo until publication"
+      ],
+      [
+        "Commercial structure",
+        "Per-insole, recurring"
+      ]
+    ]
+  }
+]
+/* === BRIEFS_DATA_END === */
+;
+
+const grid=document.getElementById('grid');
+const arrow='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+
+/* ===== member state ===== */
+let member=false;
+let profile={};
+let matches=new Set();
+
+const CAT_LABELS={manufacturing:'Manufacturing & Capacity',materials:'Materials & Products',partnership:'Partnerships & Franchise',succession:'Succession & Acquisition',equipment:'Equipment & Technology',talent:'Talent & People'};
+function buildCard(b,why){
+  const el=document.createElement('div');el.className='card';el.onclick=()=>openBrief(b.id);el.dataset.ref=b.ref;
+  const matched=member&&matches.has(b.id)?'<span class="badge-match">MATCHED</span>':'';
+  el.innerHTML=`<div class="card-top"><span class="ref">${CAT_LABELS[b.cat]||''}</span><span style="display:flex;align-items:center"><span class="dir ${b.dir==='OFFERING'?'offering':'seeking'}">${b.dir}</span>${matched}</span></div>
+    <h3>${b.title}</h3><p class="sum">${b.sum}</p>
+    <div class="meta">${b.regions.map(r=>`<span class="tag">◈ ${r}</span>`).join('')}${b.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+    <div class="fit">${b.fit}</div>
+    ${why?`<div class="match-why">★ Matched because ${why}</div>`:''}
+    <div class="card-cta">See the full opportunity ${arrow}</div>`;
+  return el;
+}
+function render(filter){
+  grid.innerHTML='';
+  briefs.filter(b=>filter==='all'?true:b.cat===filter).forEach(b=>grid.appendChild(buildCard(b)));
+}
+function updateLiveCount(){const el=document.getElementById('statLiveCount');if(el)el.textContent=briefs.length;}
+render('all');updateLiveCount();
+fetch('briefs.json').then(r=>r.ok?r.json():null).then(d=>{if(Array.isArray(d)&&d.length){briefs=d;render(document.querySelector('.chip.active')?.dataset.f||'all');updateLiveCount();}}).catch(()=>{});
+
+document.getElementById('filters').addEventListener('click',e=>{
+  if(!e.target.classList.contains('chip'))return;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  e.target.classList.add('active');render(e.target.dataset.f);
+});
+
+const lock='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+const shield='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9CD850" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg>';
+
+function openBrief(id){
+  if(!member){openGate();return;}
+  const b=briefs.find(x=>x.id===id);if(!b)return;
+  document.getElementById('briefContent').innerHTML=`
+    <span class="ref">${CAT_LABELS[b.cat]||''} · ${b.regions.join(' · ')} · <span style="color:${b.dir==='OFFERING'?'var(--green)':'var(--blue-bright)'}">${b.dir}</span></span>
+    <h2>${b.title}</h2>
+    <div class="body">${b.detail}</div>
+    <div class="sig">${b.signals.map(s=>`<div><b>${s[0]}</b><span>${s[1]}</span></div>`).join('')}</div>
+    <div class="locked">
+      <span class="label">${lock} Shared in a personal introduction only</span>
+      <ul>${b.locked.map(l=>`<li><span>${l[0]}</span><span class="blurval">${l[1]}</span></li>`).join('')}</ul>
+      <p class="note">${shield}&nbsp; NexPoint never publishes names, pricing or locations. Locked details are disclosed only after both parties agree to be introduced.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="openForm('${b.title.replace(/'/g,"\\'")}','${b.ref}')">Request an introduction</button>
+      <button class="btn btn-ghost" onclick="closeAll()">Keep browsing</button>
+    </div>`;
+  closeAll();document.getElementById('briefOverlay').classList.add('open');document.body.style.overflow='hidden';
+}
+
+const CAPTURE_ENDPOINT="https://nexpoint-portal-capture.nexpoint-network.workers.dev";
+async function submitCapture(form){
+  const fd=new FormData(form);
+  if(fd.get('company_url')) return showSuccess();            // honeypot tripped → drop silently
+  const payload={
+    kind:'enquiry',
+    enquiry_kind: fd.get('enquiry_kind')||'',
+    brief_ref: fd.get('brief_ref')||'',
+    fit: (fd.get('fit')||'').toString().trim(),
+    name: profile.name||'', email: profile.email||'', company: profile.company||'',
+    type: profile.type||'', region: profile.region||'', volume: profile.volume||'',
+    goals: profile.goals||[], pressing: profile.pressing||[], timeline: profile.timeline||''
+  };
+  if(CAPTURE_ENDPOINT){
+    try{ await fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); }
+    catch(e){ /* network hiccup → still confirm to the member; lead can be recovered */ }
+  }
+  showSuccess();
+}
+function captureMembership(){
+  if(!CAPTURE_ENDPOINT) return;                              // no-op until the worker URL is set
+  var payload={kind:'membership', name:profile.name||'', email:profile.email||'', company:profile.company||'',
+    type:profile.type||'', region:profile.region||'', volume:profile.volume||'',
+    goals:profile.goals||[], pressing:profile.pressing||[], timeline:profile.timeline||''};
+  try{ fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true}); }
+  catch(e){ /* fire and forget, completing the desk must never block on the network */ }
+}
+function openForm(subject, ref, mode){
+  if(!member){ openGate(); return; }                 // members-only; never a dead-end form
+  const post = mode==='post';
+  const heading = post ? 'Post a confidential opportunity' : 'Request an introduction';
+  const leadLine = post
+    ? 'Tell us what you have. We hold your name back, put it to the right people in the network, and bring you matched, qualified conversations.'
+    : `Re: <em style="color:#fff;font-style:normal">${subject}</em>`;
+  const fieldLabel = post ? 'What do you have to place? (required)' : 'What makes this a fit for you? (required)';
+  const placeholder = post
+    ? 'Capacity, a product, equipment, people, or a business. A sentence or two, with rough scale or timeline if useful…'
+    : 'One or two sentences, your volumes, timeline, or why this one…';
+  const privacyLine = post
+    ? 'Your name stays off it. We only reveal who you are to a party once you agree.'
+    : 'Your identity is never shared with the other party until you explicitly agree to the introduction.';
+  const submitLabel = post ? 'Submit in confidence' : 'Request introduction';
+  document.getElementById('formContent').innerHTML=`
+    <span class="ref">CONFIDENTIAL, SEEN BY NEXPOINT ONLY</span>
+    <h2>${heading}</h2>
+    <p style="color:var(--on-surface-var);font-size:14.5px">${leadLine}</p>
+    <p style="color:var(--outline);font-size:13px;margin-top:10px">${post?'Posting':'Requesting'} as <b style="color:var(--green)">${profile.name||'Member'}</b> · ${profile.company||''} · ${profile.type||''} · ${profile.region||''}, from your member profile.</p>
+    <form onsubmit="event.preventDefault();submitCapture(this)">
+      <input type="hidden" name="brief_ref" value="${ref||''}">
+      ${post?'<input type="hidden" name="enquiry_kind" value="post">':''}
+      <input type="text" name="company_url" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
+      <div class="form-grid"><div class="field full"><label>${fieldLabel}</label><textarea name="fit" required placeholder="${placeholder}"></textarea></div></div>
+      <div class="privacy">${shield}<span>${privacyLine}</span></div>
+      <div class="modal-actions"><button class="btn btn-primary" type="submit">${submitLabel}</button></div>
+    </form>`;
+  closeAll();document.getElementById('formOverlay').classList.add('open');document.body.style.overflow='hidden';
+}
+
+function showSuccess(){
+  document.getElementById('formContent').innerHTML=`
+    <div class="success">
+      <div class="ok">✓</div>
+      <h2 style="color:#fff;font-size:24px">Received, in confidence.</h2>
+      <p>A NexPoint partner will review the fit personally and come back to you within two working days, with an introduction, or an honest reason why not and what we'll look for instead.</p>
+      <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the board</button></div>
+    </div>`;
+}
+
+function closeAll(){
+  document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open'));
+  document.body.style.overflow='';
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
+
+/* ===== Connector conversation ===== */
+const steps=[
+ {key:'type',q:"Welcome to the NexPoint Network. Before the board opens, we'd like to know who we're connecting, a few questions, about two minutes. Every profile is read personally by Chris or Will, and nothing you tell us is ever published. First: what best describes your operation?",
+  chips:['Custom lab / manufacturer','Clinic or practice','Distributor / wholesaler','Materials or equipment supplier','Independent clinician','Something else']},
+ {key:'region',q:"Good to meet you. Where are you based?",
+  chips:['United Kingdom','Europe','North America','South America','Asia-Pacific','Middle East / Africa']},
+ {key:'volume',q:"Do you manufacture devices in-house, and at roughly what volume?",
+  chips:["We don't manufacture",'Under 20 pairs/day','20–50 pairs/day','50–100 pairs/day','100+ pairs/day']},
+ {key:'method',q:"How is most of your product made today?",
+  chips:['Moulded / formed','Direct milled','3D printed','Traditional / plaster','A mix','Not applicable']},
+ {key:'systems',q:"Which design systems do you work with? Pick any that apply.",multi:true,
+  chips:['Fit360','Other CAD','We outsource design','None / manual']},
+ {key:'goals',q:"Now the question that matters most. What are you hoping the network does for you? Choose as many as apply, this decides which opportunities and introductions reach you.",multi:true,
+  chips:['Outsource our production','Fill our spare capacity','Find products to distribute','Source materials or components','Plan a succession or exit','Acquire a lab or business','Hire or place talent','Move into new technology','Buy or sell equipment','Start something new','Just exploring']},
+ {key:'placing',q:"Some of what you've picked suggests you have something to place, capacity, a product, equipment, people or a business. In a sentence or two, what is it?",input:true,
+  cond:()=>['Fill our spare capacity','Plan a succession or exit','Buy or sell equipment','Hire or place talent'].some(g=>(profile.goals||[]).includes(g))},
+ {key:'pressing',q:"Understood. Is anything pressing on the business right now? Honest answers get better introductions.",multi:true,
+  chips:['Staffing pressure','Rising costs','Losing a supplier or partner','Growth beyond our capacity','Retirement on the horizon','Nothing urgent']},
+ {key:'timeline',q:"And if the right opportunity appeared, when would you act?",
+  chips:['Immediately','Within 3–6 months','This year','Just looking ahead']},
+ {key:'contact',q:"Last step. Who should personal introductions go to? This stays between you and NexPoint, and when a new opportunity matches your profile, we'll email you before it's widely seen. Nothing else, ever.",form:true}
+];
+let stepIdx=0;
+const msgsEl=()=>document.getElementById('chatMsgs');
+const inputEl=()=>document.getElementById('chatInputArea');
+
+function openGate(){
+  if(member){document.getElementById('briefs').scrollIntoView();return;}
+  closeAll();
+  document.getElementById('chatOverlay').classList.add('open');document.body.style.overflow='hidden';
+  stepIdx=0;profile={};msgsEl().innerHTML='';inputEl().innerHTML='';
+  askStep();
+}
+function setProg(){document.getElementById('chatProg').textContent=stepIdx<steps.length?`PROFILE ${Math.min(stepIdx+1,steps.length)}/${steps.length}`:'COMPLETE';}
+function botSay(text,cb){
+  const t=document.createElement('div');t.className='typing';t.innerHTML='<i></i><i></i><i></i>';
+  msgsEl().appendChild(t);msgsEl().scrollTop=msgsEl().scrollHeight;
+  setTimeout(()=>{t.remove();
+    const m=document.createElement('div');m.className='msg bot';m.innerHTML=text;
+    msgsEl().appendChild(m);msgsEl().scrollTop=msgsEl().scrollHeight;cb&&cb();
+  },650);
+}
+function userSay(text){
+  const m=document.createElement('div');m.className='msg user';m.textContent=text;
+  msgsEl().appendChild(m);msgsEl().scrollTop=msgsEl().scrollHeight;
+}
+function askStep(){
+  while(stepIdx<steps.length && steps[stepIdx].cond && !steps[stepIdx].cond()){stepIdx++;}
+  if(stepIdx>=steps.length){finishGate();return;}
+  setProg();
+  const s=steps[stepIdx];
+  inputEl().innerHTML='';
+  botSay(s.q,()=>{ s.form?showContactForm():s.input?showTextInput(s):showChips(s); });
+}
+function showTextInput(s){
+  inputEl().innerHTML=`<form class="mini-form" onsubmit="event.preventDefault();submitText()">
+    <textarea id="freeText" required rows="3" style="background:#0a0a0a;border:1px solid var(--outline-var);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14px;padding:11px 14px;outline:none;resize:vertical" placeholder="In your own words…"></textarea>
+    <button class="btn btn-primary" type="submit" style="justify-content:center">Send</button>
+  </form>`;
+}
+function submitText(){
+  const v=document.getElementById('freeText').value.trim();if(!v)return;
+  submitAnswer(steps[stepIdx],v);
+}
+function showChips(s){
+  const wrap=document.createElement('div');
+  if(s.multi)wrap.innerHTML='<div class="hint">Select all that apply, then confirm</div>';
+  const chips=document.createElement('div');chips.className='chips';
+  const picked=new Set();
+  s.chips.forEach(c=>{
+    const b=document.createElement('button');b.className='chip';b.textContent=c;
+    b.onclick=()=>{
+      if(s.multi){
+        b.classList.toggle('sel');picked.has(c)?picked.delete(c):picked.add(c);
+        confirmBtn.style.display=picked.size?'inline-flex':'none';
+      }else{submitAnswer(s,c);}
+    };
+    chips.appendChild(b);
+  });
+  let confirmBtn;
+  if(s.multi){
+    confirmBtn=document.createElement('button');confirmBtn.className='chip confirm';confirmBtn.textContent="That's everything →";confirmBtn.style.display='none';
+    confirmBtn.onclick=()=>submitAnswer(s,[...picked]);
+    chips.appendChild(confirmBtn);
+  }
+  wrap.appendChild(chips);inputEl().appendChild(wrap);
+}
+function submitAnswer(s,val){
+  profile[s.key]=val;
+  userSay(Array.isArray(val)?val.join(' · '):val);
+  inputEl().innerHTML='';
+  stepIdx++;
+  stepIdx<steps.length?setTimeout(askStep,250):finishGate();
+}
+function showContactForm(){
+  inputEl().innerHTML=`<form class="mini-form" onsubmit="event.preventDefault();submitContact(this)">
+    <input id="cName" required placeholder="Your name">
+    <input id="cCompany" required placeholder="Company, held in confidence">
+    <input id="cEmail" type="email" required placeholder="Email">
+    <input id="cMobile" placeholder="Mobile (optional)">
+    <input id="cPassword" type="password" required minlength="8" placeholder="Create a password (8+ characters)">
+    <div id="authErr" style="color:#ff6b6b;font-size:12.5px;display:none"></div>
+    <button class="btn btn-primary" type="submit" style="justify-content:center">Create account &amp; complete</button>
+    <p style="font-size:11.5px;color:var(--outline);margin-top:2px;line-height:1.5">By creating an account you agree to our <a href="privacy.html" target="_blank" style="color:var(--blue-bright)">Privacy Policy</a>.</p>
+  </form>`;
+}
+async function submitContact(form){
+  profile.name=document.getElementById('cName').value;
+  profile.company=document.getElementById('cCompany').value;
+  profile.email=document.getElementById('cEmail').value;
+  profile.mobile=document.getElementById('cMobile').value;
+  const password=document.getElementById('cPassword').value;
+  const errEl=document.getElementById('authErr');
+  const btn=form.querySelector('button');btn.disabled=true;btn.textContent='Creating account…';
+  const {data,error}=await sb.auth.signUp({
+    email:profile.email, password,
+    options:{ data:profileMeta(), emailRedirectTo:location.origin+location.pathname }
+  });
+  if(error){ errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Create account & complete'; return; }
+  inSignup=true;
+  captureMembership();                                  // create the Pipedrive lead
+  userSay(`${profile.name} · ${profile.company}`);
+  inputEl().innerHTML='';stepIdx++;
+  if(data.session){ await upsertProfile(data.user.id,profile.email); finishGate(); }   // signed in immediately
+  else { finishGateConfirm(); }                                                        // email confirmation required
+}
+let matchWhy={};
+function computeMatches(){
+  const m=new Set();matchWhy={};
+  const why=(id,r)=>{if(!matchWhy[id])matchWhy[id]=r};
+  const map={
+    'Outsource our production':['nx-2604'],
+    'Fill our spare capacity':['nx-2611'],
+    'Find products to distribute':['nx-2609','nx-2606','nx-2614','nx-2584','nx-2589'],
+    'Source materials or components':['nx-2609','nx-2584','nx-2606','nx-2614'],
+    'Plan a succession or exit':['nx-2598','nx-2581'],
+    'Acquire a lab or business':['nx-2581'],
+    'Hire or place talent':['nx-2592'],
+    'Move into new technology':['nx-2587','nx-2584'],
+    'Buy or sell equipment':['nx-2601','nx-2589'],
+    'Start something new':['nx-2613']};
+  (profile.goals||[]).forEach(g=>(map[g]||[]).forEach(id=>{m.add(id);why(id,`you want to “${g.toLowerCase()}”`)}));
+  (profile.pressing||[]).forEach(p=>{
+    const add=(id)=>{m.add(id);why(id,`you flagged “${p.toLowerCase()}”`)};
+    if(p==='Retirement on the horizon'){add('nx-2598');add('nx-2581');}
+    if(p==='Staffing pressure'){add('nx-2604');add('nx-2592');}
+    if(p==='Growth beyond our capacity')add('nx-2604');
+    if(p==='Losing a supplier or partner')add('nx-2606');
+  });
+  const valid=new Set(briefs.map(b=>b.id));        // never count an opportunity that isn't on the live board
+  return new Set([...m].filter(id=>valid.has(id)));
+}
+function finishGate(){
+  setProg();
+  matches=computeMatches();
+  const first=(profile.name||'').split(' ')[0];
+  const n=matches.size;
+  botSay(`Thank you, ${first}. Chris or Will will read your profile personally, if there's an obvious fit, expect a short note from one of us within two working days, and we'll email you whenever a new opportunity matches.${n?` Against the live board right now: <b style="color:var(--green)">${n} opportunit${n>1?'ies':'y'} look${n>1?'':'s'} like a genuine fit.</b> ${n>1?'They\'re':'It\'s'} flagged for you.`:` The board is open, and as new opportunities arrive, we'll already know which ones belong in front of you.`}`,()=>{
+    const b=document.createElement('button');b.className='chip confirm';b.textContent='Enter the Network →';
+    b.onclick=()=>unlock();
+    const chips=document.createElement('div');chips.className='chips';chips.appendChild(b);
+    inputEl().appendChild(chips);
+  });
+}
+function unlock(noScroll){
+  member=true;inSignup=false;
+  closeAll();
+  document.getElementById('wall').style.display='none';
+  document.getElementById('filters').style.display='flex';
+  grid.classList.remove('preview-blur');
+  // header reflects the signed-in state: name/status on the left link, sign-out as the button
+  const navSi=document.getElementById('navSignIn');
+  navSi.textContent=`Member · ${(profile.name||'').split(' ')[0]||'You'}`;
+  navSi.onclick=(e)=>{e.preventDefault();document.getElementById('briefs').scrollIntoView({behavior:'smooth'});};
+  const navAcc=document.getElementById('navAccess');
+  navAcc.textContent='Sign out';
+  navAcc.className='btn btn-outline';
+  navAcc.onclick=signOut;
+  const strip=document.getElementById('memberStrip');
+  strip.style.display='flex';
+  strip.innerHTML=`<div><div class="who">Signed in as <b>${profile.name||'Member'}</b>, ${profile.company||''}</div>
+    <div class="sub">${[profile.type,profile.region,profile.volume].filter(Boolean).join(' · ')} · Goals: ${(profile.goals||[]).join(', ')||'None'}</div></div>
+    ${matches.size?`<button class="chip active" onclick="document.getElementById('matchedHome').scrollIntoView({behavior:'smooth'})">★ ${matches.size} matched for you</button>`:''}
+    <button class="chip" onclick="signOut()">Sign out</button>`;
+  const mh=document.getElementById('matchedHome');
+  if(matches.size){
+    mh.style.display='block';
+    mh.innerHTML=`<h3>Matched for you</h3><div class="sub">Read against your profile by the desk, new opportunities that match will reach you by email first.</div>`;
+    const g=document.createElement('div');g.className='grid';
+    briefs.filter(b=>matches.has(b.id)).forEach(b=>g.appendChild(buildCard(b,matchWhy[b.id])));
+    mh.appendChild(g);
+    const all=document.createElement('h3');all.style.marginTop='44px';all.textContent='The full board';
+    mh.appendChild(all);
+  }
+  render('all');
+  if(!noScroll) document.getElementById('briefs').scrollIntoView({behavior:'smooth'});
+}
+
+/* ===== Supabase auth ===== */
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let inSignup=false;
+
+function profileMeta(){
+  return {name:profile.name||'',company:profile.company||'',mobile:profile.mobile||'',
+    type:profile.type||'',region:profile.region||'',volume:profile.volume||'',
+    goals:profile.goals||[],pressing:profile.pressing||[],timeline:profile.timeline||''};
+}
+async function upsertProfile(id,email){
+  try{ await sb.from('profiles').upsert(Object.assign({id,email},profileMeta())); }catch(e){}
+}
+async function loadProfile(user){
+  let row=null;
+  try{ const {data}=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle(); row=data; }catch(e){}
+  if(!row){
+    const m=user.user_metadata||{};
+    row={id:user.id,email:user.email,name:m.name||'',company:m.company||'',mobile:m.mobile||'',
+      type:m.type||'',region:m.region||'',volume:m.volume||'',goals:m.goals||[],pressing:m.pressing||[],timeline:m.timeline||''};
+    try{ await sb.from('profiles').upsert(row); }catch(e){}
+  }
+  Object.assign(profile,row);
+}
+async function onSignedIn(session){
+  if(member||inSignup) return;
+  await loadProfile(session.user);
+  matches=computeMatches();
+  unlock(true);
+}
+function finishGateConfirm(){
+  setProg();
+  const first=(profile.name||'').split(' ')[0];
+  botSay(`Almost there, ${first}. We've sent a confirmation link to <b style="color:#fff">${profile.email}</b>, click it and the board opens, already matched to you. You can close this window.`);
+}
+function openSignIn(){
+  document.getElementById('formContent').innerHTML=`
+    <span class="ref">MEMBER SIGN IN</span>
+    <h2>Welcome back</h2>
+    <form onsubmit="event.preventDefault();doSignIn(this)">
+      <div class="form-grid">
+        <div class="field full"><label>Email</label><input name="email" type="email" required></div>
+        <div class="field full"><label>Password</label><input name="password" type="password" required></div>
+      </div>
+      <div id="siErr" style="font-size:12.5px;display:none;margin-top:8px"></div>
+      <div class="modal-actions"><button class="btn btn-primary" type="submit">Sign in</button></div>
+      <p style="font-size:12px;color:var(--outline);margin-top:12px">New here? <a href="#" onclick="event.preventDefault();closeAll();openGate()" style="color:var(--blue-bright)">Become a member</a> · <a href="#" onclick="event.preventDefault();doReset(this)" style="color:var(--blue-bright)">Forgot password?</a></p>
+    </form>`;
+  closeAll();document.getElementById('formOverlay').classList.add('open');document.body.style.overflow='hidden';
+}
+async function doSignIn(form){
+  const fd=new FormData(form);const e=document.getElementById('siErr');
+  const {error}=await sb.auth.signInWithPassword({email:fd.get('email'),password:fd.get('password')});
+  if(error){e.style.color='#ff6b6b';e.textContent=error.message;e.style.display='block';return;}
+  closeAll(); // onAuthStateChange → onSignedIn unlocks
+}
+async function doReset(link){
+  const email=link.closest('form').querySelector('input[name=email]').value;
+  const e=document.getElementById('siErr');
+  if(!email){e.style.color='#ff6b6b';e.textContent='Enter your email above first.';e.style.display='block';return;}
+  await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  e.style.color='var(--green)';e.textContent='Reset link sent, check your email.';e.style.display='block';
+}
+async function signOut(){ await sb.auth.signOut(); location.reload(); }
+
+sb.auth.onAuthStateChange((_e,session)=>{ if(session) onSignedIn(session); });
+sb.auth.getSession().then(({data})=>{ if(data && data.session) onSignedIn(data.session); });
+</script>
+</body>
+</html>
