@@ -134,6 +134,15 @@
   .navbar__link.is-active::after {
     content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; background: var(--np-blue); border-radius: 1px;
   }
+  .navbar__actions { display: flex; align-items: center; gap: clamp(14px, 1.6vw, 24px); }
+  .navbar__portal {
+    display: inline-flex; align-items: center; gap: 7px;
+    font: 600 12px/1 var(--font-body); letter-spacing: 0.05em; text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55); text-decoration: none; white-space: nowrap;
+    transition: color var(--duration) var(--ease);
+  }
+  .navbar__portal:hover { color: #fff; }
+  .navbar__portal .material-symbols-outlined { color: var(--np-blue); }
 
   /* ─── Hero ─── */
   .hero { position: relative; min-height: min(94vh, 940px); padding-top: 84px; display: flex; align-items: center; overflow: hidden; }
@@ -439,6 +448,7 @@
   }
   @media (max-width: 560px) {
     .footer__inner { grid-template-columns: minmax(0, 1fr); }
+    .navbar__portal-label { display: none; }
   }
 
   /* ─── Reduced motion (mandatory) ─── */
@@ -467,10 +477,16 @@
       <a href="#focus"       class="navbar__link" data-nav="focus">Focus areas</a>
       <a href="#network"     class="navbar__link" data-nav="network">Network</a>
     </div>
-    <button class="btn btn--primary" data-nav="book">
-      Get in touch
-      <span class="material-symbols-outlined" style="font-size:16px;">arrow_forward</span>
-    </button>
+    <div class="navbar__actions">
+      <a href="/portal/" class="navbar__portal" aria-label="Member portal">
+        <span class="material-symbols-outlined" style="font-size:16px;">lock</span>
+        <span class="navbar__portal-label">Member portal</span>
+      </a>
+      <button class="btn btn--primary" data-nav="book">
+        Get in touch
+        <span class="material-symbols-outlined" style="font-size:16px;">arrow_forward</span>
+      </button>
+    </div>
   </nav>
 </header>
 
@@ -967,6 +983,7 @@
         <li><a href="#focus" data-nav="focus">Industries</a></li>
         <li><a href="#network" data-nav="network">Global network</a></li>
         <li><a href="#expertise" data-nav="expertise">Why NexPoint</a></li>
+        <li><a href="/portal/">Member portal</a></li>
       </ul>
     </div>
     <div class="footer__col">
