@@ -103,6 +103,8 @@
     <header><div class="wrap bar">
       <div class="brand">NexPoint <span>Admin</span></div>
       <div style="display:flex;align-items:center;gap:14px">
+        <span class="who" id="pubStatus"></span>
+        <button class="btn btn-grn btn-sm" id="pubBtn" onclick="publishLive()">Publish to live site</button>
         <span class="who" id="whoami"></span>
         <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
       </div>
@@ -198,6 +200,36 @@ async function doLogin(){
   showAdmin(data.user);
 }
 async function signOut(){await sb.auth.signOut();location.reload();}
+
+// ---- publish to live site ----
+// Inserts a request into deploy_queue; the Mac-side watcher
+// (portal_sync.py --watch, every 60s) picks it up, runs the leak-guarded
+// build, deploys the board to GitHub Pages, and marks the row done/failed.
+let pubTimer=null;
+async function publishLive(){
+  const btn=$('pubBtn'),st=$('pubStatus');
+  if(pubTimer){clearInterval(pubTimer);pubTimer=null;}
+  btn.disabled=true;st.textContent='Requesting…';
+  const {data:u}=await sb.auth.getUser();
+  const {data,error}=await sb.from('deploy_queue')
+    .insert({requested_by:u?.user?.email||null}).select('id').single();
+  if(error){st.textContent='Publish failed: '+error.message;btn.disabled=false;return;}
+  st.textContent='Publishing… usually live within 2 minutes';
+  const t0=Date.now();
+  pubTimer=setInterval(async()=>{
+    const {data:row}=await sb.from('deploy_queue').select('status,detail').eq('id',data.id).single();
+    if(row&&row.status==='done'){
+      clearInterval(pubTimer);pubTimer=null;
+      st.textContent='✓ Live — '+(row.detail||'board updated');btn.disabled=false;
+    }else if(row&&row.status==='failed'){
+      clearInterval(pubTimer);pubTimer=null;
+      st.textContent='✗ '+(row.detail||'failed — see sync log');btn.disabled=false;
+    }else if(Date.now()-t0>6*60*1000){
+      clearInterval(pubTimer);pubTimer=null;
+      st.textContent='Queued — will publish when the Mac next wakes';btn.disabled=false;
+    }
+  },10000);
+}
 
 // ---- list ----
 async function showAdmin(user){
