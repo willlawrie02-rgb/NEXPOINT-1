@@ -108,60 +108,6 @@
     ]
   },
   {
-    "id": "nx-2587",
-    "ref": "BRIEF NX-2587",
-    "cat": "equipment",
-    "dir": "OFFERING",
-    "title": "The additive platform war has reached O&P, quietly",
-    "regions": [
-      "Global"
-    ],
-    "sum": "Two global additive manufacturing platform makers are competing hard for this industry right now: new large-capacity hardware, aggressive support, and a strong appetite for credible clinical and lab partners to build the category with. We know the people on both sides.",
-    "fit": "<b>Best fit:</b> labs weighing a first move into powder or resin; established printers considering a platform switch while the leverage is good.",
-    "tags": [
-      "Additive manufacturing",
-      "Platform partnerships",
-      "First-mover terms"
-    ],
-    "signals": [
-      [
-        "2",
-        "global platform makers actively courting"
-      ],
-      [
-        "New",
-        "large-capacity hardware just launched"
-      ],
-      [
-        "FDM · powder · resin",
-        "expertise on tap"
-      ],
-      [
-        "Leverage",
-        "best while they compete"
-      ]
-    ],
-    "detail": "<p>When platform makers fight, partners win. A major new large-format machine has just launched, the incumbent responded within days, and both sides are hunting for reference partners in clinical and custom manufacturing, which means support packages and commercial terms that won’t exist once the dust settles.</p><p>One of them has also told us plainly that its dealer network is too generalist for this industry, it wants specialist O&P resellers, which is a separate opportunity for the right distributor or service business.</p><p>NexPoint works with both camps and holds deep, vendor-neutral expertise across FDM, powder and resin routes, including the unglamorous truths about which materials and workflows actually survive a production floor. We’ll help you pick a side before we introduce you to it.</p>",
-    "locked": [
-      [
-        "Platform identities",
-        "██████ · ██████"
-      ],
-      [
-        "Launch hardware & specs",
-        "██-litre build volume"
-      ],
-      [
-        "Partner programme terms",
-        "On introduction"
-      ],
-      [
-        "Reference installations",
-        "██ sites"
-      ]
-    ]
-  },
-  {
     "id": "nx-2589",
     "ref": "BRIEF NX-2589",
     "cat": "equipment",
