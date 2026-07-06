@@ -71,15 +71,15 @@
   .hero h1 em{font-style:normal;color:var(--blue)}
   .hero p.lede{font:400 clamp(15px,1.25vw,18px)/1.6 var(--font-body);color:rgba(226,226,226,.78);max-width:620px;margin-bottom:36px}
   .hero-ctas{display:flex;gap:14px;flex-wrap:wrap}
-  /* hero network animation — members connected by live introductions */
+  /* hero globe (matches homepage) */
   .hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(32px,4vw,64px);align-items:center}
-  .net-stage{position:relative;width:min(100%,560px);aspect-ratio:1/1;justify-self:end;overflow:visible}
-  .net-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .globe-stage{position:relative;width:min(100%,560px);aspect-ratio:1/1;justify-self:end;overflow:visible}
+  .globe-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
   @media(max-width:1000px){
     .hero-grid{grid-template-columns:1fr}
-    .net-stage{width:min(100%,460px);margin:8px auto 0;justify-self:center}
+    .globe-stage{width:min(100%,460px);margin:8px auto 0;justify-self:center}
   }
-  @media(max-width:560px){.net-stage{width:min(90%,380px)}}
+  @media(max-width:560px){.globe-stage{width:min(90%,380px)}}
   .proof{background:var(--bg-alt);border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft)}
   .proof .container{padding-top:clamp(28px,4vh,44px);padding-bottom:clamp(28px,4vh,44px)}
   .stats{display:grid;grid-template-columns:repeat(4,1fr);margin:0}
@@ -317,6 +317,8 @@
 
   /* hero */
   html[data-theme="light"] .hero-bg{background:radial-gradient(900px 600px at 88% 6%,rgba(0,92,200,.10),transparent 60%),radial-gradient(720px 520px at 4% 96%,rgba(139,197,63,.10),transparent 60%)}
+  html[data-theme="light"] .globe-stage::before{content:"";position:absolute;left:50%;top:50%;width:92%;height:92%;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;z-index:0;background:radial-gradient(circle at 40% 34%,#18263e 0%,#0d1728 62%,#080f1c 88%,rgba(8,15,28,0) 100%)}
+  html[data-theme="light"] .globe-canvas{z-index:1}
   html[data-theme="light"] .hero h1{color:#0E1626}
   html[data-theme="light"] .hero p.lede{color:#4A5462}
 
@@ -412,8 +414,8 @@
           <a class="btn btn-ghost" href="#how">How introductions work →</a>
         </div>
       </div>
-      <div class="net-stage">
-        <canvas class="net-canvas" id="netCanvas" role="img" aria-label="An animated network of members across the NexPoint network, connected by lines with live introductions passing between them"></canvas>
+      <div class="globe-stage">
+        <canvas class="globe-canvas" id="globeCanvas" role="img" aria-label="A rotating, realistically lit globe showing NexPoint's live commercial connections arcing between markets in the UK, Europe, North America, the Middle East, Asia, Australia and New Zealand"></canvas>
       </div>
     </div>
   </div>
@@ -599,158 +601,249 @@
 })();
 </script>
 <script>
-/* Hero network — members across the NexPoint network, linked by lines with live introductions passing between them (canvas, dependency-free). */
-(function initNet(){
-  const canvas = document.getElementById('netCanvas');
-  if(!canvas) return;
+/* Hero globe — realistically lit dotted Earth with live connection arcs (canvas, dependency-free). Matches the homepage. */
+(function initGlobe() {
+  const canvas = document.getElementById('globeCanvas');
+  if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const reduce = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false;
 
-  let W=0,H=0,dpr=1;
-  function resize(){
-    const rect=canvas.getBoundingClientRect();
-    if(!rect.width||!rect.height) return;
-    dpr=Math.min(window.devicePixelRatio||1,2);
-    W=rect.width; H=rect.height;
-    canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0);
+  const LAND = [
+    [[9,19],[23,28],[39,55]],
+    [[3,6],[8,21],[23,29],[30,33],[37,57]],
+    [[3,7],[8,22],[23,29],[29,34],[36,58]],
+    [[4,7],[8,23],[25,28],[28,35],[36,58]],
+    [[7,22],[28,29],[30,36],[37,58]],
+    [[8,21],[29,36],[37,57]],
+    [[9,21],[29,35],[36,54],[56,57]],
+    [[9,21],[28,34],[40,47],[48,55],[56,57]],
+    [[10,20],[28,40],[41,47],[48,55]],
+    [[13,19],[28,41],[42,47],[48,54]],
+    [[14,19],[28,41],[43,47],[49,53]],
+    [[16,20],[28,41],[43,46],[49,54]],
+    [[17,20],[27,41],[43,45],[50,55]],
+    [[18,21],[27,40],[45,46],[50,56]],
+    [[18,26],[29,40],[49,56]],
+    [[17,27],[30,40],[50,56]],
+    [[18,28],[31,39],[51,55]],
+    [[18,28],[31,39],[50,57]],
+    [[19,28],[32,38],[49,58]],
+    [[19,27],[32,38],[49,58]],
+    [[20,26],[33,37],[50,57]],
+    [[20,25],[33,36],[51,56],[58,59]],
+    [[21,25],[58,59]],
+    [[21,24]],
+  ];
+  function isLand(lat, lon) {
+    let row = Math.floor((90 - lat) / 180 * 24);
+    let col = Math.floor((lon + 180) / 360 * 60);
+    if (row < 0) row = 0; if (row > 23) row = 23;
+    if (col < 0) col = 0; if (col > 59) col = 59;
+    const segs = LAND[row];
+    for (let i = 0; i < segs.length; i++) if (col >= segs[i][0] && col <= segs[i][1]) return true;
+    return false;
   }
 
-  // nodes in normalised [0,1] space (stage is square, so x/y share scale)
-  const N=17, MARGIN=0.08;
-  const nodes=[];
-  for(let i=0;i<N;i++){
-    nodes.push({
-      x:MARGIN + Math.random()*(1-2*MARGIN),
-      y:MARGIN + Math.random()*(1-2*MARGIN),
-      vx:(Math.random()-0.5)*0.02,
-      vy:(Math.random()-0.5)*0.02,
-      hub: i%5===0,
-      phase: Math.random()*Math.PI*2
-    });
+  const TILT = -0.41;
+  const cosT = Math.cos(TILT), sinT = Math.sin(TILT);
+  let Lx = -0.55, Ly = 0.42, Lz = 0.72;
+  const Ln = Math.hypot(Lx, Ly, Lz); Lx /= Ln; Ly /= Ln; Lz /= Ln;
+
+  function toVec(lat, lon) {
+    const la = lat * Math.PI / 180, lo = lon * Math.PI / 180;
+    const x0 = Math.cos(la) * Math.sin(lo);
+    const y0 = Math.sin(la);
+    const z0 = Math.cos(la) * Math.cos(lo);
+    return { x: x0, y: y0 * cosT - z0 * sinT, z: y0 * sinT + z0 * cosT };
   }
 
-  const LINK=0.34;                 // max normalised distance for a connection
-  const pulses=[]; let lastSpawn=0;
-
-  function palette(light){
-    return light ? {
-      line:(a)=>'rgba(0,92,200,'+a+')',   lineMax:0.26,
-      node:'rgba(0,74,170,0.9)',
-      hub:'rgba(96,150,32,0.95)',         hubRing:(a)=>'rgba(122,180,52,'+a+')',
-      pulse:'#5f9e28',                    pulseGlow:'rgba(122,180,52,0.85)'
-    } : {
-      line:(a)=>'rgba(61,142,235,'+a+')', lineMax:0.20,
-      node:'rgba(140,185,240,0.9)',
-      hub:'rgba(156,216,80,0.95)',        hubRing:(a)=>'rgba(139,197,63,'+a+')',
-      pulse:'#9CD850',                    pulseGlow:'rgba(139,197,63,0.9)'
-    };
-  }
-
-  function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
-
-  function spawnPulse(now){
-    const pairs=[];
-    for(let i=0;i<N;i++) for(let j=i+1;j<N;j++){ if(dist(nodes[i],nodes[j])<LINK) pairs.push([i,j]); }
-    if(!pairs.length) return;
-    const p=pairs[(Math.random()*pairs.length)|0];
-    const dir=Math.random()<0.5;
-    pulses.push({ a: dir?p[0]:p[1], b: dir?p[1]:p[0], t0:now, dur:1300+Math.random()*700 });
-  }
-
-  function frame(now,dt){
-    if(!W) return;
-    const light=document.documentElement.getAttribute('data-theme')==='light';
-    const P=palette(light);
-    ctx.clearRect(0,0,W,H);
-
-    for(const n of nodes){
-      n.x+=n.vx*dt; n.y+=n.vy*dt;
-      if(n.x<MARGIN){n.x=MARGIN;n.vx=Math.abs(n.vx);} else if(n.x>1-MARGIN){n.x=1-MARGIN;n.vx=-Math.abs(n.vx);}
-      if(n.y<MARGIN){n.y=MARGIN;n.vy=Math.abs(n.vy);} else if(n.y>1-MARGIN){n.y=1-MARGIN;n.vy=-Math.abs(n.vy);}
+  const pts = [];
+  for (let lat = -87; lat <= 87; lat += 3) {
+    const cosLat = Math.cos(lat * Math.PI / 180);
+    const step = 3 / Math.max(0.22, cosLat);
+    for (let lon = -180; lon < 180; lon += step) {
+      const v = toVec(lat, lon);
+      v.land = isLand(lat, lon);
+      pts.push(v);
     }
+  }
 
-    const px=(n)=>n.x*W, py=(n)=>n.y*H;
+  const HUBS = [
+    { lat: 40, lon: -96 }, { lat: 54, lon: -2 }, { lat: 50, lon: 12 },
+    { lat: 25, lon: 45 }, { lat: 28, lon: 112 }, { lat: -25, lon: 134 }, { lat: -41, lon: 173 },
+  ].map(h => toVec(h.lat, h.lon));
 
-    // connections
-    ctx.lineWidth=1;
-    for(let i=0;i<N;i++) for(let j=i+1;j<N;j++){
-      const d=dist(nodes[i],nodes[j]);
-      if(d>=LINK) continue;
-      ctx.strokeStyle=P.line((1-d/LINK)*P.lineMax);
-      ctx.beginPath(); ctx.moveTo(px(nodes[i]),py(nodes[i])); ctx.lineTo(px(nodes[j]),py(nodes[j])); ctx.stroke();
-    }
+  function slerp(a, b, t) {
+    let d = a.x * b.x + a.y * b.y + a.z * b.z;
+    d = Math.max(-1, Math.min(1, d));
+    const om = Math.acos(d);
+    if (om < 1e-4) return { x: a.x, y: a.y, z: a.z };
+    const s = Math.sin(om), w1 = Math.sin((1 - t) * om) / s, w2 = Math.sin(t * om) / s;
+    return { x: a.x * w1 + b.x * w2, y: a.y * w1 + b.y * w2, z: a.z * w1 + b.z * w2 };
+  }
 
-    // introductions travelling between members
-    for(let k=pulses.length-1;k>=0;k--){
-      const pl=pulses[k];
-      const t=(now-pl.t0)/pl.dur;
-      if(t>=1){ pulses.splice(k,1); continue; }
-      const A=nodes[pl.a], B=nodes[pl.b];
-      const ease=t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
-      const x=px(A)+(px(B)-px(A))*ease, y=py(A)+(py(B)-py(A))*ease;
-      ctx.strokeStyle=P.hubRing(0.4*(1-t));
-      ctx.lineWidth=1.6;
-      ctx.beginPath(); ctx.moveTo(px(A),py(A)); ctx.lineTo(x,y); ctx.stroke();
-      ctx.save();
-      ctx.shadowBlur=10; ctx.shadowColor=P.pulseGlow;
-      ctx.fillStyle=P.pulse;
-      ctx.beginPath(); ctx.arc(x,y,2.6,0,Math.PI*2); ctx.fill();
-      ctx.restore();
-    }
+  let W = 0, H = 0, cx = 0, cy = 0, R = 0, dpr = 1;
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = rect.width; H = rect.height;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cx = W / 2; cy = H / 2; R = Math.min(W, H) * 0.44;
+  }
 
-    // members
-    for(let i=0;i<N;i++){
-      const n=nodes[i], x=px(n), y=py(n);
-      if(n.hub){
-        const ring=((now/1000 + n.phase) % 2.4)/2.4;
-        ctx.strokeStyle=P.hubRing(0.5*(1-ring));
-        ctx.lineWidth=1.2;
-        ctx.beginPath(); ctx.arc(x,y,3+ring*11,0,Math.PI*2); ctx.stroke();
-        ctx.save();
-        ctx.shadowBlur=9; ctx.shadowColor=P.pulseGlow;
-        ctx.fillStyle=P.hub;
-        ctx.beginPath(); ctx.arc(x,y,3.4,0,Math.PI*2); ctx.fill();
-        ctx.restore();
+  const arcs = [];
+  let lastSpawn = 0;
+
+  function spawnArc(now) {
+    if (arcs.length >= 4) return;
+    const front = [];
+    for (let i = 0; i < HUBS.length; i++) if (HUBS[i]._z > 0.22) front.push(i);
+    if (front.length < 2) return;
+    const i = front[(Math.random() * front.length) | 0];
+    let j = front[(Math.random() * front.length) | 0], guard = 0;
+    while (j === i && guard++ < 6) j = front[(Math.random() * front.length) | 0];
+    if (i === j) return;
+    const A = HUBS[i], B = HUBS[j];
+    if (A.x * B.x + A.y * B.y + A.z * B.z < 0) return;
+    arcs.push({ a: i, b: j, t0: now, dur: 2600 });
+  }
+
+  function frame(now, rot) {
+    if (!W) return;
+    const cosA = Math.cos(rot), sinA = Math.sin(rot);
+    const edge = Math.min(W, H) * 0.5;
+    ctx.clearRect(0, 0, W, H);
+
+    const atmo = ctx.createRadialGradient(cx, cy, R * 0.9, cx, cy, edge);
+    atmo.addColorStop(0, 'rgba(61,142,235,0)');
+    atmo.addColorStop(0.8, 'rgba(61,142,235,0)');
+    atmo.addColorStop(0.93, 'rgba(61,142,235,0.18)');
+    atmo.addColorStop(1, 'rgba(61,142,235,0)');
+    ctx.fillStyle = atmo; ctx.beginPath(); ctx.arc(cx, cy, edge, 0, Math.PI * 2); ctx.fill();
+
+    const body = ctx.createRadialGradient(cx - R * 0.4, cy - R * 0.44, R * 0.1, cx, cy, R);
+    body.addColorStop(0, 'rgba(32,60,98,0.68)');
+    body.addColorStop(0.6, 'rgba(12,26,48,0.5)');
+    body.addColorStop(1, 'rgba(5,10,20,0.32)');
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fillStyle = body; ctx.fill();
+
+    for (let k = 0; k < pts.length; k++) {
+      const p = pts[k];
+      const z2 = -p.x * sinA + p.z * cosA;
+      if (z2 <= 0) continue;
+      const x2 = p.x * cosA + p.z * sinA, y2 = p.y;
+      let nl = x2 * Lx + y2 * Ly + z2 * Lz;
+      if (nl < 0) nl = 0;
+      const b = (0.12 + 0.88 * nl) * (0.30 + 0.70 * z2);
+      const sx = cx + x2 * R, sy = cy - y2 * R;
+      if (p.land) {
+        ctx.fillStyle = 'rgba(139,197,63,' + (0.16 + 0.74 * b) + ')';
+        const s = 1.0 + 1.5 * b;
+        ctx.fillRect(sx - s / 2, sy - s / 2, s, s);
       } else {
-        const tw=0.65+0.35*Math.sin(now/1000*1.1 + n.phase);
-        ctx.save();
-        ctx.shadowBlur=6; ctx.shadowColor=P.pulseGlow;
-        ctx.globalAlpha=tw;
-        ctx.fillStyle=P.node;
-        ctx.beginPath(); ctx.arc(x,y,2.0,0,Math.PI*2); ctx.fill();
-        ctx.restore();
+        ctx.fillStyle = 'rgba(86,150,224,' + (0.03 + 0.17 * b) + ')';
+        ctx.fillRect(sx - 0.6, sy - 0.6, 1.2, 1.2);
       }
+    }
+
+    for (let i = 0; i < HUBS.length; i++) {
+      const h = HUBS[i];
+      h._z = -h.x * sinA + h.z * cosA;
+      h._sx = cx + (h.x * cosA + h.z * sinA) * R;
+      h._sy = cy - h.y * R;
+    }
+
+    for (let ai = arcs.length - 1; ai >= 0; ai--) {
+      const arc = arcs[ai];
+      const life = (now - arc.t0) / arc.dur;
+      if (life >= 1) { arcs.splice(ai, 1); continue; }
+      const A = HUBS[arc.a], B = HUBS[arc.b];
+      const env = life < 0.15 ? life / 0.15 : life > 0.7 ? (1 - life) / 0.3 : 1;
+      const drawTo = Math.min(1, life / 0.35);
+      let started = false;
+      ctx.beginPath();
+      for (let s = 0; s <= 40; s++) {
+        const t = s / 40;
+        if (t > drawTo) break;
+        const sp = slerp(A, B, t);
+        if (-sp.x * sinA + sp.z * cosA < -0.08) break;
+        const lift = 1 + 0.42 * Math.sin(Math.PI * t);
+        const sx = cx + (sp.x * lift * cosA + sp.z * lift * sinA) * R;
+        const sy = cy - sp.y * lift * R;
+        if (!started) { ctx.moveTo(sx, sy); started = true; } else ctx.lineTo(sx, sy);
+      }
+      ctx.strokeStyle = 'rgba(61,142,235,' + (0.62 * env) + ')';
+      ctx.lineWidth = 1.6; ctx.stroke();
+
+      if (life > 0.2 && life < 0.95) {
+        const pt = Math.min(1, (life - 0.2) / 0.72);
+        const sp = slerp(A, B, pt);
+        if (-sp.x * sinA + sp.z * cosA >= -0.08) {
+          const lift = 1 + 0.42 * Math.sin(Math.PI * pt);
+          const sx = cx + (sp.x * lift * cosA + sp.z * lift * sinA) * R;
+          const sy = cy - sp.y * lift * R;
+          ctx.save();
+          ctx.shadowBlur = 11; ctx.shadowColor = 'rgba(139,197,63,0.9)';
+          ctx.fillStyle = '#9CD850';
+          ctx.beginPath(); ctx.arc(sx, sy, 2.8, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
+
+    for (let i = 0; i < HUBS.length; i++) {
+      const h = HUBS[i];
+      if (h._z <= 0.05) continue;
+      const a = 0.32 + 0.68 * h._z;
+      const pulse = ((now / 1000 + i * 0.5) % 2.6) / 2.6;
+      ctx.strokeStyle = 'rgba(139,197,63,' + (0.5 * (1 - pulse) * a) + ')';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(h._sx, h._sy, 3.2 + pulse * 10, 0, Math.PI * 2); ctx.stroke();
+      ctx.save();
+      ctx.shadowBlur = 9; ctx.shadowColor = 'rgba(139,197,63,0.95)';
+      ctx.fillStyle = 'rgba(156,216,80,' + a + ')';
+      ctx.beginPath(); ctx.arc(h._sx, h._sy, 3.2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
   }
 
   resize();
 
-  if(reduce){
-    const drawStatic=()=>{ resize(); pulses.length=0; frame(1000,0); };
+  if (reduce) {
+    const drawStatic = () => {
+      resize();
+      arcs.length = 0;
+      arcs.push({ a: 1, b: 0, t0: 200, dur: 2600 });
+      arcs.push({ a: 2, b: 4, t0: 200, dur: 2600 });
+      frame(1500, 0.35);
+    };
     drawStatic();
-    window.addEventListener('resize',drawStatic);
-    if(window.ResizeObserver) new ResizeObserver(drawStatic).observe(canvas);
+    window.addEventListener('resize', drawStatic);
+    if (window.ResizeObserver) new ResizeObserver(drawStatic).observe(canvas);
     return;
   }
 
-  let raf=0, running=false, lastT=null;
-  function loop(ts){
-    if(lastT==null) lastT=ts;
-    const dt=Math.min(0.05,(ts-lastT)/1000); lastT=ts;
-    if(ts-lastSpawn>1000){ spawnPulse(ts); lastSpawn=ts; }
-    frame(ts,dt);
-    if(running) raf=requestAnimationFrame(loop);
+  let raf = 0, running = false, rotation = 0, lastT = null;
+  const ROT_SPEED = (2 * Math.PI) / 52000;
+  function loop(ts) {
+    if (lastT == null) lastT = ts;
+    rotation += ROT_SPEED * (ts - lastT); lastT = ts;
+    if (ts - lastSpawn > 950) { spawnArc(ts); lastSpawn = ts; }
+    frame(ts, rotation);
+    if (running) raf = requestAnimationFrame(loop);
   }
-  function start(){ if(running) return; running=true; lastT=null; raf=requestAnimationFrame(loop); }
-  function stop(){ running=false; if(raf) cancelAnimationFrame(raf); raf=0; }
+  function start() { if (running) return; running = true; lastT = null; raf = requestAnimationFrame(loop); }
+  function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; }
 
-  window.addEventListener('resize',resize);
-  if(window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
-  if(window.IntersectionObserver){
-    new IntersectionObserver((ents)=>{ ents.forEach(e=> e.isIntersecting?start():stop()); },{threshold:0.05}).observe(canvas);
+  window.addEventListener('resize', resize);
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
+  if (window.IntersectionObserver) {
+    new IntersectionObserver((ents) => { ents.forEach(e => e.isIntersecting ? start() : stop()); }, { threshold: 0.05 }).observe(canvas);
   } else { start(); }
-  document.addEventListener('visibilitychange',()=>{ document.hidden?stop():start(); });
+  document.addEventListener('visibilitychange', () => { document.hidden ? stop() : start(); });
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
