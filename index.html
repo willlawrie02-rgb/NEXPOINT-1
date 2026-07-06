@@ -558,8 +558,28 @@
   html[data-theme="light"] .market-row__name { color: #0E1626; }
   html[data-theme="light"] .map-card { background: rgba(14, 22, 38, 0.03); border-color: rgba(14, 22, 38, 0.1); }
 
-  /* Contact (.book) and footer intentionally remain dark — no overrides.
-     Footer bg uses var(--bg-alt); pin it back to the dark canvas so it reads as a dark base. */
+  /* Contact ("Get in touch") — light in light mode */
+  html[data-theme="light"] .book { background: var(--bg); }
+  html[data-theme="light"] .book__bg { opacity: 0.06; filter: grayscale(35%) contrast(1.05); }
+  html[data-theme="light"] .book__bg::after {
+    background:
+      radial-gradient(700px 500px at 90% 10%, rgba(0, 92, 200, 0.08), transparent 60%),
+      linear-gradient(180deg, rgba(245, 247, 250, 0.72) 0%, rgba(245, 247, 250, 0.92) 100%);
+  }
+  html[data-theme="light"] .book__title { color: #0E1626; }
+  html[data-theme="light"] .book__lede { color: #4A5462; }
+  html[data-theme="light"] .book__write { background: rgba(14, 22, 38, 0.03); }
+  html[data-theme="light"] .book__write-label { color: #5A6474; }
+  html[data-theme="light"] .book__write-row a { color: #0E1626; }
+  html[data-theme="light"] .book-card { background: rgba(255, 255, 255, 0.9); border-color: rgba(14, 22, 38, 0.1); box-shadow: 0 24px 64px rgba(14, 22, 38, 0.12); }
+  html[data-theme="light"] .book-card__title { color: #0E1626; }
+  html[data-theme="light"] .field-label { color: #5A6474; }
+  html[data-theme="light"] .field-input { background: #FFFFFF; color: #0E1626; border-color: rgba(14, 22, 38, 0.16); }
+  html[data-theme="light"] .form-error { color: #b4272c; background: rgba(229, 72, 77, 0.06); border-color: rgba(229, 72, 77, 0.28); }
+  html[data-theme="light"] .confirmed h3 { color: #0E1626; }
+  html[data-theme="light"] .confirmed p { color: #4A5462; }
+
+  /* Footer stays dark as a premium base */
   html[data-theme="light"] .footer { background: #0d0e0f; border-top-color: rgba(255, 255, 255, 0.06); }
 </style>
 <script>
