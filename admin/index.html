@@ -7,6 +7,7 @@
 <title>NexPoint Admin — Opportunity Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <style>
   :root{--bg:#0d0e0f;--surface:#161718;--line:#2a2a2a;--ink:#e2e2e2;--mut:rgba(226,226,226,.6);
     --blue:#005CC8;--blue-br:#3D8EEB;--green:#9CD850;--amber:#E8B23A;--red:#ff6b6b;
@@ -84,7 +85,55 @@
   .save-err{color:var(--red);font-size:13px}
   .muted{color:var(--mut);font-size:12.5px}
   .empty{text-align:center;color:var(--mut);padding:60px 0}
+
+  /* icon font + theme toggle */
+  .material-symbols-outlined{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-feature-settings:'liga';-webkit-font-smoothing:antialiased}
+  .theme-toggle{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border-radius:9999px;cursor:pointer;background:transparent;border:1px solid var(--line);color:var(--mut);transition:all .15s}
+  .theme-toggle:hover{color:#fff;border-color:#444}
+  .theme-toggle .material-symbols-outlined{font-size:18px}
+  .theme-toggle .ico-dark{display:none}
+  html[data-theme="light"] .theme-toggle .ico-light{display:none}
+  html[data-theme="light"] .theme-toggle .ico-dark{display:inline-block}
+
+  /* ═══════════ LIGHT THEME — opt-in overlay (dark is the default) ═══════════ */
+  html[data-theme="light"]{
+    --bg:#F5F7FA; --surface:#FFFFFF; --line:#E3E7ED; --ink:#2C3444; --mut:rgba(44,52,68,.62);
+    --blue-br:#0A63D0;
+  }
+  html[data-theme="light"] ::selection{background:rgba(0,92,200,.18);color:#0E1626}
+  html[data-theme="light"] header{background:rgba(255,255,255,.9)}
+  html[data-theme="light"] .brand,
+  html[data-theme="light"] #login h1,
+  html[data-theme="light"] .toolbar h2,
+  html[data-theme="light"] .row h3,
+  html[data-theme="light"] .modal h2{color:#0E1626}
+  html[data-theme="light"] #login input,
+  html[data-theme="light"] input,
+  html[data-theme="light"] select,
+  html[data-theme="light"] textarea{background:#FFFFFF}
+  html[data-theme="light"] .theme-toggle:hover,
+  html[data-theme="light"] .btn-gh:hover{color:#0E1626;border-color:rgba(14,22,38,.3)}
+  html[data-theme="light"] .pill{background:rgba(0,92,200,.12);color:#0A63D0}
+  html[data-theme="light"] .pill.alt{background:rgba(14,22,38,.06);color:var(--mut)}
+  html[data-theme="light"] .priv-box{background:#FBF3E0;border-color:#E6D28F}
+  html[data-theme="light"] .row.withheld{border-left-color:#9aa0a6}
+  html[data-theme="light"] .badge.withheld{background:#9aa0a6}
+  html[data-theme="light"] label .opt{color:#9aa0a6}
 </style>
+<script>
+  /* Set theme before paint to avoid a flash. Explicit choice wins; else follow OS. */
+  (function () {
+    try {
+      var t = localStorage.getItem('np-theme');
+      if (t !== 'light' && t !== 'dark') {
+        t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+      }
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
 </head>
 <body>
 
@@ -110,6 +159,10 @@
         <span class="who" id="pubStatus"></span>
         <button class="btn btn-grn btn-sm" id="pubBtn" onclick="publishLive()">Publish to live site</button>
         <span class="who" id="whoami"></span>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch between light and dark theme">
+          <span class="material-symbols-outlined ico-light" aria-hidden="true">light_mode</span>
+          <span class="material-symbols-outlined ico-dark" aria-hidden="true">dark_mode</span>
+        </button>
         <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
       </div>
     </div></header>
@@ -187,6 +240,17 @@ const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 let briefs=[];let filter='all';let editingId=null;
 const $=id=>document.getElementById(id);
+
+// ---- theme toggle ----
+(function(){
+  const btn=document.querySelector('[data-theme-toggle]');
+  if(!btn)return;
+  btn.addEventListener('click',function(){
+    const next=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+    document.documentElement.setAttribute('data-theme',next);
+    try{localStorage.setItem('np-theme',next);}catch(e){}
+  });
+})();
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
 
 // ---- auth ----
