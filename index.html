@@ -458,7 +458,101 @@
     .reveal { opacity: 1; transform: none; }
     .scroll-progress { display: none; }
   }
+
+  /* ─── Theme toggle button ─── */
+  .theme-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; padding: 0; border-radius: 9999px; cursor: pointer;
+    background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.7); transition: color var(--duration) var(--ease), border-color var(--duration) var(--ease), background var(--duration) var(--ease);
+  }
+  .theme-toggle:hover { color: #fff; border-color: rgba(255, 255, 255, 0.28); background: rgba(255, 255, 255, 0.07); }
+  .theme-toggle .material-symbols-outlined { font-size: 19px; }
+  .theme-toggle .ico-dark { display: none; }
+  html[data-theme="light"] .theme-toggle .ico-light { display: none; }
+  html[data-theme="light"] .theme-toggle .ico-dark { display: inline-block; }
+
+  /* ═══════════════════════════════════════════════════════════════
+     LIGHT THEME — opt-in overlay. Dark stays the brand default.
+     Image-driven bands (hero, contact, footer) intentionally stay dark.
+     ═══════════════════════════════════════════════════════════════ */
+  html[data-theme="light"] {
+    --bg: #F5F7FA;
+    --bg-alt: #ECEFF3;
+    --surface: #FFFFFF;
+    --surface-input: #FFFFFF;
+    --fg: #0E1626;
+    --fg-1: #2C3444;
+    --fg-2: #5A6474;
+    --border: #E3E7ED;
+    --border-card: #E3E7ED;
+    --border-soft: rgba(14, 22, 38, 0.09);
+    --border-faint: rgba(14, 22, 38, 0.06);
+  }
+  html[data-theme="light"] ::selection { background: rgba(0, 92, 200, 0.18); color: #0E1626; }
+  html[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(14, 22, 38, 0.2); }
+
+  /* Navbar — light translucent (sits over the dark hero at the top, reads cleanly) */
+  html[data-theme="light"] .navbar { background: rgba(255, 255, 255, 0.82); border-bottom-color: rgba(14, 22, 38, 0.09); }
+  html[data-theme="light"] .navbar__link { color: rgba(14, 22, 38, 0.6); }
+  html[data-theme="light"] .navbar__link:hover,
+  html[data-theme="light"] .navbar__link.is-active { color: #0E1626; }
+  html[data-theme="light"] .navbar__portal { color: rgba(14, 22, 38, 0.62); }
+  html[data-theme="light"] .navbar__portal:hover { color: #0E1626; }
+  html[data-theme="light"] .theme-toggle { background: rgba(14, 22, 38, 0.04); border-color: rgba(14, 22, 38, 0.14); color: rgba(14, 22, 38, 0.62); }
+  html[data-theme="light"] .theme-toggle:hover { color: #0E1626; border-color: rgba(14, 22, 38, 0.3); background: rgba(14, 22, 38, 0.07); }
+
+  /* Shared type */
+  html[data-theme="light"] .lede { color: #4A5462; }
+
+  /* Proof strip */
+  html[data-theme="light"] .proof__label { color: #5A6474; }
+
+  /* Services */
+  html[data-theme="light"] .service-card h3 { color: #0E1626; }
+  html[data-theme="light"] .service-card p { color: #4A5462; }
+  html[data-theme="light"] .service-card__index { color: rgba(14, 22, 38, 0.14); }
+
+  /* Value chain — dark nodes stay dark (good contrast on light); labels flip */
+  html[data-theme="light"] .vc-step__label { color: #0E1626; }
+  html[data-theme="light"] .vc-step__sub { color: #5A6474; }
+
+  /* Why NexPoint */
+  html[data-theme="light"] .why__title { color: #0E1626; }
+  html[data-theme="light"] .why__lede { color: #4A5462; }
+  html[data-theme="light"] .why-item h4 { color: #0E1626; }
+  html[data-theme="light"] .why-item p { color: #55606E; }
+  html[data-theme="light"] .why-item:hover { border-color: rgba(0, 92, 200, 0.4); }
+
+  /* Focus tiles are photo-driven (dark scrim + white title) — unchanged */
+
+  /* Global reach */
+  html[data-theme="light"] .reach__title { color: #0E1626; }
+  html[data-theme="light"] .reach__lede { color: #4A5462; }
+  html[data-theme="light"] .markets__header-num { color: #0E1626; }
+  html[data-theme="light"] .markets__header-label { color: #5A6474; }
+  html[data-theme="light"] .market-row:nth-child(even) { background: rgba(14, 22, 38, 0.025); }
+  html[data-theme="light"] .market-row__name { color: #0E1626; }
+  html[data-theme="light"] .map-card { background: rgba(14, 22, 38, 0.03); border-color: rgba(14, 22, 38, 0.1); }
+
+  /* Contact (.book) and footer intentionally remain dark — no overrides.
+     Footer bg uses var(--bg-alt); pin it back to the dark canvas so it reads as a dark base. */
+  html[data-theme="light"] .footer { background: #0d0e0f; border-top-color: rgba(255, 255, 255, 0.06); }
 </style>
+<script>
+  /* Set theme before paint to avoid a flash. Explicit choice wins; else follow OS. */
+  (function () {
+    try {
+      var t = localStorage.getItem('np-theme');
+      if (t !== 'light' && t !== 'dark') {
+        t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+      }
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
 </head>
 <body>
 
@@ -478,6 +572,10 @@
       <a href="#network"     class="navbar__link" data-nav="network">Network</a>
     </div>
     <div class="navbar__actions">
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch between light and dark theme">
+        <span class="material-symbols-outlined ico-light" aria-hidden="true">light_mode</span>
+        <span class="material-symbols-outlined ico-dark" aria-hidden="true">dark_mode</span>
+      </button>
       <a href="/portal/" class="navbar__portal" aria-label="Member portal">
         <span class="material-symbols-outlined" style="font-size:16px;">lock</span>
         <span class="navbar__portal-label">Member portal</span>
@@ -1030,6 +1128,18 @@
       scrollToId(el.getAttribute('data-nav'));
     });
   });
+
+  // ─── Theme toggle (persisted, shared across nexpoint.co.uk) ───
+  (function () {
+    const btn = document.querySelector('[data-theme-toggle]');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+      const next = cur === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('np-theme', next); } catch (e) {}
+    });
+  })();
 
   const navLinks = Array.from(document.querySelectorAll('.navbar__link'));
   const SECTIONS = ['top','services','value-chain','expertise','focus','network','book'];
