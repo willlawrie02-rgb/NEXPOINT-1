@@ -71,6 +71,15 @@
   .hero h1 em{font-style:normal;color:var(--blue)}
   .hero p.lede{font:400 clamp(15px,1.25vw,18px)/1.6 var(--font-body);color:rgba(226,226,226,.78);max-width:620px;margin-bottom:36px}
   .hero-ctas{display:flex;gap:14px;flex-wrap:wrap}
+  /* hero network animation — members connected by live introductions */
+  .hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(32px,4vw,64px);align-items:center}
+  .net-stage{position:relative;width:min(100%,560px);aspect-ratio:1/1;justify-self:end;overflow:visible}
+  .net-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  @media(max-width:1000px){
+    .hero-grid{grid-template-columns:1fr}
+    .net-stage{width:min(100%,460px);margin:8px auto 0;justify-self:center}
+  }
+  @media(max-width:560px){.net-stage{width:min(90%,380px)}}
   .proof{background:var(--bg-alt);border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft)}
   .proof .container{padding-top:clamp(28px,4vh,44px);padding-bottom:clamp(28px,4vh,44px)}
   .stats{display:grid;grid-template-columns:repeat(4,1fr);margin:0}
@@ -250,6 +259,13 @@
   .mini-form input{background:var(--surface-input);border:1px solid var(--outline-var);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14px;padding:11px 14px;outline:none}
   .mini-form input:focus{border-color:var(--blue)}
 
+  /* scroll progress bar (matches homepage) */
+  .scroll-progress{position:fixed;top:0;left:0;height:2px;z-index:60;background:linear-gradient(90deg,var(--blue),var(--green));transform-origin:0 50%;width:100%;transform:scaleX(0)}
+  @supports (animation-timeline: scroll()){
+    .scroll-progress{animation:grow-progress auto linear;animation-timeline:scroll(root)}
+  }
+  @keyframes grow-progress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
   /* scroll-reveal (matches homepage) */
   .reveal{opacity:0;transform:translateY(24px);transition:opacity .6s var(--ease),transform .6s var(--ease)}
   .reveal.is-in{opacity:1;transform:none}
@@ -260,6 +276,7 @@
   .steps .step:nth-child(4).reveal{transition-delay:.24s}
   @media(prefers-reduced-motion:reduce){
     html{scroll-behavior:auto}
+    .scroll-progress{display:none}
     .reveal{opacity:1!important;transform:none!important}
     *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
   }
@@ -362,6 +379,8 @@
 </head>
 <body>
 
+<div class="scroll-progress" aria-hidden="true"></div>
+
 <header>
   <div class="container nav">
     <a href="/" class="wordmark" aria-label="NexPoint home"><img src="/assets/nexpoint-logo.png" alt="NexPoint"></a>
@@ -383,12 +402,19 @@
 <section class="hero">
   <div class="hero-bg" aria-hidden="true"></div>
   <div class="container">
-    <span class="eyebrow eyebrow--green">The NexPoint Network</span>
-    <h1>The best deals in this industry<br>still happen <em>person to person.</em></h1>
-    <p class="lede">NexPoint turns forty years of working relationships into live, verified opportunities for labs and clinics, manufacturing capacity, products, technology, talent and exits. None of it reaches the open market, and every introduction is made by people who know both sides.</p>
-    <div class="hero-ctas">
-      <a class="btn btn-primary" href="#briefs" onclick="if(!member){event.preventDefault();openGate()}">View live opportunities</a>
-      <a class="btn btn-ghost" href="#how">How introductions work →</a>
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow eyebrow--green">The NexPoint Network</span>
+        <h1>The best deals in this industry<br>still happen <em>person to person.</em></h1>
+        <p class="lede">NexPoint turns forty years of working relationships into live, verified opportunities for labs and clinics, manufacturing capacity, products, technology, talent and exits. None of it reaches the open market, and every introduction is made by people who know both sides.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href="#briefs" onclick="if(!member){event.preventDefault();openGate()}">View live opportunities</a>
+          <a class="btn btn-ghost" href="#how">How introductions work →</a>
+        </div>
+      </div>
+      <div class="net-stage">
+        <canvas class="net-canvas" id="netCanvas" role="img" aria-label="An animated network of members across the NexPoint network, connected by lines with live introductions passing between them"></canvas>
+      </div>
     </div>
   </div>
 </section>
@@ -570,6 +596,161 @@
     entries.forEach(function(en){if(en.isIntersecting){en.target.classList.add('is-in');obs.unobserve(en.target);}});
   },{rootMargin:'0px 0px -10% 0px',threshold:0.12});
   els.forEach(function(e){io.observe(e)});
+})();
+</script>
+<script>
+/* Hero network — members across the NexPoint network, linked by lines with live introductions passing between them (canvas, dependency-free). */
+(function initNet(){
+  const canvas = document.getElementById('netCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const reduce = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false;
+
+  let W=0,H=0,dpr=1;
+  function resize(){
+    const rect=canvas.getBoundingClientRect();
+    if(!rect.width||!rect.height) return;
+    dpr=Math.min(window.devicePixelRatio||1,2);
+    W=rect.width; H=rect.height;
+    canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  // nodes in normalised [0,1] space (stage is square, so x/y share scale)
+  const N=17, MARGIN=0.08;
+  const nodes=[];
+  for(let i=0;i<N;i++){
+    nodes.push({
+      x:MARGIN + Math.random()*(1-2*MARGIN),
+      y:MARGIN + Math.random()*(1-2*MARGIN),
+      vx:(Math.random()-0.5)*0.02,
+      vy:(Math.random()-0.5)*0.02,
+      hub: i%5===0,
+      phase: Math.random()*Math.PI*2
+    });
+  }
+
+  const LINK=0.34;                 // max normalised distance for a connection
+  const pulses=[]; let lastSpawn=0;
+
+  function palette(light){
+    return light ? {
+      line:(a)=>'rgba(0,92,200,'+a+')',   lineMax:0.26,
+      node:'rgba(0,74,170,0.9)',
+      hub:'rgba(96,150,32,0.95)',         hubRing:(a)=>'rgba(122,180,52,'+a+')',
+      pulse:'#5f9e28',                    pulseGlow:'rgba(122,180,52,0.85)'
+    } : {
+      line:(a)=>'rgba(61,142,235,'+a+')', lineMax:0.20,
+      node:'rgba(140,185,240,0.9)',
+      hub:'rgba(156,216,80,0.95)',        hubRing:(a)=>'rgba(139,197,63,'+a+')',
+      pulse:'#9CD850',                    pulseGlow:'rgba(139,197,63,0.9)'
+    };
+  }
+
+  function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+
+  function spawnPulse(now){
+    const pairs=[];
+    for(let i=0;i<N;i++) for(let j=i+1;j<N;j++){ if(dist(nodes[i],nodes[j])<LINK) pairs.push([i,j]); }
+    if(!pairs.length) return;
+    const p=pairs[(Math.random()*pairs.length)|0];
+    const dir=Math.random()<0.5;
+    pulses.push({ a: dir?p[0]:p[1], b: dir?p[1]:p[0], t0:now, dur:1300+Math.random()*700 });
+  }
+
+  function frame(now,dt){
+    if(!W) return;
+    const light=document.documentElement.getAttribute('data-theme')==='light';
+    const P=palette(light);
+    ctx.clearRect(0,0,W,H);
+
+    for(const n of nodes){
+      n.x+=n.vx*dt; n.y+=n.vy*dt;
+      if(n.x<MARGIN){n.x=MARGIN;n.vx=Math.abs(n.vx);} else if(n.x>1-MARGIN){n.x=1-MARGIN;n.vx=-Math.abs(n.vx);}
+      if(n.y<MARGIN){n.y=MARGIN;n.vy=Math.abs(n.vy);} else if(n.y>1-MARGIN){n.y=1-MARGIN;n.vy=-Math.abs(n.vy);}
+    }
+
+    const px=(n)=>n.x*W, py=(n)=>n.y*H;
+
+    // connections
+    ctx.lineWidth=1;
+    for(let i=0;i<N;i++) for(let j=i+1;j<N;j++){
+      const d=dist(nodes[i],nodes[j]);
+      if(d>=LINK) continue;
+      ctx.strokeStyle=P.line((1-d/LINK)*P.lineMax);
+      ctx.beginPath(); ctx.moveTo(px(nodes[i]),py(nodes[i])); ctx.lineTo(px(nodes[j]),py(nodes[j])); ctx.stroke();
+    }
+
+    // introductions travelling between members
+    for(let k=pulses.length-1;k>=0;k--){
+      const pl=pulses[k];
+      const t=(now-pl.t0)/pl.dur;
+      if(t>=1){ pulses.splice(k,1); continue; }
+      const A=nodes[pl.a], B=nodes[pl.b];
+      const ease=t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+      const x=px(A)+(px(B)-px(A))*ease, y=py(A)+(py(B)-py(A))*ease;
+      ctx.strokeStyle=P.hubRing(0.4*(1-t));
+      ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.moveTo(px(A),py(A)); ctx.lineTo(x,y); ctx.stroke();
+      ctx.save();
+      ctx.shadowBlur=10; ctx.shadowColor=P.pulseGlow;
+      ctx.fillStyle=P.pulse;
+      ctx.beginPath(); ctx.arc(x,y,2.6,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+
+    // members
+    for(let i=0;i<N;i++){
+      const n=nodes[i], x=px(n), y=py(n);
+      if(n.hub){
+        const ring=((now/1000 + n.phase) % 2.4)/2.4;
+        ctx.strokeStyle=P.hubRing(0.5*(1-ring));
+        ctx.lineWidth=1.2;
+        ctx.beginPath(); ctx.arc(x,y,3+ring*11,0,Math.PI*2); ctx.stroke();
+        ctx.save();
+        ctx.shadowBlur=9; ctx.shadowColor=P.pulseGlow;
+        ctx.fillStyle=P.hub;
+        ctx.beginPath(); ctx.arc(x,y,3.4,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+      } else {
+        const tw=0.65+0.35*Math.sin(now/1000*1.1 + n.phase);
+        ctx.save();
+        ctx.shadowBlur=6; ctx.shadowColor=P.pulseGlow;
+        ctx.globalAlpha=tw;
+        ctx.fillStyle=P.node;
+        ctx.beginPath(); ctx.arc(x,y,2.0,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  resize();
+
+  if(reduce){
+    const drawStatic=()=>{ resize(); pulses.length=0; frame(1000,0); };
+    drawStatic();
+    window.addEventListener('resize',drawStatic);
+    if(window.ResizeObserver) new ResizeObserver(drawStatic).observe(canvas);
+    return;
+  }
+
+  let raf=0, running=false, lastT=null;
+  function loop(ts){
+    if(lastT==null) lastT=ts;
+    const dt=Math.min(0.05,(ts-lastT)/1000); lastT=ts;
+    if(ts-lastSpawn>1000){ spawnPulse(ts); lastSpawn=ts; }
+    frame(ts,dt);
+    if(running) raf=requestAnimationFrame(loop);
+  }
+  function start(){ if(running) return; running=true; lastT=null; raf=requestAnimationFrame(loop); }
+  function stop(){ running=false; if(raf) cancelAnimationFrame(raf); raf=0; }
+
+  window.addEventListener('resize',resize);
+  if(window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
+  if(window.IntersectionObserver){
+    new IntersectionObserver((ents)=>{ ents.forEach(e=> e.isIntersecting?start():stop()); },{threshold:0.05}).observe(canvas);
+  } else { start(); }
+  document.addEventListener('visibilitychange',()=>{ document.hidden?stop():start(); });
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

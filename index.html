@@ -515,6 +515,13 @@
   html[data-theme="light"] .hero__sub { color: #4A5462; }
   html[data-theme="light"] .hero__pill { background: rgba(14, 22, 38, 0.035); border-color: rgba(14, 22, 38, 0.1); }
   html[data-theme="light"] .hero__pill-text { color: rgba(14, 22, 38, 0.72); }
+  /* Keep the globe dark & rich in light mode — it's drawn semi-transparent, so give it a dark planet backing */
+  html[data-theme="light"] .globe-stage::before {
+    content: ""; position: absolute; left: 50%; top: 50%; width: 92%; height: 92%;
+    transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; z-index: 0;
+    background: radial-gradient(circle at 40% 34%, #18263e 0%, #0d1728 62%, #080f1c 88%, rgba(8, 15, 28, 0) 100%);
+  }
+  html[data-theme="light"] .globe-canvas { z-index: 1; }
   html[data-theme="light"] .btn--ghost-lg { color: #0E1626; border-color: rgba(14, 22, 38, 0.2); }
   html[data-theme="light"] .btn--ghost-lg:hover { border-color: rgba(14, 22, 38, 0.4); background: rgba(14, 22, 38, 0.03); }
 
