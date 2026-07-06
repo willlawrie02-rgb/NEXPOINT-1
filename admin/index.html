@@ -71,8 +71,12 @@
   label .opt{color:#666;font-weight:400}
   input,select,textarea{width:100%;background:#0a0a0a;border:1px solid var(--line);border-radius:5px;color:var(--ink);font-family:var(--font-b);font-size:14px;padding:9px 12px;outline:none}
   textarea{resize:vertical;min-height:64px;line-height:1.5}
-  textarea.code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
   input:focus,select:focus,textarea:focus{border-color:var(--blue)}
+  .pairs{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+  .pair{display:flex;gap:8px;align-items:center}
+  .pair .k{flex:0 0 30%}
+  .pair .v{flex:1}
+  .pair .btn{flex-shrink:0;padding:8px 10px}
   .priv-box{background:#241a08;border:1px solid #5a4416;border-radius:8px;padding:14px 16px;margin:6px 0 14px}
   .priv-box .lab{font:700 10px/1 var(--font-b);letter-spacing:.1em;color:var(--amber);margin-bottom:10px}
   .modal-acts{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
@@ -139,11 +143,17 @@
       <div class="field full"><label>Title</label><input id="f_title" placeholder="The card headline"></div>
       <div class="field full"><label>Regions <span class="opt">(comma-separated)</span></label><input id="f_regions" placeholder="North America, United Kingdom"></div>
       <div class="field full"><label>Summary</label><textarea id="f_sum"></textarea></div>
-      <div class="field full"><label>Best fit <span class="opt">(HTML ok, e.g. &lt;b&gt;Best fit:&lt;/b&gt; …)</span></label><textarea id="f_fit"></textarea></div>
+      <div class="field full"><label>Best fit <span class="opt">(plain text — “Best fit:” is added automatically)</span></label><textarea id="f_fit" placeholder="labs with SLS printing capability; distributors with strong clinic relationships"></textarea></div>
       <div class="field full"><label>Tags <span class="opt">(comma-separated)</span></label><input id="f_tags" placeholder="Succession, Confidential"></div>
-      <div class="field full"><label>Detail <span class="opt">(HTML, use &lt;p&gt;…&lt;/p&gt;)</span></label><textarea id="f_detail" style="min-height:120px"></textarea></div>
-      <div class="field full"><label>Signals <span class="opt">(JSON: list of [headline, caption] pairs)</span></label><textarea id="f_signals" class="code"></textarea></div>
-      <div class="field full"><label>Locked teaser <span class="opt">(JSON: list of [label, blurred-value] pairs)</span></label><textarea id="f_locked" class="code"></textarea></div>
+      <div class="field full"><label>Detail <span class="opt">(plain text — leave a blank line between paragraphs)</span></label><textarea id="f_detail" style="min-height:120px"></textarea></div>
+      <div class="field full"><label>Signals <span class="opt">(the four stat blocks on the card — big headline + small caption)</span></label>
+        <div class="pairs" id="p_signals"></div>
+        <button type="button" class="btn btn-gh btn-sm" onclick="addPair('signals')">+ Add signal</button>
+      </div>
+      <div class="field full"><label>Locked teaser <span class="opt">(members-only lines — the value shows redacted; “Blur” hides it with █ blocks)</span></label>
+        <div class="pairs" id="p_locked"></div>
+        <button type="button" class="btn btn-gh btn-sm" onclick="addPair('locked')">+ Add locked line</button>
+      </div>
     </div>
     <div class="priv-box">
       <div class="lab">PRIVATE — NEVER PUBLISHED</div>
@@ -277,6 +287,56 @@ async function setStatus(id,status){
   await load();
 }
 
+// ---- friendly text <-> stored HTML ----
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const unesc=s=>s.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+const inline=s=>esc(s).replace(/\*([^*\n]+)\*/g,'<em>$1</em>');
+function htmlToText(h){
+  let t=(h||'').trim();
+  t=t.replace(/<\/p>\s*<p>/gi,'\n\n').replace(/^<p>/i,'').replace(/<\/p>$/i,'');
+  t=t.replace(/<br\s*\/?>/gi,'\n').replace(/<\/?em>/gi,'*').replace(/<\/?b>/gi,'');
+  return unesc(t);
+}
+function textToDetail(t){
+  return t.trim().split(/\n\s*\n/).filter(Boolean)
+    .map(p=>'<p>'+inline(p.trim()).replace(/\n/g,'<br>')+'</p>').join('');
+}
+function fitToText(h){return htmlToText((h||'').replace(/^<b>Best fit:<\/b>\s*/i,''));}
+function textToFit(t){t=t.trim();return t?'<b>Best fit:</b> '+inline(t):'';}
+
+// ---- signals / locked pair rows ----
+const PAIR_HINTS={
+  signals:['Headline (e.g. Funded)','Caption (e.g. established 20+ year operation)'],
+  locked:['Label (e.g. Company name)','Hidden value — “Blur” to redact']
+};
+function addPair(kind,k='',v=''){
+  const row=document.createElement('div');row.className='pair';
+  const ki=document.createElement('input');ki.className='k';ki.placeholder=PAIR_HINTS[kind][0];ki.value=k;
+  const vi=document.createElement('input');vi.className='v';vi.placeholder=PAIR_HINTS[kind][1];vi.value=v;
+  row.append(ki,vi);
+  if(kind==='locked'){
+    const blur=document.createElement('button');blur.type='button';blur.className='btn btn-gh btn-sm';
+    blur.textContent='Blur';blur.title='Replace the value with █ blocks';
+    blur.onclick=()=>{vi.value=vi.value.trim().split(/\s+/).filter(Boolean)
+      .map(w=>'█'.repeat(Math.min(w.length,8))).join(' ')||'██████ ██████';};
+    row.append(blur);
+  }
+  const rm=document.createElement('button');rm.type='button';rm.className='btn btn-danger btn-sm';
+  rm.textContent='×';rm.title='Remove this line';rm.onclick=()=>row.remove();
+  row.append(rm);
+  $('p_'+kind).append(row);
+}
+function fillPairs(kind,list,minRows){
+  $('p_'+kind).innerHTML='';
+  (list||[]).forEach(p=>addPair(kind,p[0]||'',p[1]||''));
+  for(let i=(list||[]).length;i<minRows;i++)addPair(kind);
+}
+function readPairs(kind){
+  return [...$('p_'+kind).querySelectorAll('.pair')]
+    .map(r=>[r.querySelector('.k').value.trim(),r.querySelector('.v').value.trim()])
+    .filter(p=>p[0]||p[1]);
+}
+
 // ---- editor ----
 function openEditor(id){
   editingId=id;
@@ -292,11 +352,11 @@ function openEditor(id){
   $('f_title').value=g('title');
   $('f_regions').value=(g('regions',[])||[]).join(', ');
   $('f_sum').value=g('sum');
-  $('f_fit').value=g('fit');
+  $('f_fit').value=fitToText(g('fit'));
   $('f_tags').value=(g('tags',[])||[]).join(', ');
-  $('f_detail').value=g('detail');
-  $('f_signals').value=JSON.stringify(g('signals',[])||[],null,1);
-  $('f_locked').value=JSON.stringify(g('locked',[])||[],null,1);
+  $('f_detail').value=htmlToText(g('detail'));
+  fillPairs('signals',g('signals',[])||[],b?0:4);
+  fillPairs('locked',g('locked',[])||[],b?0:2);
   $('f_deal').value=dealVal(g('deal'));
   $('f_conf').value=g('confidentiality','standard');
   $('f_terms').value=g('terms')||'';
@@ -308,9 +368,7 @@ function closeEditor(){$('editOverlay').classList.remove('open');editingId=null;
 function csv(v){return v.split(',').map(s=>s.trim()).filter(Boolean);}
 async function save(){
   $('saveErr').textContent='';
-  let signals,locked;
-  try{signals=JSON.parse($('f_signals').value||'[]');}catch(e){$('saveErr').textContent='Signals isn\'t valid JSON';return;}
-  try{locked=JSON.parse($('f_locked').value||'[]');}catch(e){$('saveErr').textContent='Locked isn\'t valid JSON';return;}
+  const signals=readPairs('signals'),locked=readPairs('locked');
   const refRaw=$('f_ref').value.trim().toUpperCase().replace(/^BRIEF\s+/,'');
   if(!/^NX-\d+$/.test(refRaw)){$('saveErr').textContent='Reference must look like NX-2620';return;}
   const id=editingId||('nx-'+refRaw.split('-')[1]);
@@ -318,8 +376,8 @@ async function save(){
   const rec={
     id, ref:'BRIEF '+refRaw, status:$('f_status').value, dir:$('f_dir').value, cat:$('f_cat').value,
     title:$('f_title').value.trim(),
-    regions:csv($('f_regions').value), sum:$('f_sum').value.trim(), fit:$('f_fit').value.trim(),
-    tags:csv($('f_tags').value), detail:$('f_detail').value.trim(), signals, locked,
+    regions:csv($('f_regions').value), sum:$('f_sum').value.trim(), fit:textToFit($('f_fit').value),
+    tags:csv($('f_tags').value), detail:textToDetail($('f_detail').value), signals, locked,
     deal: dealParts.length>1?dealParts:(dealParts[0]||null),
     confidentiality:$('f_conf').value.trim()||null, terms:$('f_terms').value.trim()||null,
     products:csv($('f_products').value)
