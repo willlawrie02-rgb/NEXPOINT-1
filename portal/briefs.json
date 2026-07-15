@@ -1,5 +1,61 @@
 [
   {
+    "id": "nx-2581",
+    "ref": "BRIEF NX-2581",
+    "cat": "succession",
+    "dir": "SEEKING",
+    "title": "UK group seeking full or partial acquisitions / partnerships within North America",
+    "regions": [
+      "North America"
+    ],
+    "sum": "An established and rapidly growing UK operation, with a strong clinical reputation, is looking to enter the North American market by acquisition or joint venture. If you own a small or medium lab and are considering joint ventures or a merger, this maybe worth exploring.\nAs always, theses are exploratory conversations without a commitment or fees.",
+    "fit": "<b>Best fit:</b> North American lab owners open to a starting a conversation with a UK company about mergers, acquisitions or joint ventures",
+    "tags": [
+      "Acquisition",
+      "Merger",
+      "Joint Venture",
+      "Funded Buyer",
+      "Exploratory Meeting"
+    ],
+    "signals": [
+      [
+        "Funded",
+        "established 20+ year operation"
+      ],
+      [
+        "Direct",
+        "line to the owner, fast answers"
+      ],
+      [
+        "Flexible",
+        "full sale, partial or joint venture"
+      ],
+      [
+        "Silent",
+        "exploratory conversations"
+      ]
+    ],
+    "detail": "<p>Cross-border buyers rarely advertise, and owners do not want to broadcast their intent publicly, which is why these deals usually only happen between people who already know each other. We validate each company to ensure time is not wasted on unqualified connections.</p><p>The mandate is genuine and the company seeking expansion has a budget and a plan. They may consider a full acquisition, partial stake, or a structured earn-out that keeps you involved as long as you want to be. A joint venture may also be open for discussion. An exploratory conversation commits you to nothing and is held in complete confidence, including from your own teams.</p>",
+    "locked": [
+      [
+        "Buyer identity & track record",
+        "██████ ██████ (UK)"
+      ],
+      [
+        "Acquisition criteria & range",
+        "$██M – $██M"
+      ],
+      [
+        "Deal structures offered",
+        "3 models"
+      ],
+      [
+        "Advisory support",
+        "Via NexPoint"
+      ]
+    ]
+  },
+  {
     "id": "nx-2584",
     "ref": "BRIEF NX-2584",
     "cat": "materials",
@@ -54,6 +110,60 @@
     ]
   },
   {
+    "id": "nx-2587",
+    "ref": "BRIEF NX-2587",
+    "cat": "equipment",
+    "dir": "OFFERING",
+    "title": "A global additive OEM is seeking O&P reference partners and specialist resellers",
+    "regions": [
+      "Global"
+    ],
+    "sum": "The major additive manufacturing platform makers are competing hard for this industry right now: new large-capacity hardware, great support, and a strong appetite for credible clinical and lab users. We know a number of 3D Print OEMs keen to grow in O&P",
+    "fit": "<b>Best fit:</b> labs weighing a first move into powder or resin; established users considering a platform switch while the price performance is good. Some will also embrace a first-mover advantage when new technology becomes available.",
+    "tags": [
+      "Additive manufacturing",
+      "Platform partnerships",
+      "First-mover advantage"
+    ],
+    "signals": [
+      [
+        "2",
+        "global platform makers actively courting"
+      ],
+      [
+        "New",
+        "large-capacity hardware just launched"
+      ],
+      [
+        "FDM · powder · resin",
+        "expertise on tap"
+      ],
+      [
+        "Leverage",
+        "two big players create competition and potential discounts"
+      ]
+    ],
+    "detail": "<p>Two major powder 3D Printer OEMs are pushing aggressively into the O&amp;P industry and both are hunting for sales in clinical custom manufacturing, which means that there are possible deals to be had.</p><p>There is potential for a specialist O&amp;P reseller network, which is a separate opportunity for the right distributor or service business.</p><p>NexPoint works with both camps and holds deep, vendor-neutral expertise across FDM, powder and resin 3D Printing technology, including truths about which materials and workflows actually survive on a production floor. We’ll help you pick the best options before we introduce.</p>",
+    "locked": [
+      [
+        "Platform identities",
+        "██████ · ██████"
+      ],
+      [
+        "Launch hardware & specs",
+        "██-litre build volume"
+      ],
+      [
+        "Partner programme terms",
+        "On introduction"
+      ],
+      [
+        "Reference installations",
+        "██ sites"
+      ]
+    ]
+  },
+  {
     "id": "nx-2589",
     "ref": "BRIEF NX-2589",
     "cat": "equipment",
@@ -104,6 +214,57 @@
       [
         "Market study",
         "NexPoint research available"
+      ]
+    ]
+  },
+  {
+    "id": "nx-2592",
+    "ref": "BRIEF NX-2592",
+    "cat": "talent",
+    "dir": "TWO-WAY",
+    "title": "Seeking experienced UK based O&P clinicians, technicians looking for a new opportunity",
+    "regions": [
+      "United Kingdom",
+      "Europe"
+    ],
+    "sum": "Closures and consolidation keep releasing experienced O&P talent, clinicians, technicians, sometimes whole intact teams. We may have suitable opportunities or employers we can introduce you to. We will manage both sides of this, confidentially.",
+    "fit": "<b>Best fit:</b> employers who need skills they can’t advertise for; talent who want to move, or build, without exposing their intent to their employer or colleagues.",
+    "tags": [
+      "Clinicians & technicians",
+      "Whole teams",
+      "Confidential both ways"
+    ],
+    "signals": [
+      [
+        "Whole teams",
+        "sometimes available after closures"
+      ],
+      [
+        "Both ways",
+        "employers & talent held confidentially"
+      ],
+      [
+        "Proven",
+        "one spin-out became a thriving lab"
+      ],
+      [
+        "Now",
+        "displacement is happening all the time"
+      ]
+    ],
+    "detail": "<p>When a facility closes, the headlines are about the facility. The opportunity is the people, trained, experienced, often loyal to each other, and suddenly available and seeking new opportunities. One team we helped after a closure went on to build a successful lab of their own; that route maybe opening up again.</p><p>Labs - If you’re hiring, tell us what you actually need. We can get online to discuss your plan.</p><p>Technicians &amp; Management - If you’re restless, displaced, or concerned about your future, tell us before it becomes an issue for you. Confidentiality if our primary focus.</p>",
+    "locked": [
+      [
+        "Talent currently available",
+        "██ individuals · █ teams"
+      ],
+      [
+        "Members currently hiring",
+        "██ operations"
+      ],
+      [
+        "Spin-out case study",
+        "Full story on introduction"
       ]
     ]
   },
@@ -281,8 +442,8 @@
     "regions": [
       "North America"
     ],
-    "sum": "An established, fast-growing US direct-to-consumer brand wants to add a semi-custom cork line, full-length shells with a defined library of postings and arch options, not a mass-produced commodity. They have the audience and the ad engine; they need the maker.",
-    "fit": "<b>Best fit:</b> manufacturers working in cork or EVA-cork hybrids who can support a defined modification library at consistent quality.",
+    "sum": "An established, fast-growing US Lab wants to add a semi-custom cork line, full-length shells with a defined library of postings and arch options, not a mass-produced commodity. They have the demand for this; they just need a maker.",
+    "fit": "<b>Best fit:</b> manufacturers working in cork or EVA-cork hybrids who can support a defined modification library at a consistent quality.",
     "tags": [
       "Cork & natural materials",
       "Semi-custom",
@@ -306,7 +467,7 @@
         "programme, not a one-off order"
       ]
     ],
-    "detail": "<p>The semi-custom middle ground, between true customs and commodity prefabs, is where several network brands are heading, and this one is committed: customs are dialled in, the audience is paying, and cork is the material they want for a premium tier.</p><p>What they can’t find is a maker offering cork shells with modifications already engineered in, supination/pronation postings, arch-height variants, rather than a plain shell or a one-at-a-time custom. If that’s you, or could be, this is a direct conversation with the decision-makers.</p>",
+    "detail": "<p>The semi-custom middle ground, between true customs and commodity prefabs, is where several large lab brands are heading, and this one is committed: customs are dialled in, the audience is paying, and cork is the material they want for a new productline.</p><p>What they can’t find is a maker offering cork shells with modifications already engineered in, supination/pronation postings, arch-height variants, rather than a plain shell or a one-at-a-time custom. If that’s you, or could be, this is a direct conversation with the decision-makers.</p>",
     "locked": [
       [
         "Brand identity",
@@ -335,12 +496,12 @@
     "regions": [
       "North America"
     ],
-    "sum": "A PE-backed UK manufacturer with two clinically-led prefab ranges: a diabetic offloading insole with a formal clinical trial publishing this autumn, and an evidence-based biomechanical range already piloted in national health-service clinics. It wants US distribution and lab partners in place before the trial lands.",
+    "sum": "A large UK manufacturer with two clinically-led prefab ranges: a diabetic offloading insole with a formal clinical trial publishing this autumn, and an evidence-based biomechanical range already piloted in national health-service clinics. It wants US distribution and lab partners when the pilot finishes.",
     "fit": "<b>Best fit:</b> US distributors and clinical-channel players in podiatry, wound care and physical therapy; labs wanting an evidenced diabetic SKU.",
     "tags": [
       "Diabetic offloading",
-      "Clinical evidence",
-      "Trial publishing soon"
+      "Functional Clinical evidence",
+      "Trial results published soon"
     ],
     "signals": [
       [
@@ -360,7 +521,7 @@
         "of product development behind it"
       ]
     ],
-    "detail": "<p>Most prefab insoles are sold on price. These are sold on evidence: the diabetic range took eight years to develop, is built for the at-risk foot (pressure redistribution and shear absorption), and has a formal clinical trial publishing in September, a once-only marketing moment that rewards whoever holds the territory when it lands. The biomechanical range carries its own published health-service pilot data and a structured clinical-education programme.</p><p>The maker is newly PE-backed with capital explicitly earmarked for new geographies, and realistic about the US route: clinical channels and the right partner, not the cheapest shelf. Volume pricing tiers are generous and the principals are warm, senior and quick to engage.</p>",
+    "detail": "<p>Most prefab insoles are sold on price. These are sold on evidence: the diabetic range took eight years to develop, is built for the at-risk foot (pressure redistribution and shear absorption), and has a formal clinical trial finishing in September, a once-only marketing moment that rewards whoever holds the territory when it lands. The biomechanical range carries its own published health-service pilot data and a structured clinical-education programme.</p><p>The maker has funds earmarked for new geographies, and they are keen to explore the US market. Volume pricing tiers are generous and the principals are knowledgeable decision makers who are quick to engage.</p>",
     "locked": [
       [
         "Maker identity",
@@ -389,7 +550,7 @@
     "regions": [
       "Global"
     ],
-    "sum": "A European manufacturer with more than twenty years in optical scanning designs and builds professional 3D foot scanners entirely in-house. The current range delivers 0.5 mm accuracy with full-colour capture and open file export into any CAD/CAM or additive workflow. It is seeking clinics, labs and retailers buying scanners, and regional resellers to carry the line — with preferential pricing for network members.",
+    "sum": "A European manufacturer with more than twenty years in optical scanning designs and builds professional 3D foot scanners entirely in-house. The current range delivers 0.5 mm accuracy with full-colour capture and open file export into any CAD/CAM and 3D Print workflows. It is seeking clinics, labs and retailers buying scanners, and regional resellers to carry the line — with preferential pricing for network members.",
     "fit": "<b>Best fit:</b> clinics, labs and retailers adding or replacing 3D foot scanning; equipment distributors wanting a proven scanner line — North America and Asia-Pacific territories particularly open.",
     "tags": [
       "3D foot scanning",
@@ -414,7 +575,7 @@
         "STL, OBJ and PLY export to any workflow"
       ]
     ],
-    "detail": "<p>The maker started in industrial machine vision and has built foot scanners since the mid-2000s — this is engineering-led hardware, not a rebadged import. The range runs from a compact portable unit to a full foot-and-object scanner, with a new flagship launched this year: four-camera colour capture, integrated heel-positioning laser and a tempered-glass scan surface.</p><p>Scans export in open formats that drop straight into the major orthotic CAD/CAM platforms and additive workflows, and the hardware is already bundled by a leading digital-workflow provider. The manufacturer supports both direct purchases and regional reseller arrangements, and network members buy on preferential terms.</p>",
+    "detail": "<p>The maker started in industrial machine vision and has built foot scanners since the mid-2000s — this is engineering-led hardware, not a rebadged import. The range runs from a compact portable unit to a full foot-and-object scanner, with a new flagship launched this year: four-camera colour capture, integrated heel-positioning laser and a tempered-glass scan surface.</p><p>Scans export in open formats that drop straight into the major orthotic CAD/CAM platforms and additive workflows, and the hardware is already bundled by market leading digital-workflow providers. The manufacturer supports both direct purchases and regional reseller arrangements. Our network members will get preferential terms.</p>",
     "locked": [
       [
         "Manufacturer identity",
@@ -430,56 +591,6 @@
       ],
       [
         "Full technical specifications",
-        "Available on introduction"
-      ]
-    ]
-  },
-  {
-    "id": "nx-2624",
-    "ref": "BRIEF NX-2624",
-    "cat": "talent",
-    "dir": "SEEKING",
-    "title": "Established UK orthotics manufacturer hiring experienced technicians",
-    "regions": [
-      "United Kingdom"
-    ],
-    "sum": "A long-established UK custom manufacturer — bespoke insoles, AFOs, conventional metalwork, footwear adaptations and 3D printing — is growing faster than it can hire. Ten new staff joined in the past year and demand still outruns capacity, with work being turned away. It is looking for experienced orthotic technicians and skilled fabrication staff, and will consider people or whole teams released by closures and consolidation.",
-    "fit": "<b>Best fit:</b> experienced orthotic technicians, fabricators and clinicians in the UK considering a move; skilled teams affected by closures or consolidation.",
-    "tags": [
-      "Orthotic technicians",
-      "Skilled fabrication",
-      "Confidential approaches"
-    ],
-    "signals": [
-      [
-        "10",
-        "hires in the past year, still under-staffed"
-      ],
-      [
-        "Growing",
-        "order book — work currently turned away"
-      ],
-      [
-        "Full range",
-        "conventional metalwork through to 3D printing"
-      ],
-      [
-        "Confidential",
-        "approaches handled discreetly"
-      ]
-    ],
-    "detail": "<p>This is a manufacturer whose constraint is hands, not demand: NHS and private work keeps arriving faster than the workshop can absorb it, and in recent months enquiries have been turned away for lack of capacity. The workshop spans the full trade — bespoke and semi-bespoke insoles, AFOs, conventional metal orthoses, footwear repairs and adaptations, and a growing 3D-printing operation.</p><p>The employer is open to experienced technicians and fabricators at any stage, and specifically to people — or intact teams — coming loose from closures and consolidation elsewhere in the industry. Approaches are handled confidentially in both directions; a current employer never needs to hear about an early conversation.</p>",
-    "locked": [
-      [
-        "Employer identity",
-        "██████ (United Kingdom)"
-      ],
-      [
-        "Roles, terms & location",
-        "Shared in a personal introduction only"
-      ],
-      [
-        "Growth context",
         "Available on introduction"
       ]
     ]
