@@ -258,6 +258,20 @@
   .mini-form{display:flex;flex-direction:column;gap:10px}
   .mini-form input{background:var(--surface-input);border:1px solid var(--outline-var);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14px;padding:11px 14px;outline:none}
   .mini-form input:focus{border-color:var(--blue)}
+  /* desk: back / next action row, other-text field, password reveal */
+  .chat-actions{display:flex;align-items:center;gap:8px;margin-top:14px}
+  .chip.back{background:transparent;border-color:var(--outline-var);color:var(--on-surface-var)}
+  .chip.back:hover{border-color:var(--outline);color:#fff}
+  .chip.next{margin-left:auto;background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+  .chip.next:hover:not(:disabled){background:var(--blue-hover)}
+  .chip.next:disabled{opacity:.4;cursor:not-allowed}
+  .other-field{margin-top:10px}
+  .other-field input{width:100%;background:var(--surface-input);border:1px solid var(--outline-var);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14px;padding:10px 13px;outline:none}
+  .other-field input:focus{border-color:var(--blue)}
+  .pw-wrap{position:relative;display:flex}
+  .pw-wrap input{flex:1;padding-right:62px}
+  .pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--on-surface-var);font-size:12px;font-weight:600;letter-spacing:.04em;cursor:pointer;padding:4px 6px}
+  .pw-toggle:hover{color:#fff}
 
   /* scroll progress bar (matches homepage) */
   .scroll-progress{position:fixed;top:0;left:0;height:2px;z-index:60;background:linear-gradient(90deg,var(--blue),var(--green));transform-origin:0 50%;width:100%;transform:scaleX(0)}
@@ -1523,7 +1537,8 @@ async function submitCapture(form){
     fit: (fd.get('fit')||'').toString().trim(),
     name: profile.name||'', email: profile.email||'', company: profile.company||'',
     type: profile.type||'', region: profile.region||'', volume: profile.volume||'',
-    goals: profile.goals||[], pressing: profile.pressing||[], timeline: profile.timeline||''
+    goals: profile.goals||[], pressing: profile.pressing||[], timeline: profile.timeline||'',
+    direction: profile.direction||'', product_types: profile.productTypes||[], products: productSummary(), describe: profile.describe||''
   };
   if(CAPTURE_ENDPOINT){
     try{ await fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); }
@@ -1535,7 +1550,8 @@ function captureMembership(){
   if(!CAPTURE_ENDPOINT) return;                              // no-op until the worker URL is set
   var payload={kind:'membership', name:profile.name||'', email:profile.email||'', company:profile.company||'',
     type:profile.type||'', region:profile.region||'', volume:profile.volume||'',
-    goals:profile.goals||[], pressing:profile.pressing||[], timeline:profile.timeline||''};
+    goals:profile.goals||[], pressing:profile.pressing||[], timeline:profile.timeline||'',
+    direction:profile.direction||'', product_types:profile.productTypes||[], products:productSummary(), describe:profile.describe||''};
   try{ fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true}); }
   catch(e){ /* fire and forget, completing the desk must never block on the network */ }
 }
@@ -1587,28 +1603,51 @@ function closeAll(){
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
 
 /* ===== Connector conversation ===== */
+const seekingOrBoth=()=>['Seeking New Opportunities','Both'].includes(profile.direction);
+const hasType=(t)=>(profile.productTypes||[]).includes(t);
 const steps=[
- {key:'type',q:"Welcome to the NexPoint Network. Before the board opens, we'd like to know who we're connecting, a few questions, about two minutes. Every profile is read personally by Chris or Will, and nothing you tell us is ever published. First: what best describes your operation?",
-  chips:['Custom lab / manufacturer','Clinic or practice','Distributor / wholesaler','Materials or equipment supplier','Independent clinician','Something else']},
- {key:'region',q:"Good to meet you. Where are you based?",
-  chips:['United Kingdom','Europe','North America','South America','Asia-Pacific','Middle East / Africa']},
- {key:'volume',q:"Do you manufacture devices in-house, and at roughly what volume?",
-  chips:["We don't manufacture",'Under 20 pairs/day','20–50 pairs/day','50–100 pairs/day','100+ pairs/day']},
- {key:'method',q:"How is most of your product made today?",
-  chips:['Moulded / formed','Direct milled','3D printed','Traditional / plaster','A mix','Not applicable']},
- {key:'systems',q:"Which design systems do you work with? Pick any that apply.",multi:true,
-  chips:['Fit360','Other CAD','We outsource design','None / manual']},
- {key:'goals',q:"Now the question that matters most. What are you hoping the network does for you? Choose as many as apply, this decides which opportunities and introductions reach you.",multi:true,
-  chips:['Outsource our production','Fill our spare capacity','Find products to distribute','Source materials or components','Plan a succession or exit','Acquire a lab or business','Hire or place talent','Move into new technology','Buy or sell equipment','Start something new','Just exploring']},
- {key:'placing',q:"Some of what you've picked suggests you have something to place, capacity, a product, equipment, people or a business. In a sentence or two, what is it?",input:true,
-  cond:()=>['Fill our spare capacity','Plan a succession or exit','Buy or sell equipment','Hire or place talent'].some(g=>(profile.goals||[]).includes(g))},
- {key:'pressing',q:"Understood. Is anything pressing on the business right now? Honest answers get better introductions.",multi:true,
-  chips:['Staffing pressure','Rising costs','Losing a supplier or partner','Growth beyond our capacity','Retirement on the horizon','Nothing urgent']},
- {key:'timeline',q:"And if the right opportunity appeared, when would you act?",
-  chips:['Immediately','Within 3–6 months','This year','Just looking ahead']},
- {key:'contact',q:"Last step. Who should personal introductions go to? This stays between you and NexPoint, and when a new opportunity matches your profile, we'll email you before it's widely seen. Nothing else, ever.",form:true}
+ {key:'type',type:'single',q:"Welcome to the NexPoint Network. Before the board opens, we'd like to know who we're connecting, a few questions, about two minutes. Every profile is read personally by Chris or Will, and nothing you tell us is ever published. First: what best describes your operation?",
+  chips:['Custom Lab / O&P Group','Clinic / Clinician','Distributor / Wholesaler','Technology Developer','Materials / Equipment Creator','Something else']},
+ {key:'region',type:'single',other:true,otherLabel:'Or tell us what country you are in',
+  q:"Good to meet you. Where are you based?",
+  chips:['North America','Europe','South America','United Kingdom','Asia-Pacific','Middle East / Africa']},
+ {key:'direction',type:'single',q:"Are you seeking or offering new opportunities?",
+  chips:['Seeking New Opportunities','Offering New Opportunities','Both']},
+ {key:'volume',type:'single',cond:seekingOrBoth,
+  q:"Do you manufacture any devices in-house, or do you outsource your manufacturing?",
+  chips:['In-house','Outsourced','Neither']},
+ {key:'productTypes',type:'multi',q:"What types of products do you use or sell?",
+  chips:['Orthotic Devices','Prosthetic Devices','Bracing & Supports','Consumable, Fabrication Devices & Materials','O&P Technology','Manufacturing Hardware']},
+ {key:'p_orthotic',type:'multi',other:true,cond:()=>hasType('Orthotic Devices'),
+  q:"What Orthotic Devices do you use or sell?",
+  chips:['Custom Orthotic Insoles','Prefabricated (sized) Insoles','Custom AFOs','Prefabricated (sized) AFOs','KAFOs (custom or prefabricated)','Upper-Limb & Back Orthoses','Cranial Helmets','Pediatric Orthoses']},
+ {key:'p_prosthetic',type:'multi',other:true,cond:()=>hasType('Prosthetic Devices'),
+  q:"What Prosthetic Devices do you use or sell?",
+  chips:['Foot & Ankle Prosthetics','Below Knee Prosthetics (including sockets & liners)','Above Knee Prosthetics (including sockets & liners)','Hands, Fingers, Wrist or Elbow Prosthetics','Speciality & Sports Prosthetics','Accessories, Materials or Technologies']},
+ {key:'p_bracing',type:'multi',other:true,cond:()=>hasType('Bracing & Supports'),
+  q:"What Bracing & Supports products do you manufacture, sell or need?",
+  chips:['Foot, Knee or Ankle Supports','Wrist or Hand Supports','Spinal Supports','Pediatric Supports','Shoulder & Neck Supports']},
+ {key:'p_consumable',type:'multi',other:true,cond:()=>hasType('Consumable, Fabrication Devices & Materials'),
+  q:"Which consumables, fabrication devices or materials do you manufacture, sell or need?",
+  chips:['Sheet Materials (Polypropylene, EVA, TPU, Nylon, Urethane, etc)','CAD/CAM Blocks (Polypropylene, EVA, Foam, etc)','Casting Materials (Plaster, Fibreglass, etc)','Accessories (pads, adhesives, standard covers, etc)','Material Technology']},
+ {key:'p_tech',type:'multi',other:true,cond:()=>hasType('O&P Technology'),
+  q:"Which O&P technology do you manufacture, sell or need?",
+  chips:['Foot scanners','Body scanners (including head and limb)','3D Printers','CNC Routers','Pressure Sensors (external or in-situ)','Software – Design & Manufacturing','Software – ERP or MRP solutions']},
+ {key:'p_hardware',type:'multi',other:true,cond:()=>hasType('Manufacturing Hardware'),
+  q:"Which manufacturing hardware do you manufacture, sell or need?",
+  chips:['Vacuum Forming Hardware','Finishing Hardware (grinders, buffers, etc)','CNC Routers','3D Printers','General (benches, tooling, etc)']},
+ {key:'more',type:'single',loop:true,q:"Are there any other products you are seeking or offering?",
+  chips:['Yes, add more','No, continue']},
+ {key:'goals',type:'multi',q:"Select any that match your reason for joining the members portal. I want to —",
+  chips:['Outsource my manufacturing to a high-quality provider','Sell our spare manufacturing capacity','Find a new partner / representative in a new country','Hire new talent','Start something new','Find new manufacturing technologies','Find new design technologies','Buy or sell O&P equipment','Source materials or consumables','Find new products to represent','Sell my business (discretely)','Just explore what you have to offer']},
+ {key:'pressing',type:'multi',q:"Now the question that matters most. What are you hoping the network can do for you? Choose one or more, this decides which opportunities and introductions reach you first. Don't worry too much, you can browse everything later.",
+  chips:['I am looking for new ideas','Networking with likeminded companies is important to our future','Staffing pressures are forcing change','Rising costs (materials, people, etc) are a challenge','I need to plan an exit','I need to expand my business','We are growing fast','We need to find new suppliers','Nothing urgent, just browsing']},
+ {key:'describe',type:'text',q:"Your selection suggests you are seeking something, or have something other people may need, for example capacity, a product, equipment, people or a business. In a sentence or two, can you describe what it is?"},
+ {key:'timeline',type:'single',q:"And if the right opportunity appeared, when would you act?",
+  chips:['Immediately','Within a month','Within 3–6 months','Just looking ahead, no urgency']},
+ {key:'contact',type:'form',q:"Thanks for taking the time. Everything you've shared is stored internally and never distributed, Chris and Will are the only people who see it, and we'll contact you directly if there's a good match. Add your contact details and move onto browsing the NexPoint Portal. Any issues? Reach us at <a href=\"mailto:info@nexpoint.co.uk\" style=\"color:var(--blue-bright)\">info@nexpoint.co.uk</a>."}
 ];
-let stepIdx=0;
+let stepIdx=0, history=[];   // history = indices of steps already shown, so Back can walk them
 const msgsEl=()=>document.getElementById('chatMsgs');
 const inputEl=()=>document.getElementById('chatInputArea');
 
@@ -1616,10 +1655,15 @@ function openGate(){
   if(member){document.getElementById('briefs').scrollIntoView();return;}
   closeAll();
   document.getElementById('chatOverlay').classList.add('open');document.body.style.overflow='hidden';
-  stepIdx=0;profile={};msgsEl().innerHTML='';inputEl().innerHTML='';
-  askStep();
+  stepIdx=0;history=[];profile={};msgsEl().innerHTML='';inputEl().innerHTML='';
+  askStep('forward');
 }
-function setProg(){document.getElementById('chatProg').textContent=stepIdx<steps.length?`PROFILE ${Math.min(stepIdx+1,steps.length)}/${steps.length}`:'COMPLETE';}
+function setProg(){document.getElementById('chatProg').textContent=stepIdx<steps.length?`STEP ${history.length+1}`:'COMPLETE';}
+function nextIndex(from){
+  let i=from+1;
+  while(i<steps.length && steps[i].cond && !steps[i].cond()) i++;
+  return i;
+}
 function botSay(text,cb){
   const t=document.createElement('div');t.className='typing';t.innerHTML='<i></i><i></i><i></i>';
   msgsEl().appendChild(t);msgsEl().scrollTop=msgsEl().scrollHeight;
@@ -1632,65 +1676,129 @@ function userSay(text){
   const m=document.createElement('div');m.className='msg user';m.textContent=text;
   msgsEl().appendChild(m);msgsEl().scrollTop=msgsEl().scrollHeight;
 }
-function askStep(){
-  while(stepIdx<steps.length && steps[stepIdx].cond && !steps[stepIdx].cond()){stepIdx++;}
+// mode: 'back' re-renders controls under the question already on screen; anything else types the question first
+function askStep(mode){
   if(stepIdx>=steps.length){finishGate();return;}
   setProg();
   const s=steps[stepIdx];
   inputEl().innerHTML='';
-  botSay(s.q,()=>{ s.form?showContactForm():s.input?showTextInput(s):showChips(s); });
+  if(mode==='back'){ renderControls(s); }
+  else{ botSay(s.q,()=>renderControls(s)); }
 }
-function showTextInput(s){
-  inputEl().innerHTML=`<form class="mini-form" onsubmit="event.preventDefault();submitText()">
-    <textarea id="freeText" required rows="3" style="background:#0a0a0a;border:1px solid var(--outline-var);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14px;padding:11px 14px;outline:none;resize:vertical" placeholder="In your own words…"></textarea>
-    <button class="btn btn-primary" type="submit" style="justify-content:center">Send</button>
-  </form>`;
+function goBack(){
+  if(!history.length) return;
+  const msgs=msgsEl();
+  if(msgs.lastElementChild) msgs.removeChild(msgs.lastElementChild);                                             // current question bubble
+  if(msgs.lastElementChild && msgs.lastElementChild.classList.contains('user')) msgs.removeChild(msgs.lastElementChild); // previous answer bubble
+  stepIdx=history.pop();
+  askStep('back');
 }
-function submitText(){
-  const v=document.getElementById('freeText').value.trim();if(!v)return;
-  submitAnswer(steps[stepIdx],v);
+// build the Back / Next action row shared by every step
+function actionRow(onNext,nextEnabled,nextLabel){
+  const row=document.createElement('div');row.className='chat-actions';
+  if(history.length){
+    const back=document.createElement('button');back.type='button';back.className='chip back';back.textContent='← Back';back.onclick=goBack;
+    row.appendChild(back);
+  }
+  const next=document.createElement('button');next.type='button';next.className='chip next';next.textContent=nextLabel||'Next →';
+  next.disabled=!nextEnabled;next.onclick=onNext;
+  row.appendChild(next);
+  return {row,next};
 }
-function showChips(s){
+function renderControls(s){
+  if(s.type==='form'){ renderContactForm(s); return; }
+  if(s.type==='text'){ renderText(s); return; }
+  renderChips(s);
+}
+function renderChips(s){
+  const multi=s.type==='multi';
+  const el=inputEl();el.innerHTML='';
   const wrap=document.createElement('div');
-  if(s.multi)wrap.innerHTML='<div class="hint">Select all that apply, then confirm</div>';
+  const stored=profile[s.key];
+  const known=new Set((multi?(Array.isArray(stored)?stored:[]):(stored!=null?[stored]:[])).filter(v=>s.chips.includes(v)));
+  let otherVal = s.other
+    ? (multi ? (Array.isArray(stored)?stored:[]).filter(v=>!s.chips.includes(v)).join(', ')
+             : (stored!=null && !s.chips.includes(stored) ? stored : ''))
+    : '';
+  if(multi) wrap.innerHTML='<div class="hint">Select all that apply, then Next</div>';
   const chips=document.createElement('div');chips.className='chips';
-  const picked=new Set();
   s.chips.forEach(c=>{
-    const b=document.createElement('button');b.className='chip';b.textContent=c;
+    const b=document.createElement('button');b.type='button';b.className='chip'+(known.has(c)?(multi?' sel':' active'):'');b.textContent=c;
     b.onclick=()=>{
-      if(s.multi){
-        b.classList.toggle('sel');picked.has(c)?picked.delete(c):picked.add(c);
-        confirmBtn.style.display=picked.size?'inline-flex':'none';
-      }else{submitAnswer(s,c);}
+      if(multi){ b.classList.toggle('sel'); known.has(c)?known.delete(c):known.add(c); }
+      else{ chips.querySelectorAll('.chip').forEach(x=>x.classList.remove('active')); b.classList.add('active'); known.clear(); known.add(c); }
+      refresh();
     };
     chips.appendChild(b);
   });
-  let confirmBtn;
-  if(s.multi){
-    confirmBtn=document.createElement('button');confirmBtn.className='chip confirm';confirmBtn.textContent="That's everything →";confirmBtn.style.display='none';
-    confirmBtn.onclick=()=>submitAnswer(s,[...picked]);
-    chips.appendChild(confirmBtn);
+  wrap.appendChild(chips);
+  let otherInput;
+  if(s.other){
+    const of=document.createElement('div');of.className='other-field';
+    otherInput=document.createElement('input');otherInput.type='text';otherInput.placeholder=(s.otherLabel||'Other')+' — type to add';otherInput.value=otherVal;
+    otherInput.oninput=refresh;
+    of.appendChild(otherInput);wrap.appendChild(of);
   }
-  wrap.appendChild(chips);inputEl().appendChild(wrap);
+  el.appendChild(wrap);
+  const collect=()=>{
+    const other=otherInput?otherInput.value.trim():'';
+    if(multi){ const arr=[...known]; if(other) arr.push(other); return arr; }
+    return other||[...known][0]||'';
+  };
+  const valid=()=>{ const v=collect(); return multi ? v.length>0 : !!v; };
+  const {next}=actionRow(()=>commit(s,collect()),valid());
+  el.appendChild(next.parentNode);
+  function refresh(){ next.disabled=!valid(); }
 }
-function submitAnswer(s,val){
+function renderText(s){
+  const el=inputEl();el.innerHTML='';
+  const form=document.createElement('div');form.className='mini-form';
+  const ta=document.createElement('textarea');ta.id='freeText';ta.rows=3;ta.placeholder='In your own words…';
+  ta.style.cssText='background:#0a0a0a;border:1px solid var(--outline-var);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14px;padding:11px 14px;outline:none;resize:vertical';
+  ta.value=profile[s.key]||'';
+  form.appendChild(ta);el.appendChild(form);
+  const {next}=actionRow(()=>{const v=ta.value.trim();if(v)commit(s,v);}, !!(profile[s.key]||'').trim());
+  el.appendChild(next.parentNode);
+  ta.oninput=()=>{next.disabled=!ta.value.trim();};
+}
+function commit(s,val){
   profile[s.key]=val;
-  userSay(Array.isArray(val)?val.join(' · '):val);
+  const label=Array.isArray(val)?val.join(' · '):val;
+  if(label!=='') userSay(label);
   inputEl().innerHTML='';
-  stepIdx++;
-  stepIdx<steps.length?setTimeout(askStep,250):finishGate();
+  history.push(stepIdx);
+  if(s.loop && typeof val==='string' && /^yes/i.test(val)){                 // "add more" loops back to the product list
+    stepIdx=steps.findIndex(x=>x.key==='productTypes');
+    setTimeout(()=>askStep('forward'),260);return;
+  }
+  stepIdx=nextIndex(stepIdx);
+  if(stepIdx>=steps.length){finishGate();return;}
+  setTimeout(()=>askStep('forward'),260);
 }
-function showContactForm(){
-  inputEl().innerHTML=`<form class="mini-form" onsubmit="event.preventDefault();submitContact(this)">
-    <input id="cName" required placeholder="Your name">
-    <input id="cCompany" required placeholder="Company, held in confidence">
-    <input id="cEmail" type="email" required placeholder="Email">
-    <input id="cMobile" placeholder="Mobile (optional)">
-    <input id="cPassword" type="password" required minlength="8" placeholder="Create a password (8+ characters)">
+function togglePw(btn){
+  const i=document.getElementById('cPassword');
+  if(i.type==='password'){i.type='text';btn.textContent='Hide';}else{i.type='password';btn.textContent='Show';}
+}
+function renderContactForm(s){
+  const el=inputEl();el.innerHTML='';
+  el.innerHTML=`<form class="mini-form" onsubmit="event.preventDefault();submitContact(this)">
+    <input id="cName" required placeholder="Your name" value="${(profile.name||'').replace(/"/g,'&quot;')}">
+    <input id="cCompany" required placeholder="Company, held in confidence" value="${(profile.company||'').replace(/"/g,'&quot;')}">
+    <input id="cEmail" type="email" required placeholder="Email" value="${(profile.email||'').replace(/"/g,'&quot;')}">
+    <input id="cMobile" placeholder="Mobile (optional)" value="${(profile.mobile||'').replace(/"/g,'&quot;')}">
+    <div class="pw-wrap">
+      <input id="cPassword" type="password" required minlength="8" placeholder="Create a password (8+ characters)">
+      <button type="button" class="pw-toggle" onclick="togglePw(this)">Show</button>
+    </div>
     <div id="authErr" style="color:#ff6b6b;font-size:12.5px;display:none"></div>
     <button class="btn btn-primary" type="submit" style="justify-content:center">Create account &amp; complete</button>
     <p style="font-size:11.5px;color:var(--outline);margin-top:2px;line-height:1.5">By creating an account you agree to our <a href="privacy.html" target="_blank" style="color:var(--blue-bright)">Privacy Policy</a>.</p>
   </form>`;
+  if(history.length){
+    const row=document.createElement('div');row.className='chat-actions';
+    const back=document.createElement('button');back.type='button';back.className='chip back';back.textContent='← Back';back.onclick=goBack;
+    row.appendChild(back);el.appendChild(row);
+  }
 }
 async function submitContact(form){
   profile.name=document.getElementById('cName').value;
@@ -1699,16 +1807,17 @@ async function submitContact(form){
   profile.mobile=document.getElementById('cMobile').value;
   const password=document.getElementById('cPassword').value;
   const errEl=document.getElementById('authErr');
-  const btn=form.querySelector('button');btn.disabled=true;btn.textContent='Creating account…';
+  const btn=form.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent='Creating account…';
   const {data,error}=await sb.auth.signUp({
     email:profile.email, password,
-    options:{ data:profileMeta(), emailRedirectTo:location.origin+location.pathname }
+    options:{ data:Object.assign({},profileMeta(),richMeta()), emailRedirectTo:location.origin+location.pathname }
   });
   if(error){ errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Create account & complete'; return; }
   inSignup=true;
   captureMembership();                                  // create the Pipedrive lead
   userSay(`${profile.name} · ${profile.company}`);
-  inputEl().innerHTML='';stepIdx++;
+  history.push(stepIdx);
+  inputEl().innerHTML='';stepIdx=steps.length;
   if(data.session){ await upsertProfile(data.user.id,profile.email); finishGate(); }   // signed in immediately
   else { finishGateConfirm(); }                                                        // email confirmation required
 }
@@ -1717,23 +1826,27 @@ function computeMatches(){
   const m=new Set();matchWhy={};
   const why=(id,r)=>{if(!matchWhy[id])matchWhy[id]=r};
   const map={
-    'Outsource our production':['nx-2604'],
-    'Fill our spare capacity':['nx-2611'],
-    'Find products to distribute':['nx-2609','nx-2606','nx-2614','nx-2584','nx-2589'],
-    'Source materials or components':['nx-2609','nx-2584','nx-2606','nx-2614'],
-    'Plan a succession or exit':['nx-2598','nx-2581'],
-    'Acquire a lab or business':['nx-2581'],
-    'Hire or place talent':['nx-2592'],
-    'Move into new technology':['nx-2587','nx-2584'],
-    'Buy or sell equipment':['nx-2601','nx-2589'],
+    'Outsource my manufacturing to a high-quality provider':['nx-2604'],
+    'Sell our spare manufacturing capacity':['nx-2611'],
+    'Find a new partner / representative in a new country':['nx-2609','nx-2606','nx-2614','nx-2584','nx-2589'],
+    'Find new products to represent':['nx-2609','nx-2606','nx-2614','nx-2584','nx-2589'],
+    'Source materials or consumables':['nx-2609','nx-2584','nx-2606','nx-2614'],
+    'Sell my business (discretely)':['nx-2598','nx-2581'],
+    'Hire new talent':['nx-2592'],
+    'Find new manufacturing technologies':['nx-2587','nx-2584'],
+    'Find new design technologies':['nx-2587','nx-2584'],
+    'Buy or sell O&P equipment':['nx-2601','nx-2589'],
     'Start something new':['nx-2613']};
   (profile.goals||[]).forEach(g=>(map[g]||[]).forEach(id=>{m.add(id);why(id,`you want to “${g.toLowerCase()}”`)}));
   (profile.pressing||[]).forEach(p=>{
     const add=(id)=>{m.add(id);why(id,`you flagged “${p.toLowerCase()}”`)};
-    if(p==='Retirement on the horizon'){add('nx-2598');add('nx-2581');}
-    if(p==='Staffing pressure'){add('nx-2604');add('nx-2592');}
-    if(p==='Growth beyond our capacity')add('nx-2604');
-    if(p==='Losing a supplier or partner')add('nx-2606');
+    if(p==='I need to plan an exit'){add('nx-2598');add('nx-2581');}
+    if(p==='Staffing pressures are forcing change'){add('nx-2604');add('nx-2592');}
+    if(p==='I need to expand my business'){add('nx-2604');}
+    if(p==='We are growing fast'){add('nx-2604');}
+    if(p==='Rising costs (materials, people, etc) are a challenge'){add('nx-2604');}
+    if(p==='We need to find new suppliers'){add('nx-2606');add('nx-2609');}
+    if(p==='I am looking for new ideas'){add('nx-2613');add('nx-2587');}
   });
   const valid=new Set(briefs.map(b=>b.id));        // never count an opportunity that isn't on the live board
   return new Set([...m].filter(id=>valid.has(id)));
@@ -1794,6 +1907,22 @@ function profileMeta(){
   return {name:profile.name||'',company:profile.company||'',mobile:profile.mobile||'',
     type:profile.type||'',region:profile.region||'',volume:profile.volume||'',
     goals:profile.goals||[],pressing:profile.pressing||[],timeline:profile.timeline||''};
+}
+// the richer questionnaire detail (kept out of the profiles-table upsert; stored in schemaless user_metadata and sent with leads)
+function productDetail(){
+  const cats={p_orthotic:'Orthotic Devices',p_prosthetic:'Prosthetic Devices',p_bracing:'Bracing & Supports',
+    p_consumable:'Consumables & Materials',p_tech:'O&P Technology',p_hardware:'Manufacturing Hardware'};
+  const out={};
+  Object.keys(cats).forEach(k=>{ if(Array.isArray(profile[k])&&profile[k].length) out[cats[k]]=profile[k]; });
+  return out;
+}
+function productSummary(){
+  const d=productDetail();
+  return Object.keys(d).map(c=>`${c}: ${d[c].join(', ')}`).join(' | ');
+}
+function richMeta(){
+  return {direction:profile.direction||'',product_types:profile.productTypes||[],
+    products:productSummary(),describe:profile.describe||''};
 }
 async function upsertProfile(id,email){
   try{ await sb.from('profiles').upsert(Object.assign({id,email},profileMeta())); }catch(e){}
