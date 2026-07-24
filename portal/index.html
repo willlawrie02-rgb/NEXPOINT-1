@@ -111,7 +111,7 @@
   .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(139,197,63,.7);animation:pulse 2s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(139,197,63,.5)}70%{box-shadow:0 0 0 8px rgba(139,197,63,0)}100%{box-shadow:0 0 0 0 rgba(139,197,63,0)}}
   .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px}
-  .chip{font-family:var(--font-body);font-size:13px;font-weight:500;padding:8px 16px;border-radius:9999px;border:1px solid var(--outline-var);background:transparent;color:var(--on-surface-var);cursor:pointer;transition:all var(--dur) var(--ease)}
+  .chip{font-family:var(--font-body);font-size:13px;font-weight:500;padding:8px 16px;border-radius:9999px;border:1px solid var(--outline-var);background:transparent;color:var(--on-surface-var);cursor:pointer;transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease),color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
   .chip:hover{border-color:var(--outline);color:#fff}
   .chip.active{background:rgba(0,92,200,.18);border-color:var(--blue);color:var(--blue-bright)}
 
@@ -238,7 +238,8 @@
   .chat-shell{max-width:580px;width:100%;background:var(--surface);border:1px solid rgba(255,255,255,.12);border-radius:14px;display:flex;flex-direction:column;max-height:86vh;overflow:hidden;animation:rise .25s var(--ease);position:relative;margin:auto;box-shadow:0 24px 64px rgba(0,0,0,.5)}
   .chat-head{padding:16px 22px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;flex-shrink:0}
   .chat-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#3D8EEB,#8BC53F);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-  .chat-avatar span{width:9px;height:9px;border-radius:50%;background:#fff;display:block;animation:pulse 2s infinite}
+  .chat-avatar span{width:9px;height:9px;border-radius:50%;background:#fff;display:block;animation:softpulse 2s ease-in-out infinite}
+  @keyframes softpulse{0%,100%{opacity:1}50%{opacity:.45}}
   .chat-head h4{font:600 14.5px/1.2 var(--font-display);color:#fff}
   .chat-head .sub{font-size:11.5px;color:var(--outline)}
   .chat-prog{margin-left:auto;font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--outline)}
@@ -274,6 +275,18 @@
   .pw-wrap input{flex:1;padding-right:62px}
   .pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--on-surface-var);font-size:12px;font-weight:600;letter-spacing:.04em;cursor:pointer;padding:4px 6px}
   .pw-toggle:hover{color:#fff}
+  /* mobile: let the whole desk scroll naturally and show options as a clean full-width list */
+  @media(max-width:560px){
+    .chat-prog{display:none}
+    .overlay{align-items:flex-start;padding:0;backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(8,9,10,.86)}
+    .chat-shell{max-width:none;max-height:none;min-height:100%;border-radius:0;overflow:visible}
+    .chat-head{position:sticky;top:0;z-index:2;background:var(--surface)}
+    .close{position:fixed;top:14px;right:14px;z-index:3}
+    .chat-msgs{flex:0 0 auto;overflow:visible;min-height:0}
+    .chat-input .chips{flex-direction:column;align-items:stretch;gap:8px}
+    .chat-input .chips .chip{width:100%;text-align:left;white-space:normal;line-height:1.35;padding:12px 15px;border-radius:10px}
+    .msg{max-width:92%}
+  }
 
   /* scroll progress bar (matches homepage) */
   .scroll-progress{position:fixed;top:0;left:0;height:2px;z-index:60;background:linear-gradient(90deg,var(--blue),var(--green));transform-origin:0 50%;width:100%;transform:scaleX(0)}
