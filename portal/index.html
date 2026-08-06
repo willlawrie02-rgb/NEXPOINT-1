@@ -85,8 +85,7 @@
   .stats{display:grid;grid-template-columns:repeat(4,1fr);margin:0}
   .stat{padding:6px clamp(16px,3vw,40px)}
   .stat+.stat{border-left:1px solid var(--border-soft)}
-  .stat b{display:block;font:800 clamp(24px,2vw,30px)/1 var(--font-display);letter-spacing:-.02em;
-    background:linear-gradient(135deg,#3D8EEB 0%,#8BC53F 135%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+  .stat b{display:block;font:700 clamp(24px,2vw,30px)/1 var(--font-display);letter-spacing:-.02em;color:#fff}
   .stat b i{font-style:normal}
   .stat span{display:block;margin-top:10px;font-size:13px;color:var(--outline);line-height:1.45}
   @media(max-width:760px){.stats{grid-template-columns:1fr}.stat{padding:18px 0}.stat+.stat{border-left:none;border-top:1px solid var(--border-soft)}}
@@ -108,30 +107,40 @@
   .board-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:34px}
   .board-head h2{font:600 clamp(28px,3.2vw,44px)/1.15 var(--font-display);letter-spacing:-.02em;color:#fff}
   .board-head .eyebrow{margin-bottom:12px}
-  .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(139,197,63,.7);animation:pulse 2s infinite}
-  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(139,197,63,.5)}70%{box-shadow:0 0 0 8px rgba(139,197,63,0)}100%{box-shadow:0 0 0 0 rgba(139,197,63,0)}}
+  .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green)}
   .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px}
   .chip{font-family:var(--font-body);font-size:13px;font-weight:500;padding:8px 16px;border-radius:9999px;border:1px solid var(--outline-var);background:transparent;color:var(--on-surface-var);cursor:pointer;transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease),color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
   .chip:hover{border-color:var(--outline);color:#fff}
   .chip.active{background:rgba(0,92,200,.18);border-color:var(--blue);color:var(--blue-bright)}
 
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:20px}
-  .card{background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-xl);padding:26px;display:flex;flex-direction:column;cursor:pointer;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
-  .card:hover{border-color:var(--blue);transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.45)}
-  .card-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px}
+  /* opportunity card — readable in three seconds: type, direction, headline, region, one hook */
+  .op{background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-xl);padding:20px 22px 18px;display:flex;flex-direction:column;cursor:pointer;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+  .op:hover{border-color:var(--blue);transform:translateY(-2px)}
+  .op:focus-visible{outline:2px solid var(--blue-bright);outline-offset:3px}
+  .op__top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:18px}
+  .op__type{display:inline-flex;align-items:center;gap:10px;min-width:0;font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--on-surface-var)}
+  .op__ico{width:32px;height:32px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;background:rgba(0,92,200,.10);border:1px solid rgba(0,92,200,.24);color:var(--blue-bright)}
+  .op__ico span{font-size:18px}
+  .op__type .txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ref{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--outline)}
-  .dir{font-size:10px;font-weight:600;letter-spacing:.08em;padding:5px 10px;border-radius:9999px;text-transform:uppercase}
+  .dir{font-size:10px;font-weight:600;letter-spacing:.08em;padding:5px 10px;border-radius:9999px;text-transform:uppercase;white-space:nowrap;flex:0 0 auto}
   .dir.offering{background:rgba(139,197,63,.12);border:1px solid rgba(139,197,63,.3);color:var(--green)}
   .dir.seeking{background:rgba(0,92,200,.12);border:1px solid rgba(0,92,200,.3);color:var(--blue-bright)}
-  .card h3{font:600 clamp(18px,1.6vw,21px)/1.3 var(--font-display);letter-spacing:-.01em;color:#fff;margin-bottom:10px}
-  .card .sum{font-size:14px;line-height:22px;color:var(--on-surface-var);flex:1}
+  .dir.twoway{background:rgba(226,226,226,.07);border:1px solid rgba(226,226,226,.20);color:var(--on-surface)}
+  .op__head{font:600 clamp(17px,1.5vw,20px)/1.3 var(--font-display);letter-spacing:-.015em;color:#fff;margin:0 0 14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .op__facts{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+  .op__fact{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--on-surface)}
+  .op__fact .material-symbols-outlined{font-size:15px;color:var(--green)}
+  .op__hook{font-size:13.5px;line-height:21px;color:var(--outline);margin:0;flex:1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .op__foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border-soft)}
+  .op__cta{font-size:13px;font-weight:600;color:var(--blue-bright);display:inline-flex;align-items:center;gap:6px}
+  .op__cta svg{transition:transform var(--dur) var(--ease)}
+  .op:hover .op__cta svg{transform:translateX(3px)}
   .meta{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 0}
   .tag{font-size:11px;font-weight:600;letter-spacing:.04em;padding:5px 10px;border-radius:9999px;background:rgba(255,255,255,.04);color:var(--on-surface-var);border:1px solid rgba(255,255,255,.08)}
   .fit{margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);font-size:12.5px;line-height:19px;color:var(--outline)}
   .fit b{color:var(--green);font-weight:600}
-  .card-cta{margin-top:18px;font-size:13.5px;font-weight:600;color:var(--blue-bright);display:flex;align-items:center;gap:6px}
-  .card-cta svg{transition:transform var(--dur) var(--ease)}
-  .card:hover .card-cta svg{transform:translateX(3px)}
 
   /* membership wall + member states */
   .wall{position:relative;border:1px solid rgba(0,92,200,.4);border-radius:var(--radius-xl);padding:clamp(40px,6vw,64px) 40px;text-align:center;margin-bottom:32px;overflow:hidden;
@@ -159,7 +168,7 @@
   @media(max-width:600px){.steps{grid-template-columns:1fr}}
   .step{background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-xl);padding:28px;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
   .step:hover{border-color:var(--blue);transform:translateY(-2px)}
-  .step .n{display:block;font:800 clamp(28px,3vw,40px)/1 var(--font-display);letter-spacing:-.02em;margin-bottom:6px;background:linear-gradient(135deg,#3D8EEB 0%,#8BC53F 135%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+  .step .n{display:block;font:600 12px/1 var(--font-body);letter-spacing:.14em;margin-bottom:10px;color:var(--blue-bright)}
   .step h3{font:600 17px/1.3 var(--font-display);color:#fff;margin:14px 0 8px}
   .step p{font-size:13.5px;line-height:21px;color:var(--on-surface-var)}
 
@@ -353,10 +362,11 @@
 
   /* headings that were pure white */
   html[data-theme="light"] .board-head h2,
-  html[data-theme="light"] .card h3,
+  html[data-theme="light"] .op__head,
   html[data-theme="light"] .how h2,
   html[data-theme="light"] .step h3,
   html[data-theme="light"] .matched-home h3{color:#0E1626}
+  html[data-theme="light"] .dir.twoway{background:rgba(14,22,38,.05);border-color:rgba(14,22,38,.18);color:#2C3444}
 
   /* principle cards — light surface */
   html[data-theme="light"] .principle{background:linear-gradient(165deg,#FFFFFF 0%,#F7F9FC 100%)}
@@ -364,7 +374,6 @@
 
   /* tags / chips using white washes */
   html[data-theme="light"] .tag{background:rgba(14,22,38,.04);border-color:rgba(14,22,38,.1)}
-  html[data-theme="light"] .card:hover{box-shadow:0 12px 32px rgba(14,22,38,.12)}
 
   /* membership wall + post banner — light brand-washed panels */
   html[data-theme="light"] .wall,
@@ -1493,15 +1502,49 @@ let profile={};
 let matches=new Set();
 
 const CAT_LABELS={manufacturing:'Manufacturing & Capacity',materials:'Materials & Products',partnership:'Partnerships & Franchise',succession:'Succession & Acquisition',equipment:'Equipment & Technology',talent:'Talent & People'};
+const CAT_ICONS={manufacturing:'factory',materials:'layers',partnership:'hub',succession:'swap_horiz',equipment:'precision_manufacturing',talent:'groups'};
+
+/* Card-face headlines: the desk's short form of each brief's own title — what, and where.
+   Falls back to the full title, which the CSS clamps to two lines, for any brief not listed. */
+const CARD_HEADS={
+  'nx-2581':'UK group buying into North American labs',
+  'nx-2584':'Foaming FDM filament with tunable stiffness',
+  'nx-2587':'Global additive OEM wants O&P reference partners',
+  'nx-2589':'North American finishing equipment, EU distribution open',
+  'nx-2592':'Experienced UK clinicians and technicians available',
+  'nx-2604':'Factory-within-a-factory: your own line and team',
+  'nx-2606':'Proven prefab insole ranges, new territories open',
+  'nx-2609':'Thermoformable graphite shells, UK and EU distribution',
+  'nx-2611':'US brand needs a semi-custom cork manufacturer',
+  'nx-2614':'Clinically evidenced UK insoles, US distribution',
+  'nx-2621':'European 3D foot scanners, buyers and resellers wanted'
+};
+const DIR_CLASS={OFFERING:'offering',SEEKING:'seeking'};
+/* One-line hook: the brief's own opening sentence, never a rewrite. */
+function hookOf(b){
+  const first=(b.sum||'').split('\n')[0].trim();
+  const m=first.match(/^(.{40,160}?[.!?])(\s|$)/);
+  return m?m[1]:first;
+}
 function buildCard(b,why){
-  const el=document.createElement('div');el.className='card';el.onclick=()=>openBrief(b.id);el.dataset.ref=b.ref;
+  const el=document.createElement('article');
+  el.className='op';el.dataset.ref=b.ref;
+  el.tabIndex=0;el.setAttribute('role','button');
+  el.setAttribute('aria-label',`${CARD_HEADS[b.id]||b.title} — ${b.dir}, ${b.regions.join(', ')}`);
+  el.onclick=()=>openBrief(b.id);
+  el.onkeydown=(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openBrief(b.id);}};
   const matched=member&&matches.has(b.id)?'<span class="badge-match">MATCHED</span>':'';
-  el.innerHTML=`<div class="card-top"><span class="ref">${CAT_LABELS[b.cat]||''}</span><span style="display:flex;align-items:center"><span class="dir ${b.dir==='OFFERING'?'offering':'seeking'}">${b.dir}</span>${matched}</span></div>
-    <h3>${b.title}</h3><p class="sum">${b.sum}</p>
-    <div class="meta">${b.regions.map(r=>`<span class="tag">◈ ${r}</span>`).join('')}${b.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
-    <div class="fit">${b.fit}</div>
+  el.innerHTML=`<div class="op__top">
+      <span class="op__type"><span class="op__ico"><span class="material-symbols-outlined" aria-hidden="true">${CAT_ICONS[b.cat]||'hub'}</span></span><span class="txt">${CAT_LABELS[b.cat]||''}</span></span>
+      <span style="display:flex;align-items:center"><span class="dir ${DIR_CLASS[b.dir]||'twoway'}">${b.dir}</span>${matched}</span>
+    </div>
+    <h3 class="op__head">${CARD_HEADS[b.id]||b.title}</h3>
+    <div class="op__facts">
+      <span class="op__fact"><span class="material-symbols-outlined" aria-hidden="true">public</span>${b.regions.join(' · ')}</span>
+    </div>
+    <p class="op__hook">${hookOf(b)}</p>
     ${why?`<div class="match-why">★ Matched because ${why}</div>`:''}
-    <div class="card-cta">See the full opportunity ${arrow}</div>`;
+    <div class="op__foot"><span class="ref">${b.ref.replace(/^BRIEF /,'')}</span><span class="op__cta">See the opportunity ${arrow}</span></div>`;
   return el;
 }
 function render(filter){
@@ -1527,7 +1570,10 @@ function openBrief(id){
   document.getElementById('briefContent').innerHTML=`
     <span class="ref">${CAT_LABELS[b.cat]||''} · ${b.regions.join(' · ')} · <span style="color:${b.dir==='OFFERING'?'var(--green)':'var(--blue-bright)'}">${b.dir}</span></span>
     <h2>${b.title}</h2>
+    <div class="meta" style="margin:0 0 20px">${b.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+    <div class="body">${(b.sum||'').split('\n').map(p=>`<p>${p}</p>`).join('')}</div>
     <div class="body">${b.detail}</div>
+    <div class="fit" style="margin-bottom:20px">${b.fit}</div>
     <div class="sig">${b.signals.map(s=>`<div><b>${s[0]}</b><span>${s[1]}</span></div>`).join('')}</div>
     <div class="locked">
       <span class="label">${lock} Shared in a personal introduction only</span>

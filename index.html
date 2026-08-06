@@ -34,6 +34,8 @@
     --border-card: #2A2A2A;
     --border-soft: rgba(255, 255, 255, 0.06);
     --border-faint: rgba(255, 255, 255, 0.04);
+    --rule: rgba(255, 255, 255, 0.045);
+    --slot-mark: rgba(255, 255, 255, 0.20);
 
     --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
     --duration: 200ms;
@@ -156,18 +158,13 @@
 
   /* ─── Hero ─── */
   .hero { position: relative; min-height: min(94vh, 940px); padding-top: 84px; display: flex; align-items: center; overflow: hidden; }
+  /* Hero ground: hairline column rules — structure, not photography */
   .hero__bg {
-    position: absolute; inset: 0; z-index: 0;
-    background-image: url("assets/img/hero-earth-night.jpg"); background-size: cover; background-position: center;
-    filter: contrast(1.05) saturate(1.1); pointer-events: none;
-  }
-  .hero__bg::after {
-    content: ""; position: absolute; inset: 0;
-    background:
-      radial-gradient(80% 90% at 22% 50%, rgba(18,18,18,0.82) 0%, rgba(18,18,18,0.40) 50%, transparent 82%),
-      radial-gradient(900px 600px at 88% 8%, rgba(0, 92, 200, 0.24), transparent 60%),
-      radial-gradient(720px 520px at 8% 92%, rgba(139, 197, 63, 0.10), transparent 60%),
-      linear-gradient(180deg, rgba(18,18,18,0.10) 0%, rgba(18,18,18,0.30) 100%);
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image: linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size: calc(100% / 6) 100%;
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 24%, #000 70%, transparent 100%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 24%, #000 70%, transparent 100%);
   }
   .hero > * { position: relative; z-index: 1; }
   .hero__inner {
@@ -188,81 +185,102 @@
   .globe-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ─── Proof strip (stats moved below hero) ─── */
-  .proof { background: var(--bg-alt); border-top: 1px solid var(--border-faint); border-bottom: 1px solid var(--border-faint); }
+  /* ─── Proof: thin typographic ledger band, numbers and labels on one baseline ─── */
+  .proof { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
   .proof__inner {
-    max-width: var(--container-max); margin: 0 auto; padding: clamp(28px, 4vh, 44px) var(--side-pad);
-    display: grid; grid-template-columns: repeat(3, 1fr);
+    max-width: var(--container-max); margin: 0 auto; padding: clamp(18px, 2.4vh, 26px) var(--side-pad);
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px clamp(28px, 5vw, 72px);
   }
-  .proof__item { padding: 6px clamp(16px, 3vw, 40px); }
-  .proof__item + .proof__item { border-left: 1px solid var(--border-soft); }
-  .proof__num {
-    font: 800 clamp(30px, 3.6vw, 44px)/1 var(--font-display); letter-spacing: -0.03em;
-    background: linear-gradient(135deg, #3D8EEB 0%, #8BC53F 135%);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+  .proof__item { display: flex; align-items: baseline; gap: 12px; }
+  .proof__num { font: 700 clamp(20px, 2vw, 26px)/1 var(--font-display); letter-spacing: -0.02em; color: var(--fg); }
+  .proof__label { font: 600 11px/1.4 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; color: rgba(226, 226, 226, 0.65); }
+
+  /* ─── Asset slots: reserved, deliberately empty, sized to the real asset ─── */
+  .slot {
+    position: relative; background: var(--surface); border: 1px solid var(--border-card);
+    display: flex; align-items: center; justify-content: center; padding: 24px; overflow: hidden;
   }
-  .proof__label { font: 600 11px/1.4 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; color: rgba(226, 226, 226, 0.65); margin-top: 12px; }
-  @media (max-width: 760px) {
-    .proof__inner { grid-template-columns: 1fr; gap: 0; }
-    .proof__item { padding: 18px 0; }
-    .proof__item + .proof__item { border-left: 0; border-top: 1px solid var(--border-soft); }
+  .slot::before {
+    content: ""; position: absolute; inset: 10px; pointer-events: none;
+    background:
+      linear-gradient(var(--slot-mark), var(--slot-mark)) 0 0 / 14px 1px no-repeat,
+      linear-gradient(var(--slot-mark), var(--slot-mark)) 0 0 / 1px 14px no-repeat,
+      linear-gradient(var(--slot-mark), var(--slot-mark)) 100% 0 / 14px 1px no-repeat,
+      linear-gradient(var(--slot-mark), var(--slot-mark)) 100% 0 / 1px 14px no-repeat,
+      linear-gradient(var(--slot-mark), var(--slot-mark)) 0 100% / 14px 1px no-repeat,
+      linear-gradient(var(--slot-mark), var(--slot-mark)) 0 100% / 1px 14px no-repeat,
+      linear-gradient(var(--slot-mark), var(--slot-mark)) 100% 100% / 14px 1px no-repeat,
+      linear-gradient(var(--slot-mark), var(--slot-mark)) 100% 100% / 1px 14px no-repeat;
   }
+  .slot__label {
+    font: 600 10px/1.7 var(--font-body); letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--fg-2); text-align: center; max-width: 26ch;
+  }
+  .slot__label b { display: block; font-weight: 600; color: rgba(226, 226, 226, 0.42); letter-spacing: 0.16em; }
 
   /* ─── Section header (shared, vertical-stacked, no split-header) ─── */
   .sec-head { max-width: 760px; margin: 0 0 clamp(40px, 6vh, 64px); }
   .sec-head .h2 { margin-bottom: 20px; }
 
-  /* ─── Services (1 + 2 bento, exactly 3 cells) ─── */
-  .services__grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px; }
-  .service-card {
-    background: var(--surface); border: 1px solid var(--border-card); border-radius: 12px; overflow: hidden;
-    display: flex; transition: border-color var(--duration) var(--ease), transform var(--duration) var(--ease);
+  /* ─── Services: full-width editorial rows, hairline separated, alternating side ─── */
+  .svc { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+  .svc-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.6fr);
+    gap: clamp(24px, 4vw, 64px); align-items: center;
+    padding: clamp(32px, 4.5vh, 56px) 0; border-bottom: 1px solid var(--border);
   }
-  .service-card:hover { border-color: var(--np-blue); transform: translateY(-2px); }
-  /* Featured (wide) card: media + body side by side */
-  .service-card--feature { grid-column: span 12; flex-direction: row; min-height: 320px; }
-  .service-card--feature .service-card__media { width: 44%; aspect-ratio: auto; border-bottom: 0; border-right: 1px solid var(--border); }
-  .service-card--feature .service-card__body { width: 56%; justify-content: center; padding: clamp(28px, 3vw, 48px); }
-  /* Standard cards */
-  .service-card--half { grid-column: span 6; flex-direction: column; }
-  .service-card__media { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: #0d0e0f; border-bottom: 1px solid var(--border); }
-  .service-card__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(0.85) brightness(0.92); transition: filter 400ms var(--ease), transform 600ms var(--ease); }
-  .service-card:hover .service-card__media img { filter: saturate(1) brightness(1); transform: scale(1.04); }
-  .service-card__media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(18,18,18,0) 50%, rgba(30,30,30,0.55) 100%); }
-  .service-card__body { padding: clamp(22px, 2vw, 30px); display: flex; flex-direction: column; flex: 1; }
-  .service-card__top { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
-  .service-card__icon { width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
-  .service-card__icon--blue { background: rgba(0, 92, 200, 0.10); border: 1px solid rgba(0, 92, 200, 0.20); color: var(--np-blue); }
-  .service-card__icon--green { background: rgba(139, 197, 63, 0.10); border: 1px solid rgba(139, 197, 63, 0.20); color: var(--np-green); }
-  .service-card__icon span { font-size: 26px; }
-  .service-card h3 { font: 600 clamp(19px, 1.7vw, 24px)/1.25 var(--font-display); color: #fff; margin: 0 0 14px; letter-spacing: -0.01em; }
-  .service-card p { font: 400 clamp(14px, 1.1vw, 15px)/1.6 var(--font-body); color: rgba(226, 226, 226, 0.65); margin: 0 0 14px; }
-  .service-card p:last-child { margin-bottom: 0; }
+  .svc-row--flip .svc-row__body { grid-column: 2; grid-row: 1; }
+  .svc-row--flip .svc-row__media { grid-column: 1; grid-row: 1; }
+  .svc-row__icon { color: var(--np-blue); margin-bottom: 14px; display: block; }
+  .svc-row__icon span { font-size: 28px; }
+  .svc-row--green .svc-row__icon { color: var(--np-green); }
+  .svc-row h3 { font: 600 clamp(21px, 2.1vw, 30px)/1.2 var(--font-display); color: var(--fg); margin: 0 0 16px; letter-spacing: -0.015em; }
+  .svc-row p { font: 400 clamp(14px, 1.1vw, 15.5px)/1.65 var(--font-body); color: rgba(226, 226, 226, 0.65); margin: 0 0 12px; max-width: 60ch; }
+  .svc-row p:last-child { margin-bottom: 0; }
   @media (max-width: 900px) {
-    .service-card--feature { flex-direction: column; }
-    .service-card--feature .service-card__media { width: 100%; aspect-ratio: 16 / 9; border-right: 0; border-bottom: 1px solid var(--border); }
-    .service-card--feature .service-card__body { width: 100%; }
-    .service-card--half { grid-column: span 12; }
+    .svc-row { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+    .svc-row--flip .svc-row__body, .svc-row--flip .svc-row__media { grid-column: 1; grid-row: auto; }
+    .svc-row__media { order: -1; }
   }
 
-  /* ─── Value chain (horizontal process rail) ─── */
-  .value-chain__rail { position: relative; }
-  .vc-chain { display: flex; align-items: flex-start; justify-content: center; }
-  .vc-step { flex: 0 0 auto; width: clamp(116px, 14vw, 184px); display: flex; flex-direction: column; align-items: center; text-align: center; }
+  /* ─── Value chain: pinned scroll-linked sequence on a full-bleed band ─── */
+  .vc { background: var(--bg-alt); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .vc__sticky { padding: var(--section-pad) 0; }
+  .vc__head { max-width: 820px; margin: 0 0 clamp(36px, 5vh, 56px); }
+  .vc__head .h2 { margin-bottom: 20px; }
+  html.js-pin .vc__track { height: 320vh; position: relative; }
+  html.js-pin .vc__sticky { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 0; }
+  html.js-pin .vc__head { margin-bottom: clamp(28px, 4vh, 44px); }
+  .vc-chain { display: flex; align-items: flex-start; justify-content: space-between; gap: 4px; }
+  .vc-step { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
   .vc-step__node {
-    position: relative; width: clamp(64px, 6.4vw, 86px); height: clamp(64px, 6.4vw, 86px); border-radius: 9999px;
-    display: flex; align-items: center; justify-content: center; margin-bottom: 18px; color: var(--np-blue);
-    background: var(--surface); border: 1px solid var(--border-card);
-    transition: border-color 200ms var(--ease), transform 200ms var(--ease);
+    position: relative; width: clamp(52px, 5vw, 68px); height: clamp(52px, 5vw, 68px);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 16px;
+    color: var(--fg-2); background: var(--surface); border: 1px solid var(--border-card); border-radius: 10px;
+    transition: color 420ms var(--ease), border-color 420ms var(--ease), background 420ms var(--ease);
   }
-  .vc-step__node span.material-symbols-outlined { font-size: clamp(26px, 2.5vw, 34px); }
-  .vc-step:hover .vc-step__node { transform: translateY(-2px); border-color: var(--np-blue); }
-  .vc-step__index { position: absolute; top: -6px; right: -6px; width: 24px; height: 24px; border-radius: 9999px; background: var(--bg-alt); border: 1px solid var(--border-card); display: flex; align-items: center; justify-content: center; font: 600 10px/1 var(--font-body); color: var(--fg-2); }
-  .vc-step__label { font: 700 clamp(15px, 1.5vw, 18px)/1.25 var(--font-display); color: #fff; margin-bottom: 6px; letter-spacing: -0.01em; }
-  .vc-step__sub { font: 600 10.5px/1.45 var(--font-body); letter-spacing: 0.07em; text-transform: uppercase; color: rgba(226, 226, 226, 0.62); }
-  .vc-link { flex: 1 1 auto; min-width: 20px; height: clamp(64px, 6.4vw, 86px); display: flex; align-items: center; justify-content: center; gap: 6px; }
-  .vc-link__bar { flex: 1; height: 1px; background: var(--border-card); }
-  .vc-link__arrow { flex: 0 0 auto; font-size: 18px; color: var(--fg-2); }
+  .vc-step__node span.material-symbols-outlined { font-size: clamp(24px, 2.2vw, 30px); }
+  .vc-step__index { font: 600 10px/1 var(--font-body); letter-spacing: 0.14em; color: var(--fg-2); margin-bottom: 10px; transition: color 420ms var(--ease); }
+  .vc-step__label { font: 600 clamp(14px, 1.4vw, 17px)/1.25 var(--font-display); color: var(--fg); margin-bottom: 6px; letter-spacing: -0.01em; min-height: 2.5em; }
+  .vc-step__sub { font: 600 10.5px/1.45 var(--font-body); letter-spacing: 0.07em; text-transform: uppercase; color: rgba(226, 226, 226, 0.55); }
+  .vc-step.is-lit .vc-step__node { color: var(--np-blue); border-color: var(--np-blue); background: rgba(0, 92, 200, 0.08); }
+  .vc-step.is-lit .vc-step__index { color: var(--np-blue); }
+  /* progress rail runs under the nodes and fills with scroll */
+  .vc__rail { position: relative; height: 1px; background: var(--border-card); margin: 0 0 clamp(18px, 2.4vh, 26px); }
+  /* scaleX, not width — the fill updates on the compositor, never the layout */
+  .vc__rail-fill { position: absolute; inset: 0 0 0 0; background: var(--np-blue); transform-origin: 0 50%; transform: scaleX(var(--vc-p, 1)); transition: transform 120ms linear; }
+  .vc__outro { padding-bottom: var(--section-pad); }
+  @media (max-width: 860px) {
+    html.js-pin .vc__track { height: auto; }
+    html.js-pin .vc__sticky { position: static; height: auto; padding: var(--section-pad) 0; }
+    .vc-chain { flex-direction: column; gap: 18px; }
+    .vc-step { flex: 0 0 auto; width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 16px; }
+    .vc-step__node { grid-column: 1; grid-row: 1 / 3; margin-bottom: 0; align-self: center; }
+    .vc-step__label { grid-column: 2; grid-row: 1; min-height: 0; margin-bottom: 3px; align-self: end; }
+    .vc-step__sub { grid-column: 2; grid-row: 2; align-self: start; }
+    .vc-step__index { display: none; }
+    .vc__rail { display: none; }
+  }
 
   /* ─── Shared CTA banner (quiet band) ─── */
   .cta-banner {
@@ -284,13 +302,9 @@
   .why__left { position: sticky; top: 100px; }
   .why__title { font: 600 clamp(28px, 3.2vw, 44px)/1.13 var(--font-display); letter-spacing: -0.02em; color: #fff; margin: 0 0 20px; }
   .why__lede { font: 400 clamp(15px, 1.2vw, 17px)/1.6 var(--font-body); color: rgba(226, 226, 226, 0.65); margin: 0 0 28px; }
-  .why__photo { position: relative; aspect-ratio: 5 / 3; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-soft); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45); }
-  .why__photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: grayscale(15%) brightness(0.85) contrast(1.05); transition: transform 800ms var(--ease); }
-  .why__photo:hover img { transform: scale(1.04); }
-  .why__photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 45%, rgba(13,14,15,0.7) 100%); pointer-events: none; }
-  .why__photo-caption { position: absolute; left: 22px; right: 22px; bottom: 20px; z-index: 1; }
-  .why__photo-caption-label { font: 600 10px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--np-green); margin-bottom: 8px; }
-  .why__photo-caption-text { font: 500 clamp(15px, 1.2vw, 17px)/1.35 var(--font-display); color: #fff; letter-spacing: -0.01em; }
+  .why__caption { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .why__caption-label { font: 600 10px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--np-green); margin-bottom: 8px; }
+  .why__caption-text { font: 500 clamp(15px, 1.2vw, 17px)/1.35 var(--font-display); color: var(--fg); letter-spacing: -0.01em; }
   .why__list { display: flex; flex-direction: column; }
   .why-item { display: grid; grid-template-columns: 44px 1fr; gap: 20px; padding: clamp(24px, 3vh, 34px) 0; border-top: 1px solid var(--border); transition: border-color var(--duration) var(--ease); }
   .why-item:first-child { border-top: 0; padding-top: 0; }
@@ -306,31 +320,31 @@
     .why-item { grid-template-columns: 36px 1fr; gap: 14px; }
   }
 
-  /* ─── Focus areas (asymmetric editorial gallery, exactly 5 cells) ─── */
-  .focus__grid { display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 200px; gap: 16px; }
-  .focus-tile { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); cursor: default; transition: border-color var(--duration) var(--ease), transform var(--duration) var(--ease); }
-  .focus-tile:hover { border-color: var(--np-blue); transform: translateY(-2px); }
-  .focus-tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(0.85) brightness(0.8); transition: filter 400ms var(--ease), transform 600ms var(--ease); }
-  .focus-tile:hover img { filter: saturate(1) brightness(0.92); transform: scale(1.03); }
-  .focus-tile::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(18,18,18,0) 38%, rgba(13,14,15,0.86) 100%); pointer-events: none; }
-  .focus-tile__body { position: absolute; left: 20px; right: 20px; bottom: 18px; z-index: 1; display: flex; align-items: center; gap: 12px; }
-  .focus-tile__icon { display: flex; color: var(--np-green); transition: color var(--duration); }
-  .focus-tile__icon span.material-symbols-outlined { font-size: 22px; }
-  .focus-tile__title { font: 600 clamp(15px, 1.3vw, 18px)/1.25 var(--font-display); color: #fff; letter-spacing: -0.01em; }
-  /* asymmetric placement: 5 distinct cells, no empty middle */
-  .focus-tile--1 { grid-column: span 3; grid-row: span 2; }
-  .focus-tile--2 { grid-column: span 3; grid-row: span 1; }
-  .focus-tile--3 { grid-column: span 3; grid-row: span 1; }
-  .focus-tile--4 { grid-column: span 2; grid-row: span 1; }
-  .focus-tile--5 { grid-column: span 4; grid-row: span 1; }
-  @media (max-width: 900px) {
-    .focus__grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 180px; }
-    .focus-tile--1, .focus-tile--2, .focus-tile--3, .focus-tile--4, .focus-tile--5 { grid-column: span 1; grid-row: span 1; }
-    .focus-tile--1 { grid-column: span 2; }
+  /* ─── Focus areas: full-bleed specimen strip, portrait slots on a staggered baseline ─── */
+  .focus__strip {
+    width: 100vw; margin-left: calc(50% - 50vw);
+    padding: 4px var(--side-pad) clamp(24px, 4vh, 44px);
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: clamp(14px, 1.6vw, 22px);
   }
-  @media (max-width: 540px) {
-    .focus__grid { grid-template-columns: 1fr; }
-    .focus-tile--1, .focus-tile--5 { grid-column: span 1; }
+  .focus-item { min-width: 0; margin: 0; }
+  .focus-item:nth-child(even) { margin-top: clamp(20px, 3.5vw, 44px); }
+  .focus-item .slot { aspect-ratio: 3 / 4; }
+  .focus-item__body { display: flex; align-items: flex-start; gap: 10px; margin-top: 14px; }
+  .focus-item__icon { display: flex; color: var(--np-green); flex: 0 0 auto; }
+  .focus-item__icon span.material-symbols-outlined { font-size: 19px; }
+  .focus-item__title { font: 600 clamp(14px, 1.15vw, 16px)/1.3 var(--font-display); color: var(--fg); letter-spacing: -0.01em; }
+  @media (max-width: 900px) {
+    /* below the fold width the strip becomes a swipeable rail rather than shrinking to nothing */
+    .focus__strip {
+      grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 52vw;
+      overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: thin;
+    }
+    .focus-item { scroll-snap-align: start; }
+  }
+  @media (max-width: 640px) {
+    .focus__strip { grid-auto-columns: 74vw; }
+    .focus-item:nth-child(even) { margin-top: 0; }
   }
 
   /* ─── Global reach (split: list + map) ─── */
@@ -345,8 +359,9 @@
   .market-row:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
   .market-row__dot { width: 8px; height: 8px; border-radius: 9999px; background: var(--np-green); }
   .market-row__name { font: 600 15px/1.2 var(--font-body); color: #fff; }
-  .map-card { padding: 6px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5); }
-  .map-card__inner { position: relative; aspect-ratio: 640 / 460; max-height: 460px; border-radius: 8px; overflow: hidden; background: linear-gradient(160deg, #161818 0%, #0d0e0f 100%); }
+  /* map sits directly on the page and runs past the container's right edge */
+  .map-card { margin-right: calc(50% - 50vw); }
+  .map-card__inner { position: relative; aspect-ratio: 640 / 460; max-height: 460px; }
   .map-card__header { position: absolute; top: 14px; left: 18px; right: 18px; z-index: 2; pointer-events: none; }
   .map-card__header-label { font: 600 11px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: rgba(226, 226, 226, 0.7); }
   .map-card__inner svg { display: block; width: 100%; height: 100%; }
@@ -359,8 +374,11 @@
 
   /* ─── Contact ─── */
   .book { position: relative; overflow: hidden; padding: var(--section-pad) 0; background: #121212; }
-  .book__bg { position: absolute; inset: 0; z-index: 0; background-image: url("assets/img/book-map.jpg"); background-size: cover; background-position: center; opacity: 0.10; filter: grayscale(60%) contrast(1.1); pointer-events: none; }
-  .book__bg::after { content: ""; position: absolute; inset: 0; background: radial-gradient(700px 500px at 90% 10%, rgba(0, 92, 200, 0.18), transparent 60%), linear-gradient(180deg, rgba(18,18,18,0.65) 0%, rgba(18,18,18,0.85) 100%); }
+  .book__bg { position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image: linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size: calc(100% / 6) 100%;
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 88%);
+    mask-image: linear-gradient(180deg, #000 0%, transparent 88%); }
   .book > * { position: relative; z-index: 1; }
   .book__inner { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: var(--gap-lg); align-items: start; }
   .book__title { font: 600 clamp(28px, 3.2vw, 44px)/1.15 var(--font-display); letter-spacing: -0.02em; color: #fff; margin: 0 0 20px; }
@@ -428,11 +446,6 @@
   }
   @media (max-width: 900px) {
     .navbar__links { display: none; }
-    .vc-chain { flex-direction: column; align-items: center; }
-    .vc-step { width: 100%; max-width: 300px; }
-    .vc-link { width: clamp(64px, 6.4vw, 86px); height: 46px; flex-direction: column; }
-    .vc-link__bar { width: 1px; height: auto; background: var(--border-card); }
-    .vc-link__arrow { transform: rotate(90deg); }
     .footer__inner { grid-template-columns: 1fr 1fr; gap: 32px; }
   }
   @media (max-width: 560px) {
@@ -440,10 +453,21 @@
     .navbar__portal-label { display: none; }
   }
 
+  /* ─── Entrances: per-section character, applied only when JS confirms motion is welcome ─── */
+  html.js-motion .enter { transition: opacity 640ms var(--ease), transform 640ms var(--ease); transition-delay: var(--d, 0ms); }
+  html.js-motion .enter--up    { opacity: 0; transform: translateY(20px); }
+  html.js-motion .enter--left  { opacity: 0; transform: translateX(-32px); }
+  html.js-motion .enter--right { opacity: 0; transform: translateX(32px); }
+  html.js-motion .enter--rise  { opacity: 0; transform: translateY(38px) scale(0.99); }
+  html.js-motion .enter.is-in  { opacity: 1; transform: none; }
+
   /* ─── Reduced motion (mandatory) ─── */
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+    html.js-motion .enter { opacity: 1 !important; transform: none !important; }
+    html.js-pin .vc__track { height: auto !important; }
+    html.js-pin .vc__sticky { position: static !important; height: auto !important; padding: var(--section-pad) 0 !important; }
   }
 
   /* ─── Theme toggle button ─── */
@@ -476,6 +500,8 @@
     --border-card: #E3E7ED;
     --border-soft: rgba(14, 22, 38, 0.09);
     --border-faint: rgba(14, 22, 38, 0.06);
+    --rule: rgba(14, 22, 38, 0.055);
+    --slot-mark: rgba(14, 22, 38, 0.22);
   }
   html[data-theme="light"] ::selection { background: rgba(0, 92, 200, 0.18); color: #0E1626; }
   html[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(14, 22, 38, 0.2); }
@@ -495,14 +521,8 @@
   html[data-theme="light"] .navbar__menu a { color: rgba(14, 22, 38, 0.72); }
   html[data-theme="light"] .navbar__menu a:hover { color: #0E1626; }
 
-  /* Hero — light-native: drop the night-earth photo for soft brand washes, dark text */
-  html[data-theme="light"] .hero__bg { background-image: none; }
-  html[data-theme="light"] .hero__bg::after {
-    background:
-      radial-gradient(900px 620px at 88% 4%, rgba(0, 92, 200, 0.10), transparent 60%),
-      radial-gradient(760px 560px at 4% 96%, rgba(139, 197, 63, 0.10), transparent 60%),
-      linear-gradient(180deg, #FFFFFF 0%, #F5F7FA 100%);
-  }
+  /* Hero — light-native: same hairline ground, dark text */
+  html[data-theme="light"] .hero { background: linear-gradient(180deg, #FFFFFF 0%, var(--bg) 100%); }
   html[data-theme="light"] .hero__title { color: #0E1626; }
   html[data-theme="light"] .hero__sub { color: #4A5462; }
   /* Keep the globe dark & rich in light mode — it's drawn semi-transparent, so give it a dark planet backing */
@@ -522,8 +542,12 @@
   html[data-theme="light"] .proof__label { color: #5A6474; }
 
   /* Services */
-  html[data-theme="light"] .service-card h3 { color: #0E1626; }
-  html[data-theme="light"] .service-card p { color: #4A5462; }
+  html[data-theme="light"] .svc-row h3 { color: #0E1626; }
+  html[data-theme="light"] .svc-row p { color: #4A5462; }
+  html[data-theme="light"] .slot__label { color: #5A6474; }
+  html[data-theme="light"] .slot__label b { color: rgba(14, 22, 38, 0.42); }
+  html[data-theme="light"] .focus-item__title { color: #0E1626; }
+  html[data-theme="light"] .why__caption-text { color: #0E1626; }
 
   /* Value chain — nodes flip with the surface tokens; labels flip explicitly */
   html[data-theme="light"] .vc-step__label { color: #0E1626; }
@@ -545,16 +569,12 @@
   html[data-theme="light"] .markets__header-label { color: #5A6474; }
   html[data-theme="light"] .market-row:nth-child(even) { background: rgba(14, 22, 38, 0.025); }
   html[data-theme="light"] .market-row__name { color: #0E1626; }
-  html[data-theme="light"] .map-card { background: rgba(14, 22, 38, 0.03); border-color: rgba(14, 22, 38, 0.1); }
+  html[data-theme="light"] .map-card__header-label,
+  html[data-theme="light"] .map-card__footer-label { color: #5A6474; }
+  html[data-theme="light"] .map-card__inner svg text { fill: #2C3444; }
 
   /* Contact ("Get in touch") — light in light mode */
   html[data-theme="light"] .book { background: var(--bg); }
-  html[data-theme="light"] .book__bg { opacity: 0.06; filter: grayscale(35%) contrast(1.05); }
-  html[data-theme="light"] .book__bg::after {
-    background:
-      radial-gradient(700px 500px at 90% 10%, rgba(0, 92, 200, 0.08), transparent 60%),
-      linear-gradient(180deg, rgba(245, 247, 250, 0.72) 0%, rgba(245, 247, 250, 0.92) 100%);
-  }
   html[data-theme="light"] .book__title { color: #0E1626; }
   html[data-theme="light"] .book__lede { color: #4A5462; }
   html[data-theme="light"] .book__write { background: rgba(14, 22, 38, 0.03); }
@@ -683,7 +703,7 @@
 <!-- ───── Services (1 + 2 bento) ───── -->
 <section id="services" class="section">
   <div class="container">
-    <div class="sec-head">
+    <div class="sec-head enter enter--up">
       <span class="eyebrow">What we do</span>
       <h2 class="h2">Three services. One commercial bridge into global O&amp;P markets.</h2>
       <p class="lede" style="margin-top:20px;">
@@ -694,126 +714,100 @@
       </p>
     </div>
 
-    <div class="services__grid">
-      <article class="service-card service-card--feature">
-        <div class="service-card__media">
-          <img src="assets/img/v2/service-business-dev.jpg" alt="Targeted Business Development" loading="lazy" />
-        </div>
-        <div class="service-card__body">
-          <div class="service-card__top">
-            <div class="service-card__icon service-card__icon--green">
-              <span class="material-symbols-outlined">my_location</span>
-            </div>
-          </div>
+    <ol class="svc">
+      <li class="svc-row svc-row--green">
+        <div class="svc-row__body enter enter--left">
+          <span class="svc-row__icon material-symbols-outlined" aria-hidden="true">my_location</span>
           <h3>Targeted Business Development</h3>
           <p>We give you direct access to target markets by linking you to the right customers, decision makers, and real opportunities across manufacturers, clinics, labs, and O&amp;P providers.</p>
           <p>Acting as an extension of your sales team, we help you gain traction faster, without relying on cold outreach.</p>
         </div>
-      </article>
-
-      <article class="service-card service-card--half">
-        <div class="service-card__media">
-          <img src="assets/img/v2/service-channel.jpg" alt="Channel &amp; Reseller Development" loading="lazy" />
-        </div>
-        <div class="service-card__body">
-          <div class="service-card__top">
-            <div class="service-card__icon service-card__icon--blue">
-              <span class="material-symbols-outlined">hub</span>
-            </div>
+        <div class="svc-row__media enter enter--right">
+          <div class="slot" style="aspect-ratio: 4 / 3;">
+            <span class="slot__label">Image — clinic or lab visit<b>4:3</b></span>
           </div>
+        </div>
+      </li>
+
+      <li class="svc-row svc-row--flip">
+        <div class="svc-row__body enter enter--right">
+          <span class="svc-row__icon material-symbols-outlined" aria-hidden="true">hub</span>
           <h3>Channel &amp; Reseller Development</h3>
           <p>Identify, qualify, and engage suitable O&amp;P focused reseller and distribution partners for technologies, materials, manufacturing solutions, and digital workflows, building scalable indirect sales channels through trusted regional partners with existing market presence.</p>
         </div>
-      </article>
-
-      <article class="service-card service-card--half">
-        <div class="service-card__media">
-          <img src="assets/img/v2/service-spinout.jpg" alt="University Spinout Commercialisation" loading="lazy" />
-        </div>
-        <div class="service-card__body">
-          <div class="service-card__top">
-            <div class="service-card__icon service-card__icon--green">
-              <span class="material-symbols-outlined">lightbulb</span>
-            </div>
+        <div class="svc-row__media enter enter--left">
+          <div class="slot" style="aspect-ratio: 4 / 3;">
+            <span class="slot__label">Image — distribution partner site<b>4:3</b></span>
           </div>
+        </div>
+      </li>
+
+      <li class="svc-row svc-row--green">
+        <div class="svc-row__body enter enter--left">
+          <span class="svc-row__icon material-symbols-outlined" aria-hidden="true">lightbulb</span>
           <h3>University Spinout Commercialisation</h3>
           <p>Help university spinouts and early stage startups commercialise their IP through qualified introductions to potential buyers, licensees, and strategic partners across the O&amp;P, healthcare, and manufacturing sectors. A direct route from research to market that bypasses the years of cold outreach typical for first time commercialisation teams.</p>
         </div>
-      </article>
-    </div>
+        <div class="svc-row__media enter enter--right">
+          <div class="slot" style="aspect-ratio: 4 / 3;">
+            <span class="slot__label">Image — research lab or prototype bench<b>4:3</b></span>
+          </div>
+        </div>
+      </li>
+    </ol>
   </div>
 </section>
 
-<!-- ───── Value chain ───── -->
-<section id="value-chain" class="section section--alt">
-  <div class="container">
-    <div class="sec-head" style="max-width:820px;">
-      <span class="eyebrow">The O&amp;P value chain</span>
-      <h2 class="h2">We add value at the intersection of every stage of the O&amp;P value chain.</h2>
-      <p class="lede" style="margin-top:20px;">Our network spans every stage of the O&amp;P chain, from the patient through to raw material supply. Most businesses straddle more than one: labs that also finish in house, supply their own materials, or dispense clinically. We help to map you to the right partners anywhere in the O&amp;P value chain.</p>
-    </div>
+<!-- ───── Value chain (pinned, scroll-linked sequence) ───── -->
+<section id="value-chain" class="vc">
+  <div class="vc__track" id="vcTrack">
+    <div class="vc__sticky">
+      <div class="container">
+        <div class="vc__head">
+          <span class="eyebrow">The O&amp;P value chain</span>
+          <h2 class="h2">We add value at the intersection of every stage of the O&amp;P value chain.</h2>
+          <p class="lede" style="margin-top:20px;">Our network spans every stage of the O&amp;P chain, from the patient through to raw material supply. Most businesses straddle more than one: labs that also finish in house, supply their own materials, or dispense clinically. We help to map you to the right partners anywhere in the O&amp;P value chain.</p>
+        </div>
 
-    <div class="value-chain__rail">
-      <div class="vc-chain">
-        <div class="vc-step">
-          <div class="vc-step__node">
-            <span class="material-symbols-outlined">person</span>
-            <span class="vc-step__index">01</span>
+        <div class="vc__rail" aria-hidden="true"><span class="vc__rail-fill"></span></div>
+
+        <div class="vc-chain" id="vcChain">
+          <div class="vc-step is-lit">
+            <div class="vc-step__index">01</div>
+            <div class="vc-step__node"><span class="material-symbols-outlined" aria-hidden="true">person</span></div>
+            <div class="vc-step__label">Patient</div>
+            <div class="vc-step__sub">End user</div>
           </div>
-          <div class="vc-step__label">Patient</div>
-          <div class="vc-step__sub">End user</div>
-        </div>
-        <div class="vc-link" aria-hidden="true">
-          <span class="vc-link__bar"></span>
-          <span class="material-symbols-outlined vc-link__arrow">arrow_forward</span>
-        </div>
-        <div class="vc-step">
-          <div class="vc-step__node">
-            <span class="material-symbols-outlined">medical_services</span>
-            <span class="vc-step__index">02</span>
+          <div class="vc-step is-lit">
+            <div class="vc-step__index">02</div>
+            <div class="vc-step__node"><span class="material-symbols-outlined" aria-hidden="true">medical_services</span></div>
+            <div class="vc-step__label">Clinic</div>
+            <div class="vc-step__sub">Consult &amp; prescribe</div>
           </div>
-          <div class="vc-step__label">Clinic</div>
-          <div class="vc-step__sub">Consult &amp; prescribe</div>
-        </div>
-        <div class="vc-link" aria-hidden="true">
-          <span class="vc-link__bar"></span>
-          <span class="material-symbols-outlined vc-link__arrow">arrow_forward</span>
-        </div>
-        <div class="vc-step">
-          <div class="vc-step__node">
-            <span class="material-symbols-outlined">precision_manufacturing</span>
-            <span class="vc-step__index">03</span>
+          <div class="vc-step is-lit">
+            <div class="vc-step__index">03</div>
+            <div class="vc-step__node"><span class="material-symbols-outlined" aria-hidden="true">precision_manufacturing</span></div>
+            <div class="vc-step__label">Lab / Manufacturer</div>
+            <div class="vc-step__sub">Custom &amp; prefab production</div>
           </div>
-          <div class="vc-step__label">Lab / Manufacturer</div>
-          <div class="vc-step__sub">Custom &amp; prefab production</div>
-        </div>
-        <div class="vc-link" aria-hidden="true">
-          <span class="vc-link__bar"></span>
-          <span class="material-symbols-outlined vc-link__arrow">arrow_forward</span>
-        </div>
-        <div class="vc-step">
-          <div class="vc-step__node">
-            <span class="material-symbols-outlined">handyman</span>
-            <span class="vc-step__index">04</span>
+          <div class="vc-step is-lit">
+            <div class="vc-step__index">04</div>
+            <div class="vc-step__node"><span class="material-symbols-outlined" aria-hidden="true">handyman</span></div>
+            <div class="vc-step__label">Finishing</div>
+            <div class="vc-step__sub">Trim, pad &amp; assemble</div>
           </div>
-          <div class="vc-step__label">Finishing</div>
-          <div class="vc-step__sub">Trim, pad &amp; assemble</div>
-        </div>
-        <div class="vc-link" aria-hidden="true">
-          <span class="vc-link__bar"></span>
-          <span class="material-symbols-outlined vc-link__arrow">arrow_forward</span>
-        </div>
-        <div class="vc-step">
-          <div class="vc-step__node">
-            <span class="material-symbols-outlined">conveyor_belt</span>
-            <span class="vc-step__index">05</span>
+          <div class="vc-step is-lit">
+            <div class="vc-step__index">05</div>
+            <div class="vc-step__node"><span class="material-symbols-outlined" aria-hidden="true">conveyor_belt</span></div>
+            <div class="vc-step__label">Supplier</div>
+            <div class="vc-step__sub">Raw materials &amp; components</div>
           </div>
-          <div class="vc-step__label">Supplier</div>
-          <div class="vc-step__sub">Raw materials &amp; components</div>
         </div>
       </div>
     </div>
+  </div>
 
+  <div class="container vc__outro">
     <div class="cta-banner">
       <div class="cta-banner__text">
         <span class="material-symbols-outlined">arrow_outward</span>
@@ -831,43 +825,43 @@
 <section id="expertise" class="section">
   <div class="container">
     <div class="why__inner">
-      <div class="why__left">
+      <div class="why__left enter enter--left">
         <h2 class="why__title">Why companies choose NexPoint to grow in O&amp;P.</h2>
         <p class="why__lede">
           We're not a consultancy and we're not a lead gen agency. We are a commercial partner, built on 20+ years inside the O&amp;P markets, with 1,000 trusted relationships across the global industry.
         </p>
-        <div class="why__photo">
-          <img src="assets/img/v2/why-partnership.jpg" alt="Long term commercial partnerships" loading="lazy" />
-          <div class="why__photo-caption">
-            <div class="why__photo-caption-label">Built on trust</div>
-            <div class="why__photo-caption-text">Long term commercial partnerships, not transactional consulting.</div>
-          </div>
+        <div class="slot" style="aspect-ratio: 5 / 3;">
+          <span class="slot__label">Image — partner meeting or handover<b>5:3</b></span>
+        </div>
+        <div class="why__caption">
+          <div class="why__caption-label">Built on trust</div>
+          <div class="why__caption-text">Long term commercial partnerships, not transactional consulting.</div>
         </div>
       </div>
 
       <div class="why__list">
-        <article class="why-item">
+        <article class="why-item enter enter--up" style="--d:0ms;">
           <div class="why-item__num">01</div>
           <div>
             <h4>Direct access to decision makers</h4>
             <p>Our ~1,000 trusted contacts include manufacturers, distributors, fabrication labs, clinical groups, and technology leaders across the UK, Europe, North America, the Middle East, and Australia.</p>
           </div>
         </article>
-        <article class="why-item">
+        <article class="why-item enter enter--up" style="--d:80ms;">
           <div class="why-item__num">02</div>
           <div>
             <h4>Industry native, not generic</h4>
             <p>20+ years inside O&amp;P manufacturing, fabrication, and clinical workflows. We bring market reality and commercial fluency, not slide deck theory.</p>
           </div>
         </article>
-        <article class="why-item">
+        <article class="why-item enter enter--up" style="--d:160ms;">
           <div class="why-item__num">03</div>
           <div>
             <h4>Flexible commercial models</h4>
             <p>Engage as a strategic advisor, on success based terms, or as a recurring commercial partner. Aligned with your stage, risk profile, and growth goals.</p>
           </div>
         </article>
-        <article class="why-item">
+        <article class="why-item enter enter--up" style="--d:240ms;">
           <div class="why-item__num">04</div>
           <div>
             <h4>A shorter path to traction</h4>
@@ -893,47 +887,47 @@
 <!-- ───── Focus areas ───── -->
 <section id="focus" class="section section--alt">
   <div class="container">
-    <div class="sec-head">
+    <div class="sec-head enter enter--up">
       <h2 class="h2">Quality Suppliers we help</h2>
       <p class="lede" style="margin-top:20px; max-width:560px;">Orthotics &amp; Prosthetics is our core market. We help companies in clinical technology, manufacturing, and materials bring their products into our community of customers.</p>
     </div>
 
-    <div class="focus__grid">
-      <div class="focus-tile focus-tile--1">
-        <img src="assets/img/v2/area-clinical-tech.jpg" alt="Clinical technology" loading="lazy" />
-        <div class="focus-tile__body">
-          <div class="focus-tile__icon"><span class="material-symbols-outlined">monitor_heart</span></div>
-          <div class="focus-tile__title">Clinical technology</div>
-        </div>
-      </div>
-      <div class="focus-tile focus-tile--2">
-        <img src="assets/img/v2/area-additive-mfg.jpg" alt="Additive manufacturing technology" loading="lazy" />
-        <div class="focus-tile__body">
-          <div class="focus-tile__icon"><span class="material-symbols-outlined">view_in_ar</span></div>
-          <div class="focus-tile__title">Additive manufacturing technology</div>
-        </div>
-      </div>
-      <div class="focus-tile focus-tile--3">
-        <img src="assets/img/v2/area-general-mfg.jpg" alt="General manufacturing technology" loading="lazy" />
-        <div class="focus-tile__body">
-          <div class="focus-tile__icon"><span class="material-symbols-outlined">factory</span></div>
-          <div class="focus-tile__title">General manufacturing technology</div>
-        </div>
-      </div>
-      <div class="focus-tile focus-tile--4">
-        <img src="assets/img/v2/area-materials.jpg" alt="Materials &amp; consumables" loading="lazy" />
-        <div class="focus-tile__body">
-          <div class="focus-tile__icon"><span class="material-symbols-outlined">science</span></div>
-          <div class="focus-tile__title">Materials &amp; consumables</div>
-        </div>
-      </div>
-      <div class="focus-tile focus-tile--5">
-        <img src="assets/img/v2/area-finishing-hardware.jpg" alt="Finishing Hardware" loading="lazy" />
-        <div class="focus-tile__body">
-          <div class="focus-tile__icon"><span class="material-symbols-outlined">handyman</span></div>
-          <div class="focus-tile__title">Finishing Hardware</div>
-        </div>
-      </div>
+    <div class="focus__strip">
+      <figure class="focus-item enter enter--rise" style="--d:0ms;">
+        <div class="slot"><span class="slot__label">Image — clinical technology in use<b>3:4</b></span></div>
+        <figcaption class="focus-item__body">
+          <span class="focus-item__icon material-symbols-outlined" aria-hidden="true">monitor_heart</span>
+          <span class="focus-item__title">Clinical technology</span>
+        </figcaption>
+      </figure>
+      <figure class="focus-item enter enter--rise" style="--d:70ms;">
+        <div class="slot"><span class="slot__label">Image — additive manufacturing<b>3:4</b></span></div>
+        <figcaption class="focus-item__body">
+          <span class="focus-item__icon material-symbols-outlined" aria-hidden="true">view_in_ar</span>
+          <span class="focus-item__title">Additive manufacturing technology</span>
+        </figcaption>
+      </figure>
+      <figure class="focus-item enter enter--rise" style="--d:140ms;">
+        <div class="slot"><span class="slot__label">Image — general manufacturing<b>3:4</b></span></div>
+        <figcaption class="focus-item__body">
+          <span class="focus-item__icon material-symbols-outlined" aria-hidden="true">factory</span>
+          <span class="focus-item__title">General manufacturing technology</span>
+        </figcaption>
+      </figure>
+      <figure class="focus-item enter enter--rise" style="--d:210ms;">
+        <div class="slot"><span class="slot__label">Image — materials &amp; consumables<b>3:4</b></span></div>
+        <figcaption class="focus-item__body">
+          <span class="focus-item__icon material-symbols-outlined" aria-hidden="true">science</span>
+          <span class="focus-item__title">Materials &amp; consumables</span>
+        </figcaption>
+      </figure>
+      <figure class="focus-item enter enter--rise" style="--d:280ms;">
+        <div class="slot"><span class="slot__label">Image — finishing hardware<b>3:4</b></span></div>
+        <figcaption class="focus-item__body">
+          <span class="focus-item__icon material-symbols-outlined" aria-hidden="true">handyman</span>
+          <span class="focus-item__title">Finishing Hardware</span>
+        </figcaption>
+      </figure>
     </div>
   </div>
 </section>
@@ -942,7 +936,7 @@
 <section id="network" class="section">
   <div class="container">
     <div class="reach__inner">
-      <div>
+      <div class="enter enter--left">
         <span class="eyebrow">Global reach</span>
         <h2 class="reach__title">Local fluency across the markets that matter most.</h2>
         <p class="reach__lede">
@@ -964,7 +958,7 @@
         </div>
       </div>
 
-      <div class="map-card">
+      <div class="map-card enter enter--right">
         <div class="map-card__inner">
           <div class="map-card__header">
             <span class="map-card__header-label">Global network</span>
@@ -1065,7 +1059,7 @@
         </div>
       </div>
 
-      <div class="book-card" id="bookCard">
+      <div class="book-card enter enter--rise" id="bookCard">
         <!-- populated by JS -->
       </div>
     </div>
@@ -1188,13 +1182,69 @@
   }, { rootMargin: '-45% 0px -45% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] });
   SECTIONS.forEach(id => { const el = document.getElementById(id); if (el) navObserver.observe(el); });
 
-  // ─── Reduced motion: pause SVG map animations ───
+  // ─── Motion ───
+  const root = document.documentElement;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduce) {
     document.querySelectorAll('.map-card__inner svg').forEach(function (svg) {
       try { svg.pauseAnimations(); } catch (e) {}
     });
   }
+
+  // Entrances: the pre-state only exists once JS confirms motion is welcome,
+  // so no-JS and reduced-motion visitors never meet hidden content.
+  if (!reduce && 'IntersectionObserver' in window) {
+    root.classList.add('js-motion');
+    const io = new IntersectionObserver((entries, obs) => {
+      entries.forEach(en => {
+        if (en.isIntersecting) { en.target.classList.add('is-in'); obs.unobserve(en.target); }
+      });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.15 });
+    document.querySelectorAll('.enter').forEach(el => io.observe(el));
+  }
+
+  // Pinned value chain: the rail fills and the stages light as the track scrolls.
+  // Native scroll is untouched — we only read position and set a custom property.
+  (function initValueChain() {
+    const track = document.getElementById('vcTrack');
+    const chain = document.getElementById('vcChain');
+    if (!track || !chain) return;
+    const steps = Array.from(chain.querySelectorAll('.vc-step'));
+    const wide = window.matchMedia('(min-width: 861px)');
+    const canPin = () => !reduce && wide.matches;
+    let ticking = false, bound = false;
+
+    function update() {
+      ticking = false;
+      if (!canPin()) return;
+      const r = track.getBoundingClientRect();
+      const total = r.height - window.innerHeight;
+      if (total <= 0) return;
+      const p = Math.min(1, Math.max(0, -r.top / total));
+      track.style.setProperty('--vc-p', p.toFixed(4));
+      const lit = Math.floor(p * steps.length + 1e-4);
+      steps.forEach((s, i) => s.classList.toggle('is-lit', p >= 1 || i <= lit));
+    }
+    function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(update); } }
+
+    function apply() {
+      if (canPin()) {
+        root.classList.add('js-pin');
+        if (!bound) { window.addEventListener('scroll', onScroll, { passive: true }); bound = true; }
+        update();
+      } else {
+        root.classList.remove('js-pin');
+        if (bound) { window.removeEventListener('scroll', onScroll); bound = false; }
+        track.style.removeProperty('--vc-p');
+        steps.forEach(s => s.classList.add('is-lit'));
+      }
+    }
+    apply();
+    // the breakpoint itself is the authoritative signal; resize only refreshes the sticky maths
+    if (wide.addEventListener) wide.addEventListener('change', apply);
+    else if (wide.addListener) wide.addListener(apply);
+    window.addEventListener('resize', apply, { passive: true });
+  })();
 
   // ─── Hero globe: realistically lit dotted Earth with live connection arcs (canvas, dependency-free) ───
   (function initGlobe() {
