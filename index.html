@@ -248,7 +248,9 @@
   .vc__sticky { padding: var(--section-pad) 0; }
   .vc__head { max-width: 820px; margin: 0 0 clamp(36px, 5vh, 56px); }
   .vc__head .h2 { margin-bottom: 20px; }
-  html.js-pin .vc__track { height: 320vh; position: relative; }
+  /* 180vh = 80vh of scroll distance across five stages — enough to read the
+     sequence, short enough that it never feels like dead space. */
+  html.js-pin .vc__track { height: 180vh; position: relative; }
   html.js-pin .vc__sticky { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 0; }
   html.js-pin .vc__head { margin-bottom: clamp(28px, 4vh, 44px); }
   .vc-chain { display: flex; align-items: flex-start; justify-content: space-between; gap: 4px; }
@@ -269,7 +271,7 @@
   .vc__rail { position: relative; height: 1px; background: var(--border-card); margin: 0 0 clamp(18px, 2.4vh, 26px); }
   /* scaleX, not width — the fill updates on the compositor, never the layout */
   .vc__rail-fill { position: absolute; inset: 0 0 0 0; background: var(--np-blue); transform-origin: 0 50%; transform: scaleX(var(--vc-p, 1)); transition: transform 120ms linear; }
-  .vc__outro { padding-bottom: var(--section-pad); }
+  html.js-pin .vc-chain + .cta-banner { margin-top: clamp(28px, 3.5vh, 44px); }
   @media (max-width: 860px) {
     html.js-pin .vc__track { height: auto; }
     html.js-pin .vc__sticky { position: static; height: auto; padding: var(--section-pad) 0; }
@@ -803,20 +805,18 @@
             <div class="vc-step__sub">Raw materials &amp; components</div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
 
-  <div class="container vc__outro">
-    <div class="cta-banner">
-      <div class="cta-banner__text">
-        <span class="material-symbols-outlined">arrow_outward</span>
-        <span>Where do you sit in the chain? We can help you build an optimal value chain.</span>
+        <div class="cta-banner">
+          <div class="cta-banner__text">
+            <span class="material-symbols-outlined">arrow_outward</span>
+            <span>Where do you sit in the chain? We can help you build an optimal value chain.</span>
+          </div>
+          <a href="#book" class="cta-banner__link" data-nav="book">
+            Map my position
+            <span class="material-symbols-outlined">arrow_forward</span>
+          </a>
+        </div>
       </div>
-      <a href="#book" class="cta-banner__link" data-nav="book">
-        Map my position
-        <span class="material-symbols-outlined">arrow_forward</span>
-      </a>
     </div>
   </div>
 </section>
@@ -1222,8 +1222,9 @@
       if (total <= 0) return;
       const p = Math.min(1, Math.max(0, -r.top / total));
       track.style.setProperty('--vc-p', p.toFixed(4));
-      const lit = Math.floor(p * steps.length + 1e-4);
-      steps.forEach((s, i) => s.classList.toggle('is-lit', p >= 1 || i <= lit));
+      // spread the stages across the whole track: first lit at p=0, last at p=1
+      const lit = Math.floor(p * (steps.length - 1) + 1e-4);
+      steps.forEach((s, i) => s.classList.toggle('is-lit', i <= lit));
     }
     function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(update); } }
 
