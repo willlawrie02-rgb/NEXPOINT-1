@@ -8,6 +8,26 @@
         "value": "montserrat",
         "createdAt": "2026-08-06T20:34:02.916Z",
         "reason": "User brief: keep the brand typography (Montserrat display) unchanged"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "index.html",
+          "portal/index.html"
+        ],
+        "createdAt": "2026-08-07T09:38:54.377Z",
+        "reason": "Brand-documented primary-button hover (0 10px 28px rgba(0,92,200,.35), brand/design-system.md) — offset plus blur, not a zero-offset halo"
+      },
+      {
+        "rule": "radial-halo",
+        "value": "*",
+        "files": [
+          "index.html",
+          "portal/index.html"
+        ],
+        "createdAt": "2026-08-07T09:39:01.069Z",
+        "reason": "Light-mode dark backing behind the semi-transparent globe canvas — legibility, not decoration; inactive in dark theme"
       }
     ]
   }
