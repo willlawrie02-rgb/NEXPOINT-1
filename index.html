@@ -52,7 +52,11 @@
 
   *, *::before, *::after { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg-1); font-family: var(--font-body); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  /* overflow-x must be `clip`, not `hidden`: `hidden` makes these elements
+     scroll containers (body's overflow-y computes to auto), which silently
+     kills `position: sticky` for every descendant. `clip` clips identically
+     without creating one. */
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg-1); font-family: var(--font-body); -webkit-font-smoothing: antialiased; overflow-x: clip; }
   img, svg { max-width: 100%; }
   ::selection { background: rgba(0, 92, 200, 0.4); color: #fff; }
 

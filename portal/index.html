@@ -24,7 +24,9 @@
   }
   *{margin:0;padding:0;box-sizing:border-box}
   html{scroll-behavior:smooth}
-  body{background:var(--bg);color:var(--on-surface);font-family:var(--font-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  /* `clip` not `hidden`: hidden makes body a scroll container, which breaks the
+     sticky header (and any other position:sticky descendant). */
+  body{background:var(--bg);color:var(--on-surface);font-family:var(--font-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:clip}
   h1,h2,h3,h4,.font-display{font-family:var(--font-display)}
   a{color:inherit;text-decoration:none}
   img,svg{max-width:100%}
