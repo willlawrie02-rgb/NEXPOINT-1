@@ -221,6 +221,9 @@
     color: var(--fg-2); text-align: center; max-width: 26ch;
   }
   .slot__label b { display: block; font-weight: 600; color: rgba(226, 226, 226, 0.42); letter-spacing: 0.16em; }
+  /* a landed asset: same frame and reserved ratio as the slot it replaces, no filters */
+  .shot { position: relative; margin: 0; overflow: hidden; border: 1px solid var(--border-card); background: var(--surface); }
+  .shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 
   /* ─── Section header (shared, vertical-stacked, no split-header) ─── */
   .sec-head { max-width: 760px; margin: 0 0 clamp(40px, 6vh, 64px); }
@@ -729,9 +732,9 @@
           <p>Acting as an extension of your sales team, we help you gain traction faster, without relying on cold outreach.</p>
         </div>
         <div class="svc-row__media enter enter--right">
-          <div class="slot" style="aspect-ratio: 4 / 3;">
-            <span class="slot__label">Image — clinic or lab visit<b>4:3</b></span>
-          </div>
+          <figure class="shot" style="aspect-ratio: 4 / 3;">
+            <img src="assets/img/bd-strategy-meeting.jpg" alt="Two people seated either side of a clinic desk in discussion, a custom orthotic insole and a tablet on the desk between them" loading="lazy" width="1200" height="900" />
+          </figure>
         </div>
       </li>
 
