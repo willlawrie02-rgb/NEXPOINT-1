@@ -4,6 +4,7 @@
     "ref": "BRIEF NX-2581",
     "cat": "succession",
     "dir": "SEEKING",
+    "head": "UK group buying into North American labs",
     "title": "UK group seeking full or partial acquisitions / partnerships within North America",
     "regions": [
       "North America"
@@ -60,6 +61,7 @@
     "ref": "BRIEF NX-2584",
     "cat": "materials",
     "dir": "OFFERING",
+    "head": "Foaming FDM filament with tunable stiffness",
     "title": "Market leading foaming FDM filaments with temperature-controlled stiffness, seeking labs and distributors",
     "regions": [
       "Global"
@@ -114,6 +116,7 @@
     "ref": "BRIEF NX-2587",
     "cat": "equipment",
     "dir": "OFFERING",
+    "head": "Global additive OEM wants O&P reference partners",
     "title": "A global additive OEM is seeking O&P reference partners and specialist resellers",
     "regions": [
       "Global"
@@ -168,6 +171,7 @@
     "ref": "BRIEF NX-2589",
     "cat": "equipment",
     "dir": "OFFERING",
+    "head": "North American finishing equipment, EU distribution open",
     "title": "North American finishing equipment maker seeking European distribution",
     "regions": [
       "UK & Europe"
@@ -222,6 +226,7 @@
     "ref": "BRIEF NX-2592",
     "cat": "talent",
     "dir": "TWO-WAY",
+    "head": "Experienced UK clinicians and technicians available",
     "title": "Seeking experienced UK based O&P clinicians, technicians looking for a new opportunity",
     "regions": [
       "United Kingdom",
@@ -273,6 +278,7 @@
     "ref": "BRIEF NX-2604",
     "cat": "manufacturing",
     "dir": "OFFERING",
+    "head": "Factory-within-a-factory: your own line and team",
     "title": "A dedicated & branded production line, a Factory-within-a-factory with your own dedicated line & team. Your brand, your spec",
     "regions": [
       "Americas",
@@ -330,6 +336,7 @@
     "ref": "BRIEF NX-2606",
     "cat": "materials",
     "dir": "OFFERING",
+    "head": "Proven prefab insole ranges, new territories open",
     "title": "Proven prefab insole ranges available for distribution within new territories",
     "regions": [
       "Global"
@@ -384,6 +391,7 @@
     "ref": "BRIEF NX-2609",
     "cat": "materials",
     "dir": "OFFERING",
+    "head": "Thermoformable graphite shells, UK and EU distribution",
     "title": "Thermoformable graphite composite shells seeking UK and European distributors",
     "regions": [
       "UK & Europe"
@@ -438,6 +446,7 @@
     "ref": "BRIEF NX-2611",
     "cat": "manufacturing",
     "dir": "SEEKING",
+    "head": "US brand needs a semi-custom cork manufacturer",
     "title": "US consumer orthotics brand seeking a semi-custom cork manufacturer",
     "regions": [
       "North America"
@@ -492,6 +501,7 @@
     "ref": "BRIEF NX-2614",
     "cat": "materials",
     "dir": "OFFERING",
+    "head": "Clinically evidenced UK insoles, US distribution",
     "title": "Clinically evidenced UK prefab insoles seeking US distribution partners",
     "regions": [
       "North America"
@@ -546,6 +556,7 @@
     "ref": "BRIEF NX-2621",
     "cat": "equipment",
     "dir": "OFFERING",
+    "head": "European 3D foot scanners, buyers and resellers wanted",
     "title": "Professional 3D foot scanners from a European manufacturer, seeking buyers and resellers",
     "regions": [
       "Global"
