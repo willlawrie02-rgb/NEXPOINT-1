@@ -581,6 +581,10 @@
   html[data-theme="light"] .map-card__header-label,
   html[data-theme="light"] .map-card__footer-label { color: #5A6474; }
   html[data-theme="light"] .map-card__inner svg text { fill: #2C3444; }
+  /* the map is drawn light-on-dark; on the light ground every white element
+     has to flip or it disappears into the page */
+  html[data-theme="light"] #landmass-dots { fill: rgba(14, 22, 38, 0.28); }
+  html[data-theme="light"] .map-card__inner svg circle[fill="#0d0e0f"] { fill: #FFFFFF; }
 
   /* Contact ("Get in touch") — light in light mode */
   html[data-theme="light"] .book { background: var(--bg); }
