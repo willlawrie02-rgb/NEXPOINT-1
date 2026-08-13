@@ -398,4 +398,21 @@ function runDemo(){
   document.addEventListener('visibilitychange', () => { document.hidden ? stop() : start(); });
 })();
 
+/* ---------- entrances (ported verbatim from the live site) ----------
+   The pre-state only exists once JS confirms motion is welcome, so no-JS and
+   reduced-motion visitors never meet hidden content. */
+(function initEntrances(){
+  const root = document.documentElement;
+  const reduce = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false;
+  if (!reduce && 'IntersectionObserver' in window) {
+    root.classList.add('js-motion');
+    const io = new IntersectionObserver((entries, obs) => {
+      entries.forEach(en => {
+        if (en.isIntersecting) { en.target.classList.add('is-in'); obs.unobserve(en.target); }
+      });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.15 });
+    document.querySelectorAll('.enter').forEach(el => io.observe(el));
+  }
+})();
+
 document.addEventListener('DOMContentLoaded', () => { initLocPicker(); runDemo(); });
