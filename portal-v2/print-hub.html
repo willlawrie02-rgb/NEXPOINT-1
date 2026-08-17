@@ -5,32 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
 <title>Global Print Hub — The NexPoint User Portal</title>
-<link rel="icon" href="/assets/nexpoint-logo.png">
+<link rel="icon" href="../assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/portal.css">
 </head>
-<body>
+<body data-hub="print">
 <!--
-THESIS: the Print Hub in one line — the file travels, not the product — proven by a working capacity matcher, not claims. Refuses the tabbed everything-panel.
-OWN-WORLD: NexPoint bright clinical premium — light canvas, blue/green accents, Montserrat/Inter, hairline editorial rows, real lab photography.
-STORY: a lab owner sees their own machines in the hero photo, understands the mechanic in one line, finds capacity near them or registers their printers — two visible paths, no tabs.
-FIRST VIEWPORT: breadcrumb, headline + one-line mechanic left with two anchor CTAs; SLS-lab photograph right in a framed media block.
-FORM: established-world extension, precisely specified brief (no concept roll; composition pinned by client answers 2026-08-12).
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md.
+v3 · 2026-08-15 — rebuilt from Chris's 14 Aug review.
+ORDER: hero → the four opportunity rows (his "priority one") → two doors (the action)
+       → how it works, demoted to footer-weight detail.
+CHANGED: step 04 "The file moves" deleted — NexPoint is not in the transactional
+relationship · step 05 no longer claims every lab carries your brand · "Printers
+sitting idle" → "3D print capacity available" · seeker and provider now have their
+own pages · logo path fixed.
 -->
 
 <div class="scroll-progress" aria-hidden="true"></div>
 
 <header>
   <div class="container nav">
-    <a href="index.html" class="wordmark" aria-label="NexPoint User Portal home"><img src="/assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Portal v2 · Draft 0.2</span></a>
+    <a href="index.html" class="wordmark" aria-label="NexPoint User Portal home"><img src="../assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Portal v3 · Draft</span></a>
     <nav class="nav-links" aria-label="Portal">
       <a href="print-hub.html" class="hide-m" aria-current="page">Print Hub</a>
       <a href="mill-hub.html" class="hide-m">Mill Hub</a>
-      <a href="/portal/" class="hide-m">The Board</a>
+      <a href="../portal/" class="hide-m">Opportunities</a>
       <a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a>
       <button class="btn btn-primary" onclick="openIntro('PRINT HUB','Talk to the desk')">Talk to the desk</button>
     </nav>
@@ -40,7 +41,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <a href="index.html">Portal home</a>
   <a href="print-hub.html" aria-current="page">Print Hub</a>
   <a href="mill-hub.html">Mill Hub</a>
-  <a href="/portal/">The Board</a>
+  <a href="../portal/">Opportunities</a>
 </nav>
 
 <div class="container">
@@ -54,14 +55,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <div>
         <span class="eyebrow"><span class="live-dot"></span>Global Print Hub</span>
         <h1>The file travels.<br><em>Not the product.</em></h1>
-        <p class="lede">Certified 3D-printing laboratories across six regions print each other's work close to the end customer. No freight, no customs, no import taxes: a device printed and shipped domestically, with your branding on the box, at one fixed worldwide price.</p>
+        <p class="lede">Certified 3D-printing laboratories across six regions print each other's work close to the end customer. No freight, no customs, no import taxes: a device printed and shipped inside the destination market, at one fixed worldwide price.</p>
         <div class="ctas">
-          <a class="btn btn-primary" href="#find">Find print capacity</a>
-          <a class="btn btn-outline" href="#join">Register your lab</a>
+          <a class="btn btn-primary" href="print-find.html">Find print capacity</a>
+          <a class="btn btn-outline" href="print-offer.html">Offer print capacity</a>
         </div>
       </div>
       <div class="hero-media">
-        <img src="assets/img/print-hub.jpg" alt="Freshly printed nylon orthotic insoles on a workbench in front of an industrial SLS 3D printer">
+        <img src="assets/img/print-hub.jpg" alt="Freshly printed nylon orthotic shells on a workbench in front of an industrial SLS 3D printer">
         <span class="tag"><span class="live-dot"></span>US$35 a pair, worldwide</span>
       </div>
     </div>
@@ -82,141 +83,99 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   </div>
 </section>
 
-<!-- WHY -->
+<!-- PRIORITY ONE: why you'd bother -->
 <section class="section">
   <div class="container">
     <div class="enter enter--up">
-    <h2>Built for the labs the printer market left in between.</h2>
+    <h2>Built for the labs the printer market <em>left in between.</em></h2>
     <p class="sub">Whether you own no printer or five, the hub turns the network's spare capacity into your capacity.</p>
     </div>
     <div class="rows">
       <div class="row enter enter--up" style="--d:0ms">
         <span class="material-symbols-outlined" aria-hidden="true">print_disabled</span>
         <span class="lead">No printer yet</span>
-        <p>A trusted route to certified capacity at one transparent price. Try 3D printing on real orders before buying the machine.</p>
+        <p>A trusted route to certified capacity at one transparent price. Try 3D printing on real orders before you buy the machine.</p>
       </div>
       <div class="row enter enter--up" style="--d:70ms">
-        <span class="material-symbols-outlined" aria-hidden="true">avg_pace</span>
-        <span class="lead">Printers sitting idle</span>
-        <p>Hub volume fills your build plates between your own jobs and helps justify the next machine at lower risk. You already own the printer; the hub gets more value from it.</p>
+        <span class="material-symbols-outlined" aria-hidden="true">precision_manufacturing</span>
+        <span class="lead">3D print capacity available</span>
+        <p>You already own the printer. Hub volume fills your build plates between your own jobs, and helps justify the next machine at lower risk.</p>
       </div>
       <div class="row enter enter--up" style="--d:140ms">
         <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
-        <span class="lead">Selling abroad</span>
-        <p>Your files print inside the destination market and ship domestically, carrying your branding: days instead of weeks, and no parcel ever crosses a border.</p>
+        <span class="lead">Selling into a market you can't ship to</span>
+        <p>Reach customers abroad without the logistics. Your file prints inside the destination country and ships domestically: days instead of weeks, no customs, no import duty, and no parcel ever crosses a border.</p>
       </div>
       <div class="row enter enter--up" style="--d:210ms">
         <span class="material-symbols-outlined" aria-hidden="true">grid_view</span>
         <span class="lead">Missing a technology</span>
-        <p>MJF, SLS and resin capacity across the network, without owning every printer and stocking every material yourself.</p>
+        <p>You run SLS but not powder-bed fusion; you print TPU but not resin. Take the jobs your own machines can't do by placing them with a lab that can, instead of owning every printer and stocking every material yourself.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- HOW -->
+<!-- PRIORITY TWO: the action. Two doors, two audiences, two pages. -->
 <section class="section alt">
   <div class="container">
     <div class="enter enter--up">
-    <h2>How the Print Hub works</h2>
-    <p class="sub">Six steps, and only the file moves. Quality is held by certification: approved printers and materials, calibration, inspection, packaging and delivery standards.</p>
+      <h2>Which side of the network <em>are you on?</em></h2>
+      <p class="sub">The two journeys are different, so they get different pages. Pick yours.</p>
     </div>
-    <div class="steps">
+    <div class="doors">
+      <a class="door enter enter--up" style="--d:0ms" href="print-find.html">
+        <div class="door__media"><img src="assets/img/print-hub.jpg" alt=""></div>
+        <div class="door__body">
+          <span class="door__kicker">I need capacity</span>
+          <h3>Find print capacity near you</h3>
+          <p>Start on the map. Three clicks and you can see what the network can print close to your customers.</p>
+          <span class="go">Open the capacity map <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </div>
+      </a>
+      <a class="door enter enter--up" style="--d:70ms" href="print-offer.html">
+        <div class="door__media"><img src="assets/img/product-hub.jpg" alt=""></div>
+        <div class="door__body">
+          <span class="door__kicker">I have capacity</span>
+          <h3>Offer print capacity</h3>
+          <p>Own printers? Found the network on them. Twenty founding laboratories shape the network they'll profit from.</p>
+          <span class="go">Register your lab <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- DETAIL, demoted: how it works -->
+<section class="section">
+  <div class="container">
+    <div class="enter enter--up">
+    <h2>How the Print Hub works</h2>
+    <p class="sub">Five steps, and only the file moves. Quality is held by certification: approved printers and materials, calibration, inspection, packaging and delivery standards.</p>
+    </div>
+    <div class="steps" style="grid-template-columns:repeat(5,minmax(0,1fr))">
       <div class="step enter enter--up" style="--d:0ms"><span class="n">01</span><h3>Join &amp; verify</h3><p>We verify every lab's equipment, materials, print quality and production standards before it joins.</p></div>
       <div class="step enter enter--up" style="--d:60ms"><span class="n">02</span><h3>Build your profile</h3><p>Printers, build sizes, materials, capacity, lead times and the countries you serve: your entry on the capacity map.</p></div>
       <div class="step enter enter--up" style="--d:120ms"><span class="n">03</span><h3>Demand arrives</h3><p>Search the network yourself, or ask us to recommend the right partner for the job.</p></div>
-      <div class="step enter enter--up" style="--d:180ms"><span class="n">04</span><h3>The file moves</h3><p>An encrypted design file transfers securely between members. Nothing physical crosses a border.</p></div>
-      <div class="step enter enter--up" style="--d:240ms"><span class="n">05</span><h3>Printed locally</h3><p>The receiving lab prints, packages and ships domestically, carrying your branding, to your standard.</p></div>
-      <div class="step enter enter--up" style="--d:300ms"><span class="n">06</span><h3>Everyone earns</h3><p>The work is paid at the fixed network price. Our small network fee is added on top, never taken from a lab's margin.</p></div>
+      <div class="step enter enter--up" style="--d:180ms"><span class="n">04</span><h3>Printed locally</h3><p>The receiving lab prints, packages and ships inside the destination market, to the network's standard. Branding and finish are agreed between the two labs.</p></div>
+      <div class="step enter enter--up" style="--d:240ms"><span class="n">05</span><h3>Everyone earns</h3><p>The work is paid at the fixed network price. Our small network fee is added on top, never taken from a lab's margin.</p></div>
     </div>
-  </div>
-</section>
 
-<!-- FIND CAPACITY -->
-<section class="section" id="find">
-  <div class="container">
-    <div class="enter enter--up">
-    <h2>Find capacity <em>near you.</em></h2>
-    <p class="sub">Matching starts with location, so logistics work from the first conversation. Tell us where you are and see what the network can print.</p>
-    </div>
-    <div class="panel enter enter--rise">
-      <div class="loc-grid">
-        <div class="field">
-          <label for="locRegion">Region</label>
-          <select id="locRegion" onchange="fillCountries()">
-            <option value="">Choose a region</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="locCountry">Country</label>
-          <select id="locCountry" disabled><option value="">Choose a country</option></select>
-        </div>
-        <div class="field">
-          <label for="locTown">City / town</label>
-          <input id="locTown" placeholder="Type your town">
-        </div>
-        <button class="btn btn-primary" onclick="showMatches()">Show the capacity near me</button>
-      </div>
-      <div class="loc-note">Your location is only used to match you to nearby nodes. Nothing is stored in this draft.</div>
-      <div id="matchIntro" style="display:none;margin-bottom:20px;font-size:14px;color:var(--on-surface)"></div>
-      <div class="cap-grid" id="capGrid"></div>
-    </div>
-  </div>
-</section>
-
-<!-- JOIN -->
-<section class="section alt" id="join">
-  <div class="container">
-    <div class="enter enter--up">
-    <h2>Own printers? Found the network on them.</h2>
-    <p class="sub">The first twenty laboratories shape the network they'll profit from, and their success stories set the standard for the hundred that follow.</p>
-    </div>
-    <div class="split" style="align-items:start">
-      <div class="enter enter--left">
-        <ul class="benefits">
-          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Priority referrals: hub demand routes to founding nodes first</li>
-          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Influence over the certification and quality standards</li>
-          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Preferential pricing, locked for the life of your membership</li>
-          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>One fixed worldwide price that protects your existing margin</li>
-          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Backup production when a machine goes down, yours or theirs</li>
-          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Lifetime founding-member recognition across the network</li>
-        </ul>
-        <div class="locked" style="margin-top:24px">
-          <span class="label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Certification, in plain terms</span>
-          <div class="note" style="margin-top:0;font-size:13px;line-height:20px">Approved printers and materials (Nylon 11, Nylon 12, Nylon 12 Tough and Polypropylene) plus calibration, accuracy, inspection, packaging and delivery standards. Members warrant a quality service, not just a product.</div>
-        </div>
-      </div>
-      <div class="panel enter enter--right">
-        <div class="steps-head">Register your lab</div>
-        <form onsubmit="return joinSubmit(event)">
-          <div class="form-grid">
-            <div class="field"><label for="jCompany">Company name</label><input id="jCompany" required placeholder="Your laboratory"></div>
-            <div class="field"><label for="jName">Your name</label><input id="jName" required placeholder="Full name"></div>
-            <div class="field"><label for="jEmail">Email</label><input id="jEmail" type="email" required placeholder="you@company.com"></div>
-            <div class="field"><label for="jWebsite">Website</label><input id="jWebsite" placeholder="www.company.com"></div>
-            <div class="field"><label for="jCountry">Country</label><input id="jCountry" required placeholder="Country"></div>
-            <div class="field"><label for="jTown">City / town</label><input id="jTown" placeholder="City or town"></div>
-            <div class="field full"><label for="jPrinters">Printers &amp; materials</label><input id="jPrinters" placeholder="e.g. HP MJF 5200 · Nylon 11, TPU"></div>
-            <div class="field full"><label for="jCapacity">Spare monthly capacity (pairs)</label><input id="jCapacity" placeholder="e.g. 400"></div>
-            <div class="field full"><label for="jNotes">Anything else you think is useful?</label><textarea id="jNotes" placeholder="Lead times, countries you serve, plans"></textarea></div>
-          </div>
-          <div class="privacy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5a8f1d" stroke-width="2" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg> Seen by NexPoint only. We'll confirm your account by email, then verify equipment and standards with you directly.</div>
-          <div class="modal-actions"><button class="btn btn-primary" type="submit">Register my lab</button></div>
-        </form>
-      </div>
+    <div class="locked" style="margin-top:36px;max-width:760px">
+      <span class="label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Certification, in plain terms</span>
+      <div class="note" style="margin-top:0;font-size:13px;line-height:20px">Approved printers and materials (Nylon 11, Nylon 12, Nylon 12 Tough and Polypropylene) plus calibration, accuracy, inspection, packaging and delivery standards. Members warrant a quality service, not just a product.</div>
     </div>
   </div>
 </section>
 
 <!-- NEXT HUB -->
-<section class="section next-hub" style="padding-bottom:0">
+<section class="section next-hub" style="padding-bottom:0;padding-top:0">
   <div class="container">
     <a class="enter enter--rise" href="mill-hub.html">
       <div class="txt">
         <span class="kicker">Next door</span>
         <h3>Milled production, run as your own line — the Global Mill Hub <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></h3>
       </div>
-      <img src="assets/img/mill-hub.jpg" alt="CNC mill carving an orthotic insole from a polypropylene block">
+      <img src="assets/img/mill-hub.jpg" alt="CNC mill cutting a custom orthotic insole from a polypropylene blank">
     </a>
   </div>
 </section>
@@ -234,25 +193,25 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 <footer class="footer">
   <div class="footer__inner">
     <div class="footer__brand">
-      <a href="/" aria-label="NexPoint home"><img src="/assets/nexpoint-logo.png" alt="NexPoint"></a>
+      <a href="../index.html" aria-label="NexPoint home"><img src="../assets/nexpoint-logo.png" alt="NexPoint"></a>
       <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, and Australia.</p>
     </div>
     <div class="footer__col">
-      <h5>The Portal</h5>
+      <h5>Print Hub</h5>
       <ul>
+        <li><a href="print-find.html">Find print capacity</a></li>
+        <li><a href="print-offer.html">Offer print capacity</a></li>
         <li><a href="index.html">Portal home</a></li>
         <li><a href="mill-hub.html">Global Mill Hub</a></li>
-        <li><a href="/portal/">The opportunity board</a></li>
-        <li><a href="index.html#how">How it works</a></li>
       </ul>
     </div>
     <div class="footer__col">
       <h5>NexPoint</h5>
       <ul>
-        <li><a href="/">Main site</a></li>
-        <li><a href="/#services">Services</a></li>
-        <li><a href="/#network">Global network</a></li>
-        <li><a href="/#expertise">Why NexPoint</a></li>
+        <li><a href="../index.html">Main site</a></li>
+        <li><a href="../index.html#services">Services</a></li>
+        <li><a href="../index.html#network">Global network</a></li>
+        <li><a href="../portal/">The opportunity board</a></li>
       </ul>
     </div>
     <div class="footer__col">
@@ -268,8 +227,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <div class="footer__bar">
     <span>&copy; 2026 NexPoint Ltd. All rights reserved. Capacity figures are illustrative summaries held in confidence; identities, pricing and locations are never published.</span>
     <div class="footer__bar-links">
-      <a href="/portal/privacy.html">Privacy</a>
-      <a href="/">Main site</a>
+      <a href="../portal/privacy.html">Privacy</a>
+      <a href="../index.html">Main site</a>
     </div>
   </div>
 </footer>
