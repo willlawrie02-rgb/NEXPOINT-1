@@ -119,6 +119,10 @@
   html[data-theme="light"] .row.withheld{border-left-color:#9aa0a6}
   html[data-theme="light"] .badge.withheld{background:#9aa0a6}
   html[data-theme="light"] label .opt{color:#9aa0a6}
+  nav.boards{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:24px 0 0}
+  nav.boards a{padding:10px 14px;font-size:13.5px;font-weight:600;color:var(--mut);text-decoration:none;border-bottom:2px solid transparent}
+  nav.boards a:hover{color:#fff}
+  nav.boards a[aria-current="page"]{color:#fff;border-bottom-color:var(--blue)}
 </style>
 <script>
   /* Set theme before paint to avoid a flash. Explicit choice wins; else follow OS. */
@@ -167,6 +171,12 @@
       </div>
     </div></header>
     <main><div class="wrap">
+    <nav class="boards" style="margin-bottom:8px">
+      <a href="index.html" aria-current="page">Briefs</a>
+      <a href="leads.html">Leads</a>
+      <a href="tasks.html">Tasks</a>
+      <a href="health.html">Health</a>
+    </nav>
       <div class="toolbar">
         <h2>Opportunity board</h2>
         <div style="display:flex;gap:10px;align-items:center">
