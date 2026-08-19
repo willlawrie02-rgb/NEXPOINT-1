@@ -351,27 +351,28 @@ a.door:hover .go svg{transform:translateX(3px)}
 /* the map — dot-matrix world, same grammar as the hero globe, on the light canvas */
 .mapwrap{position:relative;border:1px solid var(--border-card);border-radius:var(--radius-xl);background:var(--surface);padding:clamp(14px,1.8vw,24px);box-shadow:0 12px 30px rgba(14,22,38,.06)}
 .mapwrap svg{display:block;width:100%;height:auto;overflow:visible}
-.map-land{fill:rgba(14,22,38,.26)}
-.map-hit{fill:rgba(14,22,38,.025);stroke:rgba(14,22,38,.3);stroke-width:1.1;transition:fill var(--dur) var(--ease),stroke var(--dur) var(--ease)}
+/* dots are zero-length segments with round caps — one light path instead of 10k arcs */
+.map-land path{fill:none;stroke:rgba(14,22,38,.34);stroke-width:1.35;stroke-linecap:round;transition:stroke var(--dur) var(--ease)}
+.map-land path.is-hot{stroke:rgba(0,92,200,.55)}
+.map-land path.is-sel{stroke:var(--blue)}
+
+
+/* the box is a hit target now, not a drawn object — the landmass carries the state */
+.map-hit{fill:transparent;stroke:none}
 .map-region{cursor:pointer}
-.map-region:hover .map-hit{fill:rgba(0,92,200,.08);stroke:var(--blue);stroke-width:1.6}
 .map-region:focus{outline:none}
-.map-region:focus-visible .map-hit{fill:rgba(0,92,200,.08);stroke:var(--blue-bright);stroke-width:1.8}
-.map-region.is-active .map-hit{fill:rgba(0,92,200,.13);stroke:var(--blue);stroke-width:2}
-.map-region.is-empty .map-hit{fill:transparent;stroke:rgba(14,22,38,.16);stroke-dasharray:4 4}
-.map-name{font:600 10.5px/1 'Inter',sans-serif;letter-spacing:.05em;text-transform:uppercase;fill:rgba(14,22,38,.78);pointer-events:none}
+.map-region:focus-visible .map-hit{stroke:var(--blue-bright);stroke-width:1.5;rx:8}
+.map-name{font:600 10.5px/1 'Inter',sans-serif;letter-spacing:.06em;text-transform:uppercase;fill:rgba(14,22,38,.66);pointer-events:none;transition:fill var(--dur) var(--ease)}
 .map-region:hover .map-name,.map-region.is-active .map-name{fill:var(--blue)}
-.map-chip{fill:#fff;stroke:rgba(14,22,38,.18);stroke-width:1;pointer-events:none;transition:fill var(--dur) var(--ease),stroke var(--dur) var(--ease)}
-.map-region:hover .map-chip,.map-region:focus-visible .map-chip,.map-region.is-active .map-chip{fill:var(--blue);stroke:var(--blue)}
-.map-region.is-empty .map-chip{fill:transparent;stroke:rgba(14,22,38,.16)}
-.map-count{font:700 12.5px/1 'Montserrat',sans-serif;fill:#0E1626;pointer-events:none}
-.map-region:hover .map-count,.map-region:focus-visible .map-count,.map-region.is-active .map-count{fill:#fff}
-.map-region.is-empty .map-count{fill:rgba(14,22,38,.4)}
+
+
+/* live nodes: brand live-dot, halo and all */
 .map-node{fill:var(--green)}
-.map-region.is-empty .map-node{fill:rgba(14,22,38,.22)}
+.map-node-halo{fill:var(--green);opacity:.18}
+.map-region.is-empty .map-node,.map-region.is-empty .map-node-halo{fill:rgba(14,22,38,.22)}
 .map-legend{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--outline)}
 .map-legend b{display:inline-flex;align-items:center;gap:7px;font-weight:500;color:var(--outline)}
-@media(max-width:620px){.map-name{font-size:13px}.map-count{font-size:15px}}
+@media(max-width:620px){.map-name{font-size:13px}}
 
 /* numbered flow on the find pages — step 1 map, step 2 detail, step 3 answer */
 .flow{display:flex;flex-direction:column;gap:clamp(22px,3vh,36px)}
@@ -400,6 +401,4 @@ a.door:hover .go svg{transform:translateX(3px)}
 .cap-empty{border:1px dashed rgba(14,22,38,.22);border-radius:var(--radius-xl);padding:clamp(24px,3vw,36px);background:rgba(14,22,38,.02);text-align:center}
 .cap-empty h3{font:600 18px/1.3 var(--font-display);color:#0E1626;margin:0 0 8px}
 .cap-empty p{font-size:14px;line-height:22px;color:var(--on-surface-var);max-width:440px;margin:0 auto 20px}
-.map-status{font:600 9.5px/1 'Inter',sans-serif;letter-spacing:.09em;text-transform:uppercase;fill:rgba(14,22,38,.5);pointer-events:none}
-.map-status.is-next{fill:var(--blue)}
-.map-region:hover .map-status,.map-region:focus-visible .map-status,.map-region.is-active .map-status{fill:#fff}
+.map-region.is-active 
