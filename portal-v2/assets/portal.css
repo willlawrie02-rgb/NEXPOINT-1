@@ -351,17 +351,21 @@ a.door:hover .go svg{transform:translateX(3px)}
 /* the map — dot-matrix world, same grammar as the hero globe, on the light canvas */
 .mapwrap{position:relative;border:1px solid var(--border-card);border-radius:var(--radius-xl);background:var(--surface);padding:clamp(14px,1.8vw,24px);box-shadow:0 12px 30px rgba(14,22,38,.06)}
 .mapwrap svg{display:block;width:100%;height:auto;overflow:visible}
-.map-land{fill:rgba(14,22,38,.17)}
-.map-hit{fill:transparent;stroke:rgba(14,22,38,.18);stroke-width:1.2;stroke-dasharray:3 3;transition:fill var(--dur) var(--ease),stroke var(--dur) var(--ease)}
+.map-land{fill:rgba(14,22,38,.26)}
+.map-hit{fill:rgba(14,22,38,.025);stroke:rgba(14,22,38,.3);stroke-width:1.1;transition:fill var(--dur) var(--ease),stroke var(--dur) var(--ease)}
 .map-region{cursor:pointer}
-.map-region:hover .map-hit{fill:rgba(0,92,200,.07);stroke:var(--blue);stroke-dasharray:none}
+.map-region:hover .map-hit{fill:rgba(0,92,200,.08);stroke:var(--blue);stroke-width:1.6}
 .map-region:focus{outline:none}
-.map-region:focus-visible .map-hit{fill:rgba(0,92,200,.07);stroke:var(--blue-bright);stroke-dasharray:none}
-.map-region.is-active .map-hit{fill:rgba(0,92,200,.13);stroke:var(--blue);stroke-dasharray:none;stroke-width:1.8}
-.map-region.is-empty .map-hit{stroke:rgba(14,22,38,.13)}
-.map-name{font:600 10.5px/1 'Inter',sans-serif;letter-spacing:.05em;text-transform:uppercase;fill:rgba(14,22,38,.62);pointer-events:none}
+.map-region:focus-visible .map-hit{fill:rgba(0,92,200,.08);stroke:var(--blue-bright);stroke-width:1.8}
+.map-region.is-active .map-hit{fill:rgba(0,92,200,.13);stroke:var(--blue);stroke-width:2}
+.map-region.is-empty .map-hit{fill:transparent;stroke:rgba(14,22,38,.16);stroke-dasharray:4 4}
+.map-name{font:600 10.5px/1 'Inter',sans-serif;letter-spacing:.05em;text-transform:uppercase;fill:rgba(14,22,38,.78);pointer-events:none}
 .map-region:hover .map-name,.map-region.is-active .map-name{fill:var(--blue)}
+.map-chip{fill:#fff;stroke:rgba(14,22,38,.18);stroke-width:1;pointer-events:none;transition:fill var(--dur) var(--ease),stroke var(--dur) var(--ease)}
+.map-region:hover .map-chip,.map-region:focus-visible .map-chip,.map-region.is-active .map-chip{fill:var(--blue);stroke:var(--blue)}
+.map-region.is-empty .map-chip{fill:transparent;stroke:rgba(14,22,38,.16)}
 .map-count{font:700 12.5px/1 'Montserrat',sans-serif;fill:#0E1626;pointer-events:none}
+.map-region:hover .map-count,.map-region:focus-visible .map-count,.map-region.is-active .map-count{fill:#fff}
 .map-region.is-empty .map-count{fill:rgba(14,22,38,.4)}
 .map-node{fill:var(--green)}
 .map-region.is-empty .map-node{fill:rgba(14,22,38,.22)}
@@ -398,4 +402,4 @@ a.door:hover .go svg{transform:translateX(3px)}
 .cap-empty p{font-size:14px;line-height:22px;color:var(--on-surface-var);max-width:440px;margin:0 auto 20px}
 .map-status{font:600 9.5px/1 'Inter',sans-serif;letter-spacing:.09em;text-transform:uppercase;fill:rgba(14,22,38,.5);pointer-events:none}
 .map-status.is-next{fill:var(--blue)}
-.map-region:hover .map-status,.map-region.is-active .map-status{fill:var(--blue)}
+.map-region:hover .map-status,.map-region:focus-visible .map-status,.map-region.is-active .map-status{fill:#fff}

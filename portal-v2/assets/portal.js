@@ -225,14 +225,14 @@ function buildMap(mountId, onPick, mode){
 
     const num = document.createElementNS(NS, 'text');
     num.setAttribute('class', isMill ? 'map-status' + (millNext ? ' is-next' : '') : 'map-count');
-    num.setAttribute('x', tx.toFixed(1)); num.setAttribute('y', (ty - 3).toFixed(1));
+    num.setAttribute('x', tx.toFixed(1)); num.setAttribute('y', (ty - 6).toFixed(1));
     num.setAttribute('text-anchor', anchor);
     num.textContent = isMill ? (millNext ? 'Cell next' : 'Served') : (count ? String(count) : '—');
     g.appendChild(num);
 
     const label = document.createElementNS(NS, 'text');
     label.setAttribute('class', 'map-name');
-    label.setAttribute('x', tx.toFixed(1)); label.setAttribute('y', (ty + 11).toFixed(1));
+    label.setAttribute('x', tx.toFixed(1)); label.setAttribute('y', (ty + 16).toFixed(1));
     label.setAttribute('text-anchor', anchor);
     label.textContent = cfg.short || (name === 'Australia & New Zealand' ? 'Australia & NZ' : name);
     g.appendChild(label);
@@ -249,6 +249,21 @@ function buildMap(mountId, onPick, mode){
 
   mount.innerHTML = '';
   mount.appendChild(svg);
+
+  /* A count sitting bare on the map reads as decoration. Give each one a chip so it reads
+     as data. Sized from the rendered text, so it fits '9' and 'Cell next' alike — which
+     means it has to happen after the svg is in the document, or getBBox returns zeroes. */
+  svg.querySelectorAll('.map-count,.map-status').forEach(txt => {
+    const b = txt.getBBox(), padX = 9, padY = 5.5;
+    const chip = document.createElementNS(NS, 'rect');
+    chip.setAttribute('class', 'map-chip');
+    chip.setAttribute('x', (b.x - padX).toFixed(1));
+    chip.setAttribute('y', (b.y - padY).toFixed(1));
+    chip.setAttribute('width', (b.width + padX * 2).toFixed(1));
+    chip.setAttribute('height', (b.height + padY * 2).toFixed(1));
+    chip.setAttribute('rx', ((b.height + padY * 2) / 2).toFixed(1));
+    txt.parentNode.insertBefore(chip, txt);
+  });
   return svg;
 }
 function markMapRegion(region){
