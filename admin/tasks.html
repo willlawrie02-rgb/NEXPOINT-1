@@ -172,8 +172,8 @@ async function load(){
   }
   tasks=data||[];
   const {data:intents}=await sb.from('engine_intents')
-    .select('payload,status').eq('type','tick-task').eq('status','pending');
-  pendingKeys=new Set((intents||[]).map(i=>((i.payload||{}).source||'')+'\u0001'+((i.payload||{}).task||'')));
+    .select('payload_json,status').eq('type','tick-task').eq('status','pending');
+  pendingKeys=new Set((intents||[]).map(i=>((i.payload_json||{}).source||'')+'\u0001'+((i.payload_json||{}).task||'')));
   render();
 }
 
@@ -184,7 +184,7 @@ async function tick(source,task){
   const {data:s}=await sb.auth.getSession();
   const by=s&&s.session?s.session.user.email:'unknown';
   const {error}=await sb.from('engine_intents').insert({
-    type:'tick-task',payload:{source,task},requested_by:by,status:'pending'});
+    type:'tick-task',payload_json:{source,task},requested_by:by,status:'pending'});
   if(error){showBanner('Could not queue the tick: '+error.message);return;}
   showBanner('Tick queued for "'+task+'" — the hourly sync commits it to '+source+'.');
   load();
