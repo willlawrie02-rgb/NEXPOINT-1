@@ -4,124 +4,90 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>NexPoint Admin — Leads Board</title>
+<title>NexPoint Admin — Leads</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
 <style>
-  /* Tokens copied verbatim from admin/index.html so the boards are siblings, not lookalikes. */
-  :root{--bg:#0d0e0f;--surface:#161718;--line:#2a2a2a;--ink:#e2e2e2;--mut:rgba(226,226,226,.6);
-    --blue:#005CC8;--blue-br:#3D8EEB;--green:#9CD850;--amber:#E8B23A;--red:#ff6b6b;
-    --font-d:'Montserrat',system-ui,sans-serif;--font-b:'Inter',system-ui,sans-serif}
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
-  a{color:var(--blue-br)}
-  h1,h2,h3{font-family:var(--font-d)}
-  .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
-  header{position:sticky;top:0;z-index:10;background:#0d0e0fee;backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-  .bar{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
-  .brand{font:700 17px/1 var(--font-d);color:#fff}
-  .brand span{color:var(--green)}
-  .who{font-size:13px;color:var(--mut)}
-  .btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-b);font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:5px;border:none;cursor:pointer;transition:all .15s}
-  .btn-pri{background:var(--blue);color:#fff}.btn-pri:hover{background:#0066DC}
-  .btn-gh{background:transparent;color:var(--mut);border:1px solid var(--line)}.btn-gh:hover{color:#fff;border-color:#444}
-  .btn-grn{background:rgba(156,216,80,.16);color:var(--green);border:1px solid rgba(156,216,80,.3)}
-  .btn-grn:hover{background:rgba(156,216,80,.26)}
-  .btn-sm{padding:6px 11px;font-size:12.5px}
-  .btn-danger{background:transparent;color:var(--red);border:1px solid rgba(255,107,107,.3)}
-  .btn-danger:hover{background:rgba(255,107,107,.1)}
-  .btn:disabled{opacity:.5;cursor:not-allowed}
-
-  #login{max-width:380px;margin:14vh auto 0;text-align:center}
-  #login h1{font-size:24px;color:#fff;margin-bottom:6px}
-  #login p{color:var(--mut);font-size:14px;margin-bottom:26px}
-  #login input{width:100%;background:#0a0a0a;border:1px solid var(--line);border-radius:5px;color:var(--ink);font-family:var(--font-b);font-size:15px;padding:12px 14px;margin-bottom:12px;outline:none}
-  #login input:focus{border-color:var(--blue)}
-  #login .btn-pri{width:100%;justify-content:center;padding:12px}
-  .err{color:var(--red);font-size:13px;margin-top:10px;min-height:18px}
-
-  /* nav across the boards */
-  nav.boards{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:24px 0 0}
-  nav.boards a{padding:10px 14px;font-size:13.5px;font-weight:600;color:var(--mut);text-decoration:none;border-bottom:2px solid transparent}
-  nav.boards a:hover{color:#fff}
-  nav.boards a[aria-current="page"]{color:#fff;border-bottom-color:var(--blue)}
-
-  .intro{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:28px 0 4px;flex-wrap:wrap}
-  .intro h1{font-size:21px;color:#fff}
-  .count{font-size:13px;color:var(--mut)}
-  .note{font-size:13px;color:var(--mut);margin-bottom:20px;max-width:70ch}
-
-  .row{background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:18px 20px;margin-bottom:12px}
-  .row.needs-judge{border-left:3px solid var(--amber)}
-  .row-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
-  .company{font:600 16px/1.2 var(--font-d);color:#fff}
-  .chip{font-size:11.5px;font-weight:600;letter-spacing:.03em;padding:3px 8px;border-radius:4px;white-space:nowrap}
-  .c-current{background:rgba(156,216,80,.16);color:var(--green)}
-  .c-former{background:rgba(232,178,58,.14);color:var(--amber)}
-  .c-enquired{background:rgba(61,142,235,.16);color:var(--blue-br)}
-  .c-cold{background:rgba(226,226,226,.1);color:var(--mut)}
-  .chip-judge{background:rgba(226,226,226,.08);color:var(--mut)}
-  .chip-unjudged{background:rgba(232,178,58,.14);color:var(--amber)}
-  .why{font-size:14px;color:var(--ink);opacity:.9;margin-bottom:10px}
-  .meta{font-size:12.5px;color:var(--mut);display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
-  .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .status{font-size:12.5px;color:var(--mut)}
-  .status.done{color:var(--green)}
-  .status.fail{color:var(--red)}
-  .empty{background:var(--surface);border:1px dashed var(--line);border-radius:7px;padding:36px;text-align:center;color:var(--mut)}
-  .banner{background:rgba(232,178,58,.1);border:1px solid rgba(232,178,58,.3);color:var(--amber);border-radius:6px;padding:11px 14px;font-size:13.5px;margin-bottom:18px}
-  footer{color:var(--mut);font-size:12.5px;margin:40px 0 60px;border-top:1px solid var(--line);padding-top:16px}
+  .verdict-reason { color: var(--fg-1); font-size: 14.5px; max-width: 78ch; }
+  .meta .conf { font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
+<!--
+THESIS: The admin is the main site's back office — same light material world,
+no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
+OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
+ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
+accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
+STORY: an operator signs in through a quiet door, reads the evidence beside
+each proposed company, and presses one clearly-consequential button; the page
+answers with state, never with drama — the engine acts, the browser asks.
+FIRST VIEWPORT: sticky brand bar, boards tabs, "Leads awaiting your decision"
+with count, then the decision rows themselves — verdict chips, judge's reason,
+Approve/Reject in reach.
+FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the
+finish review, the verdict, and DESIGN.md
+-->
 
-<div id="login" style="display:none">
-  <h1>NexPoint <span style="color:var(--green)">Leads</span></h1>
-  <p>Sign in with your admin account.</p>
-  <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username">
-  <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
-  <button class="btn btn-pri" onclick="doLogin()">Sign in</button>
-  <div class="err" id="loginErr"></div>
+<div id="login" class="door" style="display:none">
+  <img class="door-logo" src="nexpoint-logo-horizontal.svg" alt="NexPoint">
+  <h1>Admin sign in</h1>
+  <p>The opportunity board, leads, tasks and engine health.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+  <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
 </div>
 
 <div id="admin" style="display:none">
-  <header>
+  <header class="topbar">
     <div class="wrap bar">
-      <div class="brand">Nex<span>Point</span> Admin</div>
-      <div style="display:flex;align-items:center;gap:14px">
+      <a class="brandmark" href="index.html">
+        <img src="nexpoint-logo-horizontal.svg" alt="NexPoint">
+        <span class="admin-tag">Admin</span>
+      </a>
+      <div class="session">
         <span class="who" id="who"></span>
         <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
       </div>
     </div>
   </header>
 
-  <div class="wrap">
-    <nav class="boards">
-      <a href="index.html">Briefs</a>
-      <a href="leads.html" aria-current="page">Leads</a>
-      <a href="tasks.html">Tasks</a>
-      <a href="health.html">Health</a>
-    </nav>
+  <main>
+    <div class="wrap">
+      <nav class="boards" aria-label="Admin boards">
+        <a href="index.html">Briefs</a>
+        <a href="leads.html" aria-current="page">Leads</a>
+        <a href="tasks.html">Tasks</a>
+        <a href="health.html">Health</a>
+      </nav>
 
-    <div class="intro">
-      <h1>Leads awaiting your decision</h1>
-      <span class="count" id="count"></span>
+      <div class="arrive">
+        <div class="intro">
+          <h1>Leads awaiting your decision</h1>
+          <span class="count" id="count"></span>
+        </div>
+        <p class="note">
+          The weekend finders propose companies; the judge pass annotates or withdraws them.
+          Approving queues the record for the engine — nothing is created from the browser.
+        </p>
+        <div id="banner"></div>
+        <div id="rows">
+          <div class="row skeleton"><div class="bone" style="width:38%"></div><div class="bone" style="width:82%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
+          <div class="row skeleton"><div class="bone" style="width:31%"></div><div class="bone" style="width:74%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
+        </div>
+      </div>
     </div>
-    <p class="note">
-      Proposals from the weekend finders, email discovery and the website form.
-      Approving queues the work for the engine — it creates the Pipedrive lead,
-      its note and the company folder, all journalled and reversible. Nothing
-      reaches Pipedrive until the engine picks the request up.
-    </p>
-
-    <div id="banner"></div>
-    <div id="rows"></div>
-  </div>
-
-  <div class="wrap"><footer>
-    The engine executes; this board only records what you decide.
-    Every action here is journalled and can be reversed with <code>nx undo</code>.
-  </footer></div>
+  </main>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -195,8 +161,8 @@ function render(pendingFor){
     const entries=(r.matched_json||[]).join(', ');
     const camps=(r.campaign_json||[]).join(', ');
     const judged=r.judged
-      ? `<span class="chip chip-judge">judged${r.judge_confidence?' · '+esc(r.judge_confidence):''}</span>`
-      : `<span class="chip chip-unjudged">not yet judged</span>`;
+      ? `<span class="chip chip-judge"><span class="material-symbols-outlined" aria-hidden="true">verified</span>judged${r.judge_confidence?' · '+esc(r.judge_confidence):''}</span>`
+      : `<span class="chip chip-unjudged"><span class="material-symbols-outlined" aria-hidden="true">hourglass_empty</span>not yet judged</span>`;
     let action;
     if(q&&q.status==='failed'){
       action=`<span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span>
@@ -204,16 +170,16 @@ function render(pendingFor){
     }else if(q){
       action=`<span class="status">Queued for the engine — it will create the record on its next run.</span>`;
     }else{
-      action=`<button class="btn btn-grn btn-sm" onclick="approve(${r.id})">Approve</button>
-              <button class="btn btn-danger btn-sm" onclick="reject(${r.id})">Reject</button>`;
+      action=`<button class="btn btn-grn btn-sm" onclick="approve(${r.id})"><span class="material-symbols-outlined" aria-hidden="true">check</span>Approve</button>
+              <button class="btn btn-danger btn-sm" onclick="reject(${r.id})"><span class="material-symbols-outlined" aria-hidden="true">close</span>Reject</button>`;
     }
-    return `<div class="row ${r.judged?'':'needs-judge'}">
+    return `<div class="row">
       <div class="row-top">
         <span class="company">${esc(r.company)}</span>
         <span class="chip ${CHIP[r.category]||'c-cold'}">${esc(r.category)}</span>
         ${judged}
       </div>
-      <div class="why">${esc(r.reasoning)}</div>
+      <div class="why verdict-reason">${esc(r.reasoning)}</div>
       <div class="meta">
         ${entries?`<span>matched: ${esc(entries)}</span>`:''}
         ${camps?`<span>campaign: ${esc(camps)}</span>`:''}
@@ -234,6 +200,7 @@ async function raise(type,payload,rowId,verb){
     el.innerHTML=`<span class="status fail">Could not queue it: ${esc(error.message)}</span>`;
     return;
   }
+  const rowEl=el.closest('.row'); if(rowEl)rowEl.classList.add('settled');
   el.innerHTML=`<span class="status done">${verb} — queued for the engine.</span>`;
   setTimeout(load,1200);
 }

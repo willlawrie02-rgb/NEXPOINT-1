@@ -4,127 +4,143 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>NexPoint Admin — Health Board</title>
+<title>NexPoint Admin — Health</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
 <style>
-  :root{--bg:#0d0e0f;--surface:#161718;--line:#2a2a2a;--ink:#e2e2e2;--mut:rgba(226,226,226,.6);
-    --blue:#005CC8;--blue-br:#3D8EEB;--green:#9CD850;--amber:#E8B23A;--red:#ff6b6b;
-    --font-d:'Montserrat',system-ui,sans-serif;--font-b:'Inter',system-ui,sans-serif}
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
-  a{color:var(--blue-br)}
-  h1,h2,h3{font-family:var(--font-d)}
-  .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
-  header{position:sticky;top:0;z-index:10;background:#0d0e0fee;backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-  .bar{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
-  .brand{font:700 17px/1 var(--font-d);color:#fff}
-  .brand span{color:var(--green)}
-  .who{font-size:13px;color:var(--mut)}
-  .btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-b);font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:5px;border:none;cursor:pointer;transition:all .15s}
-  .btn-pri{background:var(--blue);color:#fff}.btn-pri:hover{background:#0066DC}
-  .btn-gh{background:transparent;color:var(--mut);border:1px solid var(--line)}.btn-gh:hover{color:#fff;border-color:#444}
-  .btn-sm{padding:6px 11px;font-size:12.5px}
-  #login{max-width:380px;margin:14vh auto 0;text-align:center}
-  #login h1{font-size:24px;color:#fff;margin-bottom:6px}
-  #login p{color:var(--mut);font-size:14px;margin-bottom:26px}
-  #login input{width:100%;background:#0a0a0a;border:1px solid var(--line);border-radius:5px;color:var(--ink);font-family:var(--font-b);font-size:15px;padding:12px 14px;margin-bottom:12px;outline:none}
-  #login input:focus{border-color:var(--blue)}
-  #login .btn-pri{width:100%;justify-content:center;padding:12px}
-  .err{color:var(--red);font-size:13px;margin-top:10px;min-height:18px}
-  nav.boards{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:24px 0 0}
-  nav.boards a{padding:10px 14px;font-size:13.5px;font-weight:600;color:var(--mut);text-decoration:none;border-bottom:2px solid transparent}
-  nav.boards a:hover{color:#fff}
-  nav.boards a[aria-current="page"]{color:#fff;border-bottom-color:var(--blue)}
+  /* Status masthead — the page's one big answer. */
+  .masthead { display: flex; align-items: center; gap: 14px; margin: 30px 0 4px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; background: #C2CAD6; }
+  .dot.ok  { background: var(--np-green); box-shadow: 0 0 0 5px rgba(139,197,63,.18); }
+  .dot.bad { background: #D64541; box-shadow: 0 0 0 5px rgba(214,69,65,.16); }
+  @media (prefers-reduced-motion: no-preference) {
+    .dot.bad { animation: pulse 2s var(--ease) infinite; }
+    @keyframes pulse { 50% { box-shadow: 0 0 0 9px rgba(214,69,65,.08); } }
+  }
+  .masthead h1 { font: 700 21px/1.25 var(--font-display); color: var(--fg); letter-spacing: -0.01em; }
+  .asof { font-size: 13px; color: var(--fg-2); margin: 0 0 22px 26px; }
 
-  .verdict{display:flex;align-items:center;gap:12px;margin:28px 0 6px}
-  .dot{width:12px;height:12px;border-radius:50%;flex:none}
-  .dot.ok{background:var(--green);box-shadow:0 0 0 4px rgba(156,216,80,.15)}
-  .dot.bad{background:var(--red);box-shadow:0 0 0 4px rgba(255,107,107,.15)}
-  .verdict h1{font-size:21px;color:#fff}
-  .asof{font-size:12.5px;color:var(--mut);margin-bottom:22px}
-  .panel{background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:16px 18px;margin-bottom:14px}
-  .panel.bad{border-left:3px solid var(--red)}
-  .panel.warn{border-left:3px solid var(--amber)}
-  .panel h2{font-size:14px;color:#fff;margin-bottom:10px;letter-spacing:.01em}
-  .panel li{list-style:none;font-size:13.5px;padding:6px 0;border-bottom:1px dashed var(--line)}
-  .panel li:last-child{border-bottom:none}
-  .panel li.bad{color:var(--red)}.panel li.warn{color:var(--amber)}
-  table{width:100%;border-collapse:collapse;font-size:13.5px}
-  th{text-align:left;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600;padding:0 10px 8px 0;border-bottom:1px solid var(--line)}
-  td{padding:10px 10px 10px 0;border-bottom:1px solid var(--line);vertical-align:top}
-  tr:last-child td{border-bottom:none}
-  .job{font-weight:600;color:#fff}
-  .st{font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:4px;white-space:nowrap}
-  .st-ok{background:rgba(156,216,80,.16);color:var(--green)}
-  .st-warn{background:rgba(232,178,58,.14);color:var(--amber)}
-  .st-bad{background:rgba(255,107,107,.14);color:var(--red)}
-  .st-idle{background:rgba(226,226,226,.1);color:var(--mut)}
-  .when{color:var(--mut);font-variant-numeric:tabular-nums}
-  .steps{color:var(--mut);font-size:12.5px;margin-top:4px}
-  .empty{background:var(--surface);border:1px dashed var(--line);border-radius:7px;padding:36px;text-align:center;color:var(--mut)}
-  .meters{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:6px 0 8px}
-  .meter{background:#0d0e0f;border:1px solid var(--line);border-radius:7px;padding:12px 14px}
-  .meter .k{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
-  .meter .v{font:700 22px/1.1 var(--font-d);color:#fff;margin:6px 0 8px;font-variant-numeric:tabular-nums}
-  .meter .v small{font:500 12px var(--font-b);color:var(--mut);margin-left:4px}
-  .meter .bar{height:5px;background:#1c1e20;border-radius:99px;overflow:hidden}
-  .meter .bar span{display:block;height:100%;border-radius:99px;background:var(--green)}
-  .meter.warn .bar span{background:var(--amber)}.meter.bad .bar span{background:var(--red)}
-  .meter-note{font-size:12.5px;color:var(--mut);margin:4px 0 0}
-  footer{color:var(--mut);font-size:12.5px;margin:40px 0 60px;border-top:1px solid var(--line);padding-top:16px}
+  /* Usage meters — real numbers against real limits. */
+  .meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .meter { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+           box-shadow: var(--shadow-rest); padding: 16px 18px; }
+  .meter .k { font: 600 12px/1 var(--font-body); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-2); }
+  .meter .v { font: 700 22px/1.2 var(--font-display); color: var(--fg); margin: 8px 0 10px;
+              font-variant-numeric: tabular-nums; }
+  .meter .v small { font: 500 12.5px/1 var(--font-body); color: var(--fg-2); margin-left: 4px; }
+  .meter .bar { height: 5px; border-radius: 3px; background: var(--bg-alt); overflow: hidden; }
+  .meter .bar span { display: block; height: 100%; width: 100%; border-radius: 3px; background: var(--np-blue);
+                     transform-origin: left; transform: scaleX(0); transition: transform 500ms var(--ease); }
+  .meter.warn .bar span { background: #D9A62E; }
+  .meter.bad .bar span { background: #D64541; }
+
+  /* Findings */
+  .panel { background: var(--surface); border: 1px solid var(--warn-line); border-radius: var(--radius);
+           box-shadow: var(--shadow-rest); padding: 18px 20px; margin-bottom: 22px; }
+  .panel.bad { border-color: var(--err-line); }
+  .panel h2 { font: 600 14.5px/1.3 var(--font-display); color: var(--fg); margin-bottom: 10px; }
+  .panel ul { list-style: none; }
+  .panel li { padding: 7px 0 7px 26px; position: relative; font-size: 14px; color: var(--fg-1);
+              border-bottom: 1px solid var(--border-faint); }
+  .panel li:last-child { border-bottom: none; }
+  .panel li::before { font-family: 'Material Symbols Outlined'; position: absolute; left: 0; top: 7px; font-size: 17px; }
+  .panel li.warn::before { content: "warning"; color: var(--warn-ink); }
+  .panel li.bad::before  { content: "error";   color: var(--err-ink); }
+
+  /* Jobs table */
+  .jobs-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+               box-shadow: var(--shadow-rest); overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; font: 600 11.5px/1 var(--font-body); letter-spacing: 0.05em; text-transform: uppercase;
+       color: var(--fg-2); padding: 14px 18px 12px; border-bottom: 1px solid var(--border); }
+  td { padding: 12px 18px; border-bottom: 1px solid var(--border-faint); color: var(--fg-1); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background var(--t-fast) var(--ease); }
+  tbody tr:hover { background: #FAFBFD; }
+  td.job { font-weight: 600; color: var(--fg); }
+  td.when { color: var(--fg-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .st { display: inline-block; font: 600 11.5px/1 var(--font-body); letter-spacing: 0.03em;
+        padding: 4px 9px; border-radius: 999px; }
+  .st-ok   { background: var(--ok-wash);   color: var(--ok-ink); }
+  .st-warn { background: var(--warn-wash); color: var(--warn-ink); }
+  .st-bad  { background: var(--err-wash);  color: var(--err-ink); }
+  .st-idle { background: var(--bg-alt);    color: var(--fg-2); }
 </style>
 </head>
 <body>
+<!--
+THESIS: The admin is the main site's back office — same light material world,
+no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
+OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
+ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
+accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
+STORY: one glance answers "is the automation okay?" — a verdict line first,
+usage against limits second, the per-job table for the detail; broken states
+look broken (the red dot pulses only while something is failed; meters fill
+once on load, and the region shares the standard arrival fade).
+FIRST VIEWPORT: brand bar, boards tabs, verdict masthead with status dot,
+three usage meters, findings panel when something needs attention.
+FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the
+finish review, the verdict, and DESIGN.md
+-->
 
-<div id="login" style="display:none">
-  <h1>NexPoint <span style="color:var(--green)">Health</span></h1>
-  <p>Sign in with your admin account.</p>
-  <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username">
-  <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
-  <button class="btn btn-pri" onclick="doLogin()">Sign in</button>
-  <div class="err" id="loginErr"></div>
+<div id="login" class="door" style="display:none">
+  <img class="door-logo" src="nexpoint-logo-horizontal.svg" alt="NexPoint">
+  <h1>Admin sign in</h1>
+  <p>The opportunity board, leads, tasks and engine health.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+  <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
 </div>
 
 <div id="admin" style="display:none">
-  <header><div class="wrap bar">
-    <div class="brand">Nex<span>Point</span> Admin</div>
-    <div style="display:flex;align-items:center;gap:14px">
-      <span class="who" id="who"></span>
-      <button class="btn btn-gh btn-sm" onclick="load()">Refresh</button>
-      <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+  <header class="topbar">
+    <div class="wrap bar">
+      <a class="brandmark" href="index.html">
+        <img src="nexpoint-logo-horizontal.svg" alt="NexPoint">
+        <span class="admin-tag">Admin</span>
+      </a>
+      <div class="session">
+        <span class="who" id="who"></span>
+        <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+      </div>
     </div>
-  </div></header>
+  </header>
 
-  <div class="wrap">
-    <nav class="boards">
-      <a href="index.html">Briefs</a>
-      <a href="leads.html">Leads</a>
-      <a href="tasks.html">Tasks</a>
-      <a href="health.html" aria-current="page">Health</a>
-    </nav>
+  <main>
+    <div class="wrap">
+      <nav class="boards" aria-label="Admin boards">
+        <a href="index.html">Briefs</a>
+        <a href="leads.html">Leads</a>
+        <a href="tasks.html">Tasks</a>
+        <a href="health.html" aria-current="page">Health</a>
+      </nav>
 
-    <div class="verdict"><span class="dot" id="dot"></span><h1 id="verdict">Checking…</h1></div>
-    <div class="asof" id="asof"></div>
-    <div id="findings"></div>
-
-    <div class="panel">
-      <h2>Usage — this calendar month</h2>
-      <div class="meters" id="meters"></div>
-      <p class="meter-note">Counted from the engine's own run records, so these are the
-        calls the engine made — not the provider's bill. Limits are the ones you set.</p>
+      <div class="arrive">
+        <div class="masthead">
+          <span class="dot" id="dot"></span>
+          <h1 id="verdict">Checking…</h1>
+          <button class="btn btn-gh btn-sm" style="margin-left:auto" onclick="load()"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>Refresh</button>
+        </div>
+        <p class="asof" id="asof"></p>
+        <div class="meters" id="meters"></div>
+        <div id="findings"></div>
+        <div class="jobs-card" id="jobs">
+          <div class="row skeleton" style="border:none;box-shadow:none;margin:0"><div class="bone" style="width:40%"></div><div class="bone" style="width:88%;margin-top:12px"></div><div class="bone" style="width:88%;margin-top:12px"></div></div>
+        </div>
+      </div>
     </div>
-
-    <div class="panel">
-      <h2>Jobs — most recent run of each</h2>
-      <div id="jobs"></div>
-    </div>
-  </div>
-
-  <div class="wrap"><footer>
-    Built from the engine's own run records, not from logs. A job that never ran
-    has no row here — absence is the thing to look for.
-  </footer></div>
+  </main>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -136,6 +152,7 @@ const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const CLS={succeeded:'st-ok','succeeded-with-warnings':'st-warn',failed:'st-bad','skipped-because-locked':'st-idle'};
 
 async function boot(){
   const {data}=await sb.auth.getSession();const s=data&&data.session;
@@ -155,7 +172,6 @@ async function doLogin(){
 async function signOut(){await sb.auth.signOut();location.reload();}
 function showAdmin(u){$('login').style.display='none';$('admin').style.display='block';$('who').textContent=u.email;load();}
 
-const CLS={succeeded:'st-ok','succeeded-with-warnings':'st-warn',failed:'st-bad','skipped-because-locked':'st-idle'};
 function ago(iso){
   if(!iso)return '—';
   const mins=Math.round((Date.now()-new Date(iso).getTime())/60000);
@@ -170,7 +186,8 @@ async function load(){
     .select('id,job,status,started_at,ended_at').order('started_at',{ascending:false}).limit(300);
   if(error){
     $('dot').className='dot bad';$('verdict').textContent='Cannot read the engine';
-    $('findings').innerHTML=`<div class="panel bad"><h2>Database</h2><li class="bad">${esc(error.message)}</li></div>`;
+    $('findings').innerHTML=`<div class="panel bad"><h2>Database</h2><ul><li class="bad">${esc(error.message)}</li></ul></div>`;
+    $('jobs').innerHTML='';
     return;
   }
   const latest={};(runs||[]).forEach(r=>{if(!latest[r.job])latest[r.job]=r;});
@@ -197,7 +214,7 @@ async function load(){
     const cls=limit?(pct>=90?'bad':pct>=70?'warn':''):'';
     return `<div class="meter ${cls}"><div class="k">${k}</div>
       <div class="v">${v.toLocaleString()}<small>${limit?'/ '+limit.toLocaleString()+' ':''}${unit}</small></div>
-      <div class="bar"><span style="width:${pct}%"></span></div></div>`;
+      <div class="bar"><span style="transform:scaleX(${pct/100})"></span></div></div>`;
   };
   $('meters').innerHTML=
     meter('Tavily calls',tavily,LIMITS.tavily,'this month')+

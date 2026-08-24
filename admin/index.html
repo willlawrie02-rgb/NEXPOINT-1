@@ -4,197 +4,141 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>NexPoint Admin — Opportunity Board</title>
+<title>NexPoint Admin — Briefs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
 <style>
-  :root{--bg:#0d0e0f;--surface:#161718;--line:#2a2a2a;--ink:#e2e2e2;--mut:rgba(226,226,226,.6);
-    --blue:#005CC8;--blue-br:#3D8EEB;--green:#9CD850;--amber:#E8B23A;--red:#ff6b6b;
-    --font-d:'Montserrat',system-ui,sans-serif;--font-b:'Inter',system-ui,sans-serif}
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
-  a{color:var(--blue-br)}
-  h1,h2,h3{font-family:var(--font-d)}
-  .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
-  header{position:sticky;top:0;z-index:10;background:#0d0e0fee;backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-  .bar{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
-  .brand{font:700 17px/1 var(--font-d);color:#fff}
-  .brand span{color:var(--green)}
-  .who{font-size:13px;color:var(--mut)}
-  .btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-b);font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:5px;border:none;cursor:pointer;transition:all .15s}
-  .btn-pri{background:var(--blue);color:#fff}.btn-pri:hover{background:#0066DC}
-  .btn-gh{background:transparent;color:var(--mut);border:1px solid var(--line)}.btn-gh:hover{color:#fff;border-color:#444}
-  .btn-grn{background:rgba(156,216,80,.16);color:var(--green);border:1px solid rgba(156,216,80,.3)}
-  .btn-amb{background:rgba(232,178,58,.14);color:var(--amber);border:1px solid rgba(232,178,58,.3)}
-  .btn-sm{padding:6px 11px;font-size:12.5px}
-  .btn-danger{background:transparent;color:var(--red);border:1px solid rgba(255,107,107,.3)}
-
-  /* login */
-  #login{max-width:380px;margin:14vh auto 0;text-align:center}
-  #login h1{font-size:24px;color:#fff;margin-bottom:6px}
-  #login p{color:var(--mut);font-size:14px;margin-bottom:26px}
-  #login input{width:100%;background:#0a0a0a;border:1px solid var(--line);border-radius:5px;color:var(--ink);font-family:var(--font-b);font-size:15px;padding:12px 14px;margin-bottom:12px;outline:none}
-  #login input:focus{border-color:var(--blue)}
-  #login .btn-pri{width:100%;justify-content:center;padding:12px}
-  .err{color:var(--red);font-size:13px;margin-top:10px;min-height:18px}
-  .hint{color:var(--mut);font-size:12px;margin-top:14px}
-
-  /* list */
-  main{padding:28px 0 90px}
-  .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
-  .toolbar h2{font-size:20px;color:#fff}
-  .filters{display:flex;gap:8px}
-  .chip{font:600 12.5px/1 var(--font-b);padding:7px 13px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer}
-  .chip.on{background:rgba(0,92,200,.18);border-color:var(--blue);color:var(--blue-br)}
-  .row{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:9px;padding:16px 18px;margin-bottom:12px;display:flex;gap:16px;align-items:flex-start}
-  .row.published{border-left-color:var(--green)}.row.draft{border-left-color:var(--amber)}.row.withheld{border-left-color:#777}
-  .row .main{flex:1;min-width:0}
-  .row .top{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:5px}
-  .badge{font:700 10px/1 var(--font-b);letter-spacing:.07em;color:#0d0e0f;padding:4px 8px;border-radius:3px}
-  .badge.published{background:var(--green)}.badge.draft{background:var(--amber)}.badge.withheld{background:#888}
-  .ref{font:600 12px/1 var(--font-b);color:var(--mut);letter-spacing:.04em}
-  .pill{font:600 10.5px/1 var(--font-b);letter-spacing:.05em;padding:4px 8px;border-radius:3px;background:#13325a;color:#acf}
-  .pill.alt{background:#222;color:var(--mut)}
-  .row h3{font:600 16px/1.3 var(--font-d);color:#fff;margin:2px 0 4px}
-  .row .ground{font-size:12px;color:var(--amber)}
-  .row .acts{display:flex;gap:7px;flex-wrap:wrap;align-items:center;flex-shrink:0}
-
-  /* editor modal */
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px;z-index:50}
-  .overlay.open{display:flex}
-  .modal{background:var(--surface);border:1px solid var(--line);border-radius:12px;width:100%;max-width:720px;padding:26px 28px}
-  .modal h2{font-size:19px;color:#fff;margin-bottom:18px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .field{margin-bottom:14px}
-  .field.full{grid-column:1/-1}
-  label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-bottom:5px;letter-spacing:.02em}
-  label .opt{color:#666;font-weight:400}
-  input,select,textarea{width:100%;background:#0a0a0a;border:1px solid var(--line);border-radius:5px;color:var(--ink);font-family:var(--font-b);font-size:14px;padding:9px 12px;outline:none}
-  textarea{resize:vertical;min-height:64px;line-height:1.5}
-  input:focus,select:focus,textarea:focus{border-color:var(--blue)}
-  .pairs{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
-  .pair{display:flex;gap:8px;align-items:center}
-  .pair .k{flex:0 0 30%}
-  .pair .v{flex:1}
-  .pair .btn{flex-shrink:0;padding:8px 10px}
-  .priv-box{background:#241a08;border:1px solid #5a4416;border-radius:8px;padding:14px 16px;margin:6px 0 14px}
-  .priv-box .lab{font:700 10px/1 var(--font-b);letter-spacing:.1em;color:var(--amber);margin-bottom:10px}
-  .modal-acts{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
-  .modal-acts .right{display:flex;gap:10px}
-  .save-err{color:var(--red);font-size:13px}
-  .muted{color:var(--mut);font-size:12.5px}
-  .empty{text-align:center;color:var(--mut);padding:60px 0}
-
-  /* icon font + theme toggle */
-  .material-symbols-outlined{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-feature-settings:'liga';-webkit-font-smoothing:antialiased}
-  .theme-toggle{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border-radius:9999px;cursor:pointer;background:transparent;border:1px solid var(--line);color:var(--mut);transition:all .15s}
-  .theme-toggle:hover{color:#fff;border-color:#444}
-  .theme-toggle .material-symbols-outlined{font-size:18px}
-  .theme-toggle .ico-dark{display:none}
-  html[data-theme="light"] .theme-toggle .ico-light{display:none}
-  html[data-theme="light"] .theme-toggle .ico-dark{display:inline-block}
-
-  /* ═══════════ LIGHT THEME — opt-in overlay (dark is the default) ═══════════ */
-  html[data-theme="light"]{
-    --bg:#F5F7FA; --surface:#FFFFFF; --line:#E3E7ED; --ink:#2C3444; --mut:rgba(44,52,68,.62);
-    --blue-br:#0A63D0;
+  .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 18px; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filter-chip {
+    font: 600 12.5px/1 var(--font-body); color: var(--fg-2);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+    padding: 7px 13px; cursor: pointer;
+    transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
   }
-  html[data-theme="light"] ::selection{background:rgba(0,92,200,.18);color:#0E1626}
-  html[data-theme="light"] header{background:rgba(255,255,255,.9)}
-  html[data-theme="light"] .brand,
-  html[data-theme="light"] #login h1,
-  html[data-theme="light"] .toolbar h2,
-  html[data-theme="light"] .row h3,
-  html[data-theme="light"] .modal h2{color:#0E1626}
-  html[data-theme="light"] #login input,
-  html[data-theme="light"] input,
-  html[data-theme="light"] select,
-  html[data-theme="light"] textarea{background:#FFFFFF}
-  html[data-theme="light"] .theme-toggle:hover,
-  html[data-theme="light"] .btn-gh:hover{color:#0E1626;border-color:rgba(14,22,38,.3)}
-  html[data-theme="light"] .pill{background:rgba(0,92,200,.12);color:#0A63D0}
-  html[data-theme="light"] .pill.alt{background:rgba(14,22,38,.06);color:var(--mut)}
-  html[data-theme="light"] .priv-box{background:#FBF3E0;border-color:#E6D28F}
-  html[data-theme="light"] .row.withheld{border-left-color:#9aa0a6}
-  html[data-theme="light"] .badge.withheld{background:#9aa0a6}
-  html[data-theme="light"] label .opt{color:#9aa0a6}
-  /* boards nav — one admin app: Briefs / Leads / Tasks / Health.
-     Same markup as the three board pages; colors ride the theme tokens
-     so it follows the light/dark toggle. */
-  nav.boards{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:24px 0 22px}
-  nav.boards a{padding:10px 14px;font-size:13.5px;font-weight:600;color:var(--mut);text-decoration:none;border-bottom:2px solid transparent}
-  nav.boards a:hover{color:var(--ink)}
-  nav.boards a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--blue)}
+  .filter-chip:hover { color: var(--fg); border-color: #C9D0DB; }
+  .filter-chip.on { background: var(--np-blue); border-color: var(--np-blue); color: #fff; }
+  .filter-chip:focus-visible { outline: none; box-shadow: var(--ring); }
+
+  .brief-row { display: flex; justify-content: space-between; gap: 18px; }
+  .brief-row .main { min-width: 0; }
+  .brief-row .top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .ref { font: 600 12px/1 var(--font-body); color: var(--fg-2); letter-spacing: 0.03em; }
+  .pill { font: 600 11px/1 var(--font-body); letter-spacing: 0.05em;
+          color: var(--info-ink); background: var(--info-wash);
+          padding: 4px 8px; border-radius: 999px; }
+  .pill.alt { color: var(--cold-ink); background: var(--cold-wash); text-transform: capitalize; }
+  .brief-row h3 { margin-bottom: 6px; }
+  .ground { font-size: 12.5px; color: var(--fg-2); }
+  .ground b { color: var(--fg-1); font-weight: 600; }
+  .acts { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; justify-content: flex-end; flex: none; }
+  @media (max-width: 720px) {
+    .brief-row { flex-direction: column; }
+    .acts { justify-content: flex-start; }
+  }
+
+  /* Editor modal internals */
+  .modal h2 { font: 700 18px/1.3 var(--font-display); color: var(--fg); margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid .full { grid-column: 1 / -1; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  .pairs { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+  .pair { display: flex; gap: 8px; }
+  .pair .k { flex: 1; }
+  .pair .v { flex: 2; }
+  .priv-box { border: 1px solid var(--warn-line); background: rgba(232, 178, 58, 0.05);
+              border-radius: var(--radius-sm); padding: 16px; margin-top: 18px; }
+  .priv-box .lab { font: 700 10.5px/1 var(--font-body); letter-spacing: 0.08em;
+                   color: var(--warn-ink); margin-bottom: 12px; }
+  .modal-acts { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
+  .modal-acts .right { display: flex; gap: 10px; }
+  .save-err { color: var(--err-ink); font-size: 13px; }
+  .muted { color: var(--fg-2); font-size: 12.5px; }
 </style>
-<script>
-  /* Set theme before paint to avoid a flash. Explicit choice wins; else follow OS. */
-  (function () {
-    try {
-      var t = localStorage.getItem('np-theme');
-      if (t !== 'light' && t !== 'dark') {
-        t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
-      }
-      document.documentElement.setAttribute('data-theme', t);
-    } catch (e) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
-  })();
-</script>
 </head>
 <body>
+<!--
+THESIS: The admin is the main site's back office — same light material world,
+no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
+OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
+ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
+accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
+STORY: the operator curates what the world sees — status is the organising
+truth (published / draft / withheld), one green control pushes the board to
+the live site, and the private half of every brief is visibly fenced.
+FIRST VIEWPORT: brand bar with the publish-to-live control, boards tabs,
+"Opportunity board" with filters and + New, then the brief rows.
+FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the
+finish review, the verdict, and DESIGN.md
+-->
 
-<div id="app">
-  <!-- LOGIN -->
-  <div id="login" style="display:none">
-    <h1>NexPoint <span style="color:var(--green)">Admin</span></h1>
-    <p>Sign in to manage the opportunity board.</p>
+<div id="login" class="door" style="display:none">
+  <img class="door-logo" src="nexpoint-logo-horizontal.svg" alt="NexPoint">
+  <h1>Admin sign in</h1>
+  <p>The opportunity board, leads, tasks and engine health.</p>
+  <div class="card">
     <form onsubmit="event.preventDefault();doLogin()">
       <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
       <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
       <button class="btn btn-pri" type="submit">Sign in</button>
     </form>
-    <div class="err" id="loginErr"></div>
-    <div class="hint">Admin access only. If you can't get in, the account or its email may not be on the allowlist.</div>
+    <div class="err" id="loginErr" role="alert"></div>
   </div>
+  <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
+</div>
 
-  <!-- ADMIN -->
-  <div id="admin" style="display:none">
-    <header><div class="wrap bar">
-      <div class="brand">NexPoint <span>Admin</span></div>
-      <div style="display:flex;align-items:center;gap:14px">
-        <span class="who" id="pubStatus"></span>
-        <button class="btn btn-grn btn-sm" id="pubBtn" onclick="publishLive()">Publish to live site</button>
+<div id="admin" style="display:none">
+  <header class="topbar">
+    <div class="wrap bar">
+      <a class="brandmark" href="index.html">
+        <img src="nexpoint-logo-horizontal.svg" alt="NexPoint">
+        <span class="admin-tag">Admin</span>
+      </a>
+      <div class="session">
+        <span class="status" id="pubStatus"></span>
+        <button class="btn btn-grn btn-sm" id="pubBtn" onclick="publishLive()">
+          <span class="material-symbols-outlined" aria-hidden="true">rocket_launch</span>Publish to live site</button>
         <span class="who" id="whoami"></span>
-        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch between light and dark theme">
-          <span class="material-symbols-outlined ico-light" aria-hidden="true">light_mode</span>
-          <span class="material-symbols-outlined ico-dark" aria-hidden="true">dark_mode</span>
-        </button>
         <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
       </div>
-    </div></header>
-    <main><div class="wrap">
-      <nav class="boards">
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <nav class="boards" aria-label="Admin boards">
         <a href="index.html" aria-current="page">Briefs</a>
         <a href="leads.html">Leads</a>
         <a href="tasks.html">Tasks</a>
         <a href="health.html">Health</a>
       </nav>
-      <div class="toolbar">
-        <h2>Opportunity board</h2>
-        <div style="display:flex;gap:10px;align-items:center">
+
+      <div class="arrive">
+        <div class="intro">
+          <h1>Opportunity board</h1>
+        </div>
+        <div class="toolbar">
           <div class="filters" id="filters">
-            <button class="chip on" data-f="all">All</button>
-            <button class="chip" data-f="published">Published</button>
-            <button class="chip" data-f="draft">Draft</button>
-            <button class="chip" data-f="withheld">Withheld</button>
+            <button class="filter-chip on" data-f="all">All</button>
+            <button class="filter-chip" data-f="published">Published</button>
+            <button class="filter-chip" data-f="draft">Draft</button>
+            <button class="filter-chip" data-f="withheld">Withheld</button>
           </div>
-          <button class="btn btn-pri btn-sm" onclick="openEditor(null)">+ New</button>
+          <button class="btn btn-pri btn-sm" onclick="openEditor(null)">
+            <span class="material-symbols-outlined" aria-hidden="true">add</span>New</button>
+        </div>
+        <div id="banner"></div>
+        <div id="list">
+          <div class="row skeleton"><div class="bone" style="width:44%"></div><div class="bone" style="width:70%;margin-top:12px"></div><div class="bone" style="width:20%;margin-top:12px"></div></div>
+          <div class="row skeleton"><div class="bone" style="width:36%"></div><div class="bone" style="width:64%;margin-top:12px"></div><div class="bone" style="width:20%;margin-top:12px"></div></div>
         </div>
       </div>
-      <div id="list"></div>
-    </div></main>
-  </div>
+    </div>
+  </main>
 </div>
 
 <!-- EDITOR -->
@@ -233,7 +177,7 @@
     <div class="modal-acts">
       <button class="btn btn-danger btn-sm" id="edDelete" onclick="del()">Delete</button>
       <div style="display:flex;align-items:center;gap:14px">
-        <span class="save-err" id="saveErr"></span>
+        <span class="save-err" id="saveErr" role="alert"></span>
         <div class="right">
           <button class="btn btn-gh" onclick="closeEditor()">Cancel</button>
           <button class="btn btn-pri" onclick="save()">Save</button>
@@ -253,18 +197,8 @@ const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 let briefs=[];let filter='all';let editingId=null;
 const $=id=>document.getElementById(id);
-
-// ---- theme toggle ----
-(function(){
-  const btn=document.querySelector('[data-theme-toggle]');
-  if(!btn)return;
-  btn.addEventListener('click',function(){
-    const next=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
-    document.documentElement.setAttribute('data-theme',next);
-    try{localStorage.setItem('np-theme',next);}catch(e){}
-  });
-})();
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
+const escv=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 // ---- auth ----
 async function boot(){
@@ -296,21 +230,21 @@ let pubTimer=null;
 async function publishLive(){
   const btn=$('pubBtn'),st=$('pubStatus');
   if(pubTimer){clearInterval(pubTimer);pubTimer=null;}
-  btn.disabled=true;st.textContent='Requesting…';
+  btn.disabled=true;st.className='status';st.textContent='Requesting…';
   const {data:u}=await sb.auth.getUser();
   const {data,error}=await sb.from('deploy_queue')
     .insert({requested_by:u?.user?.email||null}).select('id').single();
-  if(error){st.textContent='Publish failed: '+error.message;btn.disabled=false;return;}
+  if(error){st.className='status fail';st.textContent='Publish failed: '+error.message;btn.disabled=false;return;}
   st.textContent='Publishing… usually live within 2 minutes';
   const t0=Date.now();
   pubTimer=setInterval(async()=>{
     const {data:row}=await sb.from('deploy_queue').select('status,detail').eq('id',data.id).single();
     if(row&&row.status==='done'){
       clearInterval(pubTimer);pubTimer=null;
-      st.textContent='✓ Live — '+(row.detail||'board updated');btn.disabled=false;
+      st.className='status done';st.textContent='✓ Live — '+(row.detail||'board updated');btn.disabled=false;
     }else if(row&&row.status==='failed'){
       clearInterval(pubTimer);pubTimer=null;
-      st.textContent='✗ '+(row.detail||'failed — see sync log');btn.disabled=false;
+      st.className='status fail';st.textContent='✗ '+(row.detail||'failed — see sync log');btn.disabled=false;
     }else if(Date.now()-t0>6*60*1000){
       clearInterval(pubTimer);pubTimer=null;
       st.textContent='Queued — will publish when the Mac next wakes';btn.disabled=false;
@@ -326,12 +260,12 @@ async function showAdmin(user){
 }
 async function load(){
   const {data,error}=await sb.from('briefs').select('*').order('sort',{ascending:true});
-  if(error){$('list').innerHTML=`<div class="empty">Couldn't load: ${error.message}</div>`;return;}
+  if(error){$('list').innerHTML=`<div class="empty">Couldn't load: ${escv(error.message)}</div>`;return;}
   briefs=data||[];render();
 }
 $('filters').addEventListener('click',e=>{
-  if(!e.target.classList.contains('chip'))return;
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  if(!e.target.classList.contains('filter-chip'))return;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('on'));
   e.target.classList.add('on');filter=e.target.dataset.f;render();
 });
 function dealStr(d){return Array.isArray(d)?d.join(' · '):(d||'—');}
@@ -339,28 +273,29 @@ function render(){
   const rows=briefs.filter(b=>filter==='all'||b.status===filter);
   if(!rows.length){$('list').innerHTML='<div class="empty">Nothing here yet.</div>';return;}
   $('list').innerHTML=rows.map(b=>`
-    <div class="row ${b.status}">
+    <div class="row brief-row ${escv(b.status)}">
       <div class="main">
         <div class="top">
-          <span class="badge ${b.status}">${b.status.toUpperCase()}</span>
-          <span class="ref">${b.ref||''}</span>
-          <span class="pill">${b.dir||''}</span>
-          <span class="pill alt">${b.cat||''}</span>
+          <span class="badge ${escv(b.status)}">${escv(b.status.toUpperCase())}</span>
+          <span class="ref">${escv(b.ref||'')}</span>
+          <span class="pill">${escv(b.dir||'')}</span>
+          <span class="pill alt">${escv(b.cat||'')}</span>
         </div>
-        <h3>${b.title||'(untitled)'}</h3>
-        <div class="ground">Grounded in ${dealStr(b.deal)}</div>
+        <h3>${escv(b.title||'(untitled)')}</h3>
+        <div class="ground">Grounded in <b>${escv(dealStr(b.deal))}</b></div>
       </div>
       <div class="acts">
-        ${b.status!=='published'?`<button class="btn btn-grn btn-sm" onclick="setStatus('${b.id}','published')">Publish</button>`:''}
-        ${b.status!=='withheld'?`<button class="btn btn-amb btn-sm" onclick="setStatus('${b.id}','withheld')">Withhold</button>`:''}
-        ${b.status!=='draft'?`<button class="btn btn-gh btn-sm" onclick="setStatus('${b.id}','draft')">Draft</button>`:''}
-        <button class="btn btn-gh btn-sm" onclick="openEditor('${b.id}')">Edit</button>
+        ${b.status!=='published'?`<button class="btn btn-grn btn-sm" onclick="setStatus('${escv(b.id)}','published')">Publish</button>`:''}
+        ${b.status!=='withheld'?`<button class="btn btn-amb btn-sm" onclick="setStatus('${escv(b.id)}','withheld')">Withhold</button>`:''}
+        ${b.status!=='draft'?`<button class="btn btn-gh btn-sm" onclick="setStatus('${escv(b.id)}','draft')">Draft</button>`:''}
+        <button class="btn btn-gh btn-sm" onclick="openEditor('${escv(b.id)}')">Edit</button>
       </div>
     </div>`).join('');
 }
 async function setStatus(id,status){
+  $('banner').innerHTML='';
   const {error}=await sb.from('briefs').update({status}).eq('id',id);
-  if(error){alert('Failed: '+error.message);return;}
+  if(error){$('banner').innerHTML=`<div class="banner">Could not change status: ${escv(error.message)}</div>`;return;}
   await load();
 }
 
