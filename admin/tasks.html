@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint Admin — Tasks Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d0e0f;--surface:#161718;--line:#2a2a2a;--ink:#e2e2e2;--mut:rgba(226,226,226,.6);
+    --blue:#005CC8;--blue-br:#3D8EEB;--green:#9CD850;--amber:#E8B23A;--red:#ff6b6b;
+    --font-d:'Montserrat',system-ui,sans-serif;--font-b:'Inter',system-ui,sans-serif}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--blue-br)}
+  h1,h2,h3{font-family:var(--font-d)}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+  header{position:sticky;top:0;z-index:10;background:#0d0e0fee;backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .bar{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+  .brand{font:700 17px/1 var(--font-d);color:#fff}
+  .brand span{color:var(--green)}
+  .who{font-size:13px;color:var(--mut)}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-b);font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:5px;border:none;cursor:pointer;transition:all .15s}
+  .btn-pri{background:var(--blue);color:#fff}.btn-pri:hover{background:#0066DC}
+  .btn-gh{background:transparent;color:var(--mut);border:1px solid var(--line)}.btn-gh:hover{color:#fff;border-color:#444}
+  .btn-sm{padding:6px 11px;font-size:12.5px}
+  #login{max-width:380px;margin:14vh auto 0;text-align:center}
+  #login h1{font-size:24px;color:#fff;margin-bottom:6px}
+  #login p{color:var(--mut);font-size:14px;margin-bottom:26px}
+  #login input{width:100%;background:#0a0a0a;border:1px solid var(--line);border-radius:5px;color:var(--ink);font-family:var(--font-b);font-size:15px;padding:12px 14px;margin-bottom:12px;outline:none}
+  #login input:focus{border-color:var(--blue)}
+  #login .btn-pri{width:100%;justify-content:center;padding:12px}
+  .err{color:var(--red);font-size:13px;margin-top:10px;min-height:18px}
+  nav.boards{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:24px 0 0}
+  nav.boards a{padding:10px 14px;font-size:13.5px;font-weight:600;color:var(--mut);text-decoration:none;border-bottom:2px solid transparent}
+  nav.boards a:hover{color:#fff}
+  nav.boards a[aria-current="page"]{color:#fff;border-bottom-color:var(--blue)}
+
+  .intro{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:28px 0 4px;flex-wrap:wrap}
+  .intro h1{font-size:21px;color:#fff}
+  .count{font-size:13px;color:var(--mut)}
+  .note{font-size:13px;color:var(--mut);margin-bottom:18px;max-width:74ch}
+  .owners{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .owner-btn{background:transparent;border:1px solid var(--line);color:var(--mut);border-radius:5px;padding:7px 13px;font:600 13px var(--font-b);cursor:pointer}
+  .owner-btn[aria-pressed="true"]{color:#fff;border-color:var(--blue);background:rgba(0,92,200,.14)}
+  .grp{margin-bottom:26px}
+  .grp h2{font-size:14px;color:#fff;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .pill{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:4px;background:rgba(226,226,226,.1);color:var(--mut)}
+  .task{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:11px 14px;margin-bottom:7px;display:flex;gap:12px;align-items:flex-start}
+  .box{width:15px;height:15px;border:1.5px solid var(--line);border-radius:3px;flex:none;margin-top:3px;background:transparent;padding:0}
+  button.box{cursor:pointer}
+  button.box:hover{border-color:var(--blue-br);background:rgba(61,142,235,.15)}
+  button.box:focus-visible{outline:2px solid var(--blue-br);outline-offset:2px}
+  .box.done{background:var(--blue);border-color:var(--blue)}
+  .box.locked{border-style:dashed;opacity:.55;cursor:not-allowed}
+  .task.queued{opacity:.7}
+  .task .t{flex:1}
+  .task .src{display:block;font-size:12px;color:var(--mut);margin-top:3px}
+  .empty{background:var(--surface);border:1px dashed var(--line);border-radius:7px;padding:36px;text-align:center;color:var(--mut)}
+  .banner{background:rgba(232,178,58,.1);border:1px solid rgba(232,178,58,.3);color:var(--amber);border-radius:6px;padding:11px 14px;font-size:13.5px;margin-bottom:18px}
+  footer{color:var(--mut);font-size:12.5px;margin:40px 0 60px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+
+<div id="login" style="display:none">
+  <h1>NexPoint <span style="color:var(--green)">Tasks</span></h1>
+  <p>Sign in with your admin account.</p>
+  <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username">
+  <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+  <button class="btn btn-pri" onclick="doLogin()">Sign in</button>
+  <div class="err" id="loginErr"></div>
+</div>
+
+<div id="admin" style="display:none">
+  <header><div class="wrap bar">
+    <div class="brand">Nex<span>Point</span> Admin</div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <span class="who" id="who"></span>
+      <button class="btn btn-gh btn-sm" onclick="load()">Refresh</button>
+      <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+    </div>
+  </div></header>
+
+  <div class="wrap">
+    <nav class="boards">
+      <a href="index.html">Briefs</a>
+      <a href="leads.html">Leads</a>
+      <a href="tasks.html" aria-current="page">Tasks</a>
+      <a href="health.html">Health</a>
+    </nav>
+
+    <div class="intro">
+      <h1>Open action items</h1>
+      <span class="count" id="count"></span>
+    </div>
+    <p class="note">
+      Every unticked checkbox across the pipeline files, owner-tagged. The hourly
+      sync rebuilds this list from the workspace, so a task ticked in its profile
+      disappears here on the next run.
+    </p>
+
+    <div class="banner" id="banner" style="display:none"></div>
+
+    <div class="owners" id="owners"></div>
+    <div id="groups"></div>
+  </div>
+
+  <div class="wrap"><footer>
+    Source of truth is the checkbox in the file it came from — this board is a view of it,
+    rebuilt each run. A tick here queues an intent; the hourly sync commits the edit (one
+    commit per tick) and the task disappears on the next rebuild. Filed emails are never
+    edited.
+  </footer></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let tasks=[],who='all',pendingKeys=new Set();
+
+async function boot(){
+  const {data}=await sb.auth.getSession();const s=data&&data.session;
+  if(s&&isAdmin(s.user.email))showAdmin(s.user);else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))$('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pw').value});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  showAdmin(data.user);
+}
+async function signOut(){await sb.auth.signOut();location.reload();}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='block';$('who').textContent=u.email;load();}
+
+async function load(){
+  const {data,error}=await sb.from('engine_tasks').select('owner,task,source,collected_at').order('owner');
+  if(error){
+    $('groups').innerHTML=`<div class="empty">Could not read tasks: ${esc(error.message)}.
+      If this says the table does not exist, migration 0008 has not been run.</div>`;
+    return;
+  }
+  tasks=data||[];
+  const {data:intents}=await sb.from('engine_intents')
+    .select('payload,status').eq('type','tick-task').eq('status','pending');
+  pendingKeys=new Set((intents||[]).map(i=>((i.payload||{}).source||'')+'\u0001'+((i.payload||{}).task||'')));
+  render();
+}
+
+async function tick(source,task){
+  // The board queues an INTENT; the engine's hourly execute-intents step
+  // flips the checkbox in the file the task came from and commits it (G2c,
+  // G3b). Nothing here writes to the workspace.
+  const {data:s}=await sb.auth.getSession();
+  const by=s&&s.session?s.session.user.email:'unknown';
+  const {error}=await sb.from('engine_intents').insert({
+    type:'tick-task',payload:{source,task},requested_by:by,status:'pending'});
+  if(error){showBanner('Could not queue the tick: '+error.message);return;}
+  showBanner('Tick queued for "'+task+'" — the hourly sync commits it to '+source+'.');
+  load();
+}
+function showBanner(msg){const b=$('banner');b.textContent=msg;b.style.display='block';}
+
+function render(){
+  const owners=[...new Set(tasks.map(t=>t.owner))].sort();
+  const shown=tasks.filter(t=>who==='all'||t.owner===who);
+  $('count').textContent=tasks.length?`${tasks.length} open · ${owners.map(o=>`${o} ${tasks.filter(t=>t.owner===o).length}`).join(' · ')}`:'';
+  $('owners').innerHTML=['all',...owners].map(o=>
+    `<button class="owner-btn" aria-pressed="${who===o}" onclick="who='${o}';render()">${o==='all'?'Everyone':esc(o)}</button>`).join('');
+
+  if(!shown.length){
+    $('groups').innerHTML=`<div class="empty">No open action items. The hourly sync rebuilds
+      this list from the workspace — if that looks wrong, the collector may not have run.</div>`;
+    return;
+  }
+  // Group by the company folder the checkbox came from: that is how the
+  // work actually clusters when you sit down to do it.
+  const byCompany={};
+  shown.forEach(t=>{
+    const m=/^(deals|leads)\/([^/]+)\//.exec(t.source||'');
+    const key=m?m[2]:'elsewhere';
+    (byCompany[key]=byCompany[key]||[]).push(t);
+  });
+  $('groups').innerHTML=Object.keys(byCompany).sort().map(company=>`
+    <div class="grp">
+      <h2>${esc(company)} <span class="pill">${byCompany[company].length}</span></h2>
+      ${byCompany[company].map(t=>{
+        const inEmail=/\/emails\//.test(t.source||'');
+        const key=esc(t.source)+'\u0001'+esc(t.task);
+        const queued=pendingKeys.has((t.source||'')+'\u0001'+(t.task||''));
+        return `<div class="task ${queued?'queued':''}">
+        ${inEmail
+          ?`<span class="box locked" title="Filed email — verbatim received material, never edited by the engine"></span>`
+          :queued
+            ?`<span class="box done" title="Tick queued — the hourly sync will commit it"></span>`
+            :`<button class="box btn-tick" aria-label="Tick: ${esc(t.task)}" onclick="tick(this.dataset.s,this.dataset.t)" data-s="${esc(t.source)}" data-t="${esc(t.task)}"></button>`}
+        <span class="t">${esc(t.task)}<span class="src">${esc(t.owner)} · ${esc(t.source)}${inEmail?' · <em>untickable: filed email</em>':''}${queued?' · <em>queued</em>':''}</span></span>
+      </div>`;}).join('')}
+    </div>`).join('');
+}
+boot();
+</script>
+</body>
+</html>

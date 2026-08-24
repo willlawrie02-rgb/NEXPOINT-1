@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint Admin — Health Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d0e0f;--surface:#161718;--line:#2a2a2a;--ink:#e2e2e2;--mut:rgba(226,226,226,.6);
+    --blue:#005CC8;--blue-br:#3D8EEB;--green:#9CD850;--amber:#E8B23A;--red:#ff6b6b;
+    --font-d:'Montserrat',system-ui,sans-serif;--font-b:'Inter',system-ui,sans-serif}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--blue-br)}
+  h1,h2,h3{font-family:var(--font-d)}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+  header{position:sticky;top:0;z-index:10;background:#0d0e0fee;backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .bar{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+  .brand{font:700 17px/1 var(--font-d);color:#fff}
+  .brand span{color:var(--green)}
+  .who{font-size:13px;color:var(--mut)}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-b);font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:5px;border:none;cursor:pointer;transition:all .15s}
+  .btn-pri{background:var(--blue);color:#fff}.btn-pri:hover{background:#0066DC}
+  .btn-gh{background:transparent;color:var(--mut);border:1px solid var(--line)}.btn-gh:hover{color:#fff;border-color:#444}
+  .btn-sm{padding:6px 11px;font-size:12.5px}
+  #login{max-width:380px;margin:14vh auto 0;text-align:center}
+  #login h1{font-size:24px;color:#fff;margin-bottom:6px}
+  #login p{color:var(--mut);font-size:14px;margin-bottom:26px}
+  #login input{width:100%;background:#0a0a0a;border:1px solid var(--line);border-radius:5px;color:var(--ink);font-family:var(--font-b);font-size:15px;padding:12px 14px;margin-bottom:12px;outline:none}
+  #login input:focus{border-color:var(--blue)}
+  #login .btn-pri{width:100%;justify-content:center;padding:12px}
+  .err{color:var(--red);font-size:13px;margin-top:10px;min-height:18px}
+  nav.boards{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:24px 0 0}
+  nav.boards a{padding:10px 14px;font-size:13.5px;font-weight:600;color:var(--mut);text-decoration:none;border-bottom:2px solid transparent}
+  nav.boards a:hover{color:#fff}
+  nav.boards a[aria-current="page"]{color:#fff;border-bottom-color:var(--blue)}
+
+  .verdict{display:flex;align-items:center;gap:12px;margin:28px 0 6px}
+  .dot{width:12px;height:12px;border-radius:50%;flex:none}
+  .dot.ok{background:var(--green);box-shadow:0 0 0 4px rgba(156,216,80,.15)}
+  .dot.bad{background:var(--red);box-shadow:0 0 0 4px rgba(255,107,107,.15)}
+  .verdict h1{font-size:21px;color:#fff}
+  .asof{font-size:12.5px;color:var(--mut);margin-bottom:22px}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:16px 18px;margin-bottom:14px}
+  .panel.bad{border-left:3px solid var(--red)}
+  .panel.warn{border-left:3px solid var(--amber)}
+  .panel h2{font-size:14px;color:#fff;margin-bottom:10px;letter-spacing:.01em}
+  .panel li{list-style:none;font-size:13.5px;padding:6px 0;border-bottom:1px dashed var(--line)}
+  .panel li:last-child{border-bottom:none}
+  .panel li.bad{color:var(--red)}.panel li.warn{color:var(--amber)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600;padding:0 10px 8px 0;border-bottom:1px solid var(--line)}
+  td{padding:10px 10px 10px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  .job{font-weight:600;color:#fff}
+  .st{font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:4px;white-space:nowrap}
+  .st-ok{background:rgba(156,216,80,.16);color:var(--green)}
+  .st-warn{background:rgba(232,178,58,.14);color:var(--amber)}
+  .st-bad{background:rgba(255,107,107,.14);color:var(--red)}
+  .st-idle{background:rgba(226,226,226,.1);color:var(--mut)}
+  .when{color:var(--mut);font-variant-numeric:tabular-nums}
+  .steps{color:var(--mut);font-size:12.5px;margin-top:4px}
+  .empty{background:var(--surface);border:1px dashed var(--line);border-radius:7px;padding:36px;text-align:center;color:var(--mut)}
+  .meters{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:6px 0 8px}
+  .meter{background:#0d0e0f;border:1px solid var(--line);border-radius:7px;padding:12px 14px}
+  .meter .k{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+  .meter .v{font:700 22px/1.1 var(--font-d);color:#fff;margin:6px 0 8px;font-variant-numeric:tabular-nums}
+  .meter .v small{font:500 12px var(--font-b);color:var(--mut);margin-left:4px}
+  .meter .bar{height:5px;background:#1c1e20;border-radius:99px;overflow:hidden}
+  .meter .bar span{display:block;height:100%;border-radius:99px;background:var(--green)}
+  .meter.warn .bar span{background:var(--amber)}.meter.bad .bar span{background:var(--red)}
+  .meter-note{font-size:12.5px;color:var(--mut);margin:4px 0 0}
+  footer{color:var(--mut);font-size:12.5px;margin:40px 0 60px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+
+<div id="login" style="display:none">
+  <h1>NexPoint <span style="color:var(--green)">Health</span></h1>
+  <p>Sign in with your admin account.</p>
+  <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username">
+  <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+  <button class="btn btn-pri" onclick="doLogin()">Sign in</button>
+  <div class="err" id="loginErr"></div>
+</div>
+
+<div id="admin" style="display:none">
+  <header><div class="wrap bar">
+    <div class="brand">Nex<span>Point</span> Admin</div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <span class="who" id="who"></span>
+      <button class="btn btn-gh btn-sm" onclick="load()">Refresh</button>
+      <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+    </div>
+  </div></header>
+
+  <div class="wrap">
+    <nav class="boards">
+      <a href="index.html">Briefs</a>
+      <a href="leads.html">Leads</a>
+      <a href="tasks.html">Tasks</a>
+      <a href="health.html" aria-current="page">Health</a>
+    </nav>
+
+    <div class="verdict"><span class="dot" id="dot"></span><h1 id="verdict">Checking…</h1></div>
+    <div class="asof" id="asof"></div>
+    <div id="findings"></div>
+
+    <div class="panel">
+      <h2>Usage — this calendar month</h2>
+      <div class="meters" id="meters"></div>
+      <p class="meter-note">Counted from the engine's own run records, so these are the
+        calls the engine made — not the provider's bill. Limits are the ones you set.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Jobs — most recent run of each</h2>
+      <div id="jobs"></div>
+    </div>
+  </div>
+
+  <div class="wrap"><footer>
+    Built from the engine's own run records, not from logs. A job that never ran
+    has no row here — absence is the thing to look for.
+  </footer></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function boot(){
+  const {data}=await sb.auth.getSession();const s=data&&data.session;
+  if(s&&isAdmin(s.user.email))showAdmin(s.user);else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))$('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pw').value});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  showAdmin(data.user);
+}
+async function signOut(){await sb.auth.signOut();location.reload();}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='block';$('who').textContent=u.email;load();}
+
+const CLS={succeeded:'st-ok','succeeded-with-warnings':'st-warn',failed:'st-bad','skipped-because-locked':'st-idle'};
+function ago(iso){
+  if(!iso)return '—';
+  const mins=Math.round((Date.now()-new Date(iso).getTime())/60000);
+  if(mins<60)return `${mins} min ago`;
+  const h=Math.round(mins/60); if(h<48)return `${h} h ago`;
+  return `${Math.round(h/24)} d ago`;
+}
+
+async function load(){
+  $('findings').innerHTML='';
+  const {data:runs,error}=await sb.from('engine_runs')
+    .select('id,job,status,started_at,ended_at').order('started_at',{ascending:false}).limit(300);
+  if(error){
+    $('dot').className='dot bad';$('verdict').textContent='Cannot read the engine';
+    $('findings').innerHTML=`<div class="panel bad"><h2>Database</h2><li class="bad">${esc(error.message)}</li></div>`;
+    return;
+  }
+  const latest={};(runs||[]).forEach(r=>{if(!latest[r.job])latest[r.job]=r;});
+  const jobs=Object.values(latest);
+
+  // Usage meters — counted from step details the engine already writes.
+  // Tavily: research steps report "N scraped"; Claude sessions: one run of
+  // each session job. Limits are set here by Will, not invented.
+  const LIMITS={tavily:1000,sessions:60};
+  const monthStart=new Date();monthStart.setUTCDate(1);monthStart.setUTCHours(0,0,0,0);
+  const since=monthStart.toISOString();
+  const {data:steps}=await sb.from('engine_steps')
+    .select('run_id,name,detail,recorded_at').gte('recorded_at',since).in('name',['research','search-candidates']);
+  let tavily=0;(steps||[]).forEach(st=>{
+    const m=/(\d+)\s+scraped/.exec(st.detail||'');if(m)tavily+=parseInt(m[1],10);
+    const q=/(\d+)\s+search(?:es)?\b/.exec(st.detail||'');if(q&&st.name==='search-candidates')tavily+=parseInt(q[1],10);
+  });
+  const monthRuns=(runs||[]).filter(r=>r.started_at>=since);
+  const sessionJobs=new Set(['discovery-judge','mmm-deck','summaries','drains','judge']);
+  const sessions=monthRuns.filter(r=>[...sessionJobs].some(j=>r.job.includes(j))).length;
+  const cloudRuns=monthRuns.length;
+  const meter=(k,v,limit,unit)=>{
+    const pct=limit?Math.min(100,Math.round(v/limit*100)):0;
+    const cls=limit?(pct>=90?'bad':pct>=70?'warn':''):'';
+    return `<div class="meter ${cls}"><div class="k">${k}</div>
+      <div class="v">${v.toLocaleString()}<small>${limit?'/ '+limit.toLocaleString()+' ':''}${unit}</small></div>
+      <div class="bar"><span style="width:${pct}%"></span></div></div>`;
+  };
+  $('meters').innerHTML=
+    meter('Tavily calls',tavily,LIMITS.tavily,'this month')+
+    meter('Claude sessions',sessions,LIMITS.sessions,'runs')+
+    meter('Engine runs',cloudRuns,0,'this month');
+
+  // Findings the board can derive itself.
+  const bad=jobs.filter(j=>j.status==='failed');
+  const warn=jobs.filter(j=>j.status==='succeeded-with-warnings');
+  const {count:pendingIntents}=await sb.from('engine_intents')
+    .select('id',{count:'exact',head:true}).eq('status','pending');
+  const {count:unjudged}=await sb.from('engine_lead_queue')
+    .select('id',{count:'exact',head:true}).eq('status','pending').eq('judged',false);
+
+  const findings=[];
+  bad.forEach(j=>findings.push(['bad',`${j.job} failed — last run ${ago(j.started_at)}`]));
+  warn.forEach(j=>findings.push(['warn',`${j.job} finished with warnings — ${ago(j.started_at)}`]));
+  if(pendingIntents)findings.push(['warn',`${pendingIntents} request(s) queued and not yet actioned by the engine`]);
+  if(unjudged)findings.push(['warn',`${unjudged} lead(s) waiting on the judge pass — the queue is keyword-only until it runs`]);
+  if(LIMITS.tavily&&tavily>=LIMITS.tavily*0.9)findings.push(['bad',`Tavily at ${tavily}/${LIMITS.tavily} this month — the finders will start failing at the cap`]);
+  else if(LIMITS.tavily&&tavily>=LIMITS.tavily*0.7)findings.push(['warn',`Tavily at ${tavily}/${LIMITS.tavily} this month`]);
+
+  const isBad=bad.length>0;
+  $('dot').className='dot '+(isBad?'bad':'ok');
+  $('verdict').textContent=isBad?'Something needs attention':(findings.length?'Running, with warnings':'All clear');
+  $('asof').textContent=`${jobs.length} job(s) with run records · checked ${new Date().toLocaleTimeString()}`;
+  $('findings').innerHTML=findings.length
+    ? `<div class="panel ${isBad?'bad':'warn'}"><h2>Needs attention</h2><ul>${
+        findings.map(([k,t])=>`<li class="${k}">${esc(t)}</li>`).join('')}</ul></div>`
+    : '';
+
+  $('jobs').innerHTML=jobs.length? `<table><thead><tr>
+      <th>Job</th><th>Status</th><th>Last run</th><th>Run</th></tr></thead><tbody>${
+    jobs.sort((a,b)=>a.job.localeCompare(b.job)).map(j=>`<tr>
+      <td class="job">${esc(j.job)}</td>
+      <td><span class="st ${CLS[j.status]||'st-idle'}">${esc(j.status||'running')}</span></td>
+      <td class="when">${esc(ago(j.started_at))}</td>
+      <td class="when">${esc((j.id||'').slice(-13))}</td>
+    </tr>`).join('')}</tbody></table>`
+    : `<div class="empty">No run records yet. Jobs write here as soon as the engine runs in the cloud.</div>`;
+}
+boot();
+</script>
+</body>
+</html>
