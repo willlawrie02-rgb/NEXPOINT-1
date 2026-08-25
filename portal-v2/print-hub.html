@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>Global Print Hub — The NexPoint User Portal</title>
+<title>Global Print Hub — The NexPoint Global Hub</title>
 <link rel="icon" href="../assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,8 +27,8 @@ own pages · logo path fixed.
 
 <header>
   <div class="container nav">
-    <a href="index.html" class="wordmark" aria-label="NexPoint User Portal home"><img src="../assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Portal v3 · Draft</span></a>
-    <nav class="nav-links" aria-label="Portal">
+    <a href="index.html" class="wordmark" aria-label="NexPoint Global Hub home"><img src="../assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Global Hub v3 · Draft</span></a>
+    <nav class="nav-links" aria-label="Global Hub">
       <a href="print-hub.html" class="hide-m" aria-current="page">Print Hub</a>
       <a href="mill-hub.html" class="hide-m">Mill Hub</a>
       <a href="../portal/" class="hide-m">Opportunities</a>
@@ -38,14 +38,14 @@ own pages · logo path fixed.
   </div>
 </header>
 <nav class="hub-switch" aria-label="Hubs">
-  <a href="index.html">Portal home</a>
+  <a href="index.html">Global Hub home</a>
   <a href="print-hub.html" aria-current="page">Print Hub</a>
   <a href="mill-hub.html">Mill Hub</a>
   <a href="../portal/">Opportunities</a>
 </nav>
 
 <div class="container">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">The Portal</a><span class="sep">/</span><b>Global Print Hub</b></nav>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Global Hub</a><span class="sep">/</span><b>Global Print Hub</b></nav>
 </div>
 
 <!-- HERO -->
@@ -62,7 +62,103 @@ own pages · logo path fixed.
         </div>
       </div>
       <div class="hero-media">
-        <img src="assets/img/print-hub.jpg" alt="Freshly printed nylon orthotic shells on a workbench in front of an industrial SLS 3D printer">
+        <!-- The headline, acted out: the FILE crosses the lane; the PRODUCT is printed at the
+             far end and only hops next door. Counterpart to the mill hub's mill-to-door
+             sequence — same construction, opposite story. Self-contained SVG + CSS, 12s loop,
+             brand tokens only. Reduced motion gets the finished diagram: file sent, part
+             printed and delivered at the door. -->
+        <svg id="printAnim" viewBox="0 0 800 500" role="img" style="display:block;width:100%;height:auto;background:#fff"
+             aria-label="A design file travels from your lab across the network; the insole is 3D-printed close to the end customer and delivered locally">
+          <title>The file travels — the product is printed next door</title>
+          <style>
+            #printAnim .albl{font:600 11px var(--font-body,Inter,sans-serif);letter-spacing:.09em;fill:rgba(14,22,38,.55)}
+            #printAnim .apill{font:600 10px var(--font-body,Inter,sans-serif);letter-spacing:.08em;fill:#5a8f1d}
+            @keyframes ppDyn{0%,95%{opacity:1}98%,99%{opacity:0}100%{opacity:1}}
+            #ppDyn{animation:ppDyn 12s linear infinite}
+            @keyframes ppPacket{0%,5%{opacity:0;transform:translateX(0)}8%,9%{opacity:1;transform:translateX(0)}
+              21%{opacity:1;transform:translateX(224px)}24%,99%{opacity:0;transform:translateX(224px)}
+              99.5%,100%{opacity:0;transform:translateX(0)}}
+            #ppPacket{animation:ppPacket 12s cubic-bezier(.4,.05,.3,1) infinite}
+            @keyframes ppHead{0%,26%{transform:translateX(0)}34%{transform:translateX(96px)}42%{transform:translateX(0)}
+              50%{transform:translateX(96px)}58%,100%{transform:translateX(0)}}
+            #ppHead{animation:ppHead 12s cubic-bezier(.45,.1,.55,.9) infinite}
+            @keyframes ppWipe{0%,26%{transform:scaleY(0)}58%,98%{transform:scaleY(1)}99.5%,100%{transform:scaleY(0)}}
+            #ppWipeRect{transform-box:fill-box;transform-origin:center bottom;animation:ppWipe 12s linear infinite}
+            @keyframes ppHop{0%,65%{transform:translate(0,0)}68.5%{transform:translate(70px,-8px)}
+              72%,98.5%{transform:translate(141px,16px)}100%{transform:translate(0,0)}}
+            #ppHop{animation:ppHop 12s cubic-bezier(.3,.1,.4,1) infinite}
+            @keyframes ppHalo{0%,72%{opacity:0;transform:scale(.5)}74.5%{opacity:.45}79%{opacity:0;transform:scale(1.3)}
+              80%{opacity:0;transform:scale(.5)}82.5%{opacity:.3}87%,100%{opacity:0;transform:scale(1.3)}}
+            #ppHalo{transform-box:fill-box;transform-origin:center;animation:ppHalo 12s linear infinite}
+            @keyframes ppPill{0%,73%{opacity:0;transform:translateY(5px)}76.5%,94%{opacity:1;transform:translateY(0)}97%,100%{opacity:0;transform:translateY(0)}}
+            #ppPillG{animation:ppPill 12s cubic-bezier(.2,.8,.2,1) infinite}
+            @media (prefers-reduced-motion:reduce){#printAnim *{animation:none !important}}
+          </style>
+
+          <g transform="translate(0,-50)"><!-- scene, centred in the panel -->
+          <!-- static furniture -->
+          <line x1="70" y1="360" x2="250" y2="360" stroke="rgba(14,22,38,.16)" stroke-width="1.5"/>
+          <line x1="470" y1="360" x2="740" y2="360" stroke="rgba(14,22,38,.16)" stroke-width="1.5"/>
+          <line x1="254" y1="360" x2="462" y2="360" stroke="rgba(0,92,200,.30)" stroke-width="1.5" stroke-dasharray="2 8"/>
+          <polyline points="456,354 464,360 456,366" fill="none" stroke="rgba(0,92,200,.35)" stroke-width="1.5"/>
+          <!-- the file card -->
+          <rect x="120" y="250" width="110" height="140" rx="8" fill="#fff" stroke="#E3E7ED" stroke-width="1.5"/>
+          <g transform="translate(135,287) scale(.42)">
+            <path fill="none" stroke="var(--blue,#005CC8)" stroke-width="5" stroke-linecap="round"
+              d="M 8,40 C 8,16 30,6 54,8 C 90,10 118,16 148,12 C 172,9 190,18 191,38 C 190,58 172,68 146,64 C 118,60 96,50 66,56 C 38,62 8,60 8,40 Z"/>
+          </g>
+          <line x1="140" y1="340" x2="210" y2="340" stroke="#E3E7ED" stroke-width="3" stroke-linecap="round"/>
+          <line x1="140" y1="354" x2="192" y2="354" stroke="#E3E7ED" stroke-width="3" stroke-linecap="round"/>
+          <!-- the local printer -->
+          <rect x="490" y="245" width="150" height="125" rx="8" fill="none" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
+          <line x1="500" y1="270" x2="630" y2="270" stroke="rgba(44,52,68,.30)" stroke-width="1.5"/>
+          <line x1="505" y1="346" x2="625" y2="346" stroke="rgba(44,52,68,.30)" stroke-width="1.5"/>
+          <!-- the customer's door -->
+          <line x1="668" y1="258" x2="668" y2="360" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
+          <line x1="744" y1="258" x2="744" y2="360" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
+          <line x1="658" y1="258" x2="754" y2="258" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
+          <text class="albl" x="175" y="394" text-anchor="middle">YOUR FILE</text>
+          <text class="albl" x="706" y="394" text-anchor="middle">THEIR DOOR</text>
+
+          <g id="ppDyn">
+            <!-- the file, travelling -->
+            <g id="ppPacket" opacity="0">
+              <rect x="240" y="336" width="16" height="20" rx="2" fill="#fff" stroke="var(--blue,#005CC8)" stroke-width="2"/>
+              <line x1="244" y1="343" x2="252" y2="343" stroke="var(--blue,#005CC8)" stroke-width="1.5"/>
+              <line x1="244" y1="349" x2="250" y2="349" stroke="var(--blue,#005CC8)" stroke-width="1.5"/>
+            </g>
+            <!-- the recoater head -->
+            <g id="ppHead" transform="translate(0,0)">
+              <rect x="504" y="264" width="28" height="12" rx="3" fill="#fff" stroke="rgba(44,52,68,.5)" stroke-width="1.5"/>
+              <line x1="518" y1="276" x2="518" y2="283" stroke="rgba(44,52,68,.5)" stroke-width="2"/>
+            </g>
+            <!-- the part, printed layer by layer, then the short hop to the door -->
+            <g id="ppHop" transform="translate(141,16)">
+              <mask id="ppWipeMask"><rect id="ppWipeRect" x="518" y="308" width="90" height="40" fill="#fff"/></mask>
+              <g mask="url(#ppWipeMask)">
+                <g transform="translate(525.2,316.8) scale(.4)">
+                  <path fill="rgba(0,92,200,.06)" stroke="var(--blue,#005CC8)" stroke-width="6" stroke-linecap="round"
+                    d="M 8,40 C 8,16 30,6 54,8 C 90,10 118,16 148,12 C 172,9 190,18 191,38 C 190,58 172,68 146,64 C 118,60 96,50 66,56 C 38,62 8,60 8,40 Z"/>
+                  <clipPath id="ppPartClip">
+                    <path d="M 8,40 C 8,16 30,6 54,8 C 90,10 118,16 148,12 C 172,9 190,18 191,38 C 190,58 172,68 146,64 C 118,60 96,50 66,56 C 38,62 8,60 8,40 Z"/>
+                  </clipPath>
+                  <g clip-path="url(#ppPartClip)" stroke="rgba(0,92,200,.28)" stroke-width="2.5">
+                    <line x1="0" y1="18" x2="199" y2="18"/><line x1="0" y1="30" x2="199" y2="30"/>
+                    <line x1="0" y1="42" x2="199" y2="42"/><line x1="0" y1="54" x2="199" y2="54"/>
+                  </g>
+                </g>
+              </g>
+            </g>
+            <!-- arrival -->
+            <circle id="ppHalo" cx="706" cy="345" r="30" fill="none" stroke="var(--green,#8BC53F)" stroke-width="2" opacity="0"/>
+            <g id="ppPillG" opacity="1">
+              <rect x="634" y="210" width="144" height="26" rx="13" fill="#fff" stroke="rgba(14,22,38,.12)"/>
+              <circle cx="650" cy="223" r="4" fill="var(--green,#8BC53F)"/>
+              <text class="apill" x="661" y="227">PRINTED LOCALLY</text>
+            </g>
+          </g>
+          </g>
+        </svg>
         <span class="tag"><span class="live-dot"></span>US$35 a pair, worldwide</span>
       </div>
     </div>
@@ -84,7 +180,37 @@ own pages · logo path fixed.
 </section>
 
 <!-- PRIORITY ONE: why you'd bother -->
+
+<!-- PRIORITY TWO: the action. Two doors, two audiences, two pages. -->
 <section class="section">
+  <div class="container">
+    <div class="enter enter--up">
+      <h2>Which side of the network are you on?</h2>
+      <p class="sub">The two journeys are different, so they get different pages. Pick yours.</p>
+    </div>
+    <div class="doors">
+      <a class="door enter enter--up" style="--d:0ms" href="print-find.html">
+        <div class="door__media"><img src="assets/img/print-hub.jpg" alt=""></div>
+        <div class="door__body">
+          <span class="door__kicker">I need capacity</span>
+          <h3>Find print capacity near you</h3>
+          <p>Start on the map. Three clicks and you can see what the network can print close to your customers.</p>
+          <span class="go">Open the capacity map <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </div>
+      </a>
+      <a class="door enter enter--up" style="--d:70ms" href="print-offer.html">
+        <div class="door__media"><img src="assets/img/product-hub.jpg" alt=""></div>
+        <div class="door__body">
+          <span class="door__kicker">I have capacity</span>
+          <h3>Offer print capacity</h3>
+          <p>Own printers? Twenty founding laboratories shape the network they'll profit from.</p>
+          <span class="go">Register your lab <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+<section class="section alt">
   <div class="container">
     <div class="enter enter--up">
     <h2>Built for the labs the printer market left in between.</h2>
@@ -111,36 +237,6 @@ own pages · logo path fixed.
         <span class="lead">Missing a technology</span>
         <p>You run SLS but not powder-bed fusion; you print TPU but not resin. Take the jobs your own machines can't do by placing them with a lab that can, instead of owning every printer and stocking every material yourself.</p>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- PRIORITY TWO: the action. Two doors, two audiences, two pages. -->
-<section class="section alt">
-  <div class="container">
-    <div class="enter enter--up">
-      <h2>Which side of the network are you on?</h2>
-      <p class="sub">The two journeys are different, so they get different pages. Pick yours.</p>
-    </div>
-    <div class="doors">
-      <a class="door enter enter--up" style="--d:0ms" href="print-find.html">
-        <div class="door__media"><img src="assets/img/print-hub.jpg" alt=""></div>
-        <div class="door__body">
-          <span class="door__kicker">I need capacity</span>
-          <h3>Find print capacity near you</h3>
-          <p>Start on the map. Three clicks and you can see what the network can print close to your customers.</p>
-          <span class="go">Open the capacity map <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </div>
-      </a>
-      <a class="door enter enter--up" style="--d:70ms" href="print-offer.html">
-        <div class="door__media"><img src="assets/img/product-hub.jpg" alt=""></div>
-        <div class="door__body">
-          <span class="door__kicker">I have capacity</span>
-          <h3>Offer print capacity</h3>
-          <p>Own printers? Twenty founding laboratories shape the network they'll profit from.</p>
-          <span class="go">Register your lab <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </div>
-      </a>
     </div>
   </div>
 </section>
@@ -201,7 +297,7 @@ own pages · logo path fixed.
       <ul>
         <li><a href="print-find.html">Find print capacity</a></li>
         <li><a href="print-offer.html">Offer print capacity</a></li>
-        <li><a href="index.html">Portal home</a></li>
+        <li><a href="index.html">Global Hub home</a></li>
         <li><a href="mill-hub.html">Global Mill Hub</a></li>
       </ul>
     </div>

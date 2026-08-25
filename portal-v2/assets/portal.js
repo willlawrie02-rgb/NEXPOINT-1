@@ -1,4 +1,4 @@
-/* NexPoint User Portal v3 — shared behaviour. Front-end only: nothing is stored or sent.
+/* NexPoint Global Hub v3 — shared behaviour. Front-end only: nothing is stored or sent.
    v3 (2026-08-15) rebuilds the location layer after Chris's 14 Aug review:
      · the map is the way in, not a dropdown list
      · capacity actually varies by region and by country
@@ -584,7 +584,7 @@ function introSubmit(e){
       <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
       <h2>Received, in confidence.</h2>
       <p>Chris or Will reads every request personally — expect to hear from one of us within two working days. <br><br><em>(Draft note: nothing was actually sent.)</em></p>
-      <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the portal</button></div>
+      <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
     </div>`;
   return false;
 }
@@ -595,7 +595,7 @@ function joinSubmit(e){
       <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
       <h2>Received, in confidence.</h2>
       <p>We'll confirm your account by email, then verify equipment, materials and standards with you directly. Founding places are limited to twenty laboratories. <br><br><em>(Draft note: nothing was actually sent.)</em></p>
-      <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the portal</button></div>
+      <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
     </div>`;
   openOverlay('introOverlay');
   return false;
@@ -606,8 +606,8 @@ function signMock(){
     <div class="success">
       <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
       <h2>Accounts arrive with the full build</h2>
-      <p>In this draft the whole portal is open — no sign-in needed. In the full build, members land on a board already matched to their profile.</p>
-      <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the portal</button></div>
+      <p>In this draft the whole Global Hub is open — no sign-in needed. In the full build, members land on a board already matched to their profile.</p>
+      <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
     </div>`;
 }
 let lastFocus = null;
@@ -869,6 +869,16 @@ function runDemo(){
   document.addEventListener('visibilitychange', () => { document.hidden ? stop() : start(); });
 })();
 
+/* Flip every .enter inside a container on the same frame. Shared, so the scroll observer
+   and the hero handoff can each fire a group at the moment they choose, and so firing
+   twice is harmless. */
+function fireEnterGroup(el){
+  if (!el || el.dataset.entered) return;
+  el.dataset.entered = '1';
+  if (el.classList.contains('enter')) el.classList.add('is-in');
+  el.querySelectorAll('.enter').forEach(n => n.classList.add('is-in'));
+}
+
 /* ═══════════ entrances (ported verbatim from the live site) ═══════════ */
 (function initEntrances(){
   const root = document.documentElement;
@@ -880,8 +890,104 @@ function runDemo(){
         if (en.isIntersecting) { en.target.classList.add('is-in'); obs.unobserve(en.target); }
       });
     }, { rootMargin: '0px 0px -12% 0px', threshold: 0.15 });
-    document.querySelectorAll('.enter').forEach(el => io.observe(el));
+
+    /* A grid fires as one unit. Observing each card separately meant the top row of a 2x2
+       crossed the threshold long before the bottom row, and each card then added its own
+       --d on top — two ragged waves instead of one sequence. Grouped, every card flips on
+       the same frame and --d alone spaces them, so the stagger is the same every time.
+       threshold 0 with a bottom margin keys off the container's top edge, which stays
+       predictable however tall the group is. */
+    const wideEnough = window.matchMedia('(min-width:961px)').matches;
+    document.querySelectorAll('[data-enter-group]').forEach(group => {
+      if (wideEnough && group.hasAttribute('data-enter-handoff')) return;
+      new IntersectionObserver((entries, obs) => {
+        entries.forEach(en => {
+          if (!en.isIntersecting) return;
+          obs.unobserve(en.target);
+          fireEnterGroup(en.target);
+        });
+      }, { rootMargin: '0px 0px -60% 0px', threshold: 0 }).observe(group);
+    });
+
+    /* everything outside a group keeps the per-element behaviour */
+    document.querySelectorAll('.enter').forEach(el => {
+      if (el.closest('[data-enter-group]')) return;
+      io.observe(el);
+    });
   }
 })();
 
 document.addEventListener('DOMContentLoaded', () => { initFindPage(); initOfferPage(); runDemo(); });
+
+/* ═══════════ hero handoff — the globe launches, the doors take the frame ═══════════
+   Progress is derived from scrollY alone (no per-frame layout reads), written once per
+   rAF into custom properties that CSS turns into transform/opacity/filter. Nothing here
+   animates a layout property, so the whole sequence stays on the compositor. */
+(function initHeroHandoff(){
+  const root  = document.documentElement;
+  const stage = document.querySelector('.hero-stage');
+  const nextSection = document.querySelector('.hero-next');
+  const head  = document.querySelector('header');
+  if (!stage || !nextSection || !root.classList.contains('js-motion')) return;
+
+  const wide = window.matchMedia('(min-width:961px)');
+  const still = window.matchMedia('(prefers-reduced-motion:reduce)');
+  const VARS = ['--copy-o','--globe-y','--globe-s','--globe-b','--globe-o'];
+
+  let span = 1, queued = false, live = false, wasFlying = false;
+
+  const clamp  = v => v < 0 ? 0 : v > 1 ? 1 : v;
+  /* smoothstep: eases both ends of a fade so nothing snaps on or off */
+  const ramp   = (v, a, b) => { const t = clamp((v - a) / (b - a)); return t * t * (3 - 2 * t); };
+
+  function measure(){
+    const h = head ? head.offsetHeight : 0;
+    root.style.setProperty('--header-h', h + 'px');
+    /* distance from rest to the doors meeting the header — the whole handoff */
+    span = Math.max(1, nextSection.getBoundingClientRect().top + window.scrollY - h);
+  }
+
+  function frame(){
+    queued = false;
+    const p = clamp(window.scrollY / span);
+    const g = p * p;                 /* squared: it accelerates away rather than drifting */
+    const s = stage.style;
+    s.setProperty('--copy-o',  (1 - ramp(p, .05, .62)).toFixed(3));
+    s.setProperty('--globe-y', (-g * 155).toFixed(2) + 'vh');
+    s.setProperty('--globe-s', (1 - g * .18).toFixed(3));
+    s.setProperty('--globe-b', (ramp(p, .22, 1) * 6).toFixed(2) + 'px');
+    s.setProperty('--globe-o', (1 - ramp(p, .12, .72)).toFixed(3));
+
+    /* Only what is in frame when the hero gives way belongs to the handoff. Bands further
+       down earn their own entrance from the scroll observer, or they would play unseen. */
+    if (p >= .5) nextSection.querySelectorAll('[data-enter-handoff]').forEach(fireEnterGroup);
+
+    const flying = p > 0 && p < 1;
+    if (flying !== wasFlying){ stage.classList.toggle('is-flight', flying); wasFlying = flying; }
+  }
+
+  function clear(){
+    VARS.forEach(k => stage.style.removeProperty(k));
+    stage.classList.remove('is-flight');
+    wasFlying = false;
+  }
+
+  function onScroll(){ if (live && !queued){ queued = true; requestAnimationFrame(frame); } }
+
+  function sync(){
+    live = wide.matches && !still.matches;
+    if (live){ measure(); frame(); return; }
+    /* handoff is off (narrow, or reduced motion switched on mid-session). It owns the
+       doors' entrance, so hand it back rather than leaving them hidden forever. */
+    clear();
+    nextSection.querySelectorAll('[data-enter-handoff]').forEach(fireEnterGroup);
+  }
+
+  addEventListener('scroll', onScroll, { passive:true });
+  addEventListener('resize', sync,     { passive:true });
+  const watch = (mq, fn) => mq.addEventListener ? mq.addEventListener('change', fn) : mq.addListener(fn);
+  watch(wide, sync); watch(still, sync);
+  /* images settle after load and can move the doors; re-measure once they have */
+  addEventListener('load', sync);
+  sync();
+})();

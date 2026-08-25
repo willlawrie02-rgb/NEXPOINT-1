@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>The NexPoint User Portal</title>
+<title>The NexPoint Global Hub</title>
 <link rel="icon" href="../assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,8 +25,8 @@ fixed so the wordmark stops going missing.
 
 <header>
   <div class="container nav">
-    <a href="index.html" class="wordmark" aria-label="NexPoint User Portal home"><img src="../assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Portal v3 · Draft</span></a>
-    <nav class="nav-links" aria-label="Portal">
+    <a href="index.html" class="wordmark" aria-label="NexPoint Global Hub home"><img src="../assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Global Hub v3 · Draft</span></a>
+    <nav class="nav-links" aria-label="Global Hub">
       <a href="print-hub.html" class="hide-m">Print Hub</a>
       <a href="mill-hub.html" class="hide-m">Mill Hub</a>
       <a href="../portal/" class="hide-m">Opportunities</a>
@@ -36,24 +36,22 @@ fixed so the wordmark stops going missing.
   </div>
 </header>
 <nav class="hub-switch" aria-label="Hubs">
-  <a href="index.html" aria-current="page">Portal home</a>
+  <a href="index.html" aria-current="page">Global Hub home</a>
   <a href="print-hub.html">Print Hub</a>
   <a href="mill-hub.html">Mill Hub</a>
   <a href="../portal/">Opportunities</a>
 </nav>
 
-<!-- HERO -->
+<!-- HERO — leads the page. Its Print/Mill buttons stay removed: the four cards sit
+     directly beneath it, so the same two destinations would appear twice in one screen. -->
+<div class="hero-stage">
 <section class="hub-hero">
   <div class="container">
     <div class="grid">
-      <div>
-        <span class="eyebrow">The NexPoint User Portal</span>
+      <div class="hero-copy">
+        <span class="eyebrow">The NexPoint Global Hub</span>
         <h1>One trusted network.<br><em>Four hubs.</em></h1>
         <p class="lede">Print capacity, milled production, products and know-how, connected across the global O&amp;P industry. Every introduction is made person to person, by people who know both sides.</p>
-        <div class="ctas">
-          <a class="btn btn-primary" href="print-hub.html">Enter the Print Hub</a>
-          <a class="btn btn-outline" href="mill-hub.html">Enter the Mill Hub</a>
-        </div>
         <p style="margin-top:18px;font-size:13.5px;color:var(--on-surface-var)">Been here before? <a href="#" onclick="event.preventDefault();openSignIn()" style="color:var(--blue);font-weight:600">Sign in</a></p>
       </div>
       <div class="hero-media" style="border:none;box-shadow:none;background:#0d1424;border-radius:9999px;aspect-ratio:1/1;max-width:520px;margin-inline:auto">
@@ -62,60 +60,66 @@ fixed so the wordmark stops going missing.
     </div>
   </div>
 </section>
+</div>
 
-<!-- THE FOUR DOORS — image-buttons, straight after the hero -->
-<section class="section" style="padding-top:0">
+<!-- THE FOUR DOORS — image-buttons, immediately under the hero. -->
+<section class="section hero-next" style="padding-top:0">
   <div class="container">
-    <div class="enter enter--up">
+    <div>
       <h2>Where do you want to go?</h2>
       <p class="sub">Each hub is a door into a different part of the network. Three are open today; the fourth is being built with founding members now.</p>
     </div>
-    <div class="hub-grid">
-      <a class="hub-card enter enter--up" style="--d:0ms" href="print-hub.html">
-        <div class="media">
+    <!-- Two live doors lead, in the main site's alternating svc-row idiom: media one side,
+         body the other, flipping between them. The other two hubs are a different kind of
+         thing — an outbound board and a waiting list — so they take the site's hairline
+         why-item treatment rather than pretending to be the same object.
+         This section is deliberately static: no scroll entrances. -->
+    <div class="hub-bands">
+      <a class="hub-band" href="print-hub.html">
+        <div class="hub-band__media">
           <img src="assets/img/print-hub.jpg" alt="Printed nylon orthotic shells on a workbench in front of an industrial SLS 3D printer">
           <span class="status"><span class="live-dot"></span>Live</span>
         </div>
-        <div class="body">
+        <div class="hub-band__body">
           <h3>Global Print Hub</h3>
           <p>Certified 3D-printing labs across six regions print each other's work close to the end customer. The file travels — the product doesn't. One worldwide price: US$35 a pair plus shipping.</p>
-          <span class="go">Enter the Print Hub <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          <span class="go">Enter the Print Hub <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
         </div>
       </a>
-      <a class="hub-card enter enter--up" style="--d:70ms" href="mill-hub.html">
-        <div class="media">
+
+      <a class="hub-band hub-band--flip" href="mill-hub.html">
+        <div class="hub-band__media">
           <img src="assets/img/mill-hub.jpg" alt="CNC mill cutting a custom orthotic insole from a polypropylene blank">
           <span class="status"><span class="live-dot"></span>Live</span>
         </div>
-        <div class="body">
+        <div class="hub-band__body">
           <h3>Global Mill Hub</h3>
           <p>Established milled-orthotic production, run as your own line inside a partner facility: your styles, your branding, your standard, mirrored across continents for full redundancy.</p>
-          <span class="go">Enter the Mill Hub <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          <span class="go">Enter the Mill Hub <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
         </div>
       </a>
-      <a class="hub-card enter enter--up" style="--d:140ms" href="../portal/">
-        <div class="media">
+
+      <a class="hub-band" href="../portal/">
+        <div class="hub-band__media">
           <img src="assets/img/product-hub.jpg" alt="Custom orthotic insoles and an ankle-foot orthosis arranged on a white surface">
           <span class="status"><span class="live-dot"></span>On the board</span>
         </div>
-        <div class="body">
+        <div class="hub-band__body">
           <h3>Global Opportunities Hub</h3>
           <p>Products, materials, technologies, consultancy — and companies looking to buy or sell. Placed through verified, anonymised opportunities. Read the board and request an introduction; nothing is bought or sold on the page.</p>
-          <span class="go">Browse the opportunity board <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          <span class="go">Browse the board <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
         </div>
       </a>
-      <div class="hub-card soon enter enter--up" style="--d:210ms">
-        <div class="media">
-          <img src="assets/img/education-hub.jpg" alt="A clinician demonstrating a hand-held scanner to a colleague in a bright clinical training room">
+    </div>
+
+    <div class="hub-lines">
+      <div class="hub-line hub-line--soon">
+        <div class="hub-line__head">
           <span class="status soon">Coming soon</span>
+          <h4>Global Education Hub</h4>
         </div>
-        <div class="body">
-          <h3>Global Education Hub</h3>
-          <p>Training and digital-workflow education for teams adopting scanning, CAD/CAM and additive manufacturing for the first time. Built with the network's most experienced hands.</p>
-          <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border-soft)">
-            <button class="btn btn-primary" onclick="openIntro('EDUCATION HUB','Put me on the list')">Put me on the list</button>
-          </div>
-        </div>
+        <p>Training and digital-workflow education for teams adopting scanning, CAD/CAM and additive manufacturing for the first time. Built with the network's most experienced hands.</p>
+        <button class="btn btn-primary" onclick="openIntro('EDUCATION HUB','Put me on the list')">Put me on the list</button>
       </div>
     </div>
   </div>
@@ -126,7 +130,7 @@ fixed so the wordmark stops going missing.
   <div class="container">
     <div class="enter enter--up">
       <h2>How an introduction actually happens.</h2>
-      <p class="sub">The portal shows you what exists. People decide what meets.</p>
+      <p class="sub">The Global Hub shows you what exists. People decide what meets.</p>
     </div>
     <div class="steps four">
       <div class="step enter enter--up" style="--d:0ms"><span class="n">01</span><h3>Pick your hub</h3><p>Print, mill, opportunities: each hub shows real, current capacity, anonymised but verified by us first-hand.</p></div>
@@ -139,7 +143,7 @@ fixed so the wordmark stops going missing.
       <div class="row enter enter--up" style="--d:0ms">
         <span class="material-symbols-outlined" aria-hidden="true">visibility_off</span>
         <span class="lead">Discretion as standard</span>
-        <p>Every hub describes the deal, not the party. Names, prices and references never appear on the portal; they are shared only inside a personal introduction, the way good deals have always been done.</p>
+        <p>Every hub describes the deal, not the party. Names, prices and references never appear on the Global Hub; they are shared only inside a personal introduction, the way good deals have always been done.</p>
       </div>
       <div class="row enter enter--up" style="--d:70ms">
         <span class="material-symbols-outlined" aria-hidden="true">verified</span>
@@ -172,7 +176,7 @@ fixed so the wordmark stops going missing.
       <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, and Australia.</p>
     </div>
     <div class="footer__col">
-      <h5>The Portal</h5>
+      <h5>Global Hub</h5>
       <ul>
         <li><a href="print-hub.html">Global Print Hub</a></li>
         <li><a href="mill-hub.html">Global Mill Hub</a></li>
