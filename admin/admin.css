@@ -42,6 +42,19 @@
   --cold-ink: #46536B;
   --cold-wash: rgba(70, 83, 107, 0.10);
 
+  /* Opportunity grade — the HUMAN's scale (Will, 2026-08-25). A separate
+     axis from the warmth ladder and from judge confidence: this is what
+     the opportunity is worth. Green here is "go" as everywhere else, but
+     darkened for text-weight contrast on white. */
+  --grade-high: #2E7D32;
+  --grade-high-wash: rgba(46, 125, 50, 0.07);
+  --grade-medium: #C98A12;
+  --grade-medium-wash: rgba(201, 138, 18, 0.08);
+  --grade-low: #7E8794;
+  --grade-low-wash: rgba(126, 135, 148, 0.08);
+  --grade-watch: var(--np-blue);
+  --grade-watch-wash: var(--info-wash);
+
   --font-display: 'Montserrat', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
 

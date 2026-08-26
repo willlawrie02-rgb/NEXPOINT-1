@@ -11,8 +11,65 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="admin.css">
 <style>
-  .verdict-reason { color: var(--fg-1); font-size: 14.5px; max-width: 78ch; }
-  .meta .conf { font-variant-numeric: tabular-nums; }
+  /* Quality sections — the board's organising truth (Will, 2026-08-25). */
+  .section { margin: 0 0 34px; }
+  .section-head { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+  .section-head h2 { font: 700 13px/1 var(--font-body); letter-spacing: .07em;
+                     text-transform: uppercase; color: var(--fg-2); }
+  .section-head .n { font: 600 11.5px/1 var(--font-body); color: var(--fg-2);
+                     background: var(--bg-alt); border-radius: 999px; padding: 4px 9px;
+                     font-variant-numeric: tabular-nums; }
+  .section-head .rule { flex: 1; height: 1px; background: var(--border); }
+  .section-head .grade-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .g-high   { background: var(--grade-high); }
+  .g-medium { background: var(--grade-medium); }
+  .g-low    { background: var(--grade-low); }
+  .g-watch  { background: var(--grade-watch); }
+
+  /* Opportunity — what they're qualified FOR, named not slugged. */
+  .opps { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+  .opp { display: inline-flex; align-items: center; gap: 6px;
+         font: 600 12px/1 var(--font-body); color: var(--info-ink);
+         background: var(--info-wash); border-radius: var(--radius-sm); padding: 5px 9px; }
+  .opp .material-symbols-outlined { font-size: 15px; }
+
+  /* The judge's evidence: what they do that makes them a fit. */
+  .fit { color: var(--fg-1); font-size: 14.5px; max-width: 78ch; margin-bottom: 10px; }
+  .fit .lead-in { font-weight: 600; color: var(--fg); }
+
+  /* The deterministic keyword match — supporting, not the headline. */
+  .match { font-size: 12.5px; color: var(--fg-2); max-width: 78ch; margin-top: 10px; }
+  .match summary { cursor: pointer; list-style: none; display: inline-flex;
+                   align-items: center; gap: 5px; color: var(--fg-2); }
+  .match summary::-webkit-details-marker { display: none; }
+  .match summary:hover { color: var(--fg); }
+  .match summary .material-symbols-outlined { font-size: 15px; transition: transform var(--t-fast) var(--ease); }
+  .match[open] summary .material-symbols-outlined { transform: rotate(90deg); }
+  .match p { margin-top: 7px; padding-left: 20px; }
+
+  .site { display: inline-flex; align-items: center; gap: 5px;
+          font-size: 13px; color: var(--np-blue); text-decoration: none;
+          border-bottom: 1px solid transparent; transition: border-color var(--t-fast) var(--ease); }
+  .site:hover { border-bottom-color: var(--np-blue); }
+  .site .material-symbols-outlined { font-size: 15px; }
+  .site.none { color: var(--fg-2); }
+
+  /* Grade controls */
+  .grade-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .grade-label { font: 600 12px/1 var(--font-body); color: var(--fg-2); margin-right: 2px; }
+  .btn-grade { background: var(--surface); border-color: var(--border); color: var(--fg-1); }
+  .btn-grade:hover { border-color: #C9D0DB; color: var(--fg); }
+  .btn-grade[data-q="high"]:hover   { border-color: var(--grade-high); color: var(--grade-high); background: var(--grade-high-wash); }
+  .btn-grade[data-q="medium"]:hover { border-color: var(--grade-medium); color: var(--warn-ink); background: var(--grade-medium-wash); }
+  .btn-grade[data-q="low"]:hover    { border-color: var(--grade-low); color: var(--fg-1); background: var(--grade-low-wash); }
+  .btn-grade[data-q="watch"]:hover  { border-color: var(--grade-watch); color: var(--grade-watch); background: var(--grade-watch-wash); }
+  .spacer { flex: 1; }
+
+  .row.done { opacity: .72; }
+  .row.done:hover { transform: none; box-shadow: var(--shadow-rest); }
+  .stamp { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+  .stamp .material-symbols-outlined { font-size: 18px; }
+  .stamp.ok { color: var(--ok-ink); }
 </style>
 </head>
 <body>
@@ -21,13 +78,14 @@ THESIS: The admin is the main site's back office — same light material world,
 no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
 OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
 ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
-accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
-STORY: an operator signs in through a quiet door, reads the evidence beside
-each proposed company, and presses one clearly-consequential button; the page
-answers with state, never with drama — the engine acts, the browser asks.
-FIRST VIEWPORT: sticky brand bar, boards tabs, "Leads awaiting your decision"
-with count, then the decision rows themselves — verdict chips, judge's reason,
-Approve/Reject in reach.
+accent, green reserved for "go" semantics, the square logo in a translucent bar.
+STORY: the operator reads what a company DOES and why it fits the opportunity,
+opens the site to check, then grades what the opportunity is worth — High,
+Medium, Low, or Watch. The board reorganises around that grade; the engine
+acts, the browser only asks.
+FIRST VIEWPORT: brand bar, boards tabs, "Leads awaiting your decision", then
+the ungraded section — each row naming its opportunity, the fit evidence, the
+company's website, and the four grades within reach.
 FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the
 finish review, the verdict, and DESIGN.md
@@ -78,10 +136,11 @@ finish review, the verdict, and DESIGN.md
         </div>
         <p class="note">
           The weekend finders propose companies; the judge pass annotates or withdraws them.
-          Approving queues the record for the engine — nothing is created from the browser.
+          Grading a lead queues it for the engine with that grade recorded — nothing is created
+          from the browser. Watch parks a lead without deciding it.
         </p>
         <div id="banner"></div>
-        <div id="rows">
+        <div id="sections">
           <div class="row skeleton"><div class="bone" style="width:38%"></div><div class="bone" style="width:82%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
           <div class="row skeleton"><div class="bone" style="width:31%"></div><div class="bone" style="width:74%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
         </div>
@@ -98,7 +157,28 @@ const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI 
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
-let rows=[],me=null;
+let rows=[],recent=[],me=null;
+
+// The register's opportunities, named. Slugs are what the queue stores;
+// these are what a human reads. tests/test_opportunity_titles.py asserts
+// this map still matches register.yaml, so it cannot drift silently.
+const OPPORTUNITIES={
+  'print-hub-supply':'Print Hub — hosting capacity (supply side)',
+  'print-hub-demand':'Print Hub — using capacity (demand side)',
+};
+const GRADES=[
+  {q:'high',   label:'High'},
+  {q:'medium', label:'Medium'},
+  {q:'low',    label:'Low'},
+  {q:'watch',  label:'Watch'},
+];
+const SECTIONS=[
+  {q:'ungraded', title:'Not yet graded'},
+  {q:'high',     title:'High'},
+  {q:'medium',   title:'Medium'},
+  {q:'low',      title:'Low'},
+  {q:'watch',    title:'Watch — parked'},
+];
 
 async function boot(){
   const {data}=await sb.auth.getSession();
@@ -128,18 +208,46 @@ function showAdmin(user){
 
 const CHIP={'Current customer':'c-current','Former customer':'c-former','Enquired':'c-enquired','Cold':'c-cold'};
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cap=s=>String(s||'').replace(/^./,c=>c.toUpperCase());
+
+// Fit360 stores some sites bare ("3dee.hu") and some full. The link needs
+// a scheme; the label reads better without one.
+function siteHref(w){
+  const s=String(w||'').trim();
+  if(!s)return null;
+  const url=/^https?:\/\//i.test(s)?s:'https://'+s;
+  try{const u=new URL(url);return (u.protocol==='http:'||u.protocol==='https:')?u.href:null;}
+  catch(e){return null;}
+}
+function siteLabel(w){
+  const h=siteHref(w);
+  try{return new URL(h).hostname.replace(/^www\./,'');}
+  catch(e){return String(w||'').replace(/^https?:\/\//i,'').replace(/^www\./,'').split('/')[0];}
+}
+
+const FOURTEEN_DAYS=14*24*3600*1000;
 
 async function load(){
   $('banner').innerHTML='';
   const {data,error}=await sb.from('engine_lead_queue')
-    .select('id,company,category,matched_json,reasoning,campaign_json,judged,judge_confidence,proposed_at')
+    .select('id,company,category,matched_json,reasoning,judge_reason,website,quality,campaign_json,judged,judge_confidence,proposed_at')
     .eq('status','pending').order('judged',{ascending:true}).order('id',{ascending:true});
   if(error){
     $('banner').innerHTML=`<div class="banner">Could not read the queue: ${esc(error.message)}.
-      If this says permission denied, migration 0006 has not been run yet.</div>`;
-    $('rows').innerHTML='';return;
+      If this mentions a missing column, migration 0013 has not been run yet.</div>`;
+    $('sections').innerHTML='';return;
   }
   rows=data||[];
+
+  // Recently graded rows the engine has already actioned — they keep the
+  // quality sections meaningful instead of emptying them within the hour.
+  const since=new Date(Date.now()-FOURTEEN_DAYS).toISOString();
+  const {data:done}=await sb.from('engine_lead_queue')
+    .select('id,company,category,quality,website,judge_reason,matched_json,decided_at,decided_by')
+    .eq('status','approved').not('quality','is',null).gte('decided_at',since)
+    .order('decided_at',{ascending:false});
+  recent=done||[];
+
   // Which of these already have a request waiting for the engine?
   const {data:intents}=await sb.from('engine_intents')
     .select('id,type,payload_json,status,result_note')
@@ -149,62 +257,120 @@ async function load(){
   render(pendingFor);
 }
 
+function gradeOf(r,q){
+  // A queued intent is fresher than the stored column.
+  const fromIntent=q&&q.payload_json&&q.payload_json.quality;
+  return fromIntent||r.quality||null;
+}
+
 function render(pendingFor){
-  $('count').textContent=rows.length?`${rows.length} awaiting a decision`:'';
-  if(!rows.length){
-    $('rows').innerHTML=`<div class="empty">Nothing waiting. New proposals appear here after the
+  const ungraded=rows.filter(r=>!gradeOf(r,pendingFor[r.id])).length;
+  $('count').textContent=rows.length
+    ? `${rows.length} awaiting a decision${ungraded&&ungraded!==rows.length?` · ${ungraded} not yet graded`:''}`
+    : '';
+
+  if(!rows.length&&!recent.length){
+    $('sections').innerHTML=`<div class="empty">Nothing waiting. New proposals appear here after the
       weekend finders run, or when email discovery finds a company that is not in the pipeline.</div>`;
     return;
   }
-  $('rows').innerHTML=rows.map(r=>{
-    const q=pendingFor[r.id];
-    const entries=(r.matched_json||[]).join(', ');
-    const camps=(r.campaign_json||[]).join(', ');
-    const judged=r.judged
-      ? `<span class="chip chip-judge"><span class="material-symbols-outlined" aria-hidden="true">verified</span>judged${r.judge_confidence?' · '+esc(r.judge_confidence):''}</span>`
-      : `<span class="chip chip-unjudged"><span class="material-symbols-outlined" aria-hidden="true">hourglass_empty</span>not yet judged</span>`;
-    let action;
-    if(q&&q.status==='failed'){
-      action=`<span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span>
-              <button class="btn btn-gh btn-sm" onclick="approve(${r.id})">Try again</button>`;
-    }else if(q){
-      action=`<span class="status">Queued for the engine — it will create the record on its next run.</span>`;
-    }else{
-      action=`<button class="btn btn-grn btn-sm" onclick="approve(${r.id})"><span class="material-symbols-outlined" aria-hidden="true">check</span>Approve</button>
-              <button class="btn btn-danger btn-sm" onclick="reject(${r.id})"><span class="material-symbols-outlined" aria-hidden="true">close</span>Reject</button>`;
-    }
-    return `<div class="row">
-      <div class="row-top">
-        <span class="company">${esc(r.company)}</span>
-        <span class="chip ${CHIP[r.category]||'c-cold'}">${esc(r.category)}</span>
-        ${judged}
-      </div>
-      <div class="why verdict-reason">${esc(r.reasoning)}</div>
-      <div class="meta">
-        ${entries?`<span>matched: ${esc(entries)}</span>`:''}
-        ${camps?`<span>campaign: ${esc(camps)}</span>`:''}
-        <span>proposed ${esc((r.proposed_at||'').slice(0,10))}</span>
-      </div>
-      <div class="actions" id="act-${r.id}">${action}</div>
-    </div>`;
-  }).join('');
+
+  const buckets={ungraded:[],high:[],medium:[],low:[],watch:[]};
+  rows.forEach(r=>{
+    const g=gradeOf(r,pendingFor[r.id]);
+    (buckets[g]||buckets.ungraded).push({r,q:pendingFor[r.id],done:false});
+  });
+  recent.forEach(r=>{ if(buckets[r.quality]) buckets[r.quality].push({r,q:null,done:true}); });
+
+  $('sections').innerHTML=SECTIONS.map(s=>{
+    const items=buckets[s.q];
+    if(!items.length)return '';
+    const dot=s.q==='ungraded'?'':`<span class="grade-dot g-${s.q}"></span>`;
+    return `<section class="section">
+      <div class="section-head">${dot}<h2>${esc(s.title)}</h2>
+        <span class="n">${items.length}</span><span class="rule"></span></div>
+      ${items.map(card).join('')}
+    </section>`;
+  }).join('')||`<div class="empty">Nothing waiting.</div>`;
+}
+
+function card({r,q,done}){
+  const opps=(r.matched_json||[]).map(e=>
+    `<span class="opp"><span class="material-symbols-outlined" aria-hidden="true">target</span>${esc(OPPORTUNITIES[e]||e)}</span>`).join('');
+  const href=siteHref(r.website);
+  const site=href
+    ? `<a class="site" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>${esc(siteLabel(r.website))}</a>`
+    : `<span class="site none"><span class="material-symbols-outlined" aria-hidden="true">link_off</span>no website on file</span>`;
+  const judged=r.judged
+    ? `<span class="chip chip-judge"><span class="material-symbols-outlined" aria-hidden="true">verified</span>judged${r.judge_confidence?' · '+esc(r.judge_confidence):''}</span>`
+    : (done?'':`<span class="chip chip-unjudged"><span class="material-symbols-outlined" aria-hidden="true">hourglass_empty</span>not yet judged</span>`);
+
+  const fit=r.judge_reason
+    ? `<div class="fit"><span class="lead-in">Why it fits:</span> ${esc(r.judge_reason)}</div>`
+    : (done?'':`<div class="fit"><span class="lead-in">Not yet assessed.</span> The judge pass has not reached this row — the keyword match below is the only evidence so far.</div>`);
+  const match=r.reasoning&&!done
+    ? `<details class="match"><summary><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>Keyword match</summary><p>${esc(r.reasoning)}</p></details>`
+    : '';
+
+  let actions;
+  if(done){
+    actions=`<div class="grade-row"><span class="stamp ok">
+      <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+      Graded ${esc(cap(r.quality))} — in Pipedrive${r.decided_by?' · '+esc(r.decided_by):''}</span></div>`;
+  }else if(q&&q.status==='failed'){
+    actions=`<div class="grade-row"><span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span></div>
+      <div class="grade-row">${gradeButtons(r.id,'Try again:')}</div>`;
+  }else if(q){
+    const g=(q.payload_json&&q.payload_json.quality)||'';
+    actions=`<div class="grade-row"><span class="status">${g?`Graded ${esc(cap(g))} — `:''}queued for the engine; it acts on its next run.</span></div>`;
+  }else{
+    actions=`<div class="grade-row">${gradeButtons(r.id)}
+      <span class="spacer"></span>
+      <button class="btn btn-danger btn-sm" onclick="reject(${r.id})">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>Reject</button></div>`;
+  }
+
+  return `<div class="row ${done?'done':''}">
+    <div class="row-top">
+      <span class="company">${esc(r.company)}</span>
+      <span class="chip ${CHIP[r.category]||'c-cold'}">${esc(r.category)}</span>
+      ${judged}
+    </div>
+    ${opps?`<div class="opps">${opps}</div>`:''}
+    ${fit}
+    <div class="meta"><span>${site}</span>${r.proposed_at?`<span>proposed ${esc(String(r.proposed_at).slice(0,10))}</span>`:''}${(r.campaign_json||[]).length?`<span>campaign: ${esc((r.campaign_json||[]).join(', '))}</span>`:''}</div>
+    ${match}
+    <div id="act-${r.id}">${actions}</div>
+  </div>`;
+}
+
+function gradeButtons(id,leadLabel){
+  return `<span class="grade-label">${esc(leadLabel||'Grade:')}</span>` + GRADES.map(g=>
+    `<button class="btn btn-gh btn-sm btn-grade" data-q="${g.q}" onclick="grade(${id},'${g.q}')">${g.label}</button>`
+  ).join('');
 }
 
 async function raise(type,payload,rowId,verb){
   const el=$('act-'+rowId);
-  el.innerHTML=`<span class="status">Sending…</span>`;
+  el.innerHTML=`<div class="grade-row"><span class="status">Sending…</span></div>`;
   const {error}=await sb.from('engine_intents').insert({
     type,payload_json:payload,requested_by:me.email
   });
   if(error){
-    el.innerHTML=`<span class="status fail">Could not queue it: ${esc(error.message)}</span>`;
+    el.innerHTML=`<div class="grade-row"><span class="status fail">Could not queue it: ${esc(error.message)}</span></div>`;
     return;
   }
   const rowEl=el.closest('.row'); if(rowEl)rowEl.classList.add('settled');
-  el.innerHTML=`<span class="status done">${verb} — queued for the engine.</span>`;
+  el.innerHTML=`<div class="grade-row"><span class="status done">${esc(verb)} — queued for the engine.</span></div>`;
   setTimeout(load,1200);
 }
-const approve=id=>raise('approve-lead',{queue_row:id},id,'Approved');
+
+// High/Medium/Low approve the lead WITH its grade; Watch parks it and
+// decides nothing. Both are intents — the engine does the work.
+function grade(id,q){
+  if(q==='watch')return raise('watch-lead',{queue_row:id,quality:'watch'},id,'Parked on watch');
+  return raise('approve-lead',{queue_row:id,quality:q},id,`Graded ${cap(q)}`);
+}
 function reject(id){
   const reason=prompt('Why is this not a fit? (recorded, and stops it being proposed again)');
   if(reason===null)return;
