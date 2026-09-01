@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint Admin — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+<style>
+  .attn { display: flex; align-items: center; gap: 12px; }
+  .attn .material-symbols-outlined { color: var(--fg-2); flex: none; }
+  .attn .t { font-size: 14px; color: var(--fg-1); min-width: 0; }
+  .attn .t strong { color: var(--fg); font-weight: 600; }
+  .attn .sub { display: block; font-size: 12.5px; color: var(--fg-2); margin-top: 2px; }
+  .attn .spacer { flex: 1; }
+</style>
+</head>
+<body>
+<!--
+THESIS: The admin is the main site's back office — same light material world,
+no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
+OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
+ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
+accent, green reserved for "go" semantics, the square logo in a translucent bar.
+STORY: one glance answers "what needs a decision?" — four numbers across the
+hubs, then a needs-attention list where every row carries the link that acts
+on it. Reads only; every action happens on the board it links to.
+FIRST VIEWPORT: brand bar, boards tabs, "Dashboard", four stat tiles, then
+the needs-attention rows.
+FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
+-->
+
+<div id="login" class="door" style="display:none">
+  <img class="door-logo" src="nexpoint-logo.png" alt="NexPoint">
+  <h1>Admin sign in</h1>
+  <p>The opportunity board, leads, tasks and engine health.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+  <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
+</div>
+
+<div id="admin" style="display:none">
+  <header class="topbar">
+    <div class="wrap bar">
+      <a class="brandmark" href="index.html">
+        <img src="nexpoint-logo.png" alt="NexPoint">
+        <span class="admin-tag">Admin</span>
+      </a>
+      <div class="session">
+        <span class="who" id="who"></span>
+        <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <nav class="boards" aria-label="Admin boards">
+        <a href="dashboard.html" aria-current="page">Dashboard</a>
+        <a href="leads.html">Leads</a>
+        <a href="tasks.html">Tasks</a>
+        <a href="health.html">Health</a>
+        <a href="print-hub.html">Print Hub</a>
+        <a href="mill-hub.html">Mill Hub</a>
+        <a href="opportunities.html">Opportunities</a>
+        <a href="campaigns.html">Campaigns</a>
+      </nav>
+
+      <div class="arrive">
+        <div class="intro">
+          <h1>Dashboard</h1>
+          <span class="count" id="asof"></span>
+        </div>
+        <p class="note">
+          The hubs at a glance. Numbers read straight from the database; every action
+          happens on the board each row links to.
+        </p>
+        <div id="banner"></div>
+
+        <div class="tiles" id="tiles">
+          <div class="tile"><div class="k">New requests</div><div class="v" id="t_new">—</div><div class="s" id="t_new_s"></div></div>
+          <div class="tile"><div class="k">Awaiting approval</div><div class="v" id="t_rev">—</div><div class="s" id="t_rev_s"></div></div>
+          <div class="tile"><div class="k">Live introductions</div><div class="v" id="t_live">—</div><div class="s" id="t_live_s"></div></div>
+          <div class="tile"><div class="k">Commission outstanding</div><div class="v" id="t_comm">—</div><div class="s" id="t_comm_s"></div></div>
+        </div>
+
+        <div class="colhead"><h2>Needs attention</h2><span class="n" id="attnN"></span><span class="rule"></span></div>
+        <div id="attn">
+          <div class="row skeleton"><div class="bone" style="width:52%"></div></div>
+          <div class="row skeleton"><div class="bone" style="width:38%"></div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI gate; real gate is database RLS
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
+let me=null;
+
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function boot(){
+  const {data}=await sb.auth.getSession();
+  const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)) showAdmin(s.user); else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))
+    $('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const email=$('email').value.trim(),password=$('pw').value;
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  showAdmin(data.user);
+}
+async function signOut(){await sb.auth.signOut();location.reload();}
+
+function showAdmin(user){
+  me=user;$('login').style.display='none';$('admin').style.display='block';
+  $('who').textContent=user.email;
+  load();
+}
+
+const HUB_PAGE={print:'print-hub.html',mill:'mill-hub.html',opportunities:'opportunities.html'};
+const HUB_NAME={print:'Print Hub',mill:'Mill Hub',opportunities:'Opportunities Hub'};
+const days=iso=>Math.floor((Date.now()-new Date(iso).getTime())/86400000);
+
+async function load(){
+  $('banner').innerHTML='';
+  $('asof').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  const rq=await sb.from('web_requests').select('*').neq('status','archived');
+  if(rq.error){
+    $('banner').innerHTML=`<div class="banner">Could not read requests: ${esc(rq.error.message)}.
+      If this says the table does not exist or permission is denied, migration 0016 has not been run yet.</div>`;
+    $('attn').innerHTML='';
+    return;
+  }
+  const requests=rq.data||[];
+  const iq=await sb.from('introductions').select('*');
+  if(iq.error){
+    $('banner').innerHTML=`<div class="banner">Could not read introductions: ${esc(iq.error.message)}.</div>`;
+  }
+  const intros=iq.data||[];
+
+  // Tiles.
+  const fresh=requests.filter(r=>r.status==='new');
+  $('t_new').textContent=fresh.length;
+  $('t_new_s').textContent=fresh.length?'awaiting a first look':'nothing new';
+
+  const reviewing=requests.filter(r=>r.status==='reviewing');
+  $('t_rev').textContent=reviewing.length;
+  const oldest=reviewing.length?Math.max(...reviewing.map(r=>days(r.created_at))):null;
+  $('t_rev_s').textContent=reviewing.length?`oldest ${oldest} day${oldest===1?'':'s'} in review`:'review queue clear';
+
+  const live=intros.filter(i=>i.stage!=='dead'&&i.stage!=='paid');
+  const talking=live.filter(i=>i.stage==='in_discussion').length;
+  $('t_live').textContent=live.length;
+  $('t_live_s').textContent=live.length?`${talking} in active discussion`:'none in flight';
+
+  const invoiced=intros.filter(i=>i.stage==='invoiced');
+  const owed=invoiced.reduce((sum,i)=>sum+(Number(i.commission_amount)||0),0);
+  $('t_comm').textContent=owed?`£${owed.toLocaleString('en-GB')}`:'£0';
+  $('t_comm_s').textContent=invoiced.length
+    ?`${invoiced.length} invoice${invoiced.length===1?'':'s'} unpaid`:'no invoices outstanding';
+
+  // Needs attention: every new request, every invoiced introduction.
+  const rows=[];
+  fresh.sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
+  fresh.forEach(r=>rows.push(`<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">move_to_inbox</span>
+    <span class="t"><strong>${esc(r.company||'(no company given)')}</strong> — new request in the ${esc(HUB_NAME[r.hub]||r.hub)}
+      <span class="sub">received ${esc(String(r.created_at||'').slice(0,10))}${r.location?' · '+esc(r.location):''}</span></span>
+    <span class="spacer"></span>
+    <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[r.hub]||'dashboard.html')}">Review request</a>
+  </div>`));
+  invoiced.forEach(i=>rows.push(`<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">request_quote</span>
+    <span class="t"><strong>${esc(i.ref||('INTRO-'+String(i.id).padStart(4,'0')))}</strong> — invoiced, payment outstanding
+      <span class="sub">${i.invoiced_at?`invoiced ${esc(String(i.invoiced_at).slice(0,10))}`:''}${i.commission_amount?` · £${Number(i.commission_amount).toLocaleString('en-GB')}`:''}</span></span>
+    <span class="spacer"></span>
+    <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[i.hub]||'dashboard.html')}">Chase payment</a>
+  </div>`));
+  $('attnN').textContent=rows.length;
+  $('attn').innerHTML=rows.length?rows.join('')
+    :`<div class="empty">Nothing needs attention. New requests and unpaid invoices appear here.</div>`;
+}
+
+boot();
+</script>
+</body>
+</html>
