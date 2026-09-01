@@ -1,11 +1,69 @@
-/* NexPoint Global Hub v3 — shared behaviour. Front-end only: nothing is stored or sent.
+/* NexPoint Global Hub v3 — shared behaviour.
    v3 (2026-08-15) rebuilds the location layer after Chris's 14 Aug review:
      · the map is the way in, not a dropdown list
      · capacity actually varies by region and by country
      · every card names its country, and flags when it is across a border
-     · location is asked once and carried into every downstream form         */
+     · location is asked once and carried into every downstream form
+   2026-09-01: the desk forms are live — submissions post to the capture
+   worker's /requests route and land in the web_requests queue.            */
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ═══════════ live capture — the Cloudflare worker's /requests route ═══════════ */
+/* PLACEHOLDER — replace <ACCOUNT> with the exact workers.dev URL printed by
+   `npx wrangler deploy` (Plan B Task 3 Step 4). The forms fail safe (error
+   message + button re-enabled) until this points at the deployed worker. */
+const CAPTURE_REQUESTS_URL = 'https://nexpoint-portal-capture.<ACCOUNT>.workers.dev/requests';
+
+function hubOfPage(){
+  const h = location.hostname;
+  if (h.startsWith('printhub')) return 'print';
+  if (h.startsWith('millhub')) return 'mill';
+  if (h.startsWith('opportunities')) return 'opportunities';
+  /* local preview / pre-cutover paths: */
+  if (location.pathname.includes('print')) return 'print';
+  if (location.pathname.includes('mill')) return 'mill';
+  return 'print';
+}
+
+function serializeForm(form){
+  const out = {};
+  form.querySelectorAll('input, textarea, select').forEach(el => {
+    if (!el.id || el.type === 'submit') return;
+    out[el.id] = el.value.trim();
+  });
+  return out;
+}
+
+async function sendRequest(body, onOk, onFail){
+  try {
+    const r = await fetch(CAPTURE_REQUESTS_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.ok && data.ok) onOk(); else onFail();
+  } catch { onFail(); }
+}
+
+function formSendingState(form){
+  const btn = form.querySelector('button[type="submit"]');
+  const orig = btn ? btn.textContent : '';
+  if (btn){ btn.disabled = true; btn.textContent = 'Sending your request'; }
+  return { btn, orig };
+}
+
+function formFailState(form, { btn, orig }){
+  if (btn){ btn.disabled = false; btn.textContent = orig; }
+  let err = form.querySelector('.form-error');
+  if (!err){
+    err = document.createElement('p');
+    err.className = 'form-error';
+    err.style.cssText = 'color:#E5484D;font-size:13px;margin-top:10px';
+    form.appendChild(err);
+  }
+  err.textContent = 'That did not go through — please try again, or email hello@nexpoint.co.uk.';
+}
 
 /* ═══════════ location, remembered ═══════════
    Chris, on being asked for his country a second time: "You've led me to an
@@ -579,25 +637,60 @@ function openIntro(ref, heading){
 }
 function introSubmit(e){
   e.preventDefault();
-  document.getElementById('introContent').innerHTML = `
-    <div class="success">
-      <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
-      <h2>Received, in confidence.</h2>
-      <p>Chris or Will reads every request personally — expect to hear from one of us within two working days. <br><br><em>(Draft note: nothing was actually sent.)</em></p>
-      <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
-    </div>`;
+  const form = e.target;
+  const fields = serializeForm(form);
+  const state = formSendingState(form);
+  const ref = (document.querySelector('#introContent .ref') || {}).textContent || '';
+  sendRequest({
+    hub: hubOfPage(),
+    side: ref ? 'request_intro' : 'request_capacity',
+    company: fields.iCompany || '', contact_name: fields.iName || '',
+    email: fields.iEmail || '', phone: fields.iMobile || '',
+    location: fields.iWhere || '', brief_ref: ref,
+    payload: { notes: fields.iNotes || '' }, company_url: '',
+  }, () => {
+    document.getElementById('introContent').innerHTML = `
+      <div class="success">
+        <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
+        <h2>Received, in confidence.</h2>
+        <p>Chris or Will reads every request personally — expect to hear from one of us within two working days.</p>
+        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
+      </div>`;
+  }, () => {
+    formFailState(form, state);
+  });
   return false;
 }
 function joinSubmit(e){
   e.preventDefault();
-  document.getElementById('introContent').innerHTML = `
-    <div class="success">
-      <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
-      <h2>Received, in confidence.</h2>
-      <p>We'll confirm your account by email, then verify equipment, materials and standards with you directly. Founding places are limited to twenty laboratories. <br><br><em>(Draft note: nothing was actually sent.)</em></p>
-      <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
-    </div>`;
-  openOverlay('introOverlay');
+  const form = e.target;
+  const fields = serializeForm(form);
+  const state = formSendingState(form);
+  sendRequest({
+    hub: hubOfPage(),
+    side: 'offer_capacity',
+    company: fields.jCompany || '', contact_name: fields.jName || '',
+    email: fields.jEmail || '', phone: '',
+    location: [fields.jTown, fields.jCountry].filter(Boolean).join(', ') || (fields.jRegion || ''),
+    brief_ref: '',
+    payload: {
+      website: fields.jWebsite || '', region: fields.jRegion || '',
+      machines: fields.jPrinters || '', capacity: fields.jCapacity || '',
+      notes: fields.jNotes || '',
+    },
+    company_url: '',
+  }, () => {
+    document.getElementById('introContent').innerHTML = `
+      <div class="success">
+        <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
+        <h2>Received, in confidence.</h2>
+        <p>We'll confirm your account by email, then verify equipment, materials and standards with you directly. Founding places are limited to twenty laboratories.</p>
+        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
+      </div>`;
+    openOverlay('introOverlay');
+  }, () => {
+    formFailState(form, state);
+  });
   return false;
 }
 function openSignIn(){ openOverlay('signOverlay'); }
