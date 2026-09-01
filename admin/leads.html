@@ -157,7 +157,7 @@ const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI 
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
-let rows=[],recent=[],me=null;
+let rows=[],recent=[],blocked=[],me=null;
 
 // The register's opportunities, named. Slugs are what the queue stores;
 // these are what a human reads. tests/test_opportunity_titles.py asserts
@@ -178,6 +178,7 @@ const SECTIONS=[
   {q:'medium',   title:'Medium'},
   {q:'low',      title:'Low'},
   {q:'watch',    title:'Watch — parked'},
+  {q:'blocked',  title:'Blocked — never proposed or researched again'},
 ];
 
 async function boot(){
@@ -234,7 +235,7 @@ async function load(){
     .eq('status','pending').order('judged',{ascending:true}).order('id',{ascending:true});
   if(error){
     $('banner').innerHTML=`<div class="banner">Could not read the queue: ${esc(error.message)}.
-      If this mentions a missing column, migration 0013 has not been run yet.</div>`;
+      If this mentions a missing column or an unknown status, migrations 0013/0014 have not been run yet.</div>`;
     $('sections').innerHTML='';return;
   }
   rows=data||[];
@@ -247,6 +248,12 @@ async function load(){
     .eq('status','approved').not('quality','is',null).gte('decided_at',since)
     .order('decided_at',{ascending:false});
   recent=done||[];
+
+  // Blocked companies render as their own section — auditable, never hidden.
+  const {data:blk}=await sb.from('engine_lead_queue')
+    .select('id,company,category,website,decided_at,decided_by,decision_note')
+    .eq('status','blocked').order('decided_at',{ascending:false});
+  blocked=blk||[];
 
   // Which of these already have a request waiting for the engine?
   const {data:intents}=await sb.from('engine_intents')
@@ -269,23 +276,24 @@ function render(pendingFor){
     ? `${rows.length} awaiting a decision${ungraded&&ungraded!==rows.length?` · ${ungraded} not yet graded`:''}`
     : '';
 
-  if(!rows.length&&!recent.length){
+  if(!rows.length&&!recent.length&&!blocked.length){
     $('sections').innerHTML=`<div class="empty">Nothing waiting. New proposals appear here after the
       weekend finders run, or when email discovery finds a company that is not in the pipeline.</div>`;
     return;
   }
 
-  const buckets={ungraded:[],high:[],medium:[],low:[],watch:[]};
+  const buckets={ungraded:[],high:[],medium:[],low:[],watch:[],blocked:[]};
   rows.forEach(r=>{
     const g=gradeOf(r,pendingFor[r.id]);
     (buckets[g]||buckets.ungraded).push({r,q:pendingFor[r.id],done:false});
   });
   recent.forEach(r=>{ if(buckets[r.quality]) buckets[r.quality].push({r,q:null,done:true}); });
+  blocked.forEach(r=>buckets.blocked.push({r,q:pendingFor[r.id],done:false,isBlocked:true}));
 
   $('sections').innerHTML=SECTIONS.map(s=>{
     const items=buckets[s.q];
     if(!items.length)return '';
-    const dot=s.q==='ungraded'?'':`<span class="grade-dot g-${s.q}"></span>`;
+    const dot=(s.q==='ungraded'||s.q==='blocked')?'':`<span class="grade-dot g-${s.q}"></span>`;
     return `<section class="section">
       <div class="section-head">${dot}<h2>${esc(s.title)}</h2>
         <span class="n">${items.length}</span><span class="rule"></span></div>
@@ -294,7 +302,8 @@ function render(pendingFor){
   }).join('')||`<div class="empty">Nothing waiting.</div>`;
 }
 
-function card({r,q,done}){
+function card({r,q,done,isBlocked}){
+  if(isBlocked) return blockedCard(r,q);
   const opps=(r.matched_json||[]).map(e=>
     `<span class="opp"><span class="material-symbols-outlined" aria-hidden="true">target</span>${esc(OPPORTUNITIES[e]||e)}</span>`).join('');
   const href=siteHref(r.website);
@@ -327,7 +336,9 @@ function card({r,q,done}){
     actions=`<div class="grade-row">${gradeButtons(r.id)}
       <span class="spacer"></span>
       <button class="btn btn-danger btn-sm" onclick="reject(${r.id})">
-        <span class="material-symbols-outlined" aria-hidden="true">close</span>Reject</button></div>`;
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>Reject</button>
+      <button class="btn btn-gh btn-sm" title="Never propose or research this company again — only you can lift it" onclick="block(${r.id})">
+        <span class="material-symbols-outlined" aria-hidden="true">block</span>Block</button></div>`;
   }
 
   return `<div class="row ${done?'done':''}">
@@ -341,6 +352,20 @@ function card({r,q,done}){
     <div class="meta"><span>${site}</span>${r.proposed_at?`<span>proposed ${esc(String(r.proposed_at).slice(0,10))}</span>`:''}${(r.campaign_json||[]).length?`<span>campaign: ${esc((r.campaign_json||[]).join(', '))}</span>`:''}</div>
     ${match}
     <div id="act-${r.id}">${actions}</div>
+  </div>`;
+}
+
+function blockedCard(r,q){
+  const href=siteHref(r.website);
+  const site=href?`<a class="site" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>${esc(siteLabel(r.website))}</a>`:'';
+  const action=q&&q.type==='unblock-lead'
+    ? `<span class="status">Unblock queued for the engine.</span>`
+    : `<button class="btn btn-gh btn-sm" onclick="unblock(${r.id})"><span class="material-symbols-outlined" aria-hidden="true">undo</span>Unblock</button>`;
+  return `<div class="row done">
+    <div class="row-top"><span class="company">${esc(r.company)}</span>
+      <span class="chip ${CHIP[r.category]||'c-cold'}">${esc(r.category)}</span></div>
+    <div class="meta">${site?`<span>${site}</span>`:''}<span>blocked ${esc(String(r.decided_at||'').slice(0,10))}${r.decided_by?' by '+esc(r.decided_by):''}</span>${r.decision_note?`<span>${esc(r.decision_note)}</span>`:''}</div>
+    <div class="grade-row" id="act-${r.id}">${action}</div>
   </div>`;
 }
 
@@ -370,6 +395,17 @@ async function raise(type,payload,rowId,verb){
 function grade(id,q){
   if(q==='watch')return raise('watch-lead',{queue_row:id,quality:'watch'},id,'Parked on watch');
   return raise('approve-lead',{queue_row:id,quality:q},id,`Graded ${cap(q)}`);
+}
+// Block is the one permanent exit; it needs a reason, and only a human
+// can set or lift it — the engine executes it in your name.
+function block(id){
+  const reason=prompt('Block this company for good? Say why (recorded; only you can unblock it).');
+  if(reason===null||!reason.trim())return;
+  raise('block-lead',{queue_row:id,reason:reason.trim()},id,'Blocked');
+}
+function unblock(id){
+  if(!confirm('Unblock — it becomes eligible again on its next research lap.'))return;
+  raise('unblock-lead',{queue_row:id},id,'Unblock');
 }
 function reject(id){
   const reason=prompt('Why is this not a fit? (recorded, and stops it being proposed again)');
