@@ -8,7 +8,12 @@
   const API = local ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
 
   async function call(path, opts) {
-    const r = await fetch(API + path, Object.assign({ credentials: 'include' }, opts));
+    let r;
+    try {
+      r = await fetch(API + path, Object.assign({ credentials: 'include' }, opts));
+    } catch (e) {
+      return { error: 'network' };
+    }
     return r.json().catch(() => ({ error: 'bad response' }));
   }
 
@@ -76,7 +81,12 @@
     return ov;
   }
   function show() { overlay().classList.add('open'); document.body.style.overflow = 'hidden'; }
-  function hide() { const ov = document.getElementById('npAccountOverlay'); if (ov) ov.classList.remove('open'); document.body.style.overflow = ''; }
+  function hide() {
+    const ov = document.getElementById('npAccountOverlay');
+    if (ov) ov.classList.remove('open');
+    document.body.style.overflow = '';
+    delete draft.password; // never let a plaintext password outlive an abandoned or failed attempt
+  }
   function content() { overlay(); return document.getElementById('npAccountContent'); }
 
   /* ── the three steps ─────────────────────────────────────── */
@@ -189,6 +199,8 @@
         err.style.display = 'block';
         err.textContent = d.error === 'account_exists'
           ? 'There\'s already an account for that email — close this and choose Sign in instead.'
+          : d.error === 'network'
+          ? 'That didn\'t save — check your connection and try again, or email hello@nexpoint.co.uk.'
           : 'That didn\'t save. Check the details and try again, or email hello@nexpoint.co.uk.';
       }
     });
@@ -236,7 +248,9 @@
       if (d.ok) successCard('Chris or Will reads every request personally — expect to hear within two working days.');
       else { btn.disabled = false; btn.textContent = action.heading || 'Request the introduction';
         const err = content().querySelector('.np-sign-error'); err.style.display = 'block';
-        err.textContent = 'That didn\'t send. Try again, or email hello@nexpoint.co.uk.'; }
+        err.textContent = d.error === 'network'
+          ? 'That didn\'t send — check your connection and try again, or email hello@nexpoint.co.uk.'
+          : 'That didn\'t send. Try again, or email hello@nexpoint.co.uk.'; }
     });
   };
 
