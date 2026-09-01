@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Global Mill Hub — The NexPoint User Portal</title>
+<link rel="icon" href="/assets/nexpoint-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css">
+</head>
+<body>
+<!--
+THESIS: your production line inside someone else's factory — the sportswear-brand model brought to milled orthotics, proven by one verified anonymised node, not a catalogue. Refuses the feature-card wall.
+OWN-WORLD: NexPoint bright clinical premium — light canvas, blue/green accents, Montserrat/Inter, hairline editorial rows, real CNC photography, locked confidential rows.
+STORY: a lab owner in a time of change recognises their moment in the triggers list, reads the node card, and asks for the one introduction that shows them the number.
+FIRST VIEWPORT: breadcrumb, headline + the factory-model lede left with two CTAs; CNC milling photograph right in a framed media block.
+FORM: established-world extension, precisely specified brief (no concept roll; composition pinned by client answers 2026-08-12).
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md.
+-->
+
+<div class="scroll-progress" aria-hidden="true"></div>
+
+<header>
+  <div class="container nav">
+    <a href="index.html" class="wordmark" aria-label="NexPoint User Portal home"><img src="/assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Portal v2 · Draft 0.2</span></a>
+    <nav class="nav-links" aria-label="Portal">
+      <a href="print-hub.html" class="hide-m">Print Hub</a>
+      <a href="mill-hub.html" class="hide-m" aria-current="page">Mill Hub</a>
+      <a href="/portal/" class="hide-m">The Board</a>
+      <a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a>
+      <button class="btn btn-primary" onclick="openIntro('MILL HUB','Talk to the desk')">Talk to the desk</button>
+    </nav>
+  </div>
+</header>
+<nav class="hub-switch" aria-label="Hubs">
+  <a href="index.html">Portal home</a>
+  <a href="print-hub.html">Print Hub</a>
+  <a href="mill-hub.html" aria-current="page">Mill Hub</a>
+  <a href="/portal/">The Board</a>
+</nav>
+
+<div class="container">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">The Portal</a><span class="sep">/</span><b>Global Mill Hub</b></nav>
+</div>
+
+<!-- HERO -->
+<section class="hub-hero">
+  <div class="container">
+    <div class="grid">
+      <div>
+        <span class="eyebrow"><span class="live-dot"></span>Global Mill Hub</span>
+        <h1>Your production line.<br><em>Inside someone else's factory.</em></h1>
+        <p class="lede">The world's biggest sportswear brands haven't owned their factories for decades. What they own is a dedicated line, a team and a quality standard inside someone else's. The Mill Hub brings that model to milled orthotics.</p>
+        <div class="ctas">
+          <a class="btn btn-primary" href="#node">See the capacity</a>
+          <a class="btn btn-outline" href="#offer">Offer milling capacity</a>
+        </div>
+      </div>
+      <div class="hero-media">
+        <img src="assets/img/mill-hub.jpg" alt="Precision CNC milling machine carving a custom orthotic insole from a white polypropylene block">
+        <span class="tag"><span class="live-dot"></span>Accepting introductions</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PILLARS -->
+<section class="section">
+  <div class="container">
+    <div class="enter enter--up">
+    <h2>A cell of your own, without the overhead.</h2>
+    <p class="sub">An established multi-site manufacturer allocates a section of its production floor to you alone, trained on your product, your styles, your top covers and your packaging, and held to your standard.</p>
+    </div>
+    <div class="rows">
+      <div class="row enter enter--up" style="--d:0ms">
+        <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+        <span class="lead">Price that changes the sums</span>
+        <p>Per-pair pricing materially below in-house manufacturing cost in high-wage markets, with design work included, not bolted on. You see the exact number inside a personal introduction.</p>
+      </div>
+      <div class="row enter enter--up" style="--d:70ms">
+        <span class="material-symbols-outlined" aria-hidden="true">sync_alt</span>
+        <span class="lead">Redundancy, built in</span>
+        <p>Production mirrored across facilities on different continents. A storm, a materials shortage or a shutdown in one region never reaches your customers; work simply reroutes.</p>
+      </div>
+      <div class="row enter enter--up" style="--d:140ms">
+        <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+        <span class="lead">Control you keep</span>
+        <p>One named production manager, as accountable to you as your own factory floor. "Rush this one through", "change how we do the heels" — and it happens. The brand and the relationships stay yours.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHO IT'S FOR -->
+<section class="section alt">
+  <div class="container">
+    <div class="split rev">
+      <div class="enter enter--left">
+        <h2>Built for labs in a <em>time of change.</em></h2>
+        <p class="sub" style="margin-bottom:24px">Any step change, up or down, is the moment this model earns its keep. If one of these is you, the conversation is worth an hour.</p>
+        <ul class="chip-list">
+          <li><span class="material-symbols-outlined" aria-hidden="true">family_restroom</span>An owner retiring, with the next generation taking over</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">storefront</span>A lab being sold, merged or restructured</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">warehouse</span>Facilities changing: moving, outgrowing, downsizing</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">gavel</span>Regulation making it harder to operate where you are</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">trending_up</span>Growth your current production can't keep up with</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">group_off</span>Skilled fabrication staff getting harder to hire and keep</li>
+        </ul>
+      </div>
+      <div class="media enter enter--right">
+        <img src="assets/img/mill-finish.jpg" alt="Finished custom milled orthotic insoles with top covers, boxed on a production line ready to ship">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NODE + PROCESS -->
+<section class="section" id="node">
+  <div class="container">
+    <div class="enter enter--up">
+    <h2>Verified capacity, <em>accepting introductions now.</em></h2>
+    <p class="sub">One node is live today, seen first-hand by NexPoint. Nodes in Europe and Australia are next.</p>
+    </div>
+    <div class="split" style="align-items:start">
+      <div class="cap enter enter--left" style="cursor:default">
+        <div class="cap__top">
+          <span class="cap__opt">Mill node 01 · verified first-hand</span>
+          <span class="cap__badge">Accepting introductions</span>
+        </div>
+        <h3>Established multi-site manufacturer, cells on two continents</h3>
+        <dl>
+          <div><dt>Products</dt><dd>Custom milled orthoses &amp; AFOs</dd></div>
+          <div><dt>Combined capacity</dt><dd>~1,000 pairs a day</dd></div>
+          <div><dt>Finish</dt><dd>Coated, branded &amp; packaged to your standard</dd></div>
+          <div><dt>Design work</dt><dd>Included where needed</dd></div>
+          <div><dt>Direct-milled EVA</dt><dd>Coming online now</dd></div>
+          <div><dt>Track record</dt><dd>Never closed, even through COVID</dd></div>
+        </dl>
+        <button class="btn btn-primary" onclick="openIntro('MILL NODE 01','Ask us to introduce you')">Ask us to introduce you</button>
+        <div class="locked">
+          <span class="label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Shared in a personal introduction only</span>
+          <ul>
+            <li>Partner identity &amp; facilities <span class="blurval">██████ ██████</span></li>
+            <li>Per-pair pricing <span class="blurval">$██ per pair</span></li>
+            <li>Reference customers <span class="blurval">██████</span></li>
+          </ul>
+          <div class="note">Identities, pricing and references are never published. They are shared only when both sides agree to meet.</div>
+        </div>
+      </div>
+      <div class="enter enter--right">
+        <div class="steps-head">How a mill introduction runs</div>
+        <div class="steps three" style="grid-template-columns:1fr;gap:0;margin-bottom:28px">
+          <div class="step" style="padding:20px 0 20px 26px"><span class="n">01</span><h3>Tell the desk what you make</h3><p>Volumes, materials, systems, and what's changing in your business. Two minutes, in confidence.</p></div>
+          <div class="step" style="padding:20px 0 20px 26px"><span class="n">02</span><h3>We weigh the fit personally</h3><p>Chris or Will reviews every request against capacity we have seen first-hand — usually within two working days.</p></div>
+          <div class="step" style="padding:20px 0 20px 26px"><span class="n">03</span><h3>Meet the manufacturer</h3><p>Names, faces, facilities and the exact per-pair number, shared once both sides choose to meet.</p></div>
+        </div>
+        <div class="panel" id="offer" style="box-shadow:none">
+          <span class="steps-head" style="margin-bottom:10px;display:block">Run a milling facility?</span>
+          <p style="font-size:14px;line-height:22px;color:var(--on-surface-var);margin-bottom:18px">The hub needs nodes in Europe and Australia next. Tell the desk what you run (machines, materials, spare capacity) and we'll talk.</p>
+          <button class="btn btn-outline" onclick="openIntro('MILL HUB — CAPACITY OFFER','Offer milling capacity')">Offer milling capacity</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NEXT HUB -->
+<section class="section next-hub" style="padding-bottom:0;padding-top:0">
+  <div class="container">
+    <a class="enter enter--rise" href="print-hub.html">
+      <div class="txt">
+        <span class="kicker">Next door</span>
+        <h3>Certified 3D-printing capacity, worldwide — the Global Print Hub <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></h3>
+      </div>
+      <img src="assets/img/print-hub.jpg" alt="Printed nylon insoles in front of an SLS 3D printer">
+    </a>
+  </div>
+</section>
+
+<section class="post" style="padding-top:clamp(24px,3vh,40px)">
+  <div class="container">
+    <div class="post-inner enter enter--rise">
+      <h2>A production line to hand over? A quiet exit to plan?</h2>
+      <p>Tell us once. We hold your name back, put it to the network, and bring you matched, qualified conversations, instead of you knocking on doors one at a time.</p>
+      <button class="btn btn-primary" onclick="openIntro('MILL HUB','Start at the desk')">Start at the desk, two minutes</button>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer__inner">
+    <div class="footer__brand">
+      <a href="/" aria-label="NexPoint home"><img src="/assets/nexpoint-logo.png" alt="NexPoint"></a>
+      <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, and Australia.</p>
+    </div>
+    <div class="footer__col">
+      <h5>The Portal</h5>
+      <ul>
+        <li><a href="index.html">Portal home</a></li>
+        <li><a href="print-hub.html">Global Print Hub</a></li>
+        <li><a href="/portal/">The opportunity board</a></li>
+        <li><a href="index.html#how">How it works</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>NexPoint</h5>
+      <ul>
+        <li><a href="/">Main site</a></li>
+        <li><a href="/#services">Services</a></li>
+        <li><a href="/#network">Global network</a></li>
+        <li><a href="/#expertise">Why NexPoint</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>Get in touch</h5>
+      <div class="footer__contact">
+        <a href="mailto:hello@nexpoint.co.uk" class="footer__contact-mail">hello@nexpoint.co.uk</a>
+        <div class="footer__socials">
+          <a href="https://www.linkedin.com/company/nexpoint-global/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer__bar">
+    <span>&copy; 2026 NexPoint Ltd. All rights reserved. Capacity figures are illustrative summaries held in confidence; identities, pricing and locations are never published.</span>
+    <div class="footer__bar-links">
+      <a href="/portal/privacy.html">Privacy</a>
+      <a href="/">Main site</a>
+    </div>
+  </div>
+</footer>
+
+<div class="overlay" id="introOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Ask us to introduce you">
+    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    <div id="introContent"></div>
+  </div>
+</div>
+
+<div class="overlay" id="signOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Sign in" style="max-width:440px">
+    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    <div id="signContent">
+      <h2>Welcome back</h2>
+      <p class="body" style="margin-bottom:4px">Sign in to see the board matched to your profile.</p>
+      <div class="form-grid" style="grid-template-columns:1fr;margin-top:24px">
+        <div class="field"><label for="sEmail">Email</label><input id="sEmail" type="email" placeholder="you@company.com"></div>
+        <div class="field"><label for="sPass">Password</label><input id="sPass" type="password" placeholder="Your password"></div>
+      </div>
+      <div class="modal-actions"><button class="btn btn-primary" onclick="signMock()">Sign in</button></div>
+      <div class="privacy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5a8f1d" stroke-width="2" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg> Draft note — accounts and sign-in arrive with the full build. This screen is illustrative.</div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/portal.js"></script>
+</body>
+</html>

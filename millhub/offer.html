@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Offer milling capacity — Global Mill Hub</title>
+<link rel="icon" href="assets/nexpoint-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css">
+</head>
+<body data-hub="mill">
+<!--
+v3 · 2026-08-15 — the milling facility's own page. Chris: "the difference between
+somebody who's looking for mill capacity and those that have mill capacity to offer
+is too subtle. It's hidden down here out of the way."
+-->
+
+<div class="scroll-progress" aria-hidden="true"></div>
+
+<header>
+  <div class="container nav">
+    <a href="https://nexpoint.co.uk/hub/" class="wordmark" aria-label="NexPoint Global Hub home"><img src="assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Global Hub v3 · Draft</span></a>
+    <nav class="nav-links" aria-label="Global Hub">
+      <a href="https://printhub.nexpoint.co.uk/" class="hide-m">Print Hub</a>
+      <a href="index.html" class="hide-m" aria-current="page">Mill Hub</a>
+      <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities</a>
+      <a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a>
+      <button class="btn btn-primary" onclick="openIntro('MILL HUB','Talk to the desk')">Talk to the desk</button>
+    </nav>
+  </div>
+</header>
+<nav class="hub-switch" aria-label="Hubs">
+  <a href="https://nexpoint.co.uk/hub/">Global Hub home</a>
+  <a href="https://printhub.nexpoint.co.uk/">Print Hub</a>
+  <a href="index.html" aria-current="page">Mill Hub</a>
+  <a href="https://opportunities.nexpoint.co.uk/">Opportunities</a>
+</nav>
+
+<div class="container">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="https://nexpoint.co.uk/hub/">Global Hub</a><span class="sep">/</span><a href="index.html">Global Mill Hub</a><span class="sep">/</span><b>Offer capacity</b></nav>
+</div>
+
+<section class="page-head">
+  <div class="container">
+    <span class="eyebrow"><span class="live-dot"></span>I have capacity</span>
+    <h1>Run a milling facility? <em>The hub needs you next.</em></h1>
+    <p class="lede">Cells in Europe and Australia are the next two the network needs. If you already mill orthoses at volume, a dedicated cell inside your floor is a committed, contracted book of work.</p>
+  </div>
+</section>
+
+<section style="padding-bottom:var(--section-pad)">
+  <div class="container">
+    <div class="split" style="align-items:start">
+      <div class="enter enter--left">
+        <ul class="benefits">
+          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Contracted volume, not speculative enquiries</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>One named production manager per client cell, on your terms</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Work routed to you first within your region</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Redundancy both ways: your overflow reroutes across the network</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Your identity held back until both sides agree to meet</li>
+        </ul>
+        <div class="locked" style="margin-top:24px">
+          <span class="label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>What we verify before a node joins</span>
+          <div class="note" style="margin-top:0;font-size:13px;line-height:20px">Machines and spare capacity, direct-milled and moulded insole capability, materials and blanks, coating, branding and packaging standards, and the production management that would run a dedicated cell. We visit before we introduce.</div>
+        </div>
+      </div>
+
+      <div class="panel enter enter--right">
+        <div class="steps-head">Register your facility</div>
+
+        <div class="loc-recall" id="locRecall" hidden>
+          <span class="material-symbols-outlined" aria-hidden="true">where_to_vote</span>
+          <span id="locRecallText"></span>
+          <button type="button" onclick="clearLoc()">Not right? Start again</button>
+        </div>
+
+        <form onsubmit="return joinSubmit(event)">
+          <div class="form-grid">
+            <div class="field"><label for="jCompany">Company name</label><input id="jCompany" required placeholder="Your facility"></div>
+            <div class="field"><label for="jName">Your name</label><input id="jName" required placeholder="Full name"></div>
+            <div class="field"><label for="jEmail">Email</label><input id="jEmail" type="email" required placeholder="you@company.com"></div>
+            <div class="field"><label for="jWebsite">Website</label><input id="jWebsite" placeholder="www.company.com"></div>
+            <div class="field"><label for="jRegion">Region</label><select id="jRegion"><option value="">Choose a region</option></select></div>
+            <div class="field"><label for="jCountry">Country</label><input id="jCountry" required placeholder="Country"></div>
+            <div class="field full"><label for="jTown">City / town</label><input id="jTown" placeholder="City or town"></div>
+            <div class="field full"><label for="jPrinters">Machines &amp; materials</label><input id="jPrinters" placeholder="e.g. 5-axis CNC · EVA, polypropylene, cork"></div>
+            <div class="field full"><label for="jCapacity">Spare daily capacity (pairs)</label><input id="jCapacity" placeholder="e.g. 200"></div>
+            <div class="field full"><label for="jNotes">What do you make today?</label><textarea id="jNotes" placeholder="Direct-milled or moulded insoles, top covers, coating and packaging, current volumes"></textarea></div>
+          </div>
+          <div class="privacy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5a8f1d" stroke-width="2" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg> Seen by NexPoint only. We'll come back to you directly, and visit before anything is introduced.</div>
+          <div class="modal-actions"><button class="btn btn-primary" type="submit">Register my facility</button></div>
+        </form>
+      </div>
+    </div>
+
+    <div style="margin-top:clamp(40px,5vh,64px);padding-top:clamp(28px,3.5vh,40px);border-top:1px solid var(--border)">
+      <p style="font-size:14px;color:var(--on-surface-var);margin-bottom:16px">Looking for capacity rather than offering it? That's the other door.</p>
+      <a class="btn btn-outline" href="find.html">Find milled capacity instead</a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer__inner">
+    <div class="footer__brand">
+      <a href="https://nexpoint.co.uk/" aria-label="NexPoint home"><img src="assets/nexpoint-logo.png" alt="NexPoint"></a>
+      <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, and Australia.</p>
+    </div>
+    <div class="footer__col">
+      <h5>Mill Hub</h5>
+      <ul>
+        <li><a href="index.html">Mill Hub home</a></li>
+        <li><a href="find.html">Find milled capacity</a></li>
+        <li><a href="https://nexpoint.co.uk/hub/">Global Hub home</a></li>
+        <li><a href="https://printhub.nexpoint.co.uk/">Global Print Hub</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>NexPoint</h5>
+      <ul>
+        <li><a href="https://nexpoint.co.uk/">Main site</a></li>
+        <li><a href="https://nexpoint.co.uk/#services">Services</a></li>
+        <li><a href="https://nexpoint.co.uk/#network">Global network</a></li>
+        <li><a href="https://opportunities.nexpoint.co.uk/">The opportunity board</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>Get in touch</h5>
+      <div class="footer__contact">
+        <a href="mailto:hello@nexpoint.co.uk" class="footer__contact-mail">hello@nexpoint.co.uk</a>
+        <div class="footer__socials">
+          <a href="https://www.linkedin.com/company/nexpoint-global/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer__bar">
+    <span>&copy; 2026 NexPoint Ltd. All rights reserved. Capacity figures are illustrative summaries held in confidence; identities, pricing and locations are never published.</span>
+    <div class="footer__bar-links">
+      <a href="https://nexpoint.co.uk/hub/privacy.html">Privacy</a>
+      <a href="https://nexpoint.co.uk/">Main site</a>
+    </div>
+  </div>
+</footer>
+
+<div class="overlay" id="introOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Ask us to introduce you">
+    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    <div id="introContent"></div>
+  </div>
+</div>
+
+<div class="overlay" id="signOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Sign in" style="max-width:440px">
+    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    <div id="signContent">
+      <h2>Welcome back</h2>
+      <p class="body" style="margin-bottom:4px">Sign in to see the board matched to your profile.</p>
+      <div class="form-grid" style="grid-template-columns:1fr;margin-top:24px">
+        <div class="field"><label for="sEmail">Email</label><input id="sEmail" type="email" placeholder="you@company.com"></div>
+        <div class="field"><label for="sPass">Password</label><input id="sPass" type="password" placeholder="Your password"></div>
+      </div>
+      <div class="modal-actions"><button class="btn btn-primary" onclick="signMock()">Sign in</button></div>
+      <div class="privacy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5a8f1d" stroke-width="2" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg> Member accounts arrive with a later release. Until then, every request comes straight to us — in confidence.</div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/portal.js"></script>
+</body>
+</html>

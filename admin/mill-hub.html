@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint Admin — Mill Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<!--
+THESIS: The admin is the main site's back office — same light material world,
+no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
+OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
+ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
+accent, green reserved for "go" semantics, the square logo in a translucent bar.
+STORY: hosts offering milling capacity on the left, seekers requesting it on
+the right; the operator reviews each request, approves or declines with a reason,
+then pairs approved sides into an introduction tracked to commission paid.
+Every button raises an intent — the engine acts, the browser only asks, and
+the introduction email itself is always sent by a human from Outlook.
+FIRST VIEWPORT: brand bar, boards tabs, "Mill Hub", filters, then the two
+request columns and the introductions register.
+FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
+-->
+
+<div id="login" class="door" style="display:none">
+  <img class="door-logo" src="nexpoint-logo.png" alt="NexPoint">
+  <h1>Admin sign in</h1>
+  <p>The opportunity board, leads, tasks and engine health.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+  <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
+</div>
+
+<div id="admin" style="display:none">
+  <header class="topbar">
+    <div class="wrap bar">
+      <a class="brandmark" href="index.html">
+        <img src="nexpoint-logo.png" alt="NexPoint">
+        <span class="admin-tag">Admin</span>
+      </a>
+      <div class="session">
+        <span class="who" id="who"></span>
+        <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <nav class="boards" aria-label="Admin boards">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="leads.html">Leads</a>
+        <a href="tasks.html">Tasks</a>
+        <a href="health.html">Health</a>
+        <a href="print-hub.html">Print Hub</a>
+        <a href="mill-hub.html" aria-current="page">Mill Hub</a>
+        <a href="opportunities.html">Opportunities</a>
+        <a href="campaigns.html">Campaigns</a>
+      </nav>
+
+      <div class="arrive">
+        <div class="intro">
+          <h1>Mill Hub</h1>
+          <span class="count" id="count"></span>
+        </div>
+        <p class="note">
+          Hosts offer CNC milling capacity; seekers request it. Review each request, approve
+          or decline it, then pair approved sides into an introduction and track it here.
+        </p>
+        <div class="toolbar" id="filters"></div>
+        <div id="banner"></div>
+
+        <div class="cols">
+          <section>
+            <div class="colhead"><h2 id="leftTitle"></h2><span class="n" id="leftN"></span><span class="rule"></span></div>
+            <div id="leftCol">
+              <div class="row skeleton"><div class="bone" style="width:38%"></div><div class="bone" style="width:82%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
+            </div>
+          </section>
+          <section>
+            <div class="colhead"><h2 id="rightTitle"></h2><span class="n" id="rightN"></span><span class="rule"></span></div>
+            <div id="rightCol">
+              <div class="row skeleton"><div class="bone" style="width:31%"></div><div class="bone" style="width:74%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="colhead"><h2>Introductions register</h2><span class="rule"></span></div>
+        <div class="register">
+          <table>
+            <thead><tr><th>Ref</th><th>Party A</th><th>Party B</th><th>Stage</th><th>Commission</th><th>Manage</th></tr></thead>
+            <tbody id="introRows"><tr><td colspan="6" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="note-box">
+          Approving a request records your decision only — no company is ever told about
+          another until you make the introduction yourselves and log it here.
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal" style="max-width:560px">
+    <h2 style="font:700 18px/1.3 var(--font-display);color:var(--fg);margin-bottom:16px">Make an introduction</h2>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+window.HUB = {
+  hub: 'mill', title: 'Mill Hub',
+  left:  { side: 'offer_capacity',   title: 'Hosts — offering capacity',     approveLabel: 'Approve as host' },
+  right: { side: 'request_capacity', title: 'Seekers — requesting capacity', approveLabel: 'Approve request' },
+};
+</script>
+<script src="hub-board.js"></script>
+</body>
+</html>

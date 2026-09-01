@@ -304,6 +304,105 @@ nav.boards a[aria-current="page"]::after { transform: scaleX(1); }
 .overlay.open .modal { animation: modal-in 220ms var(--ease); }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(0.985); } }
 
+<<<<<<< HEAD
+=======
+/* ── Hub boards (Print / Mill / Opportunities / Dashboard) ─────────
+   Shared by hub-board.js and dashboard.html. Everything below is built
+   from the tokens above — no new colors, no new type sizes. */
+
+/* Filter chips — DESIGN.md's filter-chip: white + hairline at rest,
+   solid NexPoint Blue when selected. */
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 20px; }
+.fchip {
+  font: 600 12.5px/1 var(--font-body); color: var(--fg-2);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+  padding: 7px 13px; cursor: pointer;
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.fchip:hover { color: var(--fg); border-color: #C9D0DB; }
+.fchip[aria-pressed="true"] { background: var(--np-blue); border-color: var(--np-blue); color: #fff; }
+.fchip:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* Two decision columns — hosts/listers left, seekers/requesters right. */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; margin-bottom: 30px; }
+.colhead { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.colhead h2 { font: 700 13px/1 var(--font-body); letter-spacing: 0.07em;
+              text-transform: uppercase; color: var(--fg-2); }
+.colhead .n { font: 600 11.5px/1 var(--font-body); color: var(--fg-2);
+              background: var(--bg-alt); border-radius: 999px; padding: 4px 9px;
+              font-variant-numeric: tabular-nums; }
+.colhead .rule { flex: 1; height: 1px; background: var(--border); }
+
+/* Request cards — a .row with a status-edged left border. */
+.req { border-left: 3px solid var(--border); }
+.req.s-new       { border-left-color: var(--np-blue); }
+.req.s-reviewing { border-left-color: var(--warn-ink); }
+.req.s-approved  { border-left-color: var(--np-green); }
+.req.s-declined  { border-left-color: var(--cold-ink); }
+.ref {
+  font: 600 11.5px/1 var(--font-body); letter-spacing: 0.05em;
+  color: var(--fg-2); background: var(--bg-alt);
+  padding: 4px 8px; border-radius: 5px; font-variant-numeric: tabular-nums;
+}
+.req details.pl { font-size: 12.5px; color: var(--fg-2); margin-top: 10px; }
+.req details.pl summary { cursor: pointer; list-style: none; display: inline-flex;
+                          align-items: center; gap: 5px; }
+.req details.pl summary::-webkit-details-marker { display: none; }
+.req details.pl summary:hover { color: var(--fg); }
+.req details.pl p { margin-top: 7px; padding-left: 20px; max-width: 78ch; }
+
+/* Status badges for requests and introduction stages — ink-on-wash. */
+.stg { display: inline-block; font: 700 10.5px/1 var(--font-body); letter-spacing: 0.06em;
+       padding: 4px 8px; border-radius: 5px; white-space: nowrap; }
+.stg-new           { background: var(--info-wash); color: var(--info-ink); }
+.stg-reviewing     { background: var(--warn-wash); color: var(--warn-ink); }
+.stg-approved      { background: var(--ok-wash);   color: var(--ok-ink); }
+.stg-declined      { background: var(--cold-wash); color: var(--cold-ink); }
+.stg-introduced    { background: var(--info-wash); color: var(--info-ink); }
+.stg-in_discussion { background: var(--info-wash); color: var(--info-ink); }
+.stg-deal_done     { background: var(--ok-wash);   color: var(--ok-ink); }
+.stg-dead          { background: var(--cold-wash); color: var(--cold-ink); }
+.stg-invoiced      { background: var(--warn-wash); color: var(--warn-ink); }
+.stg-paid          { background: var(--ok-wash);   color: var(--ok-ink); }
+
+/* The introductions register — same table voice as the Health jobs table. */
+.register { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+            box-shadow: var(--shadow-rest); overflow-x: auto; margin-bottom: 22px; }
+.register table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.register th { text-align: left; font: 600 11.5px/1 var(--font-body); letter-spacing: 0.05em;
+               text-transform: uppercase; color: var(--fg-2); padding: 14px 18px 12px;
+               border-bottom: 1px solid var(--border); }
+.register td { padding: 12px 18px; border-bottom: 1px solid var(--border-faint); color: var(--fg-1);
+               vertical-align: middle; }
+.register tbody tr:last-child td { border-bottom: none; }
+.register tbody tr { transition: background var(--t-fast) var(--ease); }
+.register tbody tr:hover { background: #FAFBFD; }
+.register td.rref { font-weight: 600; color: var(--fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.register td.money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.register select {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--fg-1); font: 600 12.5px/1 var(--font-body); padding: 7px 8px; outline: none;
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+.register select:focus-visible { border-color: var(--np-blue); box-shadow: var(--ring); }
+
+/* Standing-rule note — info voice, never an alarm. */
+.note-box {
+  background: var(--info-wash); border: 1px solid rgba(0, 92, 200, 0.25); color: var(--info-ink);
+  border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13.5px; margin-bottom: 22px;
+  max-width: 78ch;
+}
+
+/* Dashboard stat tiles — the Health meter card's shape, reused. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+        box-shadow: var(--shadow-rest); padding: 16px 18px; }
+.tile .k { font: 600 12px/1 var(--font-body); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-2); }
+.tile .v { font: 700 22px/1.2 var(--font-display); color: var(--fg); margin: 8px 0 4px;
+           font-variant-numeric: tabular-nums; }
+.tile .s { font-size: 12.5px; color: var(--fg-2); }
+
+>>>>>>> origin/claude/introductions-manager
 /* ── Responsive ─────────────────────────────────────────────────── */
 @media (max-width: 720px) {
   .wrap { padding: 0 16px; }
@@ -313,6 +412,10 @@ nav.boards a[aria-current="page"]::after { transform: scaleX(1); }
   nav.boards { overflow-x: auto; scrollbar-width: none; }
   nav.boards::-webkit-scrollbar { display: none; }
   .row { padding: 16px; }
+<<<<<<< HEAD
+=======
+  .cols { grid-template-columns: 1fr; }
+>>>>>>> origin/claude/introductions-manager
 }
 
 @media (prefers-reduced-motion: reduce) {

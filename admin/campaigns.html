@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint Admin — Campaigns</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+<style>
+  /* Campaign card: status + name, then the four numbers that matter. */
+  .camp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .camp-head .spacer { flex: 1; }
+  .badge.b-ok   { background: var(--ok-wash);   color: var(--ok-ink); }
+  .badge.b-warn { background: var(--warn-wash); color: var(--warn-ink); }
+  .badge.b-cold { background: var(--cold-wash); color: var(--cold-ink); }
+
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 0 4px; }
+  .tile { background: var(--bg); border: 1px solid var(--border-faint); border-radius: var(--radius-sm); padding: 12px 14px; }
+  .tile .k { font: 600 11px/1 var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--fg-2); }
+  .tile .v { font: 700 22px/1.2 var(--font-display); color: var(--fg); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .tile .sub { font-size: 11.5px; color: var(--fg-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  @media (max-width: 720px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+
+  /* Mailbox warmup table */
+  .warm { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+          box-shadow: var(--shadow-rest); overflow: hidden; margin-bottom: 12px; }
+  .warm table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .warm th { text-align: left; font: 600 11px/1 var(--font-body); letter-spacing: .06em;
+             text-transform: uppercase; color: var(--fg-2); padding: 12px 16px;
+             border-bottom: 1px solid var(--border); background: var(--bg); }
+  .warm td { padding: 11px 16px; border-bottom: 1px solid var(--border-faint); color: var(--fg-1);
+             font-variant-numeric: tabular-nums; }
+  .warm tr:last-child td { border-bottom: 0; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: 0; }
+  .dot-ok   { background: var(--np-green); }
+  .dot-warn { background: var(--grade-medium); }
+  .dot-err  { background: var(--err-ink); }
+  .dot-none { background: var(--grade-low); }
+
+  .section-title { font: 700 13px/1 var(--font-body); letter-spacing: .07em; text-transform: uppercase;
+                   color: var(--fg-2); margin: 30px 0 14px; }
+</style>
+</head>
+<body>
+<!--
+The Campaigns board reads the Smartlead mirror the engine's hub-sync job
+keeps in Supabase (migration 0018) and holds the ONLY controls that
+change campaign state — each one a human click, confirmed, sent with the
+admin's own session token to the control worker. The engine can read this
+data but can never press these buttons: that split is the design.
+-->
+
+<div id="login" class="door" style="display:none">
+  <img class="door-logo" src="nexpoint-logo.png" alt="NexPoint">
+  <h1>Admin sign in</h1>
+  <p>The opportunity board, leads, tasks and engine health.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+  <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
+</div>
+
+<div id="admin" style="display:none">
+  <header class="topbar">
+    <div class="wrap bar">
+      <a class="brandmark" href="dashboard.html">
+        <img src="nexpoint-logo.png" alt="NexPoint">
+        <span class="admin-tag">Admin</span>
+      </a>
+      <div class="session">
+        <span class="who" id="who"></span>
+        <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <nav class="boards" aria-label="Admin boards">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="leads.html">Leads</a>
+        <a href="tasks.html">Tasks</a>
+        <a href="health.html">Health</a>
+        <a href="print-hub.html">Print Hub</a>
+        <a href="mill-hub.html">Mill Hub</a>
+        <a href="opportunities.html">Opportunities</a>
+        <a href="campaigns.html" aria-current="page">Campaigns</a>
+      </nav>
+
+      <div class="arrive">
+        <div class="intro">
+          <h1>Campaigns</h1>
+          <span class="count" id="synced"></span>
+        </div>
+        <p class="note">
+          The engine mirrors Smartlead every hour and can only ever read it. Starting, pausing
+          or stopping a campaign happens here, on your click, in your name — it takes effect in
+          Smartlead immediately and the stats refresh on the next pull.
+        </p>
+        <div id="banner"></div>
+        <div id="campaigns">
+          <div class="row skeleton"><div class="bone" style="width:34%"></div><div class="bone" style="width:88%;margin-top:12px"></div><div class="bone" style="width:22%;margin-top:12px"></div></div>
+          <div class="row skeleton"><div class="bone" style="width:28%"></div><div class="bone" style="width:80%;margin-top:12px"></div><div class="bone" style="width:22%;margin-top:12px"></div></div>
+        </div>
+        <div id="warmupWrap" style="display:none">
+          <div class="section-title">Mailbox warmup</div>
+          <div class="warm">
+            <table>
+              <thead><tr><th>Mailbox</th><th>Warmup score</th><th>Status</th></tr></thead>
+              <tbody id="warmRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI gate; real gate is database RLS
+// The control worker's URL + /smartlead/control — known only once Will
+// deploys the worker (wrangler deploy prints it). Until then the read
+// side works in full and the controls explain themselves honestly.
+const CONTROL_URL='';  // e.g. 'https://nexpoint-portal-capture.<account>.workers.dev/smartlead/control'
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let me=null,camps=[],warm=[];
+
+async function boot(){
+  const {data}=await sb.auth.getSession();
+  const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)) showAdmin(s.user); else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))
+    $('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const email=$('email').value.trim(),password=$('pw').value;
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  showAdmin(data.user);
+}
+async function signOut(){await sb.auth.signOut();location.reload();}
+function showAdmin(user){
+  me=user;$('login').style.display='none';$('admin').style.display='block';
+  $('who').textContent=user.email;
+  load();
+}
+
+const isActive=s=>/ACTIVE|RUNNING|START/i.test(s||'');
+const isPaused=s=>/PAUSE/i.test(s||'');
+const pct=(n,sent)=>sent>0?`${Math.round(n/sent*1000)/10}%`:'—';
+
+async function load(){
+  $('banner').innerHTML='';
+  const {data,error}=await sb.from('campaigns')
+    .select('id,name,status,sent,opened,replied,bounced,synced_at')
+    .order('name',{ascending:true});
+  if(error){
+    $('banner').innerHTML=`<div class="banner">Could not read the campaigns mirror: ${esc(error.message)}.
+      If this mentions a missing table or permission, migration 0018 has not been run yet.</div>`;
+    $('campaigns').innerHTML='';return;
+  }
+  camps=data||[];
+  const {data:w}=await sb.from('mailbox_warmup')
+    .select('email,warmup_score,status,synced_at').order('email',{ascending:true});
+  warm=w||[];
+  render();
+}
+
+function render(){
+  const latest=camps.map(c=>c.synced_at).sort().pop();
+  $('synced').textContent=latest?`Smartlead · synced ${String(latest).slice(11,16)}`:'';
+
+  if(!camps.length){
+    $('campaigns').innerHTML=`<div class="empty">No campaigns mirrored yet. They appear here after
+      migration 0018 has been run and the first hub-sync pull has completed — the engine pulls
+      hourly at 20 past.</div>`;
+  }else{
+    $('campaigns').innerHTML=camps.map(card).join('');
+  }
+
+  $('warmupWrap').style.display=warm.length?'block':'none';
+  $('warmRows').innerHTML=warm.map(m=>{
+    const s=m.warmup_score;
+    const dot=s==null?'dot-none':s>=85?'dot-ok':s>=60?'dot-warn':'dot-err';
+    return `<tr><td>${esc(m.email)}</td>
+      <td><span class="dot ${dot}"></span>${s==null?'—':esc(s)}</td>
+      <td>${esc(m.status||'—')}</td></tr>`;
+  }).join('');
+}
+
+function card(c){
+  const badge=isActive(c.status)?'b-ok':isPaused(c.status)?'b-warn':'b-cold';
+  const controls=CONTROL_URL
+    ? ctlButtons(c)
+    : `<span class="status">Controls arrive when the control worker is deployed —
+        its URL becomes CONTROL_URL on this page.</span>`;
+  return `<div class="row">
+    <div class="camp-head">
+      <span class="company">${esc(c.name||('Campaign '+c.id))}</span>
+      <span class="badge ${badge}">${esc(c.status||'UNKNOWN')}</span>
+      <span class="spacer"></span>
+    </div>
+    <div class="tiles">
+      <div class="tile"><div class="k">Sent</div><div class="v">${c.sent}</div></div>
+      <div class="tile"><div class="k">Opened</div><div class="v">${pct(c.opened,c.sent)}</div><div class="sub">${c.opened} opens</div></div>
+      <div class="tile"><div class="k">Replied</div><div class="v">${pct(c.replied,c.sent)}</div><div class="sub">${c.replied} replies</div></div>
+      <div class="tile"><div class="k">Bounced</div><div class="v">${pct(c.bounced,c.sent)}</div><div class="sub">${c.bounced} bounces</div></div>
+    </div>
+    <div class="controls" id="ctl-${c.id}">${controls}</div>
+  </div>`;
+}
+
+function ctlButtons(c){
+  const primary=isActive(c.status)
+    ? `<button class="btn btn-amb btn-sm" onclick="control(${c.id},'pause')">
+         <span class="material-symbols-outlined" aria-hidden="true">pause</span>Pause campaign</button>`
+    : `<button class="btn btn-grn btn-sm" onclick="control(${c.id},'start')">
+         <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>Start campaign</button>`;
+  return primary+`
+    <button class="btn btn-danger btn-sm" onclick="control(${c.id},'stop')">
+      <span class="material-symbols-outlined" aria-hidden="true">stop</span>Stop campaign</button>`;
+}
+
+async function control(id,action){
+  const verb={start:'Start',pause:'Pause',stop:'Stop'}[action];
+  if(!confirm(`${verb} this campaign? It takes effect in Smartlead immediately.`))return;
+  const el=$('ctl-'+id);
+  el.innerHTML='<span class="status">Sending…</span>';
+  const {data}=await sb.auth.getSession();
+  const r=await fetch(CONTROL_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},
+    body:JSON.stringify({action,campaign_id:id}),
+  }).catch(()=>null);
+  const res=r?await r.json().catch(()=>({})):{};
+  if(res.ok){el.innerHTML='<span class="status done">Done — stats refresh on the next pull.</span>';setTimeout(load,1500);}
+  else{el.innerHTML=`<span class="status fail">${esc(res.error||'Could not reach the control service.')}</span>`;setTimeout(load,4000);}
+}
+
+boot();
+</script>
+</body>
+</html>
