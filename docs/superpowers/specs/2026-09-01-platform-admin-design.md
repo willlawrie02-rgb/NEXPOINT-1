@@ -58,6 +58,10 @@ Pipedrive, Claude (the local pipeline files), and Outlook.
 ## 5. The admin app — Will and Chris's single workspace
 
 Static pages in `admin/`, Supabase auth (two accounts), database-level security (§10).
+**Agreed UI direction (Will, 2026-09-01):** the "NexPoint Admin Workspace" design canvas —
+https://claude.ai/code/artifact/2eddcfa3-2da6-4627-8710-b19e0616b501 — four mocked screens
+(Dashboard, Print Hub, Opportunities Hub, Campaigns; Mill Hub mirrors Print Hub) using the
+existing admin chrome on the light canvas. Build to these mocks.
 Eight areas (navigation leaves room for the future LinkedIn Manager, §8):
 
 | Page | Purpose | Status |
