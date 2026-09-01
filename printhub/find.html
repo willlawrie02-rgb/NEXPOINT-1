@@ -4,51 +4,52 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>Find milled capacity — Global Mill Hub</title>
-<link rel="icon" href="../assets/nexpoint-logo.png">
+<title>Find print capacity — Global Print Hub</title>
+<link rel="icon" href="assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/portal.css">
 </head>
-<body data-hub="mill">
+<body data-hub="print">
 <!--
-v3 · 2026-08-15 — the Mill Hub now uses the SAME location interface as the Print Hub.
-Chris: "We should still have the same interface as the printer where it asks where
-you are… at the moment it doesn't have that in there. They're not consistent."
+v3 · 2026-08-15 — the seeker's own page. Chris: "I need the map instead of this
+boring list… I would love to see the map as an interface before this."
+The three-field workflow he praised is kept intact; the map just leads it.
+Results now vary by region AND country, and every card names its country.
 -->
 
 <div class="scroll-progress" aria-hidden="true"></div>
 
 <header>
   <div class="container nav">
-    <a href="index.html" class="wordmark" aria-label="NexPoint Global Hub home"><img src="../assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Global Hub v3 · Draft</span></a>
+    <a href="https://nexpoint.co.uk/hub/" class="wordmark" aria-label="NexPoint Global Hub home"><img src="assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Global Hub v3 · Draft</span></a>
     <nav class="nav-links" aria-label="Global Hub">
-      <a href="print-hub.html" class="hide-m">Print Hub</a>
-      <a href="mill-hub.html" class="hide-m" aria-current="page">Mill Hub</a>
-      <a href="../portal/" class="hide-m">Opportunities</a>
+      <a href="index.html" class="hide-m" aria-current="page">Print Hub</a>
+      <a href="https://millhub.nexpoint.co.uk/" class="hide-m">Mill Hub</a>
+      <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities</a>
       <a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a>
-      <button class="btn btn-primary" onclick="openIntro('MILL HUB','Talk to the desk')">Talk to the desk</button>
+      <button class="btn btn-primary" onclick="openIntro('PRINT HUB','Talk to the desk')">Talk to the desk</button>
     </nav>
   </div>
 </header>
 <nav class="hub-switch" aria-label="Hubs">
-  <a href="index.html">Global Hub home</a>
-  <a href="print-hub.html">Print Hub</a>
-  <a href="mill-hub.html" aria-current="page">Mill Hub</a>
-  <a href="../portal/">Opportunities</a>
+  <a href="https://nexpoint.co.uk/hub/">Global Hub home</a>
+  <a href="index.html" aria-current="page">Print Hub</a>
+  <a href="https://millhub.nexpoint.co.uk/">Mill Hub</a>
+  <a href="https://opportunities.nexpoint.co.uk/">Opportunities</a>
 </nav>
 
 <div class="container">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Global Hub</a><span class="sep">/</span><a href="mill-hub.html">Global Mill Hub</a><span class="sep">/</span><b>Find capacity</b></nav>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="https://nexpoint.co.uk/hub/">Global Hub</a><span class="sep">/</span><a href="index.html">Global Print Hub</a><span class="sep">/</span><b>Find capacity</b></nav>
 </div>
 
 <section class="page-head">
   <div class="container">
     <span class="eyebrow"><span class="live-dot"></span>I need capacity</span>
-    <h1>Find milled capacity <em>for your market.</em></h1>
-    <p class="lede">One verified node is live today, seen first-hand by NexPoint, with cells on two continents. Tell us where you sell and we'll show you what serves you.</p>
+    <h1>Find print capacity <em>near you.</em></h1>
+    <p class="lede">Matching starts with location, so the logistics work from the first conversation. Three clicks, no account, nothing stored.</p>
   </div>
 </section>
 
@@ -56,21 +57,23 @@ you are… at the moment it doesn't have that in there. They're not consistent."
   <div class="container">
     <div class="flow">
 
+      <!-- 01 · the map -->
       <div class="flow-step">
         <h2>Where are you?</h2>
-        <p class="hint">Pick your region on the map. Milled work is mirrored across continents, so every region can be served today.</p>
+        <p class="hint">Pick your region on the map. Each green marker is a certified node, live today.</p>
         <div class="mapwrap enter enter--rise">
           <div id="mapMount"></div>
           <div class="map-legend">
-            <b>Every region is served today from the verified node</b>
-            <b>Europe and Australia are next for a dedicated cell.</b>
+            <b><span style="width:9px;height:9px;border-radius:50%;background:var(--green);display:inline-block"></span> Certified node, live today</b>
+            <b>Founding nodes are limited to twenty laboratories worldwide.</b>
           </div>
         </div>
       </div>
 
+      <!-- 02 · narrow it down -->
       <div class="flow-step" id="step2" hidden>
         <h2>Where in <span id="step2Region">your region</span>?</h2>
-        <p class="hint">Country matters for freight, duty and lead time. Your town is optional.</p>
+        <p class="hint">Country matters more than distance: 250 miles is no use if it crosses a border. Your town is optional and only sharpens the ordering.</p>
         <div class="panel">
           <div class="loc-grid">
             <div class="field">
@@ -81,23 +84,25 @@ you are… at the moment it doesn't have that in there. They're not consistent."
               <label for="locTown">City / town <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></label>
               <input id="locTown" placeholder="Type your town">
             </div>
-            <button class="btn btn-primary" onclick="showMill()">Show what serves me</button>
+            <button class="btn btn-primary" onclick="showMatches()">Show the capacity near me</button>
           </div>
-          <div class="loc-note">Your location is only used to match you. Nothing is stored in this draft; it is carried to the next screen so you never type it twice.</div>
+          <div class="loc-note">Your location is only used to match you to nearby nodes. Nothing is stored in this draft; it is carried to the next screen so you never type it twice.</div>
         </div>
       </div>
 
+      <!-- 03 · the answer -->
       <div class="flow-step" id="step3" hidden>
-        <h2>Verified capacity, accepting introductions now</h2>
-        <p class="hint">Partner identity, per-pair pricing and reference customers are shared only inside a personal introduction.</p>
-        <div id="millResult"></div>
+        <h2>What the network can print</h2>
+        <p class="hint">Capacity is described by process and material. Identities, exact locations and lab names are shared only inside a personal introduction.</p>
+        <div id="matchIntro" style="display:none;margin-bottom:20px;font-size:14px;color:var(--on-surface)"></div>
+        <div class="cap-grid" id="capGrid"></div>
       </div>
 
     </div>
 
     <div style="margin-top:clamp(40px,5vh,64px);padding-top:clamp(28px,3.5vh,40px);border-top:1px solid var(--border)">
-      <p style="font-size:14px;color:var(--on-surface-var);margin-bottom:16px">Run a milling facility yourself? The other side of the network is a separate conversation.</p>
-      <a class="btn btn-outline" href="mill-offer.html">Offer milling capacity instead</a>
+      <p style="font-size:14px;color:var(--on-surface-var);margin-bottom:16px">Own printers as well? The other side of the network is a separate conversation.</p>
+      <a class="btn btn-outline" href="offer.html">Offer print capacity instead</a>
     </div>
   </div>
 </section>
@@ -105,25 +110,25 @@ you are… at the moment it doesn't have that in there. They're not consistent."
 <footer class="footer">
   <div class="footer__inner">
     <div class="footer__brand">
-      <a href="../index.html" aria-label="NexPoint home"><img src="../assets/nexpoint-logo.png" alt="NexPoint"></a>
+      <a href="https://nexpoint.co.uk/" aria-label="NexPoint home"><img src="assets/nexpoint-logo.png" alt="NexPoint"></a>
       <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, and Australia.</p>
     </div>
     <div class="footer__col">
-      <h5>Mill Hub</h5>
+      <h5>Print Hub</h5>
       <ul>
-        <li><a href="mill-hub.html">Mill Hub home</a></li>
-        <li><a href="mill-offer.html">Offer milling capacity</a></li>
-        <li><a href="index.html">Global Hub home</a></li>
-        <li><a href="print-hub.html">Global Print Hub</a></li>
+        <li><a href="index.html">Print Hub home</a></li>
+        <li><a href="offer.html">Offer print capacity</a></li>
+        <li><a href="https://nexpoint.co.uk/hub/">Global Hub home</a></li>
+        <li><a href="https://millhub.nexpoint.co.uk/">Global Mill Hub</a></li>
       </ul>
     </div>
     <div class="footer__col">
       <h5>NexPoint</h5>
       <ul>
-        <li><a href="../index.html">Main site</a></li>
-        <li><a href="../index.html#services">Services</a></li>
-        <li><a href="../index.html#network">Global network</a></li>
-        <li><a href="../portal/">The opportunity board</a></li>
+        <li><a href="https://nexpoint.co.uk/">Main site</a></li>
+        <li><a href="https://nexpoint.co.uk/#services">Services</a></li>
+        <li><a href="https://nexpoint.co.uk/#network">Global network</a></li>
+        <li><a href="https://opportunities.nexpoint.co.uk/">The opportunity board</a></li>
       </ul>
     </div>
     <div class="footer__col">
@@ -139,8 +144,8 @@ you are… at the moment it doesn't have that in there. They're not consistent."
   <div class="footer__bar">
     <span>&copy; 2026 NexPoint Ltd. All rights reserved. Capacity figures are illustrative summaries held in confidence; identities, pricing and locations are never published.</span>
     <div class="footer__bar-links">
-      <a href="../portal/privacy.html">Privacy</a>
-      <a href="../index.html">Main site</a>
+      <a href="https://nexpoint.co.uk/hub/privacy.html">Privacy</a>
+      <a href="https://nexpoint.co.uk/">Main site</a>
     </div>
   </div>
 </footer>
