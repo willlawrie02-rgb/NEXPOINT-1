@@ -694,14 +694,24 @@ function joinSubmit(e){
   return false;
 }
 function openSignIn(){ openOverlay('signOverlay'); }
-function signMock(){
-  document.getElementById('signContent').innerHTML = `
-    <div class="success">
-      <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
-      <h2>Accounts arrive with the full build</h2>
-      <p>In this draft the whole Global Hub is open — no sign-in needed. In the full build, members land on a board already matched to their profile.</p>
-      <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
-    </div>`;
+async function signSubmit(){
+  const email = (document.getElementById('sEmail') || {}).value || '';
+  const pass = (document.getElementById('sPass') || {}).value || '';
+  const err = document.querySelector('#signContent .np-sign-error');
+  if (!window.NPAccount){ if (err){ err.style.display = 'block'; err.textContent = 'Accounts are briefly unavailable — email hello@nexpoint.co.uk and we will help directly.'; } return; }
+  const d = await NPAccount.signIn(email.trim(), pass);
+  if (d.ok){
+    document.getElementById('signContent').innerHTML = `
+      <div class="success">
+        <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
+        <h2>Welcome back, ${escapeHtml((NPAccount.user && NPAccount.user.name) || '')}.</h2>
+        <p>You're signed in across every hub. Requests you make now arrive with your profile attached.</p>
+        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
+      </div>`;
+  } else if (err){
+    err.style.display = 'block';
+    err.textContent = 'That email and password don\'t match an account. Check them, or create your hub account below.';
+  }
 }
 let lastFocus = null;
 function openOverlay(id){
