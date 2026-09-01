@@ -165,6 +165,19 @@ one-click confirm showing what will be sent.
 
 ## 8. Phase 2 — the explainer animation (design locked earlier, restated)
 
+> **Superseded in part — 2026-09-01.** Chris's four dictated animation briefs of 24 August
+> (`chris-chats/2026-08-24_hub-animation-briefs.md` in the parent repo, recorded ten days
+> after the review this section was designed from) ask for a *family* of animations: a
+> global-overview infomercial ("holistically what NexPoint is doing globally… a map with
+> things moving around… as a global community"), per-hub infomercials for mill (the
+> factory-cell model) and print (recording missing — Chris to re-record), a product-hub
+> piece, and an education infographic. The hub-home slot below becomes the global-overview
+> piece, and its story should lean map-and-community rather than the pure four-step
+> journey. Phase 2's implementation plan must be drawn from those briefs; two things block
+> animation production: the Product Hub vs Global Opportunities Hub naming decision, and
+> the missing print-hub recording. Phase 1 is unaffected — the briefs' "no pressure
+> whatsoever" browsing framing reinforces the act gate.
+
 - **Asset:** one hand-built SVG/CSS/JS module (`assets/explainer.js` + `.css`), no
   libraries. Four scenes ≈ 25 s, looping with a ~3 s hold on the end card, clickable step
   dots, neutral pointer dot (works on touch), autoplay everywhere,
