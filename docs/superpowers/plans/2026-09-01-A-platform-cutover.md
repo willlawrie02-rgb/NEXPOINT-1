@@ -138,7 +138,7 @@ Replace the ENTIRE contents of `portal/index.html` with:
 </html>
 ```
 
-Create `portal/privacy.html` with the same shape redirecting to `https://nexpoint.co.uk/hub/privacy.html`. Keep `portal/briefs.json` in place untouched — `_system/portal_sync.py` still deploys to it until the sync is retargeted (flag this to Will at the end; do NOT edit `_system/portal_sync.py` in this plan).
+Create `portal/privacy.html` with the same shape redirecting to `https://nexpoint.co.uk/hub/privacy.html`. Keep `portal/briefs.json` in place untouched — the cloud engine (repo `nexpoint-engine`, locally `~/Documents/Claude/Projects/Nexpoint 2`) deploys briefs to it via its J1.6 reconcile + human-gated J2 deploy with a leak guard. Retargeting that deploy from `portal/` to `opportunities/` is an ENGINE-repo change under its acceptance spec — do NOT attempt it in this plan; flag it to Will at the end so he can hand it to the engine session (Plan D's owner is closest).
 
 - [ ] **Step 2: Update the marketing site links** — in `index.html`, change the three `/portal/` hrefs (navbar ~line 614, mobile nav ~634, footer ~1072) to `/hub/`, and their labels "Member portal" → "Global Hub".
 
@@ -291,7 +291,7 @@ curl -sI https://nexpoint.co.uk/portal/ | head -3
 ```
 Expected: `200` on the first three with HTML content; the portal returns its redirect page. Then open each subdomain in a real browser: styles load, images load, nav links cross correctly, no mixed-content warnings.
 
-- [ ] **Step 4: Report** — tell Will: what is live, that `_system/portal_sync.py` still deploys briefs to `portal/briefs.json` and should be retargeted to `opportunities/briefs.json` (small follow-up — coordinate with Plan D's owner), and that the education subdomain slot is ready in the FOLDERS map when needed.
+- [ ] **Step 4: Report** — tell Will: what is live, that the engine's briefs deploy (J1.6/J2 in the `nexpoint-engine` repo) still targets `portal/briefs.json` and needs retargeting to `opportunities/briefs.json` inside that repo (coordinate with Plan D's owner), and that the education subdomain slot is ready in the FOLDERS map when needed. Also note: `website/admin/` files for the three boards are DEPLOY COPIES from the engine repo's `app/` — merges here must not clobber a newer app deploy; coordinate with Plan C's owner if both touch `admin/`.
 
 ## Self-review notes
 

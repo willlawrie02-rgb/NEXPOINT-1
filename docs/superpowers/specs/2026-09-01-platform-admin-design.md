@@ -51,18 +51,43 @@ Pipedrive, Claude (the local pipeline files), and Outlook.
 2. **Instantly:** a notification email goes to Will and Chris — sent by the capture
    worker (via Resend) in the same moment it stores the row. The admin app sees the
    request live.
-3. **Hourly:** the engine polls Supabase, writes the request into the local Nexpoint
-   folder (lead/deal files — the master copy), and the existing sync carries it to
-   Pipedrive. Claude sees it in `leads/`/`deals/`. Poll frequency can be raised to
-   15 minutes with a one-line change if the hour ever feels slow.
+3. **Hourly:** the cloud engine (the `nexpoint-engine` repo — locally at
+   `~/Documents/Claude/Projects/Nexpoint 2`, running in GitHub Actions per its
+   `jobs.yaml`) pulls unsynced requests, files them into the workspace repo
+   (lead files — the master copy, G3b data trunk), and Pipedrive follows through the
+   engine's journalled `PipedriveClient` path (G10). Claude sees everything in
+   `leads/`/`deals/`.
+
+### 4a. Engine integration — binding context
+
+The old local `_system` scripts and launchd agents are RETIRED (cutover completed
+2026-08-25); all scheduled work is engine jobs in the `nexpoint-engine` repo, and its
+acceptance spec (`nexpoint-engine-acceptance-spec.md`) is binding: G1 no-send, G2
+never delete company data, G3/G3a/G3b push rules, G7 run records, G10 journalled
+Pipedrive writes, dry-run by default, TDD with acceptance-guard tests. **Never
+reintroduce a local scheduler.** The admin app is a pure human surface: every board
+action is an `engine_intents` row (closed vocabulary in
+`src/nexpoint_engine/intents.py`, mirrored by a DB constraint) that the engine claims
+and executes journalled; the browser never touches Pipedrive, the workspace, or the
+public site. Supabase schema changes are migrations in that repo's
+`supabase/migrations/` (currently through 0015).
 
 ## 5. The admin app — Will and Chris's single workspace
 
-Static pages in `admin/`, Supabase auth (two accounts), database-level security (§10).
+Static pages, Supabase auth (two accounts), database-level security (§10). **The engine
+repo's `app/` directory is the source of truth for the boards** (PRODUCT.md there);
+deploys are sanctioned human-approved file copies into the website repo's `admin/`. New
+boards follow the redesigned pattern (`app/leads.html` + `app/admin.css`) and the
+engine repo's `DESIGN.md` tokens — light theme only (binding, Will 2026-08-24), square
+logo lockup only (`app/nexpoint-logo.png`; the horizontal logo is retired).
+**Writes are intents:** board buttons INSERT `engine_intents` rows (vocabulary extended
+by migration + `intents.py` + handlers + tests); the UI shows "queued for the engine"
+optimistically, as the leads board does. Reads are direct selects under RLS.
 **Agreed UI direction (Will, 2026-09-01):** the "NexPoint Admin Workspace" design canvas —
 https://claude.ai/code/artifact/2eddcfa3-2da6-4627-8710-b19e0616b501 — four mocked screens
-(Dashboard, Print Hub, Opportunities Hub, Campaigns; Mill Hub mirrors Print Hub) using the
-existing admin chrome on the light canvas. Build to these mocks.
+(Dashboard, Print Hub, Opportunities Hub, Campaigns; Mill Hub mirrors Print Hub) on the
+light canvas. Build to these mocks for layout and flow; where a mock detail conflicts
+with `DESIGN.md`/`admin.css` tokens, the engine repo's design system wins.
 Eight areas (navigation leaves room for the future LinkedIn Manager, §8):
 
 | Page | Purpose | Status |
@@ -98,12 +123,17 @@ history, and the evidence against being cut out of the loop:
 
 **Scope: monitor + start/stop.** Campaigns are authored in Smartlead's own UI.
 
-- **Stats in:** a scheduled server-side sync pulls campaign performance (sent, opens,
+- **Stats in:** an engine job (in the `nexpoint-engine` repo — jobs.yaml entry, TDD,
+  dry-run first, Will's go-ahead to wire live) pulls campaign performance (sent, opens,
   replies, bounces) and mailbox warmup scores into Supabase (`campaigns`,
-  `campaign_stats`). The admin page reads them live; the engine archives them locally.
-- **Control out:** start/pause/stop buttons call a small server-side function (Supabase
-  Edge Function) holding the Smartlead API key — the campaign reacts in seconds, not on
-  the next engine pass. The key never appears in any page.
+  `campaign_stats`, `mailbox_warmup`) and archives the raw pull into the workspace
+  repo. The admin page reads the tables live.
+- **Control out:** start/pause/stop buttons call a route on the existing Cloudflare
+  capture worker holding the Smartlead API key, gated on the caller's Supabase session
+  being Will or Chris — the campaign reacts in seconds, not on the next engine pass.
+  The key never appears in any page. (This is the one deliberate exception to
+  writes-as-intents: campaign control needs seconds, not the next engine run, and it
+  touches Smartlead only — never Pipedrive, the workspace, or the site.)
 - Campaign start/stop is always a human click. The automation never launches sends.
 - **Prerequisite from Will:** Smartlead API key at build time.
 
@@ -126,7 +156,13 @@ company-page API requires a developer-programme application that takes weeks.
 | `campaign_stats` | time-series snapshots per campaign | same |
 
 Existing tables (`briefs`, `engine_lead_queue`, `engine_tasks`, `engine_intents`,
-`deploy_queue`) are unchanged.
+`deploy_queue`) are unchanged — except `engine_intents`' type constraint, which grows
+new hub-board intent types via the standard triple: migration + `intents.py`
+`INTENT_TYPES` + `tests/test_intents.py`.
+
+**All new tables are migrations in the `nexpoint-engine` repo's
+`supabase/migrations/`, numbered from 0016**, following that repo's migration style
+(commented rationale, additive, safe to re-run, `select` last so the editor shows it).
 
 ## 10. Security
 
@@ -146,20 +182,25 @@ sub-project 2, before any new data flows):
 
 | Target | How |
 |---|---|
-| Admin app | reads/writes the Supabase tables live |
-| Pipedrive | engine files requests locally → existing hourly Pipedrive sync |
-| Claude | everything lands in the local Nexpoint folder (`leads/`, `deals/`, stats archives) |
-| Outlook | instant notification email per request; engine pre-drafts intro emails in Drafts for a human to send |
+| Admin app | reads the Supabase tables live; acts by raising `engine_intents` rows |
+| Pipedrive | engine files requests into the workspace, then writes via its journalled `PipedriveClient` (G10) |
+| Claude | everything lands in the workspace repo (`leads/`, `deals/`, archives) via the engine's G3b data-trunk pushes |
+| Outlook | instant notification email per request (capture worker → Resend, inbound to Will/Chris); intro-email drafting stays G1-compliant: drafts only, a human sends |
 
 ## 12. Build order — four sub-projects, each with its own implementation plan
 
-1. **Platform & cut-over** — Cloudflare DNS, subdomain routing, Global Hub replaces
-   portal, opportunities hub site generated from `briefs`.
-2. **Request pipeline** — RLS audit + security hardening, real forms → `web_requests`,
-   notification email, engine job → local files → Pipedrive.
-3. **Introductions Manager** — the three hub admin pages + introductions/commission
-   register. UI agreed with Will via the admin app UI draft.
-4. **Campaign Manager** — Smartlead stats sync + start/stop function.
+1. **Platform & cut-over** (website repo + Cloudflare) — DNS, subdomain routing,
+   Global Hub replaces portal, opportunities hub site generated from `briefs`.
+   Note: briefs deploy and its leak guard are the engine's J1.6/J2 — retargeting the
+   deploy path from `portal/` to `opportunities/` is an engine-repo change.
+2. **Request pipeline** (Cloudflare worker + engine-repo migration) — RLS audit +
+   hardening, real forms → capture worker → `web_requests` + notification email.
+3. **Introductions Manager** (engine repo `app/`, deployed to website `admin/`) — the
+   dashboard + three hub boards + introductions/commission register, acting via new
+   intent types; plus the engine-side filing job (requests → workspace lead files →
+   Pipedrive) and intent handlers.
+4. **Campaign Manager** (engine repo: job + `app/` page; worker: control route) —
+   Smartlead stats sync + human-click start/pause/stop.
 
 ## 13. Out of scope (deliberately)
 

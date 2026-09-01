@@ -12,7 +12,8 @@
 
 ## Global Constraints
 
-- Website repo: `/Users/willlawrie/Documents/Claude/Projects/Nexpoint/website`; parent repo `/Users/willlawrie/Documents/Claude/Projects/Nexpoint` holds `_system/`. Branch `claude/request-pipeline` in both; push only `origin claude/*` (guardrail-enforced); Will merges.
+- THREE repos in play: website `/Users/willlawrie/Documents/Claude/Projects/Nexpoint/website`; the old workspace `/Users/willlawrie/Documents/Claude/Projects/Nexpoint` (holds `_system/portal-worker/` — the Cloudflare worker code edited here); and the **engine repo `/Users/willlawrie/Documents/Claude/Projects/Nexpoint 2`** (`nexpoint-engine`) — the home of ALL Supabase migrations (`supabase/migrations/`, currently through 0015) and the binding acceptance spec + CLAUDE.md, which you must read before touching it. Branch `claude/request-pipeline` in each repo you touch; push only `origin claude/*`; Will merges.
+- The old local engine (`_system/*.py` + launchd) is RETIRED — cloud cutover completed 2026-08-25; scheduled work runs from GitHub Actions in the engine repo. Do not add local scheduling or new `_system` scripts.
 - Supabase project: `https://synywukadvjpjjxjylwk.supabase.co`. Publishable (anon) key — safe in pages, already public in `admin/leads.html`: `sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo`. Service-role key: in `_system/portal_config.json` (gitignored) as `service_role_key` — NEVER commit it, never put it in a page; in the worker it lives only as a Wrangler secret.
 - Admin identities: `willlawrie@nexpoint.co.uk`, `chris@nexpoint.co.uk` (the existing `public.is_brief_admin()` function in Supabase encodes this allowlist).
 - SQL cannot be executed by the session — every migration is a committed `.sql` file that WILL pastes into Supabase → SQL Editor → Run. Mark these gates clearly and wait for his confirmation.
@@ -41,9 +42,11 @@ Response: `{ "ok": true, "id": 123 }` or `{ "error": "…" }` with 4xx/5xx.
 ### Task 1: Security audit of the existing Supabase tables
 
 **Files:**
-- Create: `_system/portal-admin/audit_rls.sql`, `_system/portal-admin/AUDIT-2026-09.md` (parent repo)
+- Create: `supabase/migrations/AUDIT-2026-09.md` and `audit_rls.sql` alongside it (ENGINE repo)
 
-- [ ] **Step 1: Write the audit query** — `_system/portal-admin/audit_rls.sql`:
+- [ ] **Step 0: Read the posture that already exists.** The engine repo's migrations `0004_board_view_rls.sql`, `0006_authenticated_access.sql`, `0007_revoke_anon_and_posture.sql` and `0012_trim_authenticated.sql` already lock the `engine_*` tables to `is_brief_admin()` and revoke anon — 0007 even defines an `engine_security_posture()` report function. Read all four first; the audit VERIFIES the live database matches them rather than assuming gaps.
+
+- [ ] **Step 1: Write the audit query** — `audit_rls.sql` (also run `select * from engine_security_posture();` if the live DB has it):
 
 ```sql
 -- RLS audit: run in Supabase SQL Editor, paste the full output back.
@@ -60,17 +63,17 @@ order by t.tablename, p.policyname;
 
 - [ ] **Step 3: Analyse and record.** For every table (`briefs`, `engine_lead_queue`, `engine_intents`, `engine_tasks`, `deploy_queue`, `profiles`, and anything unexpected): does it have RLS enabled? Is every policy anchored on `is_brief_admin()` or an equivalent authenticated check? Anything readable or writable by `anon` that should not be? Write findings to `AUDIT-2026-09.md` — one line per table, verdict + evidence. If gaps exist, append fix statements to the migration in Task 2 (e.g. `alter table X enable row level security;` plus a corrected policy) rather than a separate file.
 
-- [ ] **Step 4: Commit** — `git add _system/portal-admin/audit_rls.sql _system/portal-admin/AUDIT-2026-09.md && git commit -m "RLS audit of existing Supabase tables"`
+- [ ] **Step 4: Commit (engine repo)** — `git add supabase/migrations/audit_rls.sql supabase/migrations/AUDIT-2026-09.md && git commit -m "RLS audit of existing Supabase tables"`
 
 ### Task 2: Schema — web_requests + introductions, locked from birth
 
 **Files:**
-- Create: `_system/portal-admin/0007_web_requests.sql` (parent repo)
+- Create: `supabase/migrations/0016_web_requests.sql` (ENGINE repo — its migrations are the single home for schema; 0016 follows the existing 0015. Match the house style: a comment block explaining the why, additive statements, safe to re-run, and a final `select` so the SQL editor shows a result.)
 
 **Interfaces:**
-- Produces: tables `web_requests` and `introductions` exactly as below — Plan C reads/updates them from the admin pages, Plan D reads them from the engine.
+- Produces: tables `web_requests` and `introductions` exactly as below — Plan C reads them from the admin boards (writes travel as intents), Plan D reads them from the engine.
 
-- [ ] **Step 1: Write the migration** — `0007_web_requests.sql`:
+- [ ] **Step 1: Write the migration** — `0016_web_requests.sql` (prepend the house-style comment block explaining the hub request pipeline; `is_brief_admin()` is the repo's standard allowlist function, used by 0004/0006):
 
 ```sql
 -- Web requests + introductions. Safe to re-run.
@@ -130,6 +133,9 @@ create policy introductions_admin on public.introductions
   for all to authenticated using (public.is_brief_admin()) with check (public.is_brief_admin());
 
 -- No policy for anon: anon can do nothing on either table. Deliberate.
+
+-- LAST statement so the editor shows it.
+select count(*) as web_requests_ready from public.web_requests;
 ```
 
 - [ ] **Step 2: GATE — Will runs the migration** (plus any audit fixes appended in Task 1) in the SQL Editor and confirms "Success".
@@ -143,7 +149,7 @@ curl -s "https://synywukadvjpjjxjylwk.supabase.co/rest/v1/web_requests?select=id
 ```
 Expected: `[]` or a permission error — anything but rows.
 
-- [ ] **Step 4: Commit** — `git add _system/portal-admin/0007_web_requests.sql && git commit -m "Add web_requests and introductions schema, admin-only RLS"`
+- [ ] **Step 4: Commit (engine repo)** — `git add supabase/migrations/0016_web_requests.sql && git commit -m "0016: web_requests and introductions, admin-only RLS"`
 
 ### Task 3: Worker `/requests` route
 
