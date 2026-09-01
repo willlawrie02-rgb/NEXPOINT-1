@@ -135,7 +135,7 @@ const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI 
 // The control worker's URL + /smartlead/control — known only once Will
 // deploys the worker (wrangler deploy prints it). Until then the read
 // side works in full and the controls explain themselves honestly.
-const CONTROL_URL='';  // e.g. 'https://nexpoint-portal-capture.<account>.workers.dev/smartlead/control'
+const CONTROL_URL='https://nexpoint-portal-capture.nexpoint-network.workers.dev/smartlead/control';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());

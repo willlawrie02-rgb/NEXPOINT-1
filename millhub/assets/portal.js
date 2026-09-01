@@ -10,10 +10,10 @@
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 /* ═══════════ live capture — the Cloudflare worker's /requests route ═══════════ */
-/* PLACEHOLDER — replace <ACCOUNT> with the exact workers.dev URL printed by
+/* Live capture endpoint (deployed 2026-09-01) —
    `npx wrangler deploy` (Plan B Task 3 Step 4). The forms fail safe (error
    message + button re-enabled) until this points at the deployed worker. */
-const CAPTURE_REQUESTS_URL = 'https://nexpoint-portal-capture.<ACCOUNT>.workers.dev/requests';
+const CAPTURE_REQUESTS_URL = 'https://nexpoint-portal-capture.nexpoint-network.workers.dev/requests';
 
 function hubOfPage(){
   const h = location.hostname;
