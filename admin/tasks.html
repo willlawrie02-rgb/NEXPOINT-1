@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint Admin — Tasks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+<style>
+  .owners { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 20px; }
+  .owner-btn {
+    font: 600 12.5px/1 var(--font-body); color: var(--fg-2);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+    padding: 7px 13px; cursor: pointer;
+    transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+  }
+  .owner-btn:hover { color: var(--fg); border-color: #C9D0DB; }
+  .owner-btn[aria-pressed="true"] { background: var(--np-blue); border-color: var(--np-blue); color: #fff; }
+  .owner-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+
+  .grp { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+         box-shadow: var(--shadow-rest); padding: 6px 20px 10px; margin-bottom: 14px; }
+  .grp h2 { font: 600 14.5px/1.3 var(--font-display); color: var(--fg);
+            display: flex; align-items: center; gap: 8px;
+            padding: 14px 0 10px; border-bottom: 1px solid var(--border-faint); }
+  .grp .pill { font: 600 11px/1 var(--font-body); color: var(--fg-2);
+               background: var(--bg-alt); border-radius: 999px; padding: 3px 8px;
+               font-variant-numeric: tabular-nums; }
+
+  .task { display: flex; gap: 12px; align-items: flex-start; padding: 11px 0;
+          border-bottom: 1px solid var(--border-faint); }
+  .task:last-child { border-bottom: none; }
+  .task .t { font-size: 14px; color: var(--fg-1); }
+  .task .src { display: block; font-size: 12px; color: var(--fg-2); margin-top: 2px; }
+  .task.queued .t { color: var(--fg-2); }
+
+  .box { width: 19px; height: 19px; flex: none; margin-top: 2px;
+         border: 1.5px solid #C2CAD6; border-radius: 6px; background: var(--surface);
+         display: inline-flex; align-items: center; justify-content: center; }
+  button.box { cursor: pointer;
+    transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease),
+                box-shadow var(--t-fast) var(--ease), transform var(--t-fast) var(--ease); }
+  button.box:hover { border-color: var(--np-blue); box-shadow: var(--ring); }
+  button.box:active { transform: scale(0.9); }
+  button.box:focus-visible { outline: none; box-shadow: var(--ring); }
+  .box.done { border-color: var(--ok-line); background: var(--ok-wash); }
+  .box.done::after { content: "check"; font-family: 'Material Symbols Outlined';
+                     font-size: 14px; color: var(--ok-ink); }
+  .box.locked { border-color: var(--border); background: var(--bg-alt); }
+  .box.locked::after { content: "lock"; font-family: 'Material Symbols Outlined';
+                       font-size: 12px; color: #667080; }
+
+  .banner-ok { background: var(--info-wash); border: 1px solid rgba(0,92,200,0.25); color: var(--info-ink);
+               border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13.5px; margin-bottom: 16px;
+               animation: arrive 200ms var(--ease); }
+</style>
+</head>
+<body>
+<!--
+THESIS: The admin is the main site's back office — same light material world,
+no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
+OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
+ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
+accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
+STORY: the task inventory reads like the workspace it mirrors — grouped by
+company, one tick queues an intent the engine commits to the file; locked rows
+say plainly why they cannot be ticked.
+FIRST VIEWPORT: brand bar, boards tabs, count by owner, owner filter, then the
+first company groups with their checkboxes.
+FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the
+finish review, the verdict, and DESIGN.md
+-->
+
+<div id="login" class="door" style="display:none">
+  <img class="door-logo" src="nexpoint-logo.png" alt="NexPoint">
+  <h1>Admin sign in</h1>
+  <p>The opportunity board, leads, tasks and engine health.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+  <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
+</div>
+
+<div id="admin" style="display:none">
+  <header class="topbar">
+    <div class="wrap bar">
+      <a class="brandmark" href="index.html">
+        <img src="nexpoint-logo.png" alt="NexPoint">
+        <span class="admin-tag">Admin</span>
+      </a>
+      <div class="session">
+        <span class="who" id="who"></span>
+        <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <nav class="boards" aria-label="Admin boards">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="leads.html">Leads</a>
+        <a href="tasks.html" aria-current="page">Tasks</a>
+        <a href="health.html">Health</a>
+        <a href="print-hub.html">Print Hub</a>
+        <a href="mill-hub.html">Mill Hub</a>
+        <a href="opportunities.html">Opportunities</a>
+        <a href="campaigns.html">Campaigns</a>
+      </nav>
+
+      <div class="arrive">
+        <div class="intro">
+          <h1>Open action items</h1>
+          <span class="count" id="count"></span>
+          <button class="btn btn-gh btn-sm" onclick="load()"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>Refresh</button>
+        </div>
+        <p class="note">
+          Collected from the workspace's checkboxes each morning. Ticking one queues it for the
+          engine, which edits the source file and commits — the browser never touches the workspace.
+        </p>
+        <div id="banner" class="banner-ok" style="display:none"></div>
+        <div class="owners" id="owners"></div>
+        <div id="groups">
+          <div class="row skeleton"><div class="bone" style="width:28%"></div><div class="bone" style="width:66%;margin-top:12px"></div><div class="bone" style="width:58%;margin-top:12px"></div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let tasks=[],who='all',pendingKeys=new Set();
+
+async function boot(){
+  const {data}=await sb.auth.getSession();const s=data&&data.session;
+  if(s&&isAdmin(s.user.email))showAdmin(s.user);else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))$('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pw').value});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  showAdmin(data.user);
+}
+async function signOut(){await sb.auth.signOut();location.reload();}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='block';$('who').textContent=u.email;load();}
+
+async function load(){
+  const {data,error}=await sb.from('engine_tasks').select('owner,task,source,collected_at').order('owner');
+  if(error){
+    $('groups').innerHTML=`<div class="empty">Could not read tasks: ${esc(error.message)}.
+      If this says the table does not exist, migration 0008 has not been run.</div>`;
+    return;
+  }
+  tasks=data||[];
+  const {data:intents}=await sb.from('engine_intents')
+    .select('payload_json,status').eq('type','tick-task').eq('status','pending');
+  pendingKeys=new Set((intents||[]).map(i=>((i.payload_json||{}).source||'')+'\u0001'+((i.payload_json||{}).task||'')));
+  render();
+}
+
+async function tick(source,task){
+  // The board queues an INTENT; the engine's hourly execute-intents step
+  // flips the checkbox in the file the task came from and commits it (G2c,
+  // G3b). Nothing here writes to the workspace.
+  const {data:s}=await sb.auth.getSession();
+  const by=s&&s.session?s.session.user.email:'unknown';
+  const {error}=await sb.from('engine_intents').insert({
+    type:'tick-task',payload_json:{source,task},requested_by:by,status:'pending'});
+  if(error){showBanner('Could not queue the tick: '+error.message);return;}
+  showBanner('Tick queued for "'+task+'" — the hourly sync commits it to '+source+'.');
+  load();
+}
+function showBanner(msg){const b=$('banner');b.textContent=msg;b.style.display='block';}
+
+function render(){
+  const owners=[...new Set(tasks.map(t=>t.owner))].sort();
+  const shown=tasks.filter(t=>who==='all'||t.owner===who);
+  $('count').textContent=tasks.length?`${tasks.length} open · ${owners.map(o=>`${o} ${tasks.filter(t=>t.owner===o).length}`).join(' · ')}`:'';
+  $('owners').innerHTML=['all',...owners].map(o=>
+    `<button class="owner-btn" aria-pressed="${who===o}" onclick="who='${o}';render()">${o==='all'?'Everyone':esc(o)}</button>`).join('');
+
+  if(!shown.length){
+    $('groups').innerHTML=`<div class="empty">No open action items. The hourly sync rebuilds
+      this list from the workspace — if that looks wrong, the collector may not have run.</div>`;
+    return;
+  }
+  // Group by the company folder the checkbox came from: that is how the
+  // work actually clusters when you sit down to do it.
+  const byCompany={};
+  shown.forEach(t=>{
+    const m=/^(deals|leads)\/([^/]+)\//.exec(t.source||'');
+    const key=m?m[2]:'elsewhere';
+    (byCompany[key]=byCompany[key]||[]).push(t);
+  });
+  $('groups').innerHTML=Object.keys(byCompany).sort().map(company=>`
+    <div class="grp">
+      <h2>${esc(company)} <span class="pill">${byCompany[company].length}</span></h2>
+      ${byCompany[company].map(t=>{
+        const inEmail=/\/emails\//.test(t.source||'');
+        const queued=pendingKeys.has((t.source||'')+'\u0001'+(t.task||''));
+        return `<div class="task ${queued?'queued':''}">
+        ${inEmail
+          ?`<span class="box locked" title="Filed email — verbatim received material, never edited by the engine"></span>`
+          :queued
+            ?`<span class="box done" title="Tick queued — the hourly sync will commit it"></span>`
+            :`<button class="box btn-tick" aria-label="Tick: ${esc(t.task)}" onclick="tick(this.dataset.s,this.dataset.t)" data-s="${esc(t.source)}" data-t="${esc(t.task)}"></button>`}
+        <span class="t">${esc(t.task)}<span class="src">${esc(t.owner)} · ${esc(t.source)}${inEmail?' · <em>untickable: filed email</em>':''}${queued?' · <em>queued</em>':''}</span></span>
+      </div>`;}).join('')}
+    </div>`).join('');
+}
+boot();
+</script>
+</body>
+</html>
