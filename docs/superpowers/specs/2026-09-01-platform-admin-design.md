@@ -48,8 +48,9 @@ Pipedrive, Claude (the local pipeline files), and Outlook.
 1. A visitor submits any form (offer capacity, request capacity, list an opportunity,
    request an introduction). Today these forms are mocks; they become real inserts into
    Supabase **`web_requests`** (public key may *insert only* — never read).
-2. **Instantly:** a notification email goes to Will and Chris (Supabase-side trigger via
-   a small sending service, e.g. Resend free tier). The admin app sees the request live.
+2. **Instantly:** a notification email goes to Will and Chris — sent by the capture
+   worker (via Resend) in the same moment it stores the row. The admin app sees the
+   request live.
 3. **Hourly:** the engine polls Supabase, writes the request into the local Nexpoint
    folder (lead/deal files — the master copy), and the existing sync carries it to
    Pipedrive. Claude sees it in `leads/`/`deals/`. Poll frequency can be raised to
