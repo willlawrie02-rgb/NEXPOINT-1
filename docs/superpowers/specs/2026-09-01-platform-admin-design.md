@@ -58,11 +58,11 @@ Pipedrive, Claude (the local pipeline files), and Outlook.
 ## 5. The admin app — Will and Chris's single workspace
 
 Static pages in `admin/`, Supabase auth (two accounts), database-level security (§10).
-Nine areas:
+Eight areas (navigation leaves room for the future LinkedIn Manager, §8):
 
 | Page | Purpose | Status |
 |---|---|---|
-| Dashboard | At-a-glance: new requests, live introductions, campaign + post performance | new |
+| Dashboard | At-a-glance: new requests, live introductions, campaign performance | new |
 | Leads | Lead-searcher output (`engine_lead_queue`) | exists |
 | Tasks | Will & Chris's tasks (`engine_tasks`) | exists |
 | Health | Engine/system status | exists |
@@ -70,7 +70,6 @@ Nine areas:
 | Mill Hub | Same, for milling | new |
 | Opportunities Hub | Listing applications + intro requests against briefs + those introductions | new |
 | Campaigns | Smartlead monitoring and start/stop | new |
-| LinkedIn | Cadence calendar, draft approval, post performance | new |
 
 The three hub pages share one design: two queues (each side of that hub's marketplace),
 request statuses *new → reviewing → approved / declined*, and a "make introduction"
@@ -103,21 +102,14 @@ history, and the evidence against being cut out of the loop:
 - Campaign start/stop is always a human click. The automation never launches sends.
 - **Prerequisite from Will:** Smartlead API key at build time.
 
-## 8. LinkedIn Manager (company page only)
+## 8. Future addition — LinkedIn Manager (not in this build)
 
-- **Cadence:** a weekly posting calendar — what goes out, when, on what theme.
-- **Creation:** Claude drafts posts in the NexPoint voice and to the design system
-  (`brand/design-system.md`), and generates videos via the Higgsfield MCP to the same
-  brand standard. Drafts land in the calendar as *draft*.
-- **Approval gate:** nothing posts itself. Will or Chris approves each draft in the
-  admin app; only then is it posted/scheduled to the **NexPoint Global company page**.
-- **Performance in:** impressions, engagement and follower stats pulled from LinkedIn's
-  company-page API into Supabase; shown beside the calendar; archived locally so Claude
-  can adapt future drafts to what performs.
-- **Personal profiles are out of scope** (LinkedIn provides no analytics for them and
-  workarounds breach their terms). Revisit only as "Claude drafts, Will pastes".
-- **Prerequisite from Will:** apply to LinkedIn's developer programme for company-page
-  API access (form-filling; approval typically takes weeks — start early).
+Will plans to add a LinkedIn Manager later: a weekly cadence calendar, posts and
+Higgsfield-MCP videos drafted by Claude to the design system, approval-gated publishing
+to the NexPoint Global **company page only**, and post-performance analytics flowing
+back in. Direction agreed 2026-09-01; it will get its own spec when Will picks it up.
+The admin app's navigation should leave room for it. Note for then: LinkedIn's
+company-page API requires a developer-programme application that takes weeks.
 
 ## 9. Data model (new Supabase tables)
 
@@ -127,7 +119,6 @@ history, and the evidence against being cut out of the loop:
 | `introductions` | paired requests, hub, approver, lifecycle status, commission fields, dates, notes | Will/Chris + engine only |
 | `campaigns` | mirror of Smartlead campaigns + latest stats + warmup | Will/Chris + engine; written by sync |
 | `campaign_stats` | time-series snapshots per campaign | same |
-| `linkedin_posts` | calendar entries: content, media refs, status (draft → approved → posted), post metrics | Will/Chris + engine |
 
 Existing tables (`briefs`, `engine_lead_queue`, `engine_tasks`, `engine_intents`,
 `deploy_queue`) are unchanged.
@@ -155,23 +146,20 @@ sub-project 2, before any new data flows):
 | Claude | everything lands in the local Nexpoint folder (`leads/`, `deals/`, stats archives) |
 | Outlook | instant notification email per request; engine pre-drafts intro emails in Drafts for a human to send |
 
-## 12. Build order — five sub-projects, each with its own implementation plan
+## 12. Build order — four sub-projects, each with its own implementation plan
 
 1. **Platform & cut-over** — Cloudflare DNS, subdomain routing, Global Hub replaces
    portal, opportunities hub site generated from `briefs`.
 2. **Request pipeline** — RLS audit + security hardening, real forms → `web_requests`,
    notification email, engine job → local files → Pipedrive.
 3. **Introductions Manager** — the three hub admin pages + introductions/commission
-   register. UI to be mocked up visually with Will before build.
+   register. UI agreed with Will via the admin app UI draft.
 4. **Campaign Manager** — Smartlead stats sync + start/stop function.
-5. **LinkedIn Manager** — cadence calendar, Claude drafting + Higgsfield video
-   generation, approval-gated posting, analytics sync. (Start the LinkedIn developer
-   application during sub-project 1 so approval lands in time.)
 
 ## 13. Out of scope (deliberately)
 
 - Education hub (routing-ready, nothing built)
-- LinkedIn personal profiles
+- LinkedIn Manager (future addition — §8)
 - Campaign authoring inside the admin app
 - Pushing pipeline leads into Smartlead campaigns from the admin app (possible later)
 - Any auto-sent email, auto-made introduction, or auto-published post
