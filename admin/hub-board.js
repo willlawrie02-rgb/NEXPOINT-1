@@ -58,6 +58,9 @@ const STAGE_LABEL={approved:'APPROVED',introduced:'INTRODUCED',in_discussion:'IN
   deal_done:'DEAL DONE',dead:'DEAD',invoiced:'INVOICED',paid:'PAID'};
 const SIDE_PREFIX={offer_capacity:'H',request_capacity:'S',list_opportunity:'L',request_intro:'I'};
 const reqRef=r=>`${HUB.hub[0].toUpperCase()}${SIDE_PREFIX[r.side]||'R'}-${String(r.id).padStart(4,'0')}`;
+/* A column carries one side or several — the print/mill seeker column takes
+   request_capacity AND request_intro (asking to meet a listed node IS seeking). */
+const sidesOf=col=>Array.isArray(col.side)?col.side:[col.side];
 const FILTERS=[
   {f:'all',label:'All'},{f:'new',label:'New'},{f:'reviewing',label:'Reviewing'},
   {f:'approved',label:'Approved'},{f:'declined',label:'Declined'},
@@ -110,7 +113,7 @@ async function raise(type,payload,spotId,verb){
   const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
   if(error){if(el)el.innerHTML=`<span class="status fail">Could not queue it: ${esc(error.message)}</span>`;return;}
   if(el){
-    el.innerHTML=`<span class="status done">${esc(verb)} — queued for the engine.</span>`;
+    el.innerHTML=`<span class="status done">${esc(verb)} — queued — the engine acts within a minute or two.</span>`;
     const rowEl=el.closest('.row');if(rowEl)rowEl.classList.add('settled');
   }
   setTimeout(load,1200);
@@ -159,7 +162,7 @@ function render(){
 
 function renderCol(which){
   const col=HUB[which];
-  const all=requests.filter(r=>r.side===col.side);
+  const all=requests.filter(r=>sidesOf(col).includes(r.side));
   const shown=all.filter(r=>filter==='all'||r.status===filter);
   $(which+'N').textContent=all.length;
   $(which+'Col').innerHTML=shown.length
@@ -199,7 +202,7 @@ function reqCard(r,col){
     actions=`<div class="actions"><span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span>
       <button class="btn btn-gh btn-sm" onclick="retry(${q.id})"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>Try again</button></div>`;
   }else if(q){
-    actions=`<div class="actions"><span class="status">Queued for the engine — it acts on its next run.</span></div>`;
+    actions=`<div class="actions"><span class="status">Queued — the engine acts within a minute or two.</span></div>`;
   }else if(r.status==='new'){
     actions=`<div class="actions">
       <button class="btn btn-gh btn-sm" onclick="reviewReq(${r.id},'reviewing')">Mark reviewing</button>
@@ -243,19 +246,23 @@ function fmtCommission(i){
 }
 
 function renderRegister(){
-  if(!intros.length){
-    $('introRows').innerHTML=`<tr><td colspan="6" style="color:var(--fg-2)">No introductions yet.
-      Approve a request on each side, then make the introduction from either card.</td></tr>`;
+  /* Dead introductions leave the working board; the rows stay in the
+     database and the nightly archive. */
+  const live=intros.filter(i=>i.stage!=='dead');
+  if(!live.length){
+    $('introRows').innerHTML=`<tr><td colspan="6" style="color:var(--fg-2)">${intros.length
+      ?'No live introductions — dead ones are kept in the database and the archive, off the board.'
+      :'No introductions yet. Approve a request on each side, then make the introduction from either card.'}</td></tr>`;
     return;
   }
-  $('introRows').innerHTML=intros.map(i=>{
+  $('introRows').innerHTML=live.map(i=>{
     const q=pendingByIntro[i.id];
     let manage;
     if(q&&q.status==='failed'){
       manage=`<span class="status fail">Failed: ${esc(q.result_note||'')}</span>
         <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button>`;
     }else if(q){
-      manage=`<span class="status">Queued for the engine.</span>`;
+      manage=`<span class="status">Queued for the engine — moments away.</span>`;
     }else{
       manage=`<select aria-label="Set stage for ${esc(i.ref||i.id)}" onchange="setStage(${i.id},this.value)">
           ${STAGES.map(s=>`<option value="${s}" ${s===i.stage?'selected':''}>${STAGE_LABEL[s]}</option>`).join('')}
@@ -281,8 +288,8 @@ function openIntroModal(reqId){
   const r=requests.find(x=>x.id===reqId);
   if(!r)return;
   modalFor=reqId;
-  const oppositeSide=r.side===HUB.left.side?HUB.right.side:HUB.left.side;
-  const partners=requests.filter(x=>x.side===oppositeSide&&x.status==='approved');
+  const otherCol=sidesOf(HUB.left).includes(r.side)?HUB.right:HUB.left;
+  const partners=requests.filter(x=>sidesOf(otherCol).includes(x.side)&&x.status==='approved');
   const list=partners.length
     ?partners.map((p,ix)=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border-faint);cursor:pointer">
         <input type="radio" name="partner" value="${p.id}" ${ix===0?'checked':''}>
@@ -290,7 +297,7 @@ function openIntroModal(reqId){
         <span style="font-weight:600;color:var(--fg)">${esc(p.company||'(no company given)')}</span>
         <span style="color:var(--fg-2);font-size:12.5px">${esc(p.location||'')}</span>
       </label>`).join('')
-    :`<div class="empty">No approved ${esc(oppositeSide.replace(/_/g,' '))} requests to pair with yet.</div>`;
+    :`<div class="empty">No approved requests to pair with yet under “${esc(otherCol.title)}”.</div>`;
   $('modalBody').innerHTML=`
     <p style="font-size:14px;color:var(--fg-1);margin-bottom:16px">
       Introducing <strong>${esc(r.company||reqRef(r))}</strong> (${esc(reqRef(r))}) to:</p>

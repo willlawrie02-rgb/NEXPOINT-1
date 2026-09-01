@@ -94,9 +94,12 @@ const REGIONS = {
   'Australia & New Zealand': ['Australia','New Zealand'],
   'South America': ['Brazil','Chile','Argentina','Colombia']
 };
+/* Zero everywhere, deliberately (Will, 2026-09-01): no print node is verified
+   yet, and the map must never claim capacity that does not exist. Real counts
+   return here as real nodes are certified. */
 const NODE_COUNT = {
-  'North America': 9, 'UK & Ireland': 4, 'Europe': 1,
-  'Middle East': 1, 'Asia': 1, 'Australia & New Zealand': 5, 'South America': 0
+  'North America': 0, 'UK & Ireland': 0, 'Europe': 0,
+  'Middle East': 0, 'Asia': 0, 'Australia & New Zealand': 0, 'South America': 0
 };
 
 /* Capacity is described by process and material, never by machine brand or model.
@@ -105,37 +108,8 @@ const NODE_COUNT = {
    HP. We don't know if anything's going to happen with Formlabs."
    `near` = miles when the member is in the same country as the node,
    `far`  = miles when they are elsewhere in the region.                      */
-const PRINT_NODES = {
-  'North America': [
-    { proc:'SLS',                 mat:'Nylon 11 & Nylon 12',  cap:'1,000 pairs / month', min:'200 pairs / month', country:'United States', near:180, far:640,  badge:'High volume' },
-    { proc:'Powder-bed fusion',   mat:'TPU & Nylon 12',       cap:'400 pairs / month',   min:'50 pairs / month',  country:'United States', near:260, far:820,  badge:'Multi-material' },
-    { proc:'Resin',               mat:'Rigid & semi-rigid',   cap:'60 pairs / month',    min:'10 pairs / month',  country:'Canada',        near:210, far:700,  badge:'Small batch' },
-    { proc:'SLS',                 mat:'Nylon 12 Tough',       cap:'250 pairs / month',   min:'40 pairs / month',  country:'Mexico',        near:190, far:900,  badge:'Onboarding · Nov 2026' }
-  ],
-  'UK & Ireland': [
-    { proc:'SLS',                 mat:'Nylon 11',             cap:'600 pairs / month',   min:'100 pairs / month', country:'United Kingdom', near:90,  far:320, badge:'High volume' },
-    { proc:'Powder-bed fusion',   mat:'TPU & Nylon 12',       cap:'300 pairs / month',   min:'40 pairs / month',  country:'United Kingdom', near:140, far:380, badge:'Multi-material' },
-    { proc:'Resin',               mat:'Rigid & semi-rigid',   cap:'40 pairs / month',    min:'10 pairs / month',  country:'Ireland',        near:70,  far:290, badge:'Small batch' }
-  ],
-  'Europe': [
-    { proc:'SLS',                 mat:'Nylon 12',             cap:'350 pairs / month',   min:'60 pairs / month',  country:'Netherlands',    near:120, far:560, badge:'Founding node' }
-  ],
-  'Middle East': [
-    { proc:'SLS',                 mat:'Nylon 11',             cap:'200 pairs / month',   min:'40 pairs / month',  country:'United Arab Emirates', near:110, far:620, badge:'Founding node' }
-  ],
-  'Asia': [
-    { proc:'Powder-bed fusion',   mat:'TPU & Nylon 12',       cap:'500 pairs / month',   min:'80 pairs / month',  country:'Singapore',      near:100, far:1400, badge:'Founding node' }
-  ],
-  'Australia & New Zealand': [
-    { proc:'SLS',                 mat:'Nylon 11 & Nylon 12',  cap:'1,000 pairs / month', min:'200 pairs / month', country:'Australia',      near:250, far:1340, badge:'High volume' },
-    { proc:'Resin',               mat:'Rigid & semi-rigid',   cap:'20 pairs / month',    min:'10 pairs / month',  country:'Australia',      near:420, far:1480, badge:'Small batch' },
-    { proc:'SLS',                 mat:'Nylon 11',             cap:'30 pairs / month',    min:'10 pairs / month',  country:'New Zealand',    near:180, far:1340, badge:'Onboarding · Nov 2026' }
-  ],
-  'South America': []
-};
+const PRINT_NODES = {};  /* placeholder listings removed 2026-09-01 — entries return only for first-hand-verified nodes */
 
-/* The Mill Hub runs on one verified manufacturer with cells on two continents,
-   so every region can be served today; two regions are getting their own cell. */
 const MILL_PLAN = {
   'Europe': 'next',
   'Australia & New Zealand': 'next'
@@ -501,9 +475,9 @@ function showMatches(){
     intro.style.display = 'none';
     grid.innerHTML = `
       <div class="cap-empty" style="grid-column:1/-1">
-        <h3>Founding nodes are joining in ${escapeHtml(chosenRegion)} now.</h3>
-        <p>Nothing certified in your region yet. Tell the desk what you need and we will route it through the nearest live node while ${escapeHtml(chosenRegion)} comes online.</p>
-        <button class="btn btn-primary" onclick="openIntro('PRINT HUB · ${escapeHtml(chosenRegion).toUpperCase()}','Ask the desk to route your work')">Ask the desk to route your work</button>
+        <h3>Founding print nodes are joining the network now.</h3>
+        <p>No node is certified in ${escapeHtml(chosenRegion)} yet — every node is verified first-hand before it appears here. Tell the desk what you need and you will be matched the moment capacity comes online.</p>
+        <button class="btn btn-primary" onclick="openIntro('PRINT HUB · ${escapeHtml(chosenRegion).toUpperCase()}','Tell the desk what you need')">Tell the desk what you need</button>
       </div>`;
     if (step3) step3.scrollIntoView({ behavior:'smooth', block:'nearest' });
     return;
