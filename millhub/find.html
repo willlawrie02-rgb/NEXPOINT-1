@@ -28,7 +28,7 @@ you are… at the moment it doesn't have that in there. They're not consistent."
       <a href="https://printhub.nexpoint.co.uk/" class="hide-m">Print Hub</a>
       <a href="index.html" class="hide-m" aria-current="page">Mill Hub</a>
       <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities</a>
-      <a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a>
+      <span data-np-account-slot><a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a></span>
       <button class="btn btn-primary" onclick="openIntro('MILL HUB','Talk to the desk')">Talk to the desk</button>
     </nav>
   </div>
@@ -168,6 +168,13 @@ you are… at the moment it doesn't have that in there. They're not consistent."
   </div>
 </div>
 
+<script>
+  (function () {
+    var apex = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
+    var s = document.createElement('script'); s.src = apex + '/assets/hub-account.js';
+    document.head.appendChild(s);
+  })();
+</script>
 <script src="assets/portal.js"></script>
 </body>
 </html>

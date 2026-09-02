@@ -12,8 +12,12 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;',
 /* ═══════════ live capture — the Cloudflare worker's /requests route ═══════════ */
 /* Live capture endpoint (deployed 2026-09-01) —
    `npx wrangler deploy` (Plan B Task 3 Step 4). The forms fail safe (error
-   message + button re-enabled) until this points at the deployed worker. */
-const CAPTURE_REQUESTS_URL = 'https://nexpoint-portal-capture.nexpoint-network.workers.dev/requests';
+   message + button re-enabled) until this points at the deployed worker.
+   2026-09-02: shares the accounts API host (Task 7), so anonymous submissions
+   and signed-in requests land on the same worker. */
+const API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+  ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
+const CAPTURE_REQUESTS_URL = API_BASE + '/requests';
 
 function hubOfPage(){
   const h = location.hostname;
@@ -39,7 +43,7 @@ async function sendRequest(body, onOk, onFail){
   try {
     const r = await fetch(CAPTURE_REQUESTS_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      credentials: 'include', body: JSON.stringify(body),
     });
     const data = await r.json().catch(() => ({}));
     if (r.ok && data.ok) onOk(); else onFail();
@@ -610,10 +614,25 @@ function initOfferPage(){
   } else {
     recall.hidden = true;
   }
+
+  /* Signed-in members never retype what's already on their profile. */
+  const fillProfile = () => {
+    const u = window.NPAccount && NPAccount.user; if (!u) return;
+    const set = (id, v) => { const el = document.getElementById(id); if (el && !el.value && v) el.value = v; };
+    set('jName', u.name); set('jCompany', u.company); set('jEmail', u.email);
+    set('jCountry', u.country); set('jTown', u.town);
+  };
+  if (window.NPAccount){ NPAccount.ready.then(fillProfile); document.addEventListener('npaccount:change', fillProfile); }
 }
 
 /* ═══════════ modals ═══════════ */
 function openIntro(ref, heading){
+  if (window.NPAccount && typeof NPAccount.gate === 'function' && !NPAccount._failed){
+    NPAccount.gate({ hub: hubOfPage(), side: ref ? 'request_intro' : 'request_capacity',
+      brief_ref: ref || '', heading: heading || 'Ask us to introduce you', payload: {} });
+    return;
+  }
+  /* fallback: original anonymous desk form, unchanged below */
   const l = loadLoc();
   const where = locLabel(l);
   const c = document.getElementById('introContent');
@@ -659,6 +678,36 @@ function introSubmit(e){
   }, () => {
     formFailState(form, state);
   });
+  return false;
+}
+function openEducationList(){
+  const c = document.getElementById('introContent');
+  c.innerHTML = `
+    <h2>Put me on the Education Hub list</h2>
+    <p class="body">Name and email — nothing else. We'll write when the first courses open.</p>
+    <form onsubmit="return eduSubmit(event)">
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="field"><label for="eName">Your name</label><input id="eName" required placeholder="Full name"></div>
+        <div class="field"><label for="eEmail">Email</label><input id="eEmail" type="email" required placeholder="you@company.com"></div>
+      </div>
+      <div class="modal-actions"><button class="btn btn-primary" type="submit">Put me on the list</button></div>
+    </form>`;
+  openOverlay('introOverlay');
+}
+function eduSubmit(e){
+  e.preventDefault();
+  const form = e.target, fields = serializeForm(form), state = formSendingState(form);
+  sendRequest({ hub: 'education', side: 'join_list', company: '', contact_name: fields.eName || '',
+    email: fields.eEmail || '', phone: '', location: '', brief_ref: '', payload: {}, company_url: '' },
+  () => {
+    document.getElementById('introContent').innerHTML = `
+      <div class="success">
+        <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
+        <h2>You're on the list.</h2>
+        <p>We'll write the moment the first courses open — nothing else lands in your inbox.</p>
+        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
+      </div>`;
+  }, () => formFailState(form, state));
   return false;
 }
 function joinSubmit(e){
@@ -710,7 +759,9 @@ async function signSubmit(){
       </div>`;
   } else if (err){
     err.style.display = 'block';
-    err.textContent = 'That email and password don\'t match an account. Check them, or create your hub account below.';
+    err.textContent = d.error === 'network'
+      ? 'That didn\'t send — check your connection and try again.'
+      : 'That email and password don\'t match an account. Check them, or create your hub account below.';
   }
 }
 let lastFocus = null;

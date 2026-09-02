@@ -32,7 +32,7 @@ own pages · logo path fixed.
       <a href="index.html" class="hide-m" aria-current="page">Print Hub</a>
       <a href="https://millhub.nexpoint.co.uk/" class="hide-m">Mill Hub</a>
       <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities</a>
-      <a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a>
+      <span data-np-account-slot><a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a></span>
       <button class="btn btn-primary" onclick="openIntro('PRINT HUB','Talk to the desk')">Talk to the desk</button>
     </nav>
   </div>
@@ -352,6 +352,13 @@ own pages · logo path fixed.
   </div>
 </div>
 
+<script>
+  (function () {
+    var apex = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
+    var s = document.createElement('script'); s.src = apex + '/assets/hub-account.js';
+    document.head.appendChild(s);
+  })();
+</script>
 <script src="assets/portal.js"></script>
 </body>
 </html>
