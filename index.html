@@ -381,6 +381,18 @@
   .map-card__footer-label { font: 600 10px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.55); }
   @media (max-width: 1000px) { .reach__inner { grid-template-columns: minmax(0, 1fr); gap: 40px; } }
 
+  /* ─── Global Hub teaser band ─── */
+  .hubteaser { display: flex; align-items: center; justify-content: space-between; gap: var(--gap-lg); border-top: 1px solid var(--border); padding-top: clamp(28px, 4vh, 44px); }
+  .hubteaser__line { font: 600 clamp(20px, 2.6vw, 28px)/1.3 var(--font-display); letter-spacing: -0.01em; color: var(--fg); max-width: 560px; margin: 12px 0 18px; }
+  .hubteaser__cta { display: inline-flex; font: 600 clamp(14px, 1.05vw, 15px)/1 var(--font-body); color: var(--np-blue); text-decoration: none; border-bottom: 2px solid var(--np-green); padding-bottom: 2px; transition: border-color var(--duration) var(--ease); }
+  .hubteaser__cta:hover { border-bottom-color: var(--np-blue); }
+  .hubteaser__arc { display: block; width: 180px; flex: none; }
+  .hubteaser__arc circle { fill: var(--np-blue); }
+  .hubteaser__arc path { fill: none; stroke: var(--np-green); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 200; stroke-dashoffset: 200; animation: hubArc 6s var(--ease) infinite; }
+  @keyframes hubArc { 0% { stroke-dashoffset: 200; } 45%, 70% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -200; } }
+  @media (prefers-reduced-motion: reduce) { .hubteaser__arc path { animation: none; stroke-dashoffset: 0; } }
+  @media (max-width: 760px) { .hubteaser { flex-direction: column; align-items: flex-start; } .hubteaser__arc { width: 130px; } }
+
   /* ─── Contact ─── */
   .book { position: relative; overflow: hidden; padding: var(--section-pad) 0; background: #121212; }
   .book__bg { position: absolute; inset: 0; z-index: 0; pointer-events: none;
@@ -1013,6 +1025,24 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───── Global Hub teaser ───── -->
+<section id="hub-teaser" class="section">
+  <div class="container">
+    <div class="hubteaser">
+      <div class="enter enter--left">
+        <span class="eyebrow">The Global Hub</span>
+        <h2 class="hubteaser__line">Where the O&amp;P world finds print capacity, milled production and live opportunities, one personal introduction at a time.</h2>
+        <a class="hubteaser__cta" href="/hub/#how">See how the Global Hub works</a>
+      </div>
+      <svg class="hubteaser__arc enter enter--right" style="--d:80ms;" viewBox="0 0 180 70" aria-hidden="true">
+        <circle cx="14" cy="52" r="4"></circle>
+        <circle cx="166" cy="38" r="4"></circle>
+        <path d="M14 52 Q90 -6 166 38"></path>
+      </svg>
     </div>
   </div>
 </section>

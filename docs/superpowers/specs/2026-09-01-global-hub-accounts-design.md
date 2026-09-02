@@ -179,7 +179,7 @@ one-click confirm showing what will be sent.
 > the missing print-hub recording. Phase 1 is unaffected — the briefs' "no pressure
 > whatsoever" browsing framing reinforces the act gate.
 
-- **Asset:** one hand-built SVG/CSS/JS module (`assets/explainer.js` + `.css`), no
+- **Asset:** one hand-built SVG/CSS/JS module (`hub/assets/explainer.js` + `.css`), no
   libraries. Four scenes ≈ 25 s, looping with a ~3 s hold on the end card, clickable step
   dots, neutral pointer dot (works on touch), autoplay everywhere,
   `prefers-reduced-motion` → static four-panel storyboard. Brand easing

@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/portal.css">
+<link rel="stylesheet" href="assets/explainer.css">
 </head>
 <body>
 <!--
@@ -52,6 +53,7 @@ fixed so the wordmark stops going missing.
         <span class="eyebrow">The NexPoint Global Hub</span>
         <h1>One trusted network.<br><em>Four hubs.</em></h1>
         <p class="lede">Print capacity, milled production, products and know-how, connected across the global O&amp;P industry. Every introduction is made person to person, by people who know both sides.</p>
+        <p style="margin-top:14px"><a class="hero-how" href="#how">See how the hub works</a></p>
         <p style="margin-top:18px;font-size:13.5px;color:var(--on-surface-var)">Been here before? <a href="#" onclick="event.preventDefault();openSignIn()" style="color:var(--blue);font-weight:600">Sign in</a></p>
       </div>
       <div class="hero-media" style="border:none;box-shadow:none;background:#0d1424;border-radius:9999px;aspect-ratio:1/1;max-width:520px;margin-inline:auto">
@@ -132,11 +134,13 @@ fixed so the wordmark stops going missing.
       <h2>How an introduction actually happens.</h2>
       <p class="sub">The Global Hub shows you what exists. People decide what meets.</p>
     </div>
-    <div class="steps four">
-      <div class="step enter enter--up" style="--d:0ms"><span class="n">01</span><h3>Pick your hub</h3><p>Print, mill, opportunities: each hub shows real, current capacity, anonymised but verified by us first-hand.</p></div>
-      <div class="step enter enter--up" style="--d:70ms"><span class="n">02</span><h3>Introduce yourself</h3><p>Two minutes at the desk: who you are, your volumes, your systems, what you're after. Chris or Will reads every profile personally.</p></div>
-      <div class="step enter enter--up" style="--d:140ms"><span class="n">03</span><h3>A person weighs the fit</h3><p>One of us reviews every request, usually within two working days. If it isn't right, we'll tell you why and keep looking.</p></div>
-      <div class="step enter enter--up" style="--d:210ms"><span class="n">04</span><h3>A personal introduction</h3><p>When both sides agree, we introduce you directly: names, faces, facilities. From there the conversation is yours; we stay close to help it land.</p></div>
+    <div id="explainer" class="xp-mount enter enter--up" aria-label="How the Global Hub works">
+      <div class="xp-board">
+        <div class="xp-panel"><span class="n">01</span><h3>Pick your hub</h3><p>Print, mill or opportunities. Each door shows real, current capacity: anonymised on the page, verified by us in person.</p></div>
+        <div class="xp-panel"><span class="n">02</span><h3>Introduce yourself</h3><p>Introduce yourself once and you're a member: who you are, where you are, what you're after. Chris or Will reads every profile personally.</p></div>
+        <div class="xp-panel"><span class="n">03</span><h3>A person weighs the fit</h3><p>One of us reviews every request, usually within two working days. If it isn't right, we say why and keep looking.</p></div>
+        <div class="xp-panel"><span class="n">04</span><h3>A personal introduction</h3><p>When both sides agree, we introduce you directly: names, faces, facilities. The conversation is yours; we stay close to help it land.</p></div>
+      </div>
     </div>
 
     <div class="rows" style="margin-top:clamp(40px,5vh,64px)">
@@ -238,5 +242,6 @@ fixed so the wordmark stops going missing.
 
 <script src="../assets/hub-account.js"></script>
 <script src="assets/portal.js"></script>
+<script src="assets/explainer.js"></script>
 </body>
 </html>
