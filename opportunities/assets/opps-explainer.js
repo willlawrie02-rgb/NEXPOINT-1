@@ -237,6 +237,54 @@
     };
   })(scenes[1]);
 
+  /* ── scene 3: more than listings — perks and the programme ── */
+  (function (g) {
+    g._timers = [];
+    var wrap = el('g', { 'class': 'ox-cardg' }, g);
+    var defs = [['SCANNER', 168], ['MATERIAL', 306], ['TECHNOLOGY', 444]];
+    defs.forEach(function (dd) {
+      var c = el('g', { transform: 'translate(' + dd[1] + ',96)' }, wrap);
+      el('rect', { x: 0, y: 0, width: 108, height: 64, rx: 8, 'class': 'ox-card' }, c);
+      txt(el('text', { x: 54, y: 24, 'text-anchor': 'middle', 'class': 'ox-label' }, c), dd[0]);
+      el('line', { x1: 16, y1: 40, x2: 92, y2: 40, 'class': 'ox-line' }, c);
+    });
+    var tag = el('g', { transform: 'translate(360,88)', 'class': 'ox-tag' }, wrap);
+    el('rect', { x: -46, y: -12, width: 92, height: 22, rx: 11 }, tag);
+    txt(el('text', { x: 0, y: 3, 'text-anchor': 'middle' }, tag), 'PARTNER CODE');
+    var progg = el('g', { 'class': 'ox-op', transform: 'translate(360,208)' }, wrap);
+    el('rect', { x: -140, y: -14, width: 280, height: 28, rx: 6, 'class': 'ox-card' }, progg);
+    txt(el('text', { x: 0, y: 4, 'text-anchor': 'middle', 'class': 'ox-sub' }, progg), 'Quarterly programme — the whole community hears about it');
+    g._enter = function () {
+      g._timers.forEach(clearTimeout); g._timers = [];
+      wrap.classList.remove('is-on');
+      void g.getBoundingClientRect();
+      g._timers.push(setTimeout(function () { wrap.classList.add('is-on'); }, 500));
+    };
+    g._exit = function () { g._timers.forEach(clearTimeout); g._timers = []; };
+  })(scenes[2]);
+
+  /* ── scene 4: a go-to place — the board, then Chris's closing line ── */
+  (function (g) {
+    g._timers = [];
+    var wrap = el('g', { 'class': 'ox-cardg' }, g);
+    var rows = [['NX-2596', 'Distributor sought — Europe', 96], ['NX-2618', 'New material — UK', 166], ['NX-2617', 'Print workflow — APAC', 236]];
+    rows.forEach(function (r) {
+      var c = el('g', { 'class': 'ox-op', transform: 'translate(214,' + r[2] + ')' }, wrap);
+      el('rect', { x: 0, y: -22, width: 292, height: 50, rx: 8, 'class': 'ox-card' }, c);
+      el('rect', { x: 14, y: -10, width: 24, height: 24, rx: 6, fill: 'rgba(0,92,200,.18)', stroke: 'rgba(61,142,235,.4)' }, c);
+      txt(el('text', { x: 52, y: -2, 'class': 'ox-label' }, c), r[0]);
+      txt(el('text', { x: 52, y: 14, 'class': 'ox-sub' }, c), r[1]);
+    });
+    g._enter = function () {
+      g._timers.forEach(clearTimeout); g._timers = [];
+      wrap.classList.remove('is-on');
+      void g.getBoundingClientRect();
+      g._timers.push(setTimeout(function () { wrap.classList.add('is-on'); }, 400));
+      g._timers.push(setTimeout(root._goEnd, 5000));
+    };
+    g._exit = function () { g._timers.forEach(clearTimeout); g._timers = []; };
+  })(scenes[3]);
+
   /* captions, dots, end card */
   var cap = document.createElement('div'); cap.className = 'ox-caption';
   var capT = document.createElement('span'); capT.className = 'ox-cap-title'; cap.appendChild(capT);
