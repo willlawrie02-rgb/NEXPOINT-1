@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NexPoint Opportunities Hub</title>
+<title>NexPoint Global Opportunities Hub</title>
 <link rel="icon" href="assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/opps-explainer.css">
 <style>
   :root{
     --font-display:'Montserrat',system-ui,sans-serif;--font-body:'Inter',system-ui,sans-serif;
@@ -425,7 +426,7 @@
   <div class="container">
     <div class="hero-grid">
       <div class="hero-copy">
-        <span class="eyebrow eyebrow--green">The NexPoint Opportunities Hub</span>
+        <span class="eyebrow eyebrow--green">The Global Opportunities Hub</span>
         <h1>The best deals in this industry<br>still happen <em>person to person.</em></h1>
         <p class="lede">NexPoint turns forty years of working relationships into live, verified opportunities for labs and clinics, manufacturing capacity, products, technology, talent and exits. None of it reaches the open market, and every introduction is made by people who know both sides.</p>
         <div class="hero-ctas">
@@ -469,6 +470,22 @@
       <span class="pnum">03</span>
       <span class="label">Introduced, not sold</span>
       <p>Nothing is bought here. When an opportunity fits your operation, we make a personal introduction and step back. The relationship, and the deal, is yours.</p>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT THE HUB DOES -->
+<section class="oxplain" id="what">
+  <div class="container">
+    <span class="eyebrow eyebrow--green">The Global Opportunities Hub</span>
+    <h2>What the Global Opportunities Hub does</h2>
+    <div id="oppsExplainer" class="ox-mount">
+      <div class="ox-board">
+        <div class="ox-panel"><span class="n">01</span><h3>The old way</h3><p>A product proven at home used to mean years of exhibitions, business cards and interviews before it sold abroad.</p></div>
+        <div class="ox-panel"><span class="n">02</span><h3>We know both ends</h3><p>A company in Canada, a distributor in Europe — NexPoint knows people at both ends, thinks of the fit, and introduces you directly.</p></div>
+        <div class="ox-panel"><span class="n">03</span><h3>More than listings</h3><p>Partner discounts we've negotiated on scanners and materials live inside the hub, and the quarterly programmes put what's new in front of the whole community.</p></div>
+        <div class="ox-panel"><span class="n">04</span><h3>A go-to place</h3><p>Products, services, materials and technologies from across the world — browse what might suit you, under no pressure whatsoever.</p></div>
+      </div>
     </div>
   </div>
 </section>
@@ -1641,7 +1658,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
 const seekingOrBoth=()=>['Seeking New Opportunities','Both'].includes(profile.direction);
 const hasType=(t)=>(profile.productTypes||[]).includes(t);
 const steps=[
- {key:'type',type:'single',q:"Welcome to the NexPoint Opportunities Hub. Before the board opens, we'd like to know who we're connecting, a few questions, about two minutes. Every profile is read personally by Chris or Will, and nothing you tell us is ever published. First: what best describes your operation?",
+ {key:'type',type:'single',q:"Welcome to the NexPoint Global Opportunities Hub. Before the board opens, we'd like to know who we're connecting, a few questions, about two minutes. Every profile is read personally by Chris or Will, and nothing you tell us is ever published. First: what best describes your operation?",
   chips:['Custom Lab / O&P Group','Clinic / Clinician','Distributor / Wholesaler','Technology Developer','Materials / Equipment Creator','Something else']},
  {key:'region',type:'single',other:true,otherLabel:'Or tell us what country you are in',
   q:"Good to meet you. Where are you based?",
@@ -1673,14 +1690,14 @@ const steps=[
   chips:['Vacuum Forming Hardware','Finishing Hardware (grinders, buffers, etc)','CNC Routers','3D Printers','General (benches, tooling, etc)']},
  {key:'more',type:'single',loop:true,q:"Are there any other products you are seeking or offering?",
   chips:['Yes, add more','No, continue']},
- {key:'goals',type:'multi',q:"Select any that match your reason for joining the Opportunities Hub. I want to —",
+ {key:'goals',type:'multi',q:"Select any that match your reason for joining the Global Opportunities Hub. I want to —",
   chips:['Outsource my manufacturing to a high-quality provider','Sell our spare manufacturing capacity','Find a new partner / representative in a new country','Hire new talent','Start something new','Find new manufacturing technologies','Find new design technologies','Buy or sell O&P equipment','Source materials or consumables','Find new products to represent','Sell my business (discretely)','Just explore what you have to offer']},
  {key:'pressing',type:'multi',q:"Now the question that matters most. What are you hoping the network can do for you? Choose one or more, this decides which opportunities and introductions reach you first. Don't worry too much, you can browse everything later.",
   chips:['I am looking for new ideas','Networking with likeminded companies is important to our future','Staffing pressures are forcing change','Rising costs (materials, people, etc) are a challenge','I need to plan an exit','I need to expand my business','We are growing fast','We need to find new suppliers','Nothing urgent, just browsing']},
  {key:'describe',type:'text',q:"Your selection suggests you are seeking something, or have something other people may need, for example capacity, a product, equipment, people or a business. In a sentence or two, can you describe what it is?"},
  {key:'timeline',type:'single',q:"And if the right opportunity appeared, when would you act?",
   chips:['Immediately','Within a month','Within 3–6 months','Just looking ahead, no urgency']},
- {key:'contact',type:'form',q:"Thanks for taking the time. Everything you've shared is stored internally and never distributed, Chris and Will are the only people who see it, and we'll contact you directly if there's a good match. Add your contact details and move onto browsing the Opportunities Hub. Any issues? Reach us at <a href=\"mailto:info@nexpoint.co.uk\" style=\"color:var(--blue-bright)\">info@nexpoint.co.uk</a>."}
+ {key:'contact',type:'form',q:"Thanks for taking the time. Everything you've shared is stored internally and never distributed, Chris and Will are the only people who see it, and we'll contact you directly if there's a good match. Add your contact details and move onto browsing the Global Opportunities Hub. Any issues? Reach us at <a href=\"mailto:info@nexpoint.co.uk\" style=\"color:var(--blue-bright)\">info@nexpoint.co.uk</a>."}
 ];
 let stepIdx=0, history=[];   // history = indices of steps already shown, so Back can walk them
 const msgsEl=()=>document.getElementById('chatMsgs');
@@ -2046,5 +2063,6 @@ async function signOut(){ await sb.auth.signOut(); location.reload(); }
 sb.auth.onAuthStateChange((_e,session)=>{ if(session) onSignedIn(session); });
 sb.auth.getSession().then(({data})=>{ if(data && data.session) onSignedIn(data.session); });
 </script>
+<script src="assets/opps-explainer.js"></script>
 </body>
 </html>
