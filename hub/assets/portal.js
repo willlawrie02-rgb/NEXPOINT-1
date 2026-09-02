@@ -615,14 +615,24 @@ function initOfferPage(){
     recall.hidden = true;
   }
 
-  /* Signed-in members never retype what's already on their profile. */
+  /* Signed-in members never retype what's already on their profile.
+     The listener is registered unconditionally — it's a plain document event
+     that needs nothing loaded — because on the subdomain pages hub-account.js
+     arrives via an async, dynamically-injected loader that can land after
+     DOMContentLoaded. If we gated the listener behind `window.NPAccount`, a
+     late-loading module would never get subscribed and a signed-in member's
+     profile would silently never prefill. The module always dispatches
+     npaccount:change after its initial /auth/me refresh, so a late load is
+     still caught; ready.then covers the case where it was already loaded and
+     resolved by the time we get here. fillProfile no-ops without a user. */
   const fillProfile = () => {
     const u = window.NPAccount && NPAccount.user; if (!u) return;
     const set = (id, v) => { const el = document.getElementById(id); if (el && !el.value && v) el.value = v; };
     set('jName', u.name); set('jCompany', u.company); set('jEmail', u.email);
     set('jCountry', u.country); set('jTown', u.town);
   };
-  if (window.NPAccount){ NPAccount.ready.then(fillProfile); document.addEventListener('npaccount:change', fillProfile); }
+  document.addEventListener('npaccount:change', fillProfile);
+  if (window.NPAccount) NPAccount.ready.then(fillProfile);
 }
 
 /* ═══════════ modals ═══════════ */
