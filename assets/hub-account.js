@@ -117,9 +117,8 @@
           <div class="field"><label for="qName">Your name</label><input id="qName" required value="${esc(draft.name)}" placeholder="Full name"></div>
           <div class="field"><label for="qCompany">Company</label><input id="qCompany" required value="${esc(draft.company)}" placeholder="Held in confidence"></div>
           <div class="field"><label for="qEmail">Email</label><input id="qEmail" type="email" required value="${esc(draft.email)}" placeholder="you@company.com"></div>
-          <div class="field"><label for="qPass">Choose a password</label><input id="qPass" type="password" required minlength="8" placeholder="At least 8 characters"></div>
+          <div class="field"><label for="qPass">Choose a password</label><input id="qPass" type="password" required minlength="8" maxlength="72" placeholder="At least 8 characters"></div>
         </div>
-        <p class="np-sign-error" style="display:none"></p>
         <div class="modal-actions"><button class="btn btn-primary" type="submit">Continue to where you are</button></div>
       </form>`;
     content().querySelector('form').addEventListener('submit', (e) => {
@@ -175,9 +174,10 @@
     content().querySelector('[data-np-back]').addEventListener('click', () => step2(pending));
     content().querySelector('form').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const btn = e.target.querySelector('button[type="submit"]');
+      if (btn.disabled) return;
       draft.interests = Array.from(content().querySelectorAll('.np-interests input:checked')).map((i) => i.value);
       draft.notes = qv('qNotes');
-      const btn = e.target.querySelector('button[type="submit"]');
       const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Creating your account…';
       const body = { name: draft.name, company: draft.company, email: draft.email, password: draft.password,
         region: draft.region, country: draft.country, town: draft.town,
@@ -238,7 +238,9 @@
       <div class="modal-actions"><button class="btn btn-primary" data-np-send>${esc(action.heading || 'Request the introduction')}</button></div>`;
     show();
     content().querySelector('[data-np-send]').addEventListener('click', async (e) => {
-      const btn = e.target; btn.disabled = true; btn.textContent = 'Sending…';
+      const btn = e.target;
+      if (btn.disabled) return;
+      btn.disabled = true; btn.textContent = 'Sending…';
       const payload = Object.assign({}, action.payload || {});
       const extra = qv('gNotes'); if (extra) payload.notes = payload.notes ? payload.notes + ' — ' + extra : extra;
       const d = await call('/requests', { method: 'POST', headers: { 'Content-Type': 'application/json' },

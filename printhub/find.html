@@ -169,7 +169,7 @@ Results now vary by region AND country, and every card names its country.
       </div>
       <div class="modal-actions"><button class="btn btn-primary" onclick="signSubmit()">Sign in</button></div>
       <p class="np-sign-error" style="display:none;color:#E5484D;font:500 13px/1.4 var(--font-body);margin-top:10px"></p>
-      <div class="privacy">New here? <a href="#" onclick="event.preventDefault();closeAll();NPAccount.openQuestionnaire({})" style="color:var(--blue);font-weight:600">Create your hub account</a> — two minutes, in confidence.</div>
+      <div class="privacy">New here? <a href="#" onclick="event.preventDefault();closeAll();window.NPAccount&&NPAccount.openQuestionnaire({})" style="color:var(--blue);font-weight:600">Create your hub account</a> — two minutes, in confidence.</div>
     </div>
   </div>
 </div>
