@@ -73,11 +73,21 @@
       return dg;
     });
     var ptr = el('circle', { cx: 360, cy: 260, r: 6, 'class': 'xp-ptr' }, g);
+    g._timers = [];
     g._enter = function () {
+      g._timers.forEach(clearTimeout);
+      g._timers = [];
       doorEls.forEach(function (dEl) { dEl.classList.remove('is-picked'); });
+      /* .xp-ptr carries a persistent 1.1s CSS transition, so a straight reset
+         would animate a visible backward glide on every revisit. Kill the
+         transition for the reset, force a reflow so the browser commits the
+         transition-less state, then restore it before scheduling the move. */
+      ptr.style.transition = 'none';
       ptr.style.transform = 'translate(0,0)';
-      setTimeout(function () { ptr.style.transform = 'translate(' + (190 - 360) + 'px,' + (128 - 260) + 'px)'; }, 700);
-      setTimeout(function () { doorEls[0].classList.add('is-picked'); }, 1900);
+      void ptr.getBoundingClientRect();
+      ptr.style.transition = '';
+      g._timers.push(setTimeout(function () { ptr.style.transform = 'translate(' + (190 - 360) + 'px,' + (128 - 260) + 'px)'; }, 700));
+      g._timers.push(setTimeout(function () { doorEls[0].classList.add('is-picked'); }, 1900));
     };
   })(scenes[0]);
 
@@ -90,13 +100,22 @@
     el('line', { x1: 18, y1: 26, x2: 130, y2: 26, 'class': 'xp-line' }, card);
     el('line', { x1: 18, y1: 47, x2: 148, y2: 47, 'class': 'xp-line' }, card);
     el('line', { x1: 18, y1: 68, x2: 112, y2: 68, 'class': 'xp-line' }, card);
-    /* card-local coordinates: (uk[0]-220) is the card's own translate-x, so
-       these expressions net out to the card's right edge (170) and a point
-       just short of the pin (214) — this must be a child of `card`, not `g`,
-       or the offsets cancel against the wrong origin and the line lands
-       nowhere near the card or the pin. */
-    el('line', { x1: uk[0] - 50 - (uk[0] - 220), y1: 46, x2: uk[0] - (uk[0] - 220) - 6, y2: 46, 'class': 'xp-land', opacity: 0.6 }, card);
-    g._enter = function () { card.classList.remove('is-on'); void card.getBoundingClientRect(); setTimeout(function () { card.classList.add('is-on'); }, 500); };
+    /* card-frame coordinates (card is translated to (uk[0]-220, uk[1]-30), so
+       card-local (0,0) is world (uk[0]-220, uk[1]-30)): x1=170 is the card's
+       own right edge; the UK pin above is drawn in world space at (uk[0],
+       uk[1]), which in this card-local frame is exactly (220, 30) — so y=30
+       is the pin's card-frame y, and x2=216 stops right at the pin's edge
+       (pin centre x=220, radius 4). Must stay a child of `card`, not `g`, or
+       these local coordinates land nowhere near the card or the pin. */
+    el('line', { x1: 170, y1: 30, x2: 216, y2: 30, 'class': 'xp-land', opacity: 0.6 }, card);
+    g._timers = [];
+    g._enter = function () {
+      g._timers.forEach(clearTimeout);
+      g._timers = [];
+      card.classList.remove('is-on');
+      void card.getBoundingClientRect();
+      g._timers.push(setTimeout(function () { card.classList.add('is-on'); }, 500));
+    };
   })(scenes[1]);
 
   /* captions + dots + end card (HTML, below/over the stage) */
