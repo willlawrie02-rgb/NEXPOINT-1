@@ -637,7 +637,7 @@ function initOfferPage(){
 
 /* ═══════════ modals ═══════════ */
 function openIntro(ref, heading){
-  if (window.NPAccount && typeof NPAccount.gate === 'function' && !NPAccount._failed){
+  if (window.NPAccount && typeof NPAccount.gate === 'function'){
     NPAccount.gate({ hub: hubOfPage(), side: ref ? 'request_intro' : 'request_capacity',
       brief_ref: ref || '', heading: heading || 'Ask us to introduce you', payload: {} });
     return;
@@ -763,7 +763,7 @@ async function signSubmit(){
     document.getElementById('signContent').innerHTML = `
       <div class="success">
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
-        <h2>Welcome back, ${escapeHtml((NPAccount.user && NPAccount.user.name) || '')}.</h2>
+        <h2>Welcome back, ${escapeHtml((NPAccount.user && (NPAccount.user.name || NPAccount.user.email)) || '')}.</h2>
         <p>You're signed in across every hub. Requests you make now arrive with your profile attached.</p>
         <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
       </div>`;

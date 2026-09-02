@@ -174,10 +174,11 @@ one-click confirm showing what will be sent.
 > factory-cell model) and print (recording missing — Chris to re-record), a product-hub
 > piece, and an education infographic. The hub-home slot below becomes the global-overview
 > piece, and its story should lean map-and-community rather than the pure four-step
-> journey. Phase 2's implementation plan must be drawn from those briefs; two things block
-> animation production: the Product Hub vs Global Opportunities Hub naming decision, and
-> the missing print-hub recording. Phase 1 is unaffected — the briefs' "no pressure
-> whatsoever" browsing framing reinforces the act gate.
+> journey. Phase 2's implementation plan must be drawn from those briefs; the naming
+> decision was settled on 2026-09-02 — the hub is the **Global Opportunities Hub** — so
+> only the missing print-hub recording still blocks animation production. Phase 1 is
+> unaffected — the briefs' "no pressure whatsoever" browsing framing reinforces the act
+> gate.
 
 - **Asset:** one hand-built SVG/CSS/JS module (`hub/assets/explainer.js` + `.css`), no
   libraries. Four scenes ≈ 25 s, looping with a ~3 s hold on the end card, clickable step
