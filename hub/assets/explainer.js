@@ -118,6 +118,81 @@
     };
   })(scenes[1]);
 
+  /* ── scene 3: a person weighs the fit — two sides, a human, a verified tick ── */
+  (function (g) {
+    var cx = W / 2, cy = 130;
+    var card = el('g', { 'class': 'xp-cardg', transform: 'translate(' + (cx - 130) + ',' + (cy - 56) + ')' }, g);
+    el('rect', { x: 0, y: 0, width: 260, height: 112, rx: 12, 'class': 'xp-card' }, card);
+    el('circle', { cx: 42, cy: 46, r: 5, 'class': 'xp-pin' }, card);
+    el('circle', { cx: 62, cy: 62, r: 4, 'class': 'xp-pin', opacity: 0.55 }, card);
+    el('circle', { cx: 218, cy: 46, r: 5, 'class': 'xp-pin' }, card);
+    el('circle', { cx: 198, cy: 62, r: 4, 'class': 'xp-pin', opacity: 0.55 }, card);
+    /* the person: head + shoulders, hairline strokes */
+    el('circle', { cx: 130, cy: 42, r: 11, 'class': 'xp-person' }, card);
+    el('path', { d: 'M112 78 q18 -18 36 0', 'class': 'xp-person' }, card);
+    /* verified tick, pops in via .is-on. Circle + tickmark share one group
+       (the class moved from the bare circle onto this wrapping <g>) so the
+       scale-in transition carries both together — a lone circle scaling in
+       under a static tickmark path let the tick render before its circle did. */
+    var tick = el('g', { transform: 'translate(148,64)' }, card);
+    var tickG = el('g', { 'class': 'xp-tick' }, tick);
+    el('circle', { cx: 0, cy: 0, r: 10 }, tickG);
+    el('path', { d: 'M-4 0 l3 3 l6 -7', 'class': 'xp-tickmark' }, tickG);
+    g._timers = [];
+    g._enter = function () {
+      g._timers.forEach(clearTimeout);
+      g._timers = [];
+      card.classList.remove('is-on');
+      void card.getBoundingClientRect();
+      g._timers.push(setTimeout(function () { card.classList.add('is-on'); }, 500));
+    };
+    g._exit = function () {
+      g._timers.forEach(clearTimeout);
+      g._timers = [];
+    };
+  })(scenes[2]);
+
+  /* ── scene 4: one introduction, then the community — Australia to the US,
+     then the wider one-to-many the network exists for ── */
+  (function (g) {
+    function arc(a, b, cls) {
+      var p1 = xy(a), p2 = xy(b);
+      var mx = (p1[0] + p2[0]) / 2, my = Math.min(p1[1], p2[1]) - 55;
+      var path = el('path', { d: 'M' + p1[0] + ' ' + p1[1] + ' Q' + mx + ' ' + my + ' ' + p2[0] + ' ' + p2[1], 'class': cls }, g);
+      var len = Math.ceil(path.getTotalLength());
+      path.style.setProperty('--len', len);
+      return path;
+    }
+    var main = arc('aus', 'us', 'xp-arc');
+    var faint = [arc('uk', 'us', 'xp-arc xp-arc--faint'), arc('de', 'br', 'xp-arc xp-arc--faint'),
+                 arc('jp', 'aus', 'xp-arc xp-arc--faint'), arc('ca', 'uk', 'xp-arc xp-arc--faint')];
+    var pins = [xy('uk'), xy('de'), xy('ca'), xy('br'), xy('jp'), xy('za')].map(function (p) {
+      return el('circle', { cx: p[0], cy: p[1], r: 3, 'class': 'xp-pin', opacity: 0.5 }, g);
+    });
+    g._timers = [];
+    g._enter = function () {
+      g._timers.forEach(clearTimeout);
+      g._timers = [];
+      var rp = root._pins;
+      [main].concat(faint).forEach(function (p) { p.classList.remove('is-drawn'); });
+      rp.aus.setAttribute('opacity', 1); rp.us.setAttribute('opacity', 1);
+      rp.aus.classList.add('xp-pin--pulse'); rp.us.classList.add('xp-pin--pulse');
+      void main.getBoundingClientRect();
+      g._timers.push(setTimeout(function () { main.classList.add('is-drawn'); }, 600));
+      faint.forEach(function (p, idx) {
+        g._timers.push(setTimeout(function () { p.classList.add('is-drawn'); }, 2100 + idx * 350));
+      });
+      g._timers.push(setTimeout(root._goEnd, 5000)); /* end card holds for the scene's last ~3.5s */
+    };
+    g._exit = function () {
+      g._timers.forEach(clearTimeout);
+      g._timers = [];
+      var rp = root._pins;
+      rp.aus.classList.remove('xp-pin--pulse'); rp.us.classList.remove('xp-pin--pulse');
+      rp.aus.setAttribute('opacity', 0); rp.us.setAttribute('opacity', 0);
+    };
+  })(scenes[3]);
+
   /* captions + dots + end card (HTML, below/over the stage) */
   var cap = document.createElement('div'); cap.className = 'xp-caption';
   var capT = document.createElement('span'); capT.className = 'xp-cap-title'; cap.appendChild(capT);
@@ -140,6 +215,7 @@
   var current = -1, timer = null;
   function goTo(i, manual) {
     clearTimeout(timer);
+    if (current >= 0 && scenes[current] && scenes[current]._exit) scenes[current]._exit();
     current = i;
     root.setAttribute('data-scene', String(i));
     root.classList.remove('is-end');
