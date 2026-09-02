@@ -304,8 +304,6 @@ nav.boards a[aria-current="page"]::after { transform: scaleX(1); }
 .overlay.open .modal { animation: modal-in 220ms var(--ease); }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(0.985); } }
 
-<<<<<<< HEAD
-=======
 /* ── Hub boards (Print / Mill / Opportunities / Dashboard) ─────────
    Shared by hub-board.js and dashboard.html. Everything below is built
    from the tokens above — no new colors, no new type sizes. */
@@ -402,7 +400,6 @@ nav.boards a[aria-current="page"]::after { transform: scaleX(1); }
            font-variant-numeric: tabular-nums; }
 .tile .s { font-size: 12.5px; color: var(--fg-2); }
 
->>>>>>> origin/claude/introductions-manager
 /* ── Responsive ─────────────────────────────────────────────────── */
 @media (max-width: 720px) {
   .wrap { padding: 0 16px; }
@@ -412,10 +409,7 @@ nav.boards a[aria-current="page"]::after { transform: scaleX(1); }
   nav.boards { overflow-x: auto; scrollbar-width: none; }
   nav.boards::-webkit-scrollbar { display: none; }
   .row { padding: 16px; }
-<<<<<<< HEAD
-=======
   .cols { grid-template-columns: 1fr; }
->>>>>>> origin/claude/introductions-manager
 }
 
 @media (prefers-reduced-motion: reduce) {

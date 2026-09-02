@@ -88,14 +88,14 @@ New endpoints, all proxying **Supabase Auth** (no password ever stored or hashed
 | `POST /auth/register` | Creates the Supabase user (email + password), inserts the `member_profiles` row, signs in, sets the session cookie. Accepts an optional `pending_request` payload so the action that triggered the gate completes in the same breath. |
 | `POST /auth/login` | Password sign-in → session cookie. |
 | `POST /auth/logout` | Clears the cookie, revokes the refresh token. |
-| `GET /auth/me` | Returns `{signed_in, name, company, email, region, country, town, interests}` for page state and prefill. Cheap; every hub page calls it once on load. |
+| `GET /auth/me` | Returns `{signed_in: false}` when signed out, or `{signed_in: true, member: {name, company, email, region, country, town, interests}}` for page state and prefill. Cheap; every hub page calls it once on load. |
 
 Session mechanics: the cookie holds the Supabase session (access + refresh JWTs, ~2 KB,
 within cookie limits); the worker refreshes transparently when the access token has
 expired. `HttpOnly; Secure; SameSite=Lax; Domain=.nexpoint.co.uk; Path=/`.
 
-CORS: `ALLOWED_ORIGIN` (single origin today) becomes an allowlist — apex plus the three
-subdomains — with `Access-Control-Allow-Credentials: true` on `/auth/*` and `/requests`.
+CORS: the worker's origin allowlist already covers the apex and the three hub subdomains;
+`/auth/*` and `/requests` add `Access-Control-Allow-Credentials: true` and GET support.
 
 ### 4.2 Data model
 
@@ -158,12 +158,26 @@ one-click confirm showing what will be sent.
 
 - **Account created** → Supabase (`auth.users` + `member_profiles`) → visible in admin.
   **No Pipedrive entity** — accounts alone don't enter the pipeline.
-- **Member acts** → `web_requests` row with `member_id` → Pipedrive lead + Resend
-  notification, exactly the worker's existing `/requests` behaviour.
+- **Member acts** → `web_requests` row with `member_id` + Resend notification via the worker;
+  the engine's hourly sync files the row onwards to the pipeline and Pipedrive — Pipedrive on
+  action, with the engine as the actor.
 - Notification email for new members: reuse the existing Resend plumbing, to
   `hello@nexpoint.co.uk`, so Will and Chris see joins without opening admin.
 
 ## 8. Phase 2 — the explainer animation (design locked earlier, restated)
+
+> **Superseded in part — 2026-09-01.** Chris's four dictated animation briefs of 24 August
+> (`chris-chats/2026-08-24_hub-animation-briefs.md` in the parent repo, recorded ten days
+> after the review this section was designed from) ask for a *family* of animations: a
+> global-overview infomercial ("holistically what NexPoint is doing globally… a map with
+> things moving around… as a global community"), per-hub infomercials for mill (the
+> factory-cell model) and print (recording missing — Chris to re-record), a product-hub
+> piece, and an education infographic. The hub-home slot below becomes the global-overview
+> piece, and its story should lean map-and-community rather than the pure four-step
+> journey. Phase 2's implementation plan must be drawn from those briefs; two things block
+> animation production: the Product Hub vs Global Opportunities Hub naming decision, and
+> the missing print-hub recording. Phase 1 is unaffected — the briefs' "no pressure
+> whatsoever" browsing framing reinforces the act gate.
 
 - **Asset:** one hand-built SVG/CSS/JS module (`assets/explainer.js` + `.css`), no
   libraries. Four scenes ≈ 25 s, looping with a ~3 s hold on the end card, clickable step

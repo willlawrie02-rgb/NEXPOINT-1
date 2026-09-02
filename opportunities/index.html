@@ -853,6 +853,13 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+  (function () {
+    var apex = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
+    var s = document.createElement('script'); s.src = apex + '/assets/hub-account.js';
+    document.head.appendChild(s);
+  })();
+</script>
+<script>
 let briefs=
 /* === BRIEFS_DATA_START : auto-generated from briefs.json by _system/build_portal.py - do not edit by hand === */
 [
@@ -1579,6 +1586,11 @@ function captureMembership(){
   catch(e){ /* fire and forget, completing the desk must never block on the network */ }
 }
 function openForm(subject, ref, mode){
+  if(mode!=='post' && window.NPAccount && typeof NPAccount.gate === 'function'){
+    NPAccount.gate({ hub: 'opportunities', side: 'request_intro', brief_ref: ref,
+      heading: 'Ask us to introduce you', payload: { brief: ref } });
+    return;
+  }
   if(!member){ openGate(); return; }                 // members-only; never a dead-end form
   const post = mode==='post';
   const heading = post ? 'Post a confidential opportunity' : 'Request an introduction';
@@ -1997,6 +2009,26 @@ function openSignIn(){
 }
 async function doSignIn(form){
   const fd=new FormData(form);const e=document.getElementById('siErr');
+  if(window.NPAccount && typeof NPAccount.signIn === 'function'){
+    const d=await NPAccount.signIn((fd.get('email')||'').trim(), fd.get('password')||'');
+    if(d.ok){
+      document.getElementById('formContent').innerHTML=`
+        <div class="success">
+          <div class="ok">✓</div>
+          <h2 style="color:#fff;font-size:24px">Welcome back.</h2>
+          <p>You're signed in across every hub. Requests you make now arrive with your profile attached.</p>
+          <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the board</button></div>
+        </div>`;
+      return;
+    }
+    e.style.color='#ff6b6b';
+    e.textContent = d.error==='network'
+      ? "That didn't send — check your connection and try again."
+      : "That email and password don't match an account. Check them, or become a member below.";
+    e.style.display='block';
+    return;
+  }
+  // fallback: existing Supabase sign-in, unchanged
   const {error}=await sb.auth.signInWithPassword({email:fd.get('email'),password:fd.get('password')});
   if(error){e.style.color='#ff6b6b';e.textContent=error.message;e.style.display='block';return;}
   closeAll(); // onAuthStateChange → onSignedIn unlocks

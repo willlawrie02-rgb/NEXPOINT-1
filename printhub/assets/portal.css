@@ -496,3 +496,17 @@ a.hub-line:hover .go svg{transform:translateX(4px)}
   .hub-line{grid-template-columns:minmax(0,1fr);gap:14px}
   .hub-line .go{padding-top:4px}
 }
+
+.np-chip{display:inline-flex;align-items:center;gap:10px;font:600 12px/1 var(--font-body);color:var(--on-surface-var);letter-spacing:.02em}
+.np-chip__out{background:none;border:none;color:var(--blue);font:600 12px/1 var(--font-body);cursor:pointer;padding:4px 0;text-transform:uppercase;letter-spacing:.05em}
+
+.np-steps{display:flex;gap:8px;margin-bottom:22px}
+.np-step-dot{width:26px;height:3px;border-radius:9999px;background:var(--border-card)}
+.np-step-dot.is-on{background:var(--blue)}
+.np-interests{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.np-interest{display:flex;align-items:center;gap:10px;font:500 14px/1.4 var(--font-body);color:var(--on-surface);border:1px solid var(--border-card);border-radius:8px;padding:11px 14px;cursor:pointer;transition:border-color var(--dur) var(--ease)}
+.np-interest:hover{border-color:var(--blue)}
+.np-interest input{accent-color:var(--blue)}
+.np-confirm{border:1px solid var(--border-card);border-radius:8px;background:var(--surface);padding:14px 16px;margin:14px 0 6px;font:400 14px/1.6 var(--font-body)}
+.np-sign-error{color:#E5484D;font:500 13px/1.4 var(--font-body);margin-top:10px}
+@media (max-width:560px){.np-interests{grid-template-columns:1fr}}
