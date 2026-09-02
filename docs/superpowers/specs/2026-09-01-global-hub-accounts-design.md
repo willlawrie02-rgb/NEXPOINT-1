@@ -94,8 +94,8 @@ Session mechanics: the cookie holds the Supabase session (access + refresh JWTs,
 within cookie limits); the worker refreshes transparently when the access token has
 expired. `HttpOnly; Secure; SameSite=Lax; Domain=.nexpoint.co.uk; Path=/`.
 
-CORS: `ALLOWED_ORIGIN` (single origin today) becomes an allowlist — apex plus the three
-subdomains — with `Access-Control-Allow-Credentials: true` on `/auth/*` and `/requests`.
+CORS: the worker's origin allowlist already covers the apex and the three hub subdomains;
+`/auth/*` and `/requests` add `Access-Control-Allow-Credentials: true` and GET support.
 
 ### 4.2 Data model
 
@@ -158,8 +158,9 @@ one-click confirm showing what will be sent.
 
 - **Account created** → Supabase (`auth.users` + `member_profiles`) → visible in admin.
   **No Pipedrive entity** — accounts alone don't enter the pipeline.
-- **Member acts** → `web_requests` row with `member_id` → Pipedrive lead + Resend
-  notification, exactly the worker's existing `/requests` behaviour.
+- **Member acts** → `web_requests` row with `member_id` + Resend notification via the worker;
+  the engine's hourly sync files the row onwards to the pipeline and Pipedrive — Pipedrive on
+  action, with the engine as the actor.
 - Notification email for new members: reuse the existing Resend plumbing, to
   `hello@nexpoint.co.uk`, so Will and Chris see joins without opening admin.
 
