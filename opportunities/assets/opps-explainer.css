@@ -1,8 +1,8 @@
 /* Global Opportunities Hub infomercial — storyboard fallback + animation
    chrome. Dark-canvas page: every colour rides the page's own tokens. */
 
-.oxplain{border-bottom:1px solid var(--border-soft)}
-.oxplain h2{font-family:var(--font-display);margin:14px 0 26px}
+.oxplain{padding:var(--section-pad) 0;border-bottom:1px solid var(--border-soft)}
+.oxplain h2{font:600 clamp(28px,3.2vw,44px)/1.15 var(--font-display);letter-spacing:-.02em;margin:0 0 26px}
 
 /* ── storyboard (default; permanent for reduced-motion and no-JS) ── */
 .ox-board{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
@@ -25,7 +25,7 @@
 .ox-dot:hover{background:var(--green)}
 
 /* map + shared */
-.ox-stage .ox-land{stroke:rgba(226,226,226,.28);stroke-width:1.7;stroke-linecap:round;fill:none}
+.ox-stage .ox-land{stroke:var(--outline);stroke-width:1.7;stroke-linecap:round;fill:none}
 .ox-stage .ox-pin{fill:var(--blue-bright)}
 .ox-stage .ox-pin--pulse{animation:oxPulse 1.6s var(--ox-ease) infinite}
 @keyframes oxPulse{0%,100%{opacity:1}50%{opacity:.35}}
@@ -38,28 +38,28 @@
 .ox[data-scene="0"] .ox-s0,.ox[data-scene="1"] .ox-s1,.ox[data-scene="2"] .ox-s2,.ox[data-scene="3"] .ox-s3{opacity:1;transform:none}
 
 /* cards and pieces */
-.ox-stage .ox-card{fill:#242424;stroke:var(--border-card)}
+.ox-stage .ox-card{fill:var(--surface);stroke:var(--border-card)}
 .ox-stage .ox-cardg{transition:opacity .5s var(--ox-ease)}
-.ox-stage .ox-line{stroke:#3A3A3A;stroke-width:6;stroke-linecap:round}
-.ox-stage .ox-scatter rect{fill:#242424;stroke:#333;opacity:.55}
+.ox-stage .ox-line{stroke:var(--border-card);stroke-width:6;stroke-linecap:round}
+.ox-stage .ox-scatter rect{fill:var(--surface);stroke:var(--border-card);opacity:.55}
 .ox-stage .ox-scatter{animation:oxDrift 5.5s ease-in-out infinite alternate}
 @keyframes oxDrift{from{transform:translateY(0)}to{transform:translateY(4px)}}
-.ox-stage .ox-tangle{stroke:rgba(226,226,226,.22);stroke-width:1.4;fill:none;stroke-dasharray:4 5}
+.ox-stage .ox-tangle{stroke:var(--outline);opacity:.7;stroke-width:1.4;fill:none;stroke-dasharray:4 5}
 .ox-stage .ox-tag{opacity:0;transform:scale(.6);transform-origin:center;transform-box:fill-box}
 .ox-stage .is-on .ox-tag{transition:opacity .45s var(--ox-ease),transform .45s var(--ox-ease);opacity:1;transform:scale(1)}
 .ox-stage .ox-tag rect{fill:var(--green)}
-.ox-stage .ox-tag text{font:700 9px var(--font-display);fill:#121212;letter-spacing:.06em}
+.ox-stage .ox-tag text{font:700 9px var(--font-display);fill:var(--bg);letter-spacing:.06em}
 .ox-stage text.ox-label{font:700 10px var(--font-display);fill:var(--on-surface);letter-spacing:.05em}
-.ox-stage text.ox-sub{font:500 9px var(--font-body);fill:rgba(226,226,226,.65)}
+.ox-stage text.ox-sub{font:500 9px var(--font-body);fill:var(--on-surface-var)}
 .ox-stage .ox-op{opacity:0;transform:translateY(6px);transition:opacity .5s var(--ox-ease),transform .5s var(--ox-ease)}
 .ox-stage .is-on .ox-op{opacity:1;transform:none}
 .ox-stage .is-on .ox-op:nth-of-type(2){transition-delay:.3s}
 .ox-stage .is-on .ox-op:nth-of-type(3){transition-delay:.6s}
 .ox-stage .ox-tick{fill:var(--green);transform:scale(0);transform-origin:center;transform-box:fill-box}
 .ox-stage .is-on .ox-tick{transition:transform .45s var(--ox-ease) 1.5s;transform:scale(1)}
-.ox-stage .ox-tickmark{stroke:#121212;stroke-width:2.4;fill:none;stroke-linecap:round}
+.ox-stage .ox-tickmark{stroke:var(--bg);stroke-width:2.4;fill:none;stroke-linecap:round}
 
 /* end card */
-.ox-end{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(30,30,30,.9);opacity:0;pointer-events:none;transition:opacity .6s var(--ox-ease)}
+.ox-end{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb, var(--surface) 90%, transparent);opacity:0;pointer-events:none;transition:opacity .6s var(--ox-ease)}
 .ox.is-end .ox-end{opacity:1}
 .ox-end p{font:700 clamp(22px,3.4vw,32px)/1.2 var(--font-display);color:var(--on-surface);margin:0}
