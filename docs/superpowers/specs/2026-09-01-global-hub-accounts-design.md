@@ -88,7 +88,7 @@ New endpoints, all proxying **Supabase Auth** (no password ever stored or hashed
 | `POST /auth/register` | Creates the Supabase user (email + password), inserts the `member_profiles` row, signs in, sets the session cookie. Accepts an optional `pending_request` payload so the action that triggered the gate completes in the same breath. |
 | `POST /auth/login` | Password sign-in → session cookie. |
 | `POST /auth/logout` | Clears the cookie, revokes the refresh token. |
-| `GET /auth/me` | Returns `{signed_in, name, company, email, region, country, town, interests}` for page state and prefill. Cheap; every hub page calls it once on load. |
+| `GET /auth/me` | Returns `{signed_in: false}` when signed out, or `{signed_in: true, member: {name, company, email, region, country, town, interests}}` for page state and prefill. Cheap; every hub page calls it once on load. |
 
 Session mechanics: the cookie holds the Supabase session (access + refresh JWTs, ~2 KB,
 within cookie limits); the worker refreshes transparently when the access token has
