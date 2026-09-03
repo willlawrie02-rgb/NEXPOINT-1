@@ -107,9 +107,8 @@ const NODE_COUNT = {
 };
 
 /* Capacity is described by process and material, never by machine brand or model.
-   Chris, 14 Aug: "I like the way that you are not promoting one company or one
-   product… I don't want MultiJet. We don't know if MJF is going to work with us,
-   HP. We don't know if anything's going to happen with Formlabs."
+   Machine allowlist is deliberate: only platforms we have verified first-hand
+   (Chris, 14 Aug review).
    `near` = miles when the seeker is in the same country as the node,
    `far`  = miles when they are elsewhere in the region.                      */
 const PRINT_NODES = {};  /* placeholder listings removed 2026-09-01 — entries return only for first-hand-verified nodes */
