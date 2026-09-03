@@ -98,45 +98,20 @@ const REGIONS = {
   'Australia & New Zealand': ['Australia','New Zealand'],
   'South America': ['Brazil','Chile','Argentina','Colombia']
 };
+/* Zero everywhere, deliberately (2026-09-03 truthfulness sweep): no print node is
+   verified yet on this copy either, and the map must never claim capacity that
+   does not exist. Real counts return here as real nodes are certified. */
 const NODE_COUNT = {
-  'North America': 9, 'UK & Ireland': 4, 'Europe': 1,
-  'Middle East': 1, 'Asia': 1, 'Australia & New Zealand': 5, 'South America': 0
+  'North America': 0, 'UK & Ireland': 0, 'Europe': 0,
+  'Middle East': 0, 'Asia': 0, 'Australia & New Zealand': 0, 'South America': 0
 };
 
 /* Capacity is described by process and material, never by machine brand or model.
-   Chris, 14 Aug: "I like the way that you are not promoting one company or one
-   product… I don't want MultiJet. We don't know if MJF is going to work with us,
-   HP. We don't know if anything's going to happen with Formlabs."
-   `near` = miles when the member is in the same country as the node,
+   Machine allowlist is deliberate: only platforms we have verified first-hand
+   (Chris, 14 Aug review).
+   `near` = miles when the seeker is in the same country as the node,
    `far`  = miles when they are elsewhere in the region.                      */
-const PRINT_NODES = {
-  'North America': [
-    { proc:'SLS',                 mat:'Nylon 11 & Nylon 12',  cap:'1,000 pairs / month', min:'200 pairs / month', country:'United States', near:180, far:640,  badge:'High volume' },
-    { proc:'Powder-bed fusion',   mat:'TPU & Nylon 12',       cap:'400 pairs / month',   min:'50 pairs / month',  country:'United States', near:260, far:820,  badge:'Multi-material' },
-    { proc:'Resin',               mat:'Rigid & semi-rigid',   cap:'60 pairs / month',    min:'10 pairs / month',  country:'Canada',        near:210, far:700,  badge:'Small batch' },
-    { proc:'SLS',                 mat:'Nylon 12 Tough',       cap:'250 pairs / month',   min:'40 pairs / month',  country:'Mexico',        near:190, far:900,  badge:'Onboarding · Nov 2026' }
-  ],
-  'UK & Ireland': [
-    { proc:'SLS',                 mat:'Nylon 11',             cap:'600 pairs / month',   min:'100 pairs / month', country:'United Kingdom', near:90,  far:320, badge:'High volume' },
-    { proc:'Powder-bed fusion',   mat:'TPU & Nylon 12',       cap:'300 pairs / month',   min:'40 pairs / month',  country:'United Kingdom', near:140, far:380, badge:'Multi-material' },
-    { proc:'Resin',               mat:'Rigid & semi-rigid',   cap:'40 pairs / month',    min:'10 pairs / month',  country:'Ireland',        near:70,  far:290, badge:'Small batch' }
-  ],
-  'Europe': [
-    { proc:'SLS',                 mat:'Nylon 12',             cap:'350 pairs / month',   min:'60 pairs / month',  country:'Netherlands',    near:120, far:560, badge:'Founding node' }
-  ],
-  'Middle East': [
-    { proc:'SLS',                 mat:'Nylon 11',             cap:'200 pairs / month',   min:'40 pairs / month',  country:'United Arab Emirates', near:110, far:620, badge:'Founding node' }
-  ],
-  'Asia': [
-    { proc:'Powder-bed fusion',   mat:'TPU & Nylon 12',       cap:'500 pairs / month',   min:'80 pairs / month',  country:'Singapore',      near:100, far:1400, badge:'Founding node' }
-  ],
-  'Australia & New Zealand': [
-    { proc:'SLS',                 mat:'Nylon 11 & Nylon 12',  cap:'1,000 pairs / month', min:'200 pairs / month', country:'Australia',      near:250, far:1340, badge:'High volume' },
-    { proc:'Resin',               mat:'Rigid & semi-rigid',   cap:'20 pairs / month',    min:'10 pairs / month',  country:'Australia',      near:420, far:1480, badge:'Small batch' },
-    { proc:'SLS',                 mat:'Nylon 11',             cap:'30 pairs / month',    min:'10 pairs / month',  country:'New Zealand',    near:180, far:1340, badge:'Onboarding · Nov 2026' }
-  ],
-  'South America': []
-};
+const PRINT_NODES = {};  /* placeholder listings removed 2026-09-03 — entries return only for first-hand-verified nodes, matching the printhub fork */
 
 /* The Mill Hub runs on one verified manufacturer with cells on two continents,
    so every region can be served today; two regions are getting their own cell. */
@@ -532,7 +507,7 @@ function showMatches(){
         <div><dt>Distance</dt><dd>Within ~${miles} miles</dd></div>
         <div><dt>Country</dt><dd><span class="flag-row">${escapeHtml(o.country)}${cross}</span></dd></div>
         <div><dt>Materials</dt><dd>${escapeHtml(o.mat)}</dd></div>
-        <div><dt>Price</dt><dd class="price">US$35 + shipping</dd></div>
+        <div><dt>Price</dt><dd class="price">One standard network price</dd></div>
         <div><dt>Capacity</dt><dd>${escapeHtml(o.cap)}</dd></div>
         <div><dt>Minimum</dt><dd>${escapeHtml(o.min)}</dd></div>
       </dl>
@@ -581,7 +556,7 @@ function showMill(){
         <span class="label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Shared in a personal introduction only</span>
         <ul>
           <li>Partner identity &amp; facilities <span class="blurval">██████ ██████</span></li>
-          <li>Per-pair pricing <span class="blurval">$██ per pair</span></li>
+          <li>Per-pair pricing <span class="blurval">one standard network price</span></li>
           <li>Reference customers <span class="blurval">██████</span></li>
         </ul>
         <div class="note">Identities, pricing and references are never published. They are shared only when both sides agree to meet.</div>
@@ -615,12 +590,12 @@ function initOfferPage(){
     recall.hidden = true;
   }
 
-  /* Signed-in members never retype what's already on their profile.
+  /* Signed-in hosts never retype what's already on their profile.
      The listener is registered unconditionally — it's a plain document event
      that needs nothing loaded — because on the subdomain pages hub-account.js
      arrives via an async, dynamically-injected loader that can land after
      DOMContentLoaded. If we gated the listener behind `window.NPAccount`, a
-     late-loading module would never get subscribed and a signed-in member's
+     late-loading module would never get subscribed and a signed-in host's
      profile would silently never prefill. The module always dispatches
      npaccount:change after its initial /auth/me refresh, so a late load is
      still caught; ready.then covers the case where it was already loaded and

@@ -1,42 +1,186 @@
-<!doctype html>
-<html lang="en-GB">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>The NexPoint Global Hub</title>
+<title>Offer print capacity — Global Print Hub</title>
+<link rel="icon" href="assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
-<style>
-  :root{--canvas:#F5F7FA;--ink:#0E1626;--muted:#5A6B84;--blue:#005CC8;--green:#8BC53F;--border:#E3E8EF}
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:var(--canvas);color:var(--ink);font:400 16px/1.6 'Inter',system-ui,sans-serif;
-       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-  .card{max-width:560px;text-align:left}
-  .mark{font:700 22px/1 'Montserrat',sans-serif;letter-spacing:-.02em}
-  .mark span{color:var(--blue)}
-  .rule{width:44px;height:3px;background:var(--green);border-radius:9999px;margin:26px 0}
-  .eyebrow{font:600 12px/1 'Montserrat',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-  h1{font:700 clamp(26px,4.5vw,36px)/1.2 'Montserrat',sans-serif;letter-spacing:-.02em;margin:14px 0 16px}
-  p{color:var(--muted);max-width:52ch}
-  .cta{display:inline-block;margin-top:28px;font:600 15px/1 'Inter',sans-serif;color:var(--blue);
-       text-decoration:none;border-bottom:2px solid var(--green);padding-bottom:4px}
-  .cta:hover{border-bottom-color:var(--blue)}
-  .foot{margin-top:44px;padding-top:18px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css">
 </head>
-<body>
-  <main class="card">
-    <div class="mark">Nex<span>Point</span></div>
-    <div class="rule"></div>
-    <span class="eyebrow">The NexPoint Global Hub</span>
-    <h1>We're getting the Global Hub ready.</h1>
-    <p>One trusted network for print capacity, milled production and live opportunities across
-    the O&amp;P world — opening properly soon. If you need capacity, a partner or an introduction
-    in the meantime, we'd rather you talked to us directly.</p>
-    <a class="cta" href="mailto:hello@nexpoint.co.uk">Email hello@nexpoint.co.uk</a>
-    <div class="foot">NexPoint — the commercial bridge for Orthotics &amp; Prosthetics worldwide.</div>
-  </main>
+<body data-hub="print">
+<!--
+v3 · 2026-08-15 — the provider's own page. Chris: "You're on a different thread,
+which is about your printer. I don't want to treat you like someone looking, I want
+to treat you differently."
+Location is carried over from the finder rather than asked twice.
+-->
+
+<div class="scroll-progress" aria-hidden="true"></div>
+
+<header>
+  <div class="container nav">
+    <a href="https://nexpoint.co.uk/hub/" class="wordmark" aria-label="NexPoint Global Hub home"><img src="assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Global Hub v3 · Draft</span></a>
+    <nav class="nav-links" aria-label="Global Hub">
+      <a href="index.html" class="hide-m" aria-current="page">Print Hub</a>
+      <a href="https://millhub.nexpoint.co.uk/" class="hide-m">Mill Hub</a>
+      <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities</a>
+      <span data-np-account-slot><a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a></span>
+      <button class="btn btn-primary" onclick="openIntro('PRINT HUB','Talk to the desk')">Talk to the desk</button>
+    </nav>
+  </div>
+</header>
+<nav class="hub-switch" aria-label="Hubs">
+  <a href="https://nexpoint.co.uk/hub/">Global Hub home</a>
+  <a href="index.html" aria-current="page">Print Hub</a>
+  <a href="https://millhub.nexpoint.co.uk/">Mill Hub</a>
+  <a href="https://opportunities.nexpoint.co.uk/">Opportunities</a>
+</nav>
+
+<div class="container">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="https://nexpoint.co.uk/hub/">Global Hub</a><span class="sep">/</span><a href="index.html">Global Print Hub</a><span class="sep">/</span><b>Offer capacity</b></nav>
+</div>
+
+<section class="page-head">
+  <div class="container">
+    <span class="eyebrow"><span class="live-dot"></span>I have capacity</span>
+    <h1>Own printers? <em>Be one of the twenty.</em></h1>
+    <p class="lede">The first twenty laboratories shape the network they'll profit from, and their success stories set the standard for the hundred that follow.</p>
+    <p class="lede">Hosting is by application. Tell us about your lab and machines; Chris or Will reviews every application personally, and nothing is listed — or charged — until we have approved it and you have accepted the Host Agreement.</p>
+  </div>
+</section>
+
+<section style="padding-bottom:var(--section-pad)">
+  <div class="container">
+    <div class="split" style="align-items:start">
+      <div class="enter enter--left">
+        <ul class="benefits">
+          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Priority referrals: hub demand routes to founding nodes first</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Influence over the certification and quality standards</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Preferential pricing, locked for the life of your membership</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>One standard network price, worldwide</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Backup production when a machine goes down, yours or theirs</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Lifetime founding-member recognition across the network</li>
+        </ul>
+        <div class="locked" style="margin-top:24px">
+          <span class="label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Certification, in plain terms</span>
+          <div class="note" style="margin-top:0;font-size:13px;line-height:20px">Approved printers and materials (Nylon 11, Nylon 12, Nylon 12 Tough and Polypropylene) plus calibration, accuracy, inspection, packaging and delivery standards. Members warrant a quality service, not just a product.</div>
+        </div>
+      </div>
+
+      <div class="panel enter enter--right">
+        <div class="steps-head">Host application</div>
+
+        <div class="loc-recall" id="locRecall" hidden>
+          <span class="material-symbols-outlined" aria-hidden="true">where_to_vote</span>
+          <span id="locRecallText"></span>
+          <button type="button" onclick="clearLoc()">Not right? Start again</button>
+        </div>
+
+        <form onsubmit="return joinSubmit(event)">
+          <div class="form-grid">
+            <div class="field"><label for="jCompany">Company name</label><input id="jCompany" required placeholder="Your laboratory"></div>
+            <div class="field"><label for="jName">Your name</label><input id="jName" required placeholder="Full name"></div>
+            <div class="field"><label for="jEmail">Email</label><input id="jEmail" type="email" required placeholder="you@company.com"></div>
+            <div class="field"><label for="jWebsite">Website</label><input id="jWebsite" placeholder="www.company.com"></div>
+            <div class="field"><label for="jRegion">Region</label><select id="jRegion"><option value="">Choose a region</option></select></div>
+            <div class="field"><label for="jCountry">Country</label><input id="jCountry" required placeholder="Country"></div>
+            <div class="field full"><label for="jTown">City / town</label><input id="jTown" placeholder="City or town"></div>
+            <div class="field full"><label for="jPrinters">Printers &amp; materials</label><input id="jPrinters" placeholder="e.g. SLS · Nylon 11, TPU"></div>
+            <div class="field full"><label for="jCapacity">Spare monthly capacity (pairs)</label><input id="jCapacity" placeholder="e.g. 400"></div>
+            <div class="field full"><label for="jNotes">Anything else you think is useful?</label><textarea id="jNotes" placeholder="Lead times, countries you serve, plans"></textarea></div>
+          </div>
+          <div class="privacy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5a8f1d" stroke-width="2" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg> Seen by NexPoint only. We'll confirm your account by email, then verify equipment and standards with you directly.</div>
+          <div class="modal-actions"><button class="btn btn-primary" type="submit">Apply to host</button></div>
+        </form>
+      </div>
+    </div>
+
+    <div style="margin-top:clamp(40px,5vh,64px);padding-top:clamp(28px,3.5vh,40px);border-top:1px solid var(--border)">
+      <p style="font-size:14px;color:var(--on-surface-var);margin-bottom:16px">Looking for capacity rather than offering it? That's the other door.</p>
+      <a class="btn btn-outline" href="find.html">Find print capacity instead</a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer__inner">
+    <div class="footer__brand">
+      <a href="https://nexpoint.co.uk/" aria-label="NexPoint home"><img src="assets/nexpoint-logo.png" alt="NexPoint"></a>
+      <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, and Australia.</p>
+    </div>
+    <div class="footer__col">
+      <h5>Print Hub</h5>
+      <ul>
+        <li><a href="index.html">Print Hub home</a></li>
+        <li><a href="find.html">Find print capacity</a></li>
+        <li><a href="https://nexpoint.co.uk/hub/">Global Hub home</a></li>
+        <li><a href="https://millhub.nexpoint.co.uk/">Global Mill Hub</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>NexPoint</h5>
+      <ul>
+        <li><a href="https://nexpoint.co.uk/">Main site</a></li>
+        <li><a href="https://nexpoint.co.uk/#services">Services</a></li>
+        <li><a href="https://nexpoint.co.uk/#network">Global network</a></li>
+        <li><a href="https://opportunities.nexpoint.co.uk/">The opportunity board</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>Get in touch</h5>
+      <div class="footer__contact">
+        <a href="mailto:hello@nexpoint.co.uk" class="footer__contact-mail">hello@nexpoint.co.uk</a>
+        <div class="footer__socials">
+          <a href="https://www.linkedin.com/company/nexpoint-global/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer__bar">
+    <span>&copy; 2026 NexPoint Ltd. All rights reserved. Capacity figures are illustrative summaries held in confidence; identities, pricing and locations are never published.</span>
+    <div class="footer__bar-links">
+      <a href="https://nexpoint.co.uk/hub/privacy.html">Privacy</a>
+      <a href="https://nexpoint.co.uk/">Main site</a>
+    </div>
+  </div>
+</footer>
+
+<div class="overlay" id="introOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Ask us to introduce you">
+    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    <div id="introContent"></div>
+  </div>
+</div>
+
+<div class="overlay" id="signOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Sign in" style="max-width:440px">
+    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    <div id="signContent">
+      <h2>Welcome back</h2>
+      <p class="body" style="margin-bottom:4px">Sign in to see the board matched to your profile.</p>
+      <div class="form-grid" style="grid-template-columns:1fr;margin-top:24px">
+        <div class="field"><label for="sEmail">Email</label><input id="sEmail" type="email" placeholder="you@company.com"></div>
+        <div class="field"><label for="sPass">Password</label><input id="sPass" type="password" placeholder="Your password"></div>
+      </div>
+      <div class="modal-actions"><button class="btn btn-primary" onclick="signSubmit()">Sign in</button></div>
+      <p class="np-sign-error" style="display:none;color:#E5484D;font:500 13px/1.4 var(--font-body);margin-top:10px"></p>
+      <div class="privacy">New here? <a href="#" onclick="event.preventDefault();closeAll();window.NPAccount&&NPAccount.openQuestionnaire({})" style="color:var(--blue);font-weight:600">Create your hub account</a> — two minutes, in confidence.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var apex = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
+    var s = document.createElement('script'); s.src = apex + '/assets/hub-account.js';
+    document.head.appendChild(s);
+  })();
+</script>
+<script src="assets/portal.js"></script>
 </body>
 </html>
