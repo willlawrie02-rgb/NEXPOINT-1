@@ -107,7 +107,7 @@ const NODE_COUNT = {
    Chris, 14 Aug: "I like the way that you are not promoting one company or one
    product… I don't want MultiJet. We don't know if MJF is going to work with us,
    HP. We don't know if anything's going to happen with Formlabs."
-   `near` = miles when the member is in the same country as the node,
+   `near` = miles when the seeker is in the same country as the node,
    `far`  = miles when they are elsewhere in the region.                      */
 const PRINT_NODES = {
   'North America': [
@@ -532,7 +532,7 @@ function showMatches(){
         <div><dt>Distance</dt><dd>Within ~${miles} miles</dd></div>
         <div><dt>Country</dt><dd><span class="flag-row">${escapeHtml(o.country)}${cross}</span></dd></div>
         <div><dt>Materials</dt><dd>${escapeHtml(o.mat)}</dd></div>
-        <div><dt>Price</dt><dd class="price">US$35 + shipping</dd></div>
+        <div><dt>Price</dt><dd class="price">One standard network price</dd></div>
         <div><dt>Capacity</dt><dd>${escapeHtml(o.cap)}</dd></div>
         <div><dt>Minimum</dt><dd>${escapeHtml(o.min)}</dd></div>
       </dl>
@@ -581,7 +581,7 @@ function showMill(){
         <span class="label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Shared in a personal introduction only</span>
         <ul>
           <li>Partner identity &amp; facilities <span class="blurval">██████ ██████</span></li>
-          <li>Per-pair pricing <span class="blurval">$██ per pair</span></li>
+          <li>Per-pair pricing <span class="blurval">one standard network price</span></li>
           <li>Reference customers <span class="blurval">██████</span></li>
         </ul>
         <div class="note">Identities, pricing and references are never published. They are shared only when both sides agree to meet.</div>
@@ -615,12 +615,12 @@ function initOfferPage(){
     recall.hidden = true;
   }
 
-  /* Signed-in members never retype what's already on their profile.
+  /* Signed-in hosts never retype what's already on their profile.
      The listener is registered unconditionally — it's a plain document event
      that needs nothing loaded — because on the subdomain pages hub-account.js
      arrives via an async, dynamically-injected loader that can land after
      DOMContentLoaded. If we gated the listener behind `window.NPAccount`, a
-     late-loading module would never get subscribed and a signed-in member's
+     late-loading module would never get subscribed and a signed-in host's
      profile would silently never prefill. The module always dispatches
      npaccount:change after its initial /auth/me refresh, so a late load is
      still caught; ready.then covers the case where it was already loaded and
