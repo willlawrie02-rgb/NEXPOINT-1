@@ -9,7 +9,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/opps-explainer.css">
 <style>
   :root{
     --font-display:'Montserrat',system-ui,sans-serif;--font-body:'Inter',system-ui,sans-serif;
@@ -415,7 +414,7 @@
       <a href="#how" class="hide-m">How It Works</a>
       <a href="#post" class="hide-m">Post an opportunity</a>
       <a href="#" id="navSignIn" onclick="event.preventDefault();openSignIn()">Sign in</a>
-      <button class="btn btn-primary" id="navAccess" onclick="openGate()">Become a member</button>
+      <button class="btn btn-primary" id="navAccess" onclick="openGate()">Create your hub account</button>
     </nav>
   </div>
 </header>
@@ -474,22 +473,6 @@
   </div>
 </section>
 
-<!-- WHAT THE HUB DOES -->
-<section class="oxplain" id="what">
-  <div class="container">
-    <span class="eyebrow eyebrow--green">The Global Opportunities Hub</span>
-    <h2>What the Global Opportunities Hub does</h2>
-    <div id="oppsExplainer" class="ox-mount">
-      <div class="ox-board">
-        <div class="ox-panel"><span class="n">01</span><h3>The old way</h3><p>A product proven at home used to mean years of exhibitions, business cards and interviews before it sold abroad.</p></div>
-        <div class="ox-panel"><span class="n">02</span><h3>We know both ends</h3><p>A company in Canada, a distributor in Europe — NexPoint knows people at both ends, thinks of the fit, and introduces you directly.</p></div>
-        <div class="ox-panel"><span class="n">03</span><h3>More than listings</h3><p>Partner discounts we've negotiated on scanners and materials live inside the hub, and the quarterly programmes put what's new in front of the whole community.</p></div>
-        <div class="ox-panel"><span class="n">04</span><h3>A go-to place</h3><p>Products, services, materials and technologies from across the world — browse what might suit you, under no pressure whatsoever.</p></div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- BOARD -->
 <section class="board" id="briefs">
   <div class="container">
@@ -501,7 +484,7 @@
       <a class="btn btn-ghost" href="#post">Have something the network should know about? →</a>
     </div>
     <div class="wall" id="wall">
-      <span class="eyebrow eyebrow--green">Members only · membership is free</span>
+      <span class="eyebrow eyebrow--green">Signed-in only · a hub account takes two minutes</span>
       <h3>Two minutes of questions. Then the board opens, already matched to you.</h3>
       <p>Tell us who you are and what you're after. The board opens with the opportunities that fit you flagged, new opportunities reach you before they're widely seen, and Chris or Will reads every profile personally, where there's an obvious fit, you'll hear from one of us directly.</p>
       <button class="btn btn-primary" onclick="openGate()">Introduce yourself, 2 minutes</button>
@@ -558,7 +541,7 @@
         <li><a href="#briefs">Opportunities</a></li>
         <li><a href="#how">How it works</a></li>
         <li><a href="#post">Post an opportunity</a></li>
-        <li><a onclick="event.preventDefault();openGate()">Become a member</a></li>
+        <li><a onclick="event.preventDefault();openGate()">Create your hub account</a></li>
       </ul>
     </div>
     <div class="footer__col">
@@ -1626,7 +1609,7 @@ function openForm(subject, ref, mode){
     <span class="ref">CONFIDENTIAL, SEEN BY NEXPOINT ONLY</span>
     <h2>${heading}</h2>
     <p style="color:var(--on-surface-var);font-size:14.5px">${leadLine}</p>
-    <p style="color:var(--outline);font-size:13px;margin-top:10px">${post?'Posting':'Requesting'} as <b style="color:var(--green)">${profile.name||'Member'}</b> · ${profile.company||''} · ${profile.type||''} · ${profile.region||''}, from your member profile.</p>
+    <p style="color:var(--outline);font-size:13px;margin-top:10px">${post?'Posting':'Requesting'} as <b style="color:var(--green)">${profile.name||'you'}</b>${[profile.company,profile.type,profile.region].filter(Boolean).length?' · '+[profile.company,profile.type,profile.region].filter(Boolean).join(' · '):''}, from your hub profile.</p>
     <form onsubmit="event.preventDefault();submitCapture(this)">
       <input type="hidden" name="brief_ref" value="${ref||''}">
       ${post?'<input type="hidden" name="enquiry_kind" value="post">':''}
@@ -1704,7 +1687,12 @@ const msgsEl=()=>document.getElementById('chatMsgs');
 const inputEl=()=>document.getElementById('chatInputArea');
 
 function openGate(){
-  if(member){document.getElementById('briefs').scrollIntoView();return;}
+  if(member) return;                                  // already signed in — nothing to do
+  if(window.NPAccount && typeof NPAccount.openQuestionnaire === 'function'){
+    NPAccount.openQuestionnaire({});
+    return;
+  }
+  // hub-account.js failed to load — fall back to the page's own questionnaire, unchanged
   closeAll();
   document.getElementById('chatOverlay').classList.add('open');document.body.style.overflow='hidden';
   stepIdx=0;history=[];profile={};msgsEl().innerHTML='';inputEl().innerHTML='';
@@ -1931,7 +1919,7 @@ function unlock(noScroll){
   grid.classList.remove('preview-blur');
   // header reflects the signed-in state: name/status on the left link, sign-out as the button
   const navSi=document.getElementById('navSignIn');
-  navSi.textContent=`Member · ${(profile.name||'').split(' ')[0]||'You'}`;
+  navSi.textContent=`Signed in · ${(profile.name||'').split(' ')[0]||'You'}`;
   navSi.onclick=(e)=>{e.preventDefault();document.getElementById('briefs').scrollIntoView({behavior:'smooth'});};
   const navAcc=document.getElementById('navAccess');
   navAcc.textContent='Sign out';
@@ -1939,8 +1927,10 @@ function unlock(noScroll){
   navAcc.onclick=signOut;
   const strip=document.getElementById('memberStrip');
   strip.style.display='flex';
-  strip.innerHTML=`<div><div class="who">Signed in as <b>${profile.name||'Member'}</b>, ${profile.company||''}</div>
-    <div class="sub">${[profile.type,profile.region,profile.volume].filter(Boolean).join(' · ')} · Goals: ${(profile.goals||[]).join(', ')||'None'}</div></div>
+  const subParts=[profile.type,profile.region,profile.volume].filter(Boolean);
+  if((profile.goals||[]).length) subParts.push(`Goals: ${profile.goals.join(', ')}`);
+  strip.innerHTML=`<div><div class="who">Signed in as <b>${profile.name||'you'}</b>${profile.company?`, ${profile.company}`:''}</div>
+    ${subParts.length?`<div class="sub">${subParts.join(' · ')}</div>`:''}</div>
     ${matches.size?`<button class="chip active" onclick="document.getElementById('matchedHome').scrollIntoView({behavior:'smooth'})">★ ${matches.size} matched for you</button>`:''}
     <button class="chip" onclick="signOut()">Sign out</button>`;
   const mh=document.getElementById('matchedHome');
@@ -2011,7 +2001,7 @@ function finishGateConfirm(){
 }
 function openSignIn(){
   document.getElementById('formContent').innerHTML=`
-    <span class="ref">MEMBER SIGN IN</span>
+    <span class="ref">HUB SIGN IN</span>
     <h2>Welcome back</h2>
     <form onsubmit="event.preventDefault();doSignIn(this)">
       <div class="form-grid">
@@ -2020,7 +2010,7 @@ function openSignIn(){
       </div>
       <div id="siErr" style="font-size:12.5px;display:none;margin-top:8px"></div>
       <div class="modal-actions"><button class="btn btn-primary" type="submit">Sign in</button></div>
-      <p style="font-size:12px;color:var(--outline);margin-top:12px">New here? <a href="#" onclick="event.preventDefault();closeAll();openGate()" style="color:var(--blue-bright)">Become a member</a> · <a href="#" onclick="event.preventDefault();doReset(this)" style="color:var(--blue-bright)">Forgot password?</a></p>
+      <p style="font-size:12px;color:var(--outline);margin-top:12px">New here? <a href="#" onclick="event.preventDefault();closeAll();openGate()" style="color:var(--blue-bright)">Create your hub account</a> · <a href="#" onclick="event.preventDefault();doReset(this)" style="color:var(--blue-bright)">Forgot password?</a></p>
     </form>`;
   closeAll();document.getElementById('formOverlay').classList.add('open');document.body.style.overflow='hidden';
 }
@@ -2042,7 +2032,7 @@ async function doSignIn(form){
     e.style.color='#ff6b6b';
     e.textContent = d.error==='network'
       ? "That didn't send — check your connection and try again."
-      : "That email and password don't match an account. Check them, or become a member below.";
+      : "That email and password don't match an account. Check them, or create a hub account below.";
     e.style.display='block';
     return;
   }
@@ -2058,11 +2048,33 @@ async function doReset(link){
   await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
   e.style.color='var(--green)';e.textContent='Reset link sent, check your email.';e.style.display='block';
 }
-async function signOut(){ await sb.auth.signOut(); location.reload(); }
+async function signOut(){
+  if(window.NPAccount && typeof NPAccount.signOut === 'function'){ await NPAccount.signOut(); }
+  else { await sb.auth.signOut(); }
+  location.reload();
+}
 
 sb.auth.onAuthStateChange((_e,session)=>{ if(session) onSignedIn(session); });
 sb.auth.getSession().then(({data})=>{ if(data && data.session) onSignedIn(data.session); });
+
+/* ===== NPAccount — the one hub account, unifying the gate ===== */
+function accountProfile(u){
+  return {
+    name: u.name||'', company: u.company||'', email: u.email||'',
+    region: [u.town,u.country].filter(Boolean).join(', ')||u.region||'',
+    type:'', volume:'', goals:[], pressing:[], timeline:''
+  };
+}
+function syncMemberFromAccount(){
+  if(!(window.NPAccount && NPAccount.user)) return;    // signed out of the hub account — a legacy local session (if any) keeps ownership; never auto-relock
+  if(member){ Object.assign(profile,accountProfile(NPAccount.user)); return; }  // already unlocked — just refresh identity fields
+  inSignup=false;
+  profile=accountProfile(NPAccount.user);
+  matches=computeMatches();
+  unlock(true);
+}
+document.addEventListener('npaccount:change',syncMemberFromAccount);
+syncMemberFromAccount();   // covers the case where NPAccount finished its /auth/me check before this listener was attached
 </script>
-<script src="assets/opps-explainer.js"></script>
 </body>
 </html>
