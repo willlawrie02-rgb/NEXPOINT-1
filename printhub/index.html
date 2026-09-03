@@ -1,362 +1,42 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en-GB">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Global Print Hub — The NexPoint Global Hub</title>
-<link rel="icon" href="assets/nexpoint-logo.png">
+<title>The NexPoint Global Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/portal.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--canvas:#F5F7FA;--ink:#0E1626;--muted:#5A6B84;--blue:#005CC8;--green:#8BC53F;--border:#E3E8EF}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--canvas);color:var(--ink);font:400 16px/1.6 'Inter',system-ui,sans-serif;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{max-width:560px;text-align:left}
+  .mark{font:700 22px/1 'Montserrat',sans-serif;letter-spacing:-.02em}
+  .mark span{color:var(--blue)}
+  .rule{width:44px;height:3px;background:var(--green);border-radius:9999px;margin:26px 0}
+  .eyebrow{font:600 12px/1 'Montserrat',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  h1{font:700 clamp(26px,4.5vw,36px)/1.2 'Montserrat',sans-serif;letter-spacing:-.02em;margin:14px 0 16px}
+  p{color:var(--muted);max-width:52ch}
+  .cta{display:inline-block;margin-top:28px;font:600 15px/1 'Inter',sans-serif;color:var(--blue);
+       text-decoration:none;border-bottom:2px solid var(--green);padding-bottom:4px}
+  .cta:hover{border-bottom-color:var(--blue)}
+  .foot{margin-top:44px;padding-top:18px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
+</style>
 </head>
-<body data-hub="print">
-<!--
-v3 · 2026-08-15 — rebuilt from Chris's 14 Aug review.
-ORDER: hero → the four opportunity rows (his "priority one") → two doors (the action)
-       → how it works, demoted to footer-weight detail.
-CHANGED: step 04 "The file moves" deleted — NexPoint is not in the transactional
-relationship · step 05 no longer claims every lab carries your brand · "Printers
-sitting idle" → "3D print capacity available" · seeker and provider now have their
-own pages · logo path fixed.
--->
-
-<div class="scroll-progress" aria-hidden="true"></div>
-
-<header>
-  <div class="container nav">
-    <a href="https://nexpoint.co.uk/hub/" class="wordmark" aria-label="NexPoint Global Hub home"><img src="assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Global Hub v3 · Draft</span></a>
-    <nav class="nav-links" aria-label="Global Hub">
-      <a href="index.html" class="hide-m" aria-current="page">Print Hub</a>
-      <a href="https://millhub.nexpoint.co.uk/" class="hide-m">Mill Hub</a>
-      <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities</a>
-      <span data-np-account-slot><a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a></span>
-      <button class="btn btn-primary" onclick="openIntro('PRINT HUB','Talk to the desk')">Talk to the desk</button>
-    </nav>
-  </div>
-</header>
-<nav class="hub-switch" aria-label="Hubs">
-  <a href="https://nexpoint.co.uk/hub/">Global Hub home</a>
-  <a href="index.html" aria-current="page">Print Hub</a>
-  <a href="https://millhub.nexpoint.co.uk/">Mill Hub</a>
-  <a href="https://opportunities.nexpoint.co.uk/">Opportunities</a>
-</nav>
-
-<div class="container">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="https://nexpoint.co.uk/hub/">Global Hub</a><span class="sep">/</span><b>Global Print Hub</b></nav>
-</div>
-
-<!-- HERO -->
-<section class="hub-hero">
-  <div class="container">
-    <div class="grid">
-      <div>
-        <span class="eyebrow"><span class="live-dot"></span>Global Print Hub</span>
-        <h1>The file travels.<br><em>Not the product.</em></h1>
-        <p class="lede">Certified labs print each other's work close to the end customer — founding nodes joining across six regions now. No freight, no customs, no import taxes: a device printed and shipped inside the destination market, at one standard network price.</p>
-        <div class="ctas">
-          <a class="btn btn-primary" href="find.html">Find print capacity</a>
-          <a class="btn btn-outline" href="offer.html">Offer print capacity</a>
-        </div>
-      </div>
-      <div class="hero-media">
-        <!-- The headline, acted out: the FILE crosses the lane; the PRODUCT is printed at the
-             far end and only hops next door. Counterpart to the mill hub's mill-to-door
-             sequence — same construction, opposite story. Self-contained SVG + CSS, 12s loop,
-             brand tokens only. Reduced motion gets the finished diagram: file sent, part
-             printed and delivered at the door. -->
-        <svg id="printAnim" viewBox="0 0 800 500" role="img" style="display:block;width:100%;height:auto;background:#fff"
-             aria-label="A design file travels from your lab across the network; the insole is 3D-printed close to the end customer and delivered locally">
-          <title>The file travels — the product is printed next door</title>
-          <style>
-            #printAnim .albl{font:600 11px var(--font-body,Inter,sans-serif);letter-spacing:.09em;fill:rgba(14,22,38,.55)}
-            #printAnim .apill{font:600 10px var(--font-body,Inter,sans-serif);letter-spacing:.08em;fill:#5a8f1d}
-            @keyframes ppDyn{0%,95%{opacity:1}98%,99%{opacity:0}100%{opacity:1}}
-            #ppDyn{animation:ppDyn 12s linear infinite}
-            @keyframes ppPacket{0%,5%{opacity:0;transform:translateX(0)}8%,9%{opacity:1;transform:translateX(0)}
-              21%{opacity:1;transform:translateX(224px)}24%,99%{opacity:0;transform:translateX(224px)}
-              99.5%,100%{opacity:0;transform:translateX(0)}}
-            #ppPacket{animation:ppPacket 12s cubic-bezier(.4,.05,.3,1) infinite}
-            @keyframes ppHead{0%,26%{transform:translateX(0)}34%{transform:translateX(96px)}42%{transform:translateX(0)}
-              50%{transform:translateX(96px)}58%,100%{transform:translateX(0)}}
-            #ppHead{animation:ppHead 12s cubic-bezier(.45,.1,.55,.9) infinite}
-            @keyframes ppWipe{0%,26%{transform:scaleY(0)}58%,98%{transform:scaleY(1)}99.5%,100%{transform:scaleY(0)}}
-            #ppWipeRect{transform-box:fill-box;transform-origin:center bottom;animation:ppWipe 12s linear infinite}
-            @keyframes ppHop{0%,65%{transform:translate(0,0)}68.5%{transform:translate(70px,-8px)}
-              72%,98.5%{transform:translate(141px,16px)}100%{transform:translate(0,0)}}
-            #ppHop{animation:ppHop 12s cubic-bezier(.3,.1,.4,1) infinite}
-            @keyframes ppHalo{0%,72%{opacity:0;transform:scale(.5)}74.5%{opacity:.45}79%{opacity:0;transform:scale(1.3)}
-              80%{opacity:0;transform:scale(.5)}82.5%{opacity:.3}87%,100%{opacity:0;transform:scale(1.3)}}
-            #ppHalo{transform-box:fill-box;transform-origin:center;animation:ppHalo 12s linear infinite}
-            @keyframes ppPill{0%,73%{opacity:0;transform:translateY(5px)}76.5%,94%{opacity:1;transform:translateY(0)}97%,100%{opacity:0;transform:translateY(0)}}
-            #ppPillG{animation:ppPill 12s cubic-bezier(.2,.8,.2,1) infinite}
-            @media (prefers-reduced-motion:reduce){#printAnim *{animation:none !important}}
-          </style>
-
-          <g transform="translate(0,-50)"><!-- scene, centred in the panel -->
-          <!-- static furniture -->
-          <line x1="70" y1="360" x2="250" y2="360" stroke="rgba(14,22,38,.16)" stroke-width="1.5"/>
-          <line x1="470" y1="360" x2="740" y2="360" stroke="rgba(14,22,38,.16)" stroke-width="1.5"/>
-          <line x1="254" y1="360" x2="462" y2="360" stroke="rgba(0,92,200,.30)" stroke-width="1.5" stroke-dasharray="2 8"/>
-          <polyline points="456,354 464,360 456,366" fill="none" stroke="rgba(0,92,200,.35)" stroke-width="1.5"/>
-          <!-- the file card -->
-          <rect x="120" y="250" width="110" height="140" rx="8" fill="#fff" stroke="#E3E7ED" stroke-width="1.5"/>
-          <g transform="translate(135,287) scale(.42)">
-            <path fill="none" stroke="var(--blue,#005CC8)" stroke-width="5" stroke-linecap="round"
-              d="M 8,40 C 8,16 30,6 54,8 C 90,10 118,16 148,12 C 172,9 190,18 191,38 C 190,58 172,68 146,64 C 118,60 96,50 66,56 C 38,62 8,60 8,40 Z"/>
-          </g>
-          <line x1="140" y1="340" x2="210" y2="340" stroke="#E3E7ED" stroke-width="3" stroke-linecap="round"/>
-          <line x1="140" y1="354" x2="192" y2="354" stroke="#E3E7ED" stroke-width="3" stroke-linecap="round"/>
-          <!-- the local printer -->
-          <rect x="490" y="245" width="150" height="125" rx="8" fill="none" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
-          <line x1="500" y1="270" x2="630" y2="270" stroke="rgba(44,52,68,.30)" stroke-width="1.5"/>
-          <line x1="505" y1="346" x2="625" y2="346" stroke="rgba(44,52,68,.30)" stroke-width="1.5"/>
-          <!-- the customer's door -->
-          <line x1="668" y1="258" x2="668" y2="360" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
-          <line x1="744" y1="258" x2="744" y2="360" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
-          <line x1="658" y1="258" x2="754" y2="258" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
-          <text class="albl" x="175" y="394" text-anchor="middle">YOUR FILE</text>
-          <text class="albl" x="706" y="394" text-anchor="middle">THEIR DOOR</text>
-
-          <g id="ppDyn">
-            <!-- the file, travelling -->
-            <g id="ppPacket" opacity="0">
-              <rect x="240" y="336" width="16" height="20" rx="2" fill="#fff" stroke="var(--blue,#005CC8)" stroke-width="2"/>
-              <line x1="244" y1="343" x2="252" y2="343" stroke="var(--blue,#005CC8)" stroke-width="1.5"/>
-              <line x1="244" y1="349" x2="250" y2="349" stroke="var(--blue,#005CC8)" stroke-width="1.5"/>
-            </g>
-            <!-- the recoater head -->
-            <g id="ppHead" transform="translate(0,0)">
-              <rect x="504" y="264" width="28" height="12" rx="3" fill="#fff" stroke="rgba(44,52,68,.5)" stroke-width="1.5"/>
-              <line x1="518" y1="276" x2="518" y2="283" stroke="rgba(44,52,68,.5)" stroke-width="2"/>
-            </g>
-            <!-- the part, printed layer by layer, then the short hop to the door -->
-            <g id="ppHop" transform="translate(141,16)">
-              <mask id="ppWipeMask"><rect id="ppWipeRect" x="518" y="308" width="90" height="40" fill="#fff"/></mask>
-              <g mask="url(#ppWipeMask)">
-                <g transform="translate(525.2,316.8) scale(.4)">
-                  <path fill="rgba(0,92,200,.06)" stroke="var(--blue,#005CC8)" stroke-width="6" stroke-linecap="round"
-                    d="M 8,40 C 8,16 30,6 54,8 C 90,10 118,16 148,12 C 172,9 190,18 191,38 C 190,58 172,68 146,64 C 118,60 96,50 66,56 C 38,62 8,60 8,40 Z"/>
-                  <clipPath id="ppPartClip">
-                    <path d="M 8,40 C 8,16 30,6 54,8 C 90,10 118,16 148,12 C 172,9 190,18 191,38 C 190,58 172,68 146,64 C 118,60 96,50 66,56 C 38,62 8,60 8,40 Z"/>
-                  </clipPath>
-                  <g clip-path="url(#ppPartClip)" stroke="rgba(0,92,200,.28)" stroke-width="2.5">
-                    <line x1="0" y1="18" x2="199" y2="18"/><line x1="0" y1="30" x2="199" y2="30"/>
-                    <line x1="0" y1="42" x2="199" y2="42"/><line x1="0" y1="54" x2="199" y2="54"/>
-                  </g>
-                </g>
-              </g>
-            </g>
-            <!-- arrival -->
-            <circle id="ppHalo" cx="706" cy="345" r="30" fill="none" stroke="var(--green,#8BC53F)" stroke-width="2" opacity="0"/>
-            <g id="ppPillG" opacity="1">
-              <rect x="634" y="210" width="144" height="26" rx="13" fill="#fff" stroke="rgba(14,22,38,.12)"/>
-              <circle cx="650" cy="223" r="4" fill="var(--green,#8BC53F)"/>
-              <text class="apill" x="661" y="227">PRINTED LOCALLY</text>
-            </g>
-          </g>
-          </g>
-        </svg>
-        <span class="tag"><span class="live-dot"></span>One standard network price, worldwide</span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- NETWORK BAND -->
-<section>
-  <div class="container">
-    <div class="net-band">
-      <div class="net enter enter--up" style="--d:0ms"><b>20</b><span>founding labs<br>the target, by design</span></div>
-      <div class="net enter enter--up" style="--d:60ms"><b>30+</b><span>production printers<br>sought across the cohort</span></div>
-      <div class="net enter enter--up" style="--d:120ms"><b>6</b><span>regions<br>opening to founding labs</span></div>
-    </div>
-  </div>
-</section>
-
-<!-- PRIORITY ONE: why you'd bother -->
-
-<!-- PRIORITY TWO: the action. Two doors, two audiences, two pages. -->
-<section class="section">
-  <div class="container">
-    <div class="enter enter--up">
-      <h2>Which side of the network are you on?</h2>
-      <p class="sub">The two journeys are different, so they get different pages. Pick yours.</p>
-    </div>
-    <div class="doors">
-      <a class="door enter enter--up" style="--d:0ms" href="find.html">
-        <div class="door__media"><img src="assets/img/print-hub.jpg" alt=""></div>
-        <div class="door__body">
-          <span class="door__kicker">I need capacity</span>
-          <h3>Find print capacity near you</h3>
-          <p>Start on the map. Three clicks and you can see what the network can print close to your customers.</p>
-          <span class="go">Open the capacity map <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </div>
-      </a>
-      <a class="door enter enter--up" style="--d:70ms" href="offer.html">
-        <div class="door__media"><img src="assets/img/product-hub.jpg" alt=""></div>
-        <div class="door__body">
-          <span class="door__kicker">I have capacity</span>
-          <h3>Offer print capacity</h3>
-          <p>Own printers? Twenty founding laboratories shape the network they'll profit from.</p>
-          <span class="go">Apply to host <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </div>
-      </a>
-    </div>
-  </div>
-</section>
-<section class="section alt">
-  <div class="container">
-    <div class="enter enter--up">
-    <h2>Built for the labs the printer market left in between.</h2>
-    <p class="sub">Whether you own no printer or five, the hub turns the network's spare capacity into your capacity.</p>
-    </div>
-    <div class="rows">
-      <div class="row enter enter--up" style="--d:0ms">
-        <span class="material-symbols-outlined" aria-hidden="true">print_disabled</span>
-        <span class="lead">No printer yet</span>
-        <p>A trusted route to certified capacity at one standard network price. Try 3D printing on real orders before you buy the machine.</p>
-      </div>
-      <div class="row enter enter--up" style="--d:70ms">
-        <span class="material-symbols-outlined" aria-hidden="true">precision_manufacturing</span>
-        <span class="lead">3D print capacity available</span>
-        <p>You already own the printer. Hub volume fills your build plates between your own jobs, and helps justify the next machine at lower risk.</p>
-      </div>
-      <div class="row enter enter--up" style="--d:140ms">
-        <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
-        <span class="lead">Selling into a market you can't ship to</span>
-        <p>Reach customers abroad without the logistics. Your file prints inside the destination country and ships domestically: days instead of weeks, no customs, no import duty, and no parcel ever crosses a border.</p>
-      </div>
-      <div class="row enter enter--up" style="--d:210ms">
-        <span class="material-symbols-outlined" aria-hidden="true">grid_view</span>
-        <span class="lead">Missing a technology</span>
-        <p>You run SLS but not powder-bed fusion; you print TPU but not resin. Take the jobs your own machines can't do by placing them with a lab that can, instead of owning every printer and stocking every material yourself.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- DETAIL, demoted: how it works -->
-<section class="section">
-  <div class="container">
-    <div class="enter enter--up">
-    <h2>How the Print Hub works</h2>
-    <p class="sub">Five steps, and only the file moves. Quality is held by certification: approved printers and materials, calibration, inspection, packaging and delivery standards.</p>
-    </div>
-    <div class="steps" style="grid-template-columns:repeat(5,minmax(0,1fr))">
-      <div class="step enter enter--up" style="--d:0ms"><span class="n">01</span><h3>Join &amp; verify</h3><p>We verify every lab's equipment, materials, print quality and production standards before it joins.</p></div>
-      <div class="step enter enter--up" style="--d:60ms"><span class="n">02</span><h3>Build your profile</h3><p>Printers, build sizes, materials, capacity, lead times and the countries you serve: your entry on the capacity map.</p></div>
-      <div class="step enter enter--up" style="--d:120ms"><span class="n">03</span><h3>Demand arrives</h3><p>Search the network yourself, or ask us to recommend the right partner for the job.</p></div>
-      <div class="step enter enter--up" style="--d:180ms"><span class="n">04</span><h3>Printed locally</h3><p>The receiving lab prints, packages and ships inside the destination market, to the network's standard. Branding and finish are agreed between the two labs.</p></div>
-      <div class="step enter enter--up" style="--d:240ms"><span class="n">05</span><h3>Everyone earns</h3><p>The lab's own invoice is paid at the standard network price; billing, shipping and warranty run direct between the two parties.</p></div>
-    </div>
-
-    <div class="locked" style="margin-top:36px;max-width:760px">
-      <span class="label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Certification, in plain terms</span>
-      <div class="note" style="margin-top:0;font-size:13px;line-height:20px">Approved printers and materials (Nylon 11, Nylon 12, Nylon 12 Tough and Polypropylene) plus calibration, accuracy, inspection, packaging and delivery standards. Members warrant a quality service, not just a product.</div>
-    </div>
-  </div>
-</section>
-
-<!-- NEXT HUB -->
-<section class="section next-hub" style="padding-bottom:0;padding-top:0">
-  <div class="container">
-    <a class="enter enter--rise" href="https://millhub.nexpoint.co.uk/">
-      <div class="txt">
-        <span class="kicker">Next door</span>
-        <h3>Milled production, run as your own line — the Global Mill Hub <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></h3>
-      </div>
-      <img src="assets/img/mill-hub.jpg" alt="CNC mill cutting a custom orthotic insole from a polypropylene blank">
-    </a>
-  </div>
-</section>
-
-<section class="post" style="padding-top:clamp(24px,3vh,40px)">
-  <div class="container">
-    <div class="post-inner enter enter--rise">
-      <h2>Not sure which side you're on? Ask the desk.</h2>
-      <p>Tell us once. We hold your name back, put it to the network, and bring you matched, qualified conversations, instead of you knocking on doors one at a time.</p>
-      <button class="btn btn-primary" onclick="openIntro('PRINT HUB','Start at the desk')">Start at the desk, two minutes</button>
-    </div>
-  </div>
-</section>
-
-<footer class="footer">
-  <div class="footer__inner">
-    <div class="footer__brand">
-      <a href="https://nexpoint.co.uk/" aria-label="NexPoint home"><img src="assets/nexpoint-logo.png" alt="NexPoint"></a>
-      <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, and Australia.</p>
-    </div>
-    <div class="footer__col">
-      <h5>Print Hub</h5>
-      <ul>
-        <li><a href="find.html">Find print capacity</a></li>
-        <li><a href="offer.html">Offer print capacity</a></li>
-        <li><a href="https://nexpoint.co.uk/hub/">Global Hub home</a></li>
-        <li><a href="https://millhub.nexpoint.co.uk/">Global Mill Hub</a></li>
-      </ul>
-    </div>
-    <div class="footer__col">
-      <h5>NexPoint</h5>
-      <ul>
-        <li><a href="https://nexpoint.co.uk/">Main site</a></li>
-        <li><a href="https://nexpoint.co.uk/#services">Services</a></li>
-        <li><a href="https://nexpoint.co.uk/#network">Global network</a></li>
-        <li><a href="https://opportunities.nexpoint.co.uk/">The opportunity board</a></li>
-      </ul>
-    </div>
-    <div class="footer__col">
-      <h5>Get in touch</h5>
-      <div class="footer__contact">
-        <a href="mailto:hello@nexpoint.co.uk" class="footer__contact-mail">hello@nexpoint.co.uk</a>
-        <div class="footer__socials">
-          <a href="https://www.linkedin.com/company/nexpoint-global/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg></a>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="footer__bar">
-    <span>&copy; 2026 NexPoint Ltd. All rights reserved. Capacity figures are illustrative summaries held in confidence; identities, pricing and locations are never published.</span>
-    <div class="footer__bar-links">
-      <a href="https://nexpoint.co.uk/hub/privacy.html">Privacy</a>
-      <a href="https://nexpoint.co.uk/">Main site</a>
-    </div>
-  </div>
-</footer>
-
-<div class="overlay" id="introOverlay" onclick="if(event.target===this)closeAll()">
-  <div class="modal" role="dialog" aria-modal="true" aria-label="Ask us to introduce you">
-    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
-    <div id="introContent"></div>
-  </div>
-</div>
-
-<div class="overlay" id="signOverlay" onclick="if(event.target===this)closeAll()">
-  <div class="modal" role="dialog" aria-modal="true" aria-label="Sign in" style="max-width:440px">
-    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
-    <div id="signContent">
-      <h2>Welcome back</h2>
-      <p class="body" style="margin-bottom:4px">Sign in to see the board matched to your profile.</p>
-      <div class="form-grid" style="grid-template-columns:1fr;margin-top:24px">
-        <div class="field"><label for="sEmail">Email</label><input id="sEmail" type="email" placeholder="you@company.com"></div>
-        <div class="field"><label for="sPass">Password</label><input id="sPass" type="password" placeholder="Your password"></div>
-      </div>
-      <div class="modal-actions"><button class="btn btn-primary" onclick="signSubmit()">Sign in</button></div>
-      <p class="np-sign-error" style="display:none;color:#E5484D;font:500 13px/1.4 var(--font-body);margin-top:10px"></p>
-      <div class="privacy">New here? <a href="#" onclick="event.preventDefault();closeAll();window.NPAccount&&NPAccount.openQuestionnaire({})" style="color:var(--blue);font-weight:600">Create your hub account</a> — two minutes, in confidence.</div>
-    </div>
-  </div>
-</div>
-
-<script>
-  (function () {
-    var apex = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
-    var s = document.createElement('script'); s.src = apex + '/assets/hub-account.js';
-    document.head.appendChild(s);
-  })();
-</script>
-<script src="assets/portal.js"></script>
+<body>
+  <main class="card">
+    <div class="mark">Nex<span>Point</span></div>
+    <div class="rule"></div>
+    <span class="eyebrow">The NexPoint Global Hub</span>
+    <h1>We're getting the Global Hub ready.</h1>
+    <p>One trusted network for print capacity, milled production and live opportunities across
+    the O&amp;P world — opening properly soon. If you need capacity, a partner or an introduction
+    in the meantime, we'd rather you talked to us directly.</p>
+    <a class="cta" href="mailto:hello@nexpoint.co.uk">Email hello@nexpoint.co.uk</a>
+    <div class="foot">NexPoint — the commercial bridge for Orthotics &amp; Prosthetics worldwide.</div>
+  </main>
 </body>
 </html>
