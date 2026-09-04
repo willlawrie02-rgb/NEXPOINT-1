@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Platform Terms — The NexPoint Global Hub</title>
+<link rel="icon" href="../../assets/nexpoint-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/portal.css">
+<style>
+  .terms-wrap{max-width:720px;margin:0 auto;padding:clamp(36px,5.5vh,64px) var(--side-pad) clamp(64px,9vh,112px)}
+  .terms-wrap h1{font:700 clamp(26px,3.4vw,36px)/1.2 var(--font-display);letter-spacing:-.02em;color:#0E1626;margin:0 0 8px}
+  .terms-meta{font-size:13px;color:var(--on-surface-var);margin:0 0 32px}
+  .terms-body h1,.terms-body h2,.terms-body h3,.terms-body h4{font-family:var(--font-display);color:#0E1626;margin:28px 0 10px}
+  .terms-body h2{font-size:20px;font-weight:600}
+  .terms-body h3{font-size:17px;font-weight:600}
+  .terms-body h1:first-child,.terms-body h2:first-child,.terms-body h3:first-child{margin-top:0}
+  .terms-body p{font-size:15px;line-height:1.7;color:var(--on-surface);margin:0 0 14px}
+  .terms-body ul{margin:0 0 14px 20px}
+  .terms-body li{font-size:15px;line-height:1.65;color:var(--on-surface);margin-bottom:6px}
+  .terms-loading{color:var(--on-surface-var);font-size:14px;padding:40px 0}
+  .terms-back{display:inline-block;margin-bottom:24px;font-size:13.5px;font-weight:600;color:var(--blue)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container nav">
+    <a href="https://nexpoint.co.uk/hub/" class="wordmark" aria-label="NexPoint Global Hub home"><img src="../../assets/nexpoint-logo.png" alt="NexPoint"></a>
+  </div>
+</header>
+
+<div class="terms-wrap">
+  <a class="terms-back" href="https://nexpoint.co.uk/hub/">← The NexPoint Global Hub</a>
+  <h1>Platform Terms</h1>
+  <p class="terms-meta" id="termsMeta">Loading…</p>
+  <div id="termsBody"><div class="terms-loading">Loading the current Platform Terms…</div></div>
+</div>
+
+<script>
+/* Public terms page (spec §6, layer 1). No sign-in, no fetch credentials needed —
+   /terms/current is a public read. Renders body_md with a small, safe markdown-lite
+   transform: escape everything first, then wrap a narrow whitelist of patterns
+   (headings, lists, paragraphs, bold/italic) in tags. No external libraries. */
+const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const API = local ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
+
+function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function fmtDate(iso){
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }); }
+  catch (e) { return iso; }
+}
+function renderMarkdownLite(md){
+  const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+  let html = '', inList = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  const inline = (s) => escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+  lines.forEach((raw) => {
+    const line = raw.trim();
+    if (!line) { closeList(); return; }
+    const h = /^(#{1,4})\s+(.*)$/.exec(line);
+    if (h) { closeList(); const lvl = Math.min(h[1].length + 1, 6); html += `<h${lvl}>${inline(h[2])}</h${lvl}>`; return; }
+    const li = /^[-*]\s+(.*)$/.exec(line);
+    if (li) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(li[1])}</li>`; return; }
+    closeList();
+    html += `<p>${inline(line)}</p>`;
+  });
+  closeList();
+  return html;
+}
+
+async function load(){
+  let d;
+  try { d = await fetch(API + '/terms/current?layer=platform').then((r) => r.json()); }
+  catch (e) { d = { error: 'network' }; }
+  if (!d || d.error || !d.body_md) {
+    document.getElementById('termsMeta').textContent = '';
+    document.getElementById('termsBody').innerHTML = '<p style="color:var(--on-surface-var)">We could not load the current Platform Terms — try again, or email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
+    return;
+  }
+  const metaParts = [];
+  if (d.version) metaParts.push('Version ' + d.version);
+  if (d.effective_at) metaParts.push('effective ' + fmtDate(d.effective_at));
+  document.getElementById('termsMeta').textContent = metaParts.join(' · ');
+  const body = document.getElementById('termsBody');
+  body.className = 'terms-body';
+  body.innerHTML = renderMarkdownLite(d.body_md);
+}
+load();
+</script>
+</body>
+</html>

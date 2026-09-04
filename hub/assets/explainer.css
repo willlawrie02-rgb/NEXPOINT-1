@@ -1,7 +1,6 @@
-/* Global Hub explainer — static storyboard (the permanent interim rendering
-   until the single explainer video ships; concept §8.3). Animation chrome
-   retired with hub/assets/explainer.js. Palette and type ride on portal.css
-   tokens; no new colours. */
+/* Global Hub explainer — static storyboard (signed story, approved
+   2026-09-03). Animation deferred until the scenes are remade with Chris.
+   Palette and type ride on portal.css tokens; no new colours. */
 
 .hero-how{color:var(--blue);font:600 14px/1 var(--font-body);text-decoration:none;border-bottom:2px solid var(--green)}
 .hero-how:hover{border-bottom-color:var(--blue)}

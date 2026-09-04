@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Accept an introduction — The NexPoint Global Hub</title>
+<link rel="icon" href="../assets/nexpoint-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css">
+<style>
+  .acc-wrap{max-width:560px;margin:0 auto;padding:clamp(40px,7vh,80px) var(--side-pad) clamp(60px,8vh,96px)}
+  .terms-scroll{max-height:240px;overflow-y:auto;border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:14px 16px;margin:14px 0;background:var(--bg-alt);font-size:13.5px;line-height:1.6;color:var(--on-surface)}
+  .terms-scroll h1,.terms-scroll h2,.terms-scroll h3{font:600 14.5px/1.3 var(--font-display);color:#0E1626;margin:12px 0 6px}
+  .terms-scroll h1:first-child,.terms-scroll h2:first-child,.terms-scroll h3:first-child{margin-top:0}
+  .terms-scroll p{margin:0 0 10px}
+  .terms-scroll ul{margin:0 0 10px 18px}
+  .terms-scroll li{margin-bottom:5px}
+  .np-terms-tick{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:19px;color:var(--on-surface);cursor:pointer;margin:6px 0 4px}
+  .np-terms-tick input{margin-top:2px;accent-color:var(--blue)}
+  .acc-loading{color:var(--on-surface-var);font-size:14px;padding:40px 0;text-align:center}
+  .acc-meta{font-size:13px;color:var(--on-surface-var);margin:0 0 6px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container nav">
+    <a href="index.html" class="wordmark" aria-label="NexPoint Global Hub home"><img src="../assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Global Hub v3 · Draft</span></a>
+    <nav class="nav-links" aria-label="Global Hub">
+      <span data-np-account-slot><a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a></span>
+    </nav>
+  </div>
+</header>
+
+<div class="acc-wrap">
+  <div class="panel" id="accBody"><div class="acc-loading">Loading…</div></div>
+</div>
+
+<div class="overlay" id="signOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Sign in" style="max-width:440px">
+    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    <div id="signContent">
+      <h2>Welcome back</h2>
+      <p class="body" style="margin-bottom:4px">Sign in to accept this introduction.</p>
+      <div class="form-grid" style="grid-template-columns:1fr;margin-top:24px">
+        <div class="field"><label for="sEmail">Email</label><input id="sEmail" type="email" placeholder="you@company.com"></div>
+        <div class="field"><label for="sPass">Password</label><input id="sPass" type="password" placeholder="Your password"></div>
+      </div>
+      <div class="modal-actions"><button class="btn btn-primary" onclick="signSubmit()">Sign in</button></div>
+      <p class="np-sign-error" style="display:none"></p>
+      <div class="privacy">New here? <a href="#" onclick="event.preventDefault();closeAll();window.NPAccount&&NPAccount.openQuestionnaire({})" style="color:var(--blue);font-weight:600">Create your hub account</a> — two minutes, in confidence.</div>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/hub-account.js"></script>
+<script>
+/* Sign-in overlay: same markup/behaviour as hub/index.html, trimmed. hub-account.js's
+   header chip calls a bare openSignIn(), so every page that loads it must define one
+   (plan §0.4). After signing in, this reloads so the acceptance body re-renders signed in. */
+let lastFocus = null;
+function openOverlay(id){
+  lastFocus = document.activeElement;
+  const ov = document.getElementById(id);
+  ov.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  const modal = ov.querySelector('.modal');
+  if (modal){ modal.setAttribute('tabindex','-1'); modal.focus(); }
+}
+function closeAll(){
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('open'));
+  document.body.style.overflow = '';
+  if (lastFocus && lastFocus.focus){ lastFocus.focus(); lastFocus = null; }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+function openSignIn(){ openOverlay('signOverlay'); }
+async function signSubmit(){
+  const email = (document.getElementById('sEmail') || {}).value || '';
+  const pass = (document.getElementById('sPass') || {}).value || '';
+  const err = document.querySelector('#signContent .np-sign-error');
+  if (!window.NPAccount){ if (err){ err.style.display = 'block'; err.textContent = 'Accounts are briefly unavailable — email hello@nexpoint.co.uk and we will help directly.'; } return; }
+  const d = await NPAccount.signIn(email.trim(), pass);
+  if (d.ok){ closeAll(); loadAcceptance(); }
+  else if (err){
+    err.style.display = 'block';
+    err.textContent = d.error === 'network'
+      ? 'That didn\'t send — check your connection and try again.'
+      : 'That email and password don\'t match an account. Check them, or create your hub account below.';
+  }
+}
+
+function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function fmtDate(iso){
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }); }
+  catch (e) { return iso; }
+}
+function hubLabel(h){ return h === 'mill' ? 'Mill Hub' : h === 'print' ? 'Print Hub' : (h || ''); }
+function renderMarkdownLite(md){
+  const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+  let html = '', inList = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  const inline = (s) => escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+  lines.forEach((raw) => {
+    const line = raw.trim();
+    if (!line) { closeList(); return; }
+    const h = /^(#{1,4})\s+(.*)$/.exec(line);
+    if (h) { closeList(); const lvl = Math.min(h[1].length + 2, 6); html += `<h${lvl}>${inline(h[2])}</h${lvl}>`; return; }
+    const li = /^[-*]\s+(.*)$/.exec(line);
+    if (li) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(li[1])}</li>`; return; }
+    closeList();
+    html += `<p>${inline(line)}</p>`;
+  });
+  closeList();
+  return html;
+}
+
+function introIdFromQuery(){
+  const v = new URLSearchParams(location.search).get('intro');
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+function renderPlain(title, body){
+  document.getElementById('accBody').innerHTML = `<h2>${escapeHtml(title)}</h2><p class="body">${escapeHtml(body)}</p>`;
+}
+
+function renderSignedOut(){
+  document.getElementById('accBody').innerHTML = `
+    <h2>Sign in to accept this introduction</h2>
+    <p class="body" style="margin-bottom:22px">This link is for a specific introduction on your account.</p>
+    <div class="modal-actions"><button class="btn btn-primary" type="button" onclick="openSignIn()">Sign in</button></div>`;
+}
+
+async function loadAcceptance(){
+  const introId = introIdFromQuery();
+  if (!introId) { renderPlain('Link incomplete', 'This link is missing its introduction reference. Use the link from your email, or find the introduction on your dashboard.'); return; }
+  if (!window.NPAccount) { renderSignedOut(); return; }
+  await NPAccount.ready;
+  if (!NPAccount.user) { renderSignedOut(); return; }
+
+  document.getElementById('accBody').innerHTML = '<div class="acc-loading">Loading the introduction…</div>';
+  let d;
+  try { d = await fetch(NPAccount.api + '/account/summary', { credentials: 'include' }).then((r) => r.json()); }
+  catch (e) { renderPlain('Could not load', 'That did not load — check your connection and try again, or email hello@nexpoint.co.uk.'); return; }
+  if (!d || d.error || !d.signed_in) { renderPlain('Could not load', 'That did not load — check your connection and try again.'); return; }
+
+  const intro = (d.introductions || []).find((i) => i.id === introId);
+  if (!intro) { renderPlain('Not found', 'We could not find that introduction on your account. It may belong to a different sign-in, or the link may be out of date.'); return; }
+
+  const org = d.org || {};
+  const mySide = intro.org_a === org.id ? 'a' : (intro.org_b === org.id ? 'b' : null);
+  const myAccepted = mySide === 'a' ? intro.accepted_a_at : intro.accepted_b_at;
+
+  if (intro.stage === 'introduced') { renderPlain('Already accepted', 'Both sides have already accepted this introduction — contact details have been released by email.'); return; }
+  if (intro.stage === 'expired') { renderPlain('No longer open', 'This introduction expired before both sides accepted. Ask us to re-issue it if you still want to go ahead.'); return; }
+  if (intro.stage === 'dead') { renderPlain('No longer open', 'This introduction is no longer open.'); return; }
+  if (myAccepted) { renderPlain('Already accepted', 'You already accepted this introduction — we are waiting on the other party.'); return; }
+
+  let termsData;
+  try { termsData = await fetch(NPAccount.api + '/terms/current?layer=introduction', { credentials: 'include' }).then((r) => r.json()); }
+  catch (e) { termsData = { error: 'network' }; }
+  if (!termsData || termsData.error || !termsData.id) { renderPlain('Terms unavailable', 'We could not load the introduction terms — try again, or email hello@nexpoint.co.uk.'); return; }
+
+  document.getElementById('accBody').innerHTML = `
+    <h2>Accept this introduction</h2>
+    <p class="acc-meta">${hubLabel(intro.hub)}${intro.ref ? ' · ' + escapeHtml(intro.ref) : ''}${intro.acceptance_expires_at ? ' · accept by ' + fmtDate(intro.acceptance_expires_at) : ''}</p>
+    <p class="body">Read the terms below, then tick to accept. Contact details are released once both sides have accepted.</p>
+    <div class="terms-scroll">${renderMarkdownLite(termsData.body_md)}</div>
+    <label class="np-terms-tick"><input type="checkbox" id="introTick"> I accept the Introduction Acceptance terms, version ${escapeHtml(termsData.version)}</label>
+    <p class="np-sign-error" id="acceptErr" style="display:none"></p>
+    <div class="modal-actions"><button class="btn btn-primary" type="button" onclick="submitAccept(${introId}, ${termsData.id}, this)">Accept introduction</button></div>`;
+}
+
+async function submitAccept(introId, termsId, btn){
+  const tick = document.getElementById('introTick');
+  const err = document.getElementById('acceptErr');
+  if (!tick || !tick.checked) { if (err) { err.style.display = 'block'; err.textContent = 'Tick to confirm you accept the terms.'; } return; }
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Accepting…';
+  let d;
+  try {
+    d = await fetch(NPAccount.api + '/introductions/accept', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ introduction_id: introId, terms_version_id: termsId }),
+    }).then((r) => r.json());
+  } catch (e) { d = { error: 'network' }; }
+  if (d && d.ok) {
+    renderPlain('Accepted', 'Thank you — recorded. If the other party has already accepted too, contact details are on their way by email; otherwise we will let you know as soon as they do.');
+  } else {
+    btn.disabled = false; btn.textContent = orig;
+    const msg = d && d.error === 'already accepted' ? 'You already accepted this introduction.'
+      : d && d.error === 'acceptance window has expired' ? 'This acceptance window has expired.'
+      : (d && d.error) ? String(d.error) : 'That did not go through — try again.';
+    if (err) { err.style.display = 'block'; err.textContent = msg; }
+  }
+}
+
+document.addEventListener('npaccount:change', loadAcceptance);
+loadAcceptance();
+</script>
+</body>
+</html>

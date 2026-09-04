@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Your account — The NexPoint Global Hub</title>
+<link rel="icon" href="../../assets/nexpoint-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/portal.css">
+<style>
+  /* Dashboard-only additions — deliberately minimal, one page (spec §7). Everything else
+     comes from ../assets/portal.css's tokens and shared components (panel, field, btn,
+     modal, privacy, np-*). */
+  .acct-wrap{max-width:760px;margin:0 auto;padding:clamp(28px,4.5vh,48px) var(--side-pad) clamp(60px,8vh,96px)}
+  .acct-head{margin-bottom:clamp(24px,3vh,36px)}
+  .acct-head h1{font:700 clamp(24px,3vw,32px)/1.2 var(--font-display);letter-spacing:-.02em;color:#0E1626;margin:0 0 6px}
+  .acct-head p{color:var(--on-surface-var);font-size:14.5px;margin:0}
+  .acct-section{margin-bottom:clamp(28px,3.6vh,40px)}
+  .acct-section h2{font:600 17px/1.3 var(--font-display);color:#0E1626;margin:0 0 4px}
+  .acct-section .hint{font-size:13px;color:var(--on-surface-var);margin:0 0 14px}
+  .acct-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .acct-badge{display:inline-flex;align-items:center;gap:6px;font:600 11.5px/1 var(--font-body);letter-spacing:.03em;padding:7px 12px;border-radius:9999px;border:1px solid var(--border-card);color:var(--on-surface-var);background:var(--surface)}
+  .acct-badge.is-approved{color:var(--green-deep);border-color:rgba(139,197,63,.35);background:rgba(139,197,63,.1)}
+  .acct-badge.is-applied{color:var(--blue);border-color:rgba(0,92,200,.25);background:rgba(0,92,200,.08)}
+  .acct-badge.is-founding{color:#0E1626;border-color:rgba(14,22,38,.2);background:rgba(14,22,38,.04)}
+  .acct-notice{border:1px solid rgba(229,72,77,.28);background:rgba(229,72,77,.06);border-radius:var(--radius-lg);padding:12px 15px;font-size:13.5px;color:#0E1626;margin-top:12px}
+  .acct-row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;border:1px solid var(--border-card);border-radius:var(--radius-lg);background:var(--surface);padding:14px 16px;margin-bottom:10px}
+  .acct-row__meta{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .acct-row__meta b{font:600 14px/1.3 var(--font-body);color:#0E1626}
+  .acct-row__meta span{font-size:12.5px;color:var(--on-surface-var)}
+  .acct-row__actions{display:flex;gap:8px;flex-wrap:wrap}
+  .acct-empty{border:1px dashed rgba(14,22,38,.22);border-radius:var(--radius-lg);padding:16px 18px;font-size:13.5px;color:var(--on-surface-var);background:rgba(14,22,38,.02)}
+  .acct-btn-sm{font-size:12.5px;padding:9px 14px}
+  .acct-dispute{width:100%;margin-top:10px}
+  .acct-dispute textarea{width:100%;min-height:60px;margin-bottom:8px;border:1px solid rgba(14,22,38,.18);border-radius:var(--radius);padding:10px 12px;font-family:var(--font-body);font-size:13.5px}
+  .terms-scroll{max-height:240px;overflow-y:auto;border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:14px 16px;margin:14px 0;background:var(--bg-alt);font-size:13.5px;line-height:1.6;color:var(--on-surface)}
+  .terms-scroll h1,.terms-scroll h2,.terms-scroll h3{font:600 14.5px/1.3 var(--font-display);color:#0E1626;margin:12px 0 6px}
+  .terms-scroll h1:first-child,.terms-scroll h2:first-child,.terms-scroll h3:first-child{margin-top:0}
+  .terms-scroll p{margin:0 0 10px}
+  .terms-scroll ul{margin:0 0 10px 18px}
+  .terms-scroll li{margin-bottom:5px}
+  .np-terms-tick{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:19px;color:var(--on-surface);cursor:pointer;margin:6px 0 4px}
+  .np-terms-tick input{margin-top:2px;accent-color:var(--blue)}
+  .acct-loading{color:var(--on-surface-var);font-size:14px;padding:40px 0;text-align:center}
+  @media(max-width:560px){.acct-row{flex-direction:column;align-items:flex-start}.acct-row__actions{width:100%}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container nav">
+    <a href="../index.html" class="wordmark" aria-label="NexPoint Global Hub home"><img src="../../assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Global Hub v3 · Draft</span></a>
+    <nav class="nav-links" aria-label="Global Hub">
+      <a href="https://printhub.nexpoint.co.uk/" class="hide-m">Print Hub</a>
+      <a href="https://millhub.nexpoint.co.uk/" class="hide-m">Mill Hub</a>
+      <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities</a>
+      <span data-np-account-slot><a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a></span>
+    </nav>
+  </div>
+</header>
+<nav class="hub-switch" aria-label="Hubs">
+  <a href="../index.html">Global Hub home</a>
+  <a href="https://printhub.nexpoint.co.uk/">Print Hub</a>
+  <a href="https://millhub.nexpoint.co.uk/">Mill Hub</a>
+  <a href="https://opportunities.nexpoint.co.uk/">Opportunities</a>
+</nav>
+
+<div class="acct-wrap">
+  <div class="acct-head">
+    <h1>Your account</h1>
+    <p>Introductions, orders and your host status, in one place.</p>
+  </div>
+  <div id="acctBody"><div class="acct-loading">Loading your account…</div></div>
+</div>
+
+<div class="overlay" id="signOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Sign in" style="max-width:440px">
+    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    <div id="signContent">
+      <h2>Welcome back</h2>
+      <p class="body" style="margin-bottom:4px">Sign in to see your dashboard.</p>
+      <div class="form-grid" style="grid-template-columns:1fr;margin-top:24px">
+        <div class="field"><label for="sEmail">Email</label><input id="sEmail" type="email" placeholder="you@company.com"></div>
+        <div class="field"><label for="sPass">Password</label><input id="sPass" type="password" placeholder="Your password"></div>
+      </div>
+      <div class="modal-actions"><button class="btn btn-primary" onclick="signSubmit()">Sign in</button></div>
+      <p class="np-sign-error" style="display:none"></p>
+      <div class="privacy">New here? <a href="#" onclick="event.preventDefault();closeAll();window.NPAccount&&NPAccount.openQuestionnaire({})" style="color:var(--blue);font-weight:600">Create your hub account</a> — two minutes, in confidence.</div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="actionOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Accept this introduction">
+    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    <div id="actionContent"></div>
+  </div>
+</div>
+
+<script src="../../assets/hub-account.js"></script>
+<script>
+/* ── the sign-in overlay: markup and behaviour ported from hub/index.html + assets/portal.js,
+   trimmed to what this page needs. hub-account.js's own header chip calls a bare openSignIn(),
+   so this page must define it — the pattern every hub page follows (plan §0.4). ── */
+let lastFocus = null;
+function openOverlay(id){
+  lastFocus = document.activeElement;
+  const ov = document.getElementById(id);
+  ov.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  const modal = ov.querySelector('.modal');
+  if (modal){ modal.setAttribute('tabindex','-1'); modal.focus(); }
+}
+function closeAll(){
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('open'));
+  document.body.style.overflow = '';
+  if (lastFocus && lastFocus.focus){ lastFocus.focus(); lastFocus = null; }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+function openSignIn(){ openOverlay('signOverlay'); }
+async function signSubmit(){
+  const email = (document.getElementById('sEmail') || {}).value || '';
+  const pass = (document.getElementById('sPass') || {}).value || '';
+  const err = document.querySelector('#signContent .np-sign-error');
+  if (!window.NPAccount){ if (err){ err.style.display = 'block'; err.textContent = 'Accounts are briefly unavailable — email hello@nexpoint.co.uk and we will help directly.'; } return; }
+  const d = await NPAccount.signIn(email.trim(), pass);
+  if (d.ok){
+    document.getElementById('signContent').innerHTML = `
+      <div class="success">
+        <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
+        <h2>Welcome back, ${escapeHtml((NPAccount.user && (NPAccount.user.name || NPAccount.user.email)) || '')}.</h2>
+        <p>Your dashboard is ready.</p>
+        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Continue</button></div>
+      </div>`;
+  } else if (err){
+    err.style.display = 'block';
+    err.textContent = d.error === 'network'
+      ? 'That didn\'t send — check your connection and try again.'
+      : 'That email and password don\'t match an account. Check them, or create your hub account below.';
+  }
+}
+
+/* ── small shared helpers ── */
+function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function fmtDate(iso){
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }); }
+  catch (e) { return iso; }
+}
+function fmtMoney(amount, currency){
+  const sym = { GBP:'£', EUR:'€', USD:'$' }[currency] || (currency ? currency + ' ' : '');
+  return sym + Number(amount || 0).toFixed(2);
+}
+function hubLabel(h){ return h === 'mill' ? 'Mill Hub' : h === 'print' ? 'Print Hub' : (h || ''); }
+
+/* client-side markdown-lite: escape first, then transform a small safe subset
+   (headings, lists, paragraphs, bold/italic). No external libraries. */
+function renderMarkdownLite(md){
+  const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+  let html = '', inList = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  const inline = (s) => escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+  lines.forEach((raw) => {
+    const line = raw.trim();
+    if (!line) { closeList(); return; }
+    const h = /^(#{1,4})\s+(.*)$/.exec(line);
+    if (h) { closeList(); const lvl = Math.min(h[1].length + 2, 6); html += `<h${lvl}>${inline(h[2])}</h${lvl}>`; return; }
+    const li = /^[-*]\s+(.*)$/.exec(line);
+    if (li) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(li[1])}</li>`; return; }
+    closeList();
+    html += `<p>${inline(line)}</p>`;
+  });
+  closeList();
+  return html;
+}
+
+/* ── the dashboard itself ── */
+function renderSignedOut(){
+  document.getElementById('acctBody').innerHTML = `
+    <div class="panel" style="max-width:480px;margin:24px auto;text-align:center">
+      <h2 style="margin-bottom:10px">Sign in to see your dashboard</h2>
+      <p class="body" style="margin-bottom:22px">Introductions, orders and your host status — all in one place, once you're signed in.</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="openSignIn()">Sign in</button>
+        <button class="btn btn-outline" onclick="window.NPAccount&&NPAccount.openQuestionnaire({})">Create your hub account</button>
+      </div>
+    </div>`;
+}
+function renderError(){
+  document.getElementById('acctBody').innerHTML = `
+    <div class="acct-notice">That didn't load — check your connection and try again, or email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</div>`;
+}
+
+async function loadSummary(){
+  document.getElementById('acctBody').innerHTML = '<div class="acct-loading">Loading your account…</div>';
+  let r;
+  try { r = await fetch(NPAccount.api + '/account/summary', { credentials: 'include' }); }
+  catch (e) { renderError(); return; }
+  const data = await r.json().catch(() => null);
+  if (!data || data.error || !data.signed_in) { renderError(); return; }
+  renderDashboard(data);
+}
+
+function renderDashboard(data){
+  const org = data.org || {};
+  const orgId = org.id || null;
+  const isHost = org.host_print === 'approved' || org.host_mill === 'approved';
+
+  const hostBadge = (label, status) => {
+    if (!status || status === 'none') return `<span class="acct-badge">${label}: not hosting</span>`;
+    const cls = status === 'approved' ? 'is-approved' : status === 'applied' ? 'is-applied' : '';
+    const text = status === 'approved' ? 'Approved host' : status === 'applied' ? 'Application pending' : 'Declined';
+    return `<span class="acct-badge ${cls}">${label}: ${text}</span>`;
+  };
+
+  let orgHtml = `
+    <div class="acct-section">
+      <h2>${escapeHtml(org.name || 'Your organisation')}</h2>
+      <p class="hint">${org.role === 'owner' ? 'Owner' : 'Member'} account</p>
+      <div class="acct-badges">
+        ${hostBadge('Print', org.host_print)}
+        ${hostBadge('Mill', org.host_mill)}
+        ${org.founding ? '<span class="acct-badge is-founding">Founding member</span>' : ''}
+      </div>
+      ${org.sub_status === 'hidden' ? '<div class="acct-notice">Listing paused — contact us.</div>' : ''}
+    </div>`;
+
+  /* introductions the caller is a party to */
+  const intros = Array.isArray(data.introductions) ? data.introductions : [];
+  const introRow = (i) => {
+    const mySide = i.org_a === orgId ? 'a' : (i.org_b === orgId ? 'b' : null);
+    const myAccepted = mySide === 'a' ? i.accepted_a_at : i.accepted_b_at;
+    const closed = i.stage === 'dead' || i.stage === 'expired';
+    let statusText, action = '';
+    if (i.stage === 'introduced') statusText = 'Accepted — contact details released.';
+    else if (closed) statusText = i.stage === 'expired' ? 'Expired — no longer open.' : 'No longer open.';
+    else if (myAccepted) statusText = 'You accepted — waiting on the other party.';
+    else {
+      statusText = i.acceptance_expires_at ? `Awaiting your acceptance · by ${fmtDate(i.acceptance_expires_at)}` : 'Awaiting your acceptance';
+      action = `<button class="btn btn-primary acct-btn-sm" type="button" onclick="acceptIntro(${i.id})">Accept</button>`;
+    }
+    return `
+      <div class="acct-row">
+        <div class="acct-row__meta">
+          <b>${hubLabel(i.hub)}${i.ref ? ' · ' + escapeHtml(i.ref) : ''}</b>
+          <span>${escapeHtml(statusText)}</span>
+        </div>
+        <div class="acct-row__actions">${action}</div>
+      </div>`;
+  };
+  let introsHtml = `
+    <div class="acct-section">
+      <h2>Introductions</h2>
+      <p class="hint">Accept before contact details are exchanged.</p>
+      ${intros.length ? intros.map(introRow).join('') : '<div class="acct-empty">No introductions yet.</div>'}
+    </div>`;
+
+  /* orders awaiting this org's confirm, as seeker */
+  const awaiting = Array.isArray(data.orders_awaiting_confirm) ? data.orders_awaiting_confirm : [];
+  const awaitingRow = (o) => `
+    <div class="acct-row" id="order-${o.id}">
+      <div class="acct-row__meta">
+        <b>${hubLabel(o.hub)} · ${fmtMoney(o.value, o.currency)}${o.units != null ? ' · ' + o.units + ' units' : ''}${o.is_batch ? ' · batch, ' + escapeHtml(o.period || '') : ''}</b>
+        <span>Logged ${fmtDate(o.logged_at)}</span>
+      </div>
+      <div class="acct-row__actions">
+        <button class="btn btn-primary acct-btn-sm" type="button" onclick="confirmOrder(${o.id})">Confirm</button>
+        <button class="btn btn-outline acct-btn-sm" type="button" onclick="toggleDispute(${o.id})">Query</button>
+      </div>
+      <div class="acct-dispute" id="dispute-${o.id}" hidden>
+        <textarea id="disputeNote-${o.id}" placeholder="What doesn't match? (optional)"></textarea>
+        <button class="btn btn-outline acct-btn-sm" type="button" onclick="disputeOrder(${o.id})">Send query</button>
+      </div>
+    </div>`;
+  let awaitingHtml = `
+    <div class="acct-section">
+      <h2>Orders awaiting your confirmation</h2>
+      <p class="hint">One click confirms a logged job, or query it if something doesn't match.</p>
+      ${awaiting.length ? awaiting.map(awaitingRow).join('') : '<div class="acct-empty">Nothing waiting on your confirmation.</div>'}
+    </div>`;
+
+  /* host-only sections */
+  let hostHtml = '';
+  if (isHost) {
+    const loggable = intros.filter((i) => i.org_a === orgId && !['awaiting_acceptance', 'dead', 'expired'].includes(i.stage));
+    const options = loggable.map((i) => `<option value="${i.id}">${hubLabel(i.hub)}${i.ref ? ' · ' + escapeHtml(i.ref) : ' · #' + i.id}</option>`).join('');
+
+    const loggedThisMonth = Array.isArray(data.orders_logged_this_month) ? data.orders_logged_this_month : [];
+    const loggedRow = (o) => `
+      <div class="acct-row">
+        <div class="acct-row__meta">
+          <b>${hubLabel(o.hub)} · ${fmtMoney(o.value, o.currency)}${o.units != null ? ' · ' + o.units + ' units' : ''}</b>
+          <span>Logged ${fmtDate(o.logged_at)} · ${o.confirmed_at ? 'confirmed' : 'awaiting seeker confirmation'}</span>
+        </div>
+      </div>`;
+
+    const fees = Array.isArray(data.fees_owed) ? data.fees_owed : [];
+    const feesHtml = fees.length
+      ? fees.map((f) => `<div class="acct-row"><div class="acct-row__meta"><b>${fmtMoney(f.amount, f.currency)}</b><span>${f.currency} — confirmed orders not yet invoiced</span></div></div>`).join('')
+      : '<div class="acct-empty">Nothing owed right now.</div>';
+
+    const strikes = Array.isArray(data.open_strikes) ? data.open_strikes : [];
+    const strikesHtml = strikes.length
+      ? strikes.map((s) => `
+        <div class="acct-row">
+          <div class="acct-row__meta">
+            <b>Strike opened ${fmtDate(s.opened_at)}</b>
+            <span>Cure by ${fmtDate(s.cure_by)} — logging the matching order clears it automatically.${s.notes ? ' ' + escapeHtml(s.notes) : ''}</span>
+          </div>
+        </div>`).join('')
+      : '<div class="acct-empty">No open strikes.</div>';
+
+    hostHtml = `
+      <div class="acct-section">
+        <h2>Log an order</h2>
+        <p class="hint">The host logs each job; the seeker confirms it on their side.</p>
+        ${options ? `
+        <div class="panel">
+          <form id="logOrderForm" onsubmit="return submitLogOrder(event)">
+            <div class="form-grid">
+              <div class="field full"><label for="logIntro">Introduction</label><select id="logIntro" required>${options}</select></div>
+              <div class="field"><label for="logUnits">Units (optional)</label><input id="logUnits" type="number" min="0" step="1" placeholder="e.g. 40"></div>
+              <div class="field"><label for="logValue">Value</label><input id="logValue" type="number" min="0.01" step="0.01" required placeholder="e.g. 1250.00"></div>
+              <div class="field"><label for="logCurrency">Currency</label>
+                <select id="logCurrency"><option value="GBP">GBP</option><option value="EUR">EUR</option><option value="USD">USD</option></select>
+              </div>
+              <div class="field full">
+                <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:500;font-size:13.5px;color:var(--on-surface)">
+                  <input type="checkbox" id="logBatch" onchange="document.getElementById('logPeriodField').hidden=!this.checked" style="accent-color:var(--blue)">
+                  This is a monthly batch record, not a single job
+                </label>
+              </div>
+              <div class="field full" id="logPeriodField" hidden>
+                <label for="logPeriod">Period</label><input id="logPeriod" placeholder="e.g. 2026-09">
+              </div>
+            </div>
+            <p class="np-sign-error" id="logOrderErr" style="display:none"></p>
+            <div class="modal-actions"><button class="btn btn-primary" type="submit">Log the order</button></div>
+          </form>
+        </div>` : '<div class="acct-empty">No accepted introductions to log against yet.</div>'}
+      </div>
+
+      <div class="acct-section">
+        <h2>Orders logged this month</h2>
+        ${loggedThisMonth.length ? loggedThisMonth.map(loggedRow).join('') : '<div class="acct-empty">Nothing logged this month yet.</div>'}
+      </div>
+
+      <div class="acct-section">
+        <h2>Fees owed</h2>
+        <p class="hint">Your own percentage on confirmed orders — this is what's in your Host Agreement.</p>
+        ${feesHtml}
+      </div>
+
+      <div class="acct-section">
+        <h2>Open strikes</h2>
+        ${strikesHtml}
+      </div>`;
+  }
+
+  document.getElementById('acctBody').innerHTML = orgHtml + introsHtml + awaitingHtml + hostHtml;
+}
+
+/* ── introduction acceptance ── */
+async function acceptIntro(introId){
+  openOverlay('actionOverlay');
+  const c = document.getElementById('actionContent');
+  c.innerHTML = '<p class="body">Loading the Introduction Acceptance terms…</p>';
+  let d;
+  try { d = await fetch(NPAccount.api + '/terms/current?layer=introduction', { credentials: 'include' }).then((r) => r.json()); }
+  catch (e) { d = { error: 'network' }; }
+  if (!d || d.error || !d.id) {
+    c.innerHTML = `<h2>Terms unavailable</h2><p class="body">We couldn't load the introduction terms — try again, or email hello@nexpoint.co.uk.</p><div class="modal-actions"><button class="btn btn-outline" type="button" onclick="closeAll()">Close</button></div>`;
+    return;
+  }
+  c.innerHTML = `
+    <h2>Accept this introduction</h2>
+    <p class="body">Introduction Acceptance, version ${escapeHtml(d.version)}. Read it through, then tick to accept — this releases contact details once both sides have accepted.</p>
+    <div class="terms-scroll">${renderMarkdownLite(d.body_md)}</div>
+    <label class="np-terms-tick"><input type="checkbox" id="introTick"> I accept the Introduction Acceptance terms</label>
+    <p class="np-sign-error" id="introAcceptErr" style="display:none"></p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" type="button" onclick="closeAll()">Not yet</button>
+      <button class="btn btn-primary" type="button" onclick="submitAccept(${introId}, ${d.id}, this)">Accept introduction</button>
+    </div>`;
+}
+async function submitAccept(introId, termsId, btn){
+  const tick = document.getElementById('introTick');
+  const err = document.getElementById('introAcceptErr');
+  if (!tick || !tick.checked) { if (err) { err.style.display = 'block'; err.textContent = 'Tick to confirm you accept the terms.'; } return; }
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Accepting…';
+  let d;
+  try {
+    d = await fetch(NPAccount.api + '/introductions/accept', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ introduction_id: introId, terms_version_id: termsId }),
+    }).then((r) => r.json());
+  } catch (e) { d = { error: 'network' }; }
+  if (d && d.ok) { closeAll(); loadSummary(); }
+  else {
+    btn.disabled = false; btn.textContent = orig;
+    if (err) { err.style.display = 'block'; err.textContent = (d && d.error) ? String(d.error) : 'That did not go through — try again.'; }
+  }
+}
+
+/* ── order confirm / dispute (seeker) ── */
+async function confirmOrder(orderId){
+  const d = await fetch(NPAccount.api + '/orders/confirm', {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ order_id: orderId }),
+  }).then((r) => r.json()).catch(() => ({ error: 'network' }));
+  if (d && d.ok) loadSummary();
+}
+function toggleDispute(orderId){
+  const box = document.getElementById('dispute-' + orderId);
+  if (box) box.hidden = !box.hidden;
+}
+async function disputeOrder(orderId){
+  const noteEl = document.getElementById('disputeNote-' + orderId);
+  const note = noteEl ? noteEl.value.trim() : '';
+  const d = await fetch(NPAccount.api + '/orders/dispute', {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ order_id: orderId, note: note || undefined }),
+  }).then((r) => r.json()).catch(() => ({ error: 'network' }));
+  if (d && d.ok) loadSummary();
+}
+
+/* ── log an order (host) ── */
+async function submitLogOrder(e){
+  e.preventDefault();
+  const form = e.target;
+  const btn = form.querySelector('button[type="submit"]');
+  const err = document.getElementById('logOrderErr');
+  const introId = Number((document.getElementById('logIntro') || {}).value);
+  const unitsRaw = (document.getElementById('logUnits') || {}).value;
+  const value = Number((document.getElementById('logValue') || {}).value);
+  const currency = (document.getElementById('logCurrency') || {}).value || 'GBP';
+  const isBatch = !!(document.getElementById('logBatch') || {}).checked;
+  const period = (document.getElementById('logPeriod') || {}).value || '';
+
+  const body = { introduction_id: introId, value, currency, is_batch: isBatch };
+  if (unitsRaw !== '' && unitsRaw != null) body.units = Number(unitsRaw);
+  if (isBatch) body.period = period;
+
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Logging…';
+  let d;
+  try {
+    d = await fetch(NPAccount.api + '/orders/log', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then((r) => r.json());
+  } catch (ex) { d = { error: 'network' }; }
+  if (d && d.ok) { loadSummary(); }
+  else {
+    btn.disabled = false; btn.textContent = orig;
+    if (err) { err.style.display = 'block'; err.textContent = (d && d.error) ? String(d.error) : 'That did not go through — try again.'; }
+  }
+  return false;
+}
+
+/* ── boot ── */
+function boot(){
+  if (!window.NPAccount) { renderSignedOut(); return; }
+  NPAccount.ready.then(() => { NPAccount.user ? loadSummary() : renderSignedOut(); });
+}
+document.addEventListener('npaccount:change', () => {
+  if (window.NPAccount && NPAccount.user) loadSummary(); else renderSignedOut();
+});
+boot();
+</script>
+</body>
+</html>

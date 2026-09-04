@@ -1,42 +1,388 @@
-<!doctype html>
-<html lang="en-GB">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>The NexPoint Global Hub</title>
+<title>Global Mill Hub — The NexPoint Global Hub</title>
+<link rel="icon" href="assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
-<style>
-  :root{--canvas:#F5F7FA;--ink:#0E1626;--muted:#5A6B84;--blue:#005CC8;--green:#8BC53F;--border:#E3E8EF}
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:var(--canvas);color:var(--ink);font:400 16px/1.6 'Inter',system-ui,sans-serif;
-       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-  .card{max-width:560px;text-align:left}
-  .mark{font:700 22px/1 'Montserrat',sans-serif;letter-spacing:-.02em}
-  .mark span{color:var(--blue)}
-  .rule{width:44px;height:3px;background:var(--green);border-radius:9999px;margin:26px 0}
-  .eyebrow{font:600 12px/1 'Montserrat',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-  h1{font:700 clamp(26px,4.5vw,36px)/1.2 'Montserrat',sans-serif;letter-spacing:-.02em;margin:14px 0 16px}
-  p{color:var(--muted);max-width:52ch}
-  .cta{display:inline-block;margin-top:28px;font:600 15px/1 'Inter',sans-serif;color:var(--blue);
-       text-decoration:none;border-bottom:2px solid var(--green);padding-bottom:4px}
-  .cta:hover{border-bottom-color:var(--blue)}
-  .foot{margin-top:44px;padding-top:18px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css">
 </head>
-<body>
-  <main class="card">
-    <div class="mark">Nex<span>Point</span></div>
-    <div class="rule"></div>
-    <span class="eyebrow">The NexPoint Global Hub</span>
-    <h1>We're getting the Global Hub ready.</h1>
-    <p>One trusted network for print capacity, milled production and live opportunities across
-    the O&amp;P world — opening properly soon. If you need capacity, a partner or an introduction
-    in the meantime, we'd rather you talked to us directly.</p>
-    <a class="cta" href="mailto:hello@nexpoint.co.uk">Email hello@nexpoint.co.uk</a>
-    <div class="foot">NexPoint — the commercial bridge for Orthotics &amp; Prosthetics worldwide.</div>
-  </main>
+<body data-hub="mill">
+<!--
+v3 · 2026-08-15 — rebuilt to the SAME shape as the Print Hub. Chris: "they're both
+the same thing, just one of them is mill, one of them is print… it just makes it
+more confusing" when they differ.
+ORDER: hero → why (pillars + the triggers he singled out) → two doors → detail.
+CHANGED: AFOs removed (they don't mill AFOs — direct-milled & moulded insoles) ·
+"worth an hour" → "worth a chat" · the pricing sentence reworded · duplicate
+capacity CTAs collapsed into one door · logo path fixed.
+-->
+
+<div class="scroll-progress" aria-hidden="true"></div>
+
+<header>
+  <div class="container nav">
+    <a href="https://nexpoint.co.uk/hub/" class="wordmark" aria-label="NexPoint Global Hub home"><img src="assets/nexpoint-logo.png" alt="NexPoint"><span class="draft-pill">Global Hub v3 · Draft</span></a>
+    <nav class="nav-links" aria-label="Global Hub">
+      <a href="https://printhub.nexpoint.co.uk/" class="hide-m">Print Hub</a>
+      <a href="index.html" class="hide-m" aria-current="page">Mill Hub</a>
+      <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities</a>
+      <span data-np-account-slot><a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a></span>
+      <button class="btn btn-primary" onclick="openIntro('MILL HUB','Talk to the desk')">Talk to the desk</button>
+    </nav>
+  </div>
+</header>
+<nav class="hub-switch" aria-label="Hubs">
+  <a href="https://nexpoint.co.uk/hub/">Global Hub home</a>
+  <a href="https://printhub.nexpoint.co.uk/">Print Hub</a>
+  <a href="index.html" aria-current="page">Mill Hub</a>
+  <a href="https://opportunities.nexpoint.co.uk/">Opportunities</a>
+</nav>
+
+<div class="container">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="https://nexpoint.co.uk/hub/">Global Hub</a><span class="sep">/</span><b>Global Mill Hub</b></nav>
+</div>
+
+<!-- HERO -->
+<section class="hub-hero">
+  <div class="container">
+    <div class="grid">
+      <div>
+        <span class="eyebrow"><span class="live-dot"></span>Global Mill Hub</span>
+        <h1>Your production line.<br><em>Inside someone else's factory.</em></h1>
+        <p class="lede">The world's biggest sportswear brands haven't owned their factories for decades. What they own is a dedicated line, a team and a quality standard inside someone else's. The Mill Hub brings that model to milled orthotics.</p>
+        <div class="ctas">
+          <a class="btn btn-primary" href="find.html">Find milled capacity</a>
+          <a class="btn btn-outline" href="offer.html">Offer milling capacity</a>
+        </div>
+      </div>
+      <div class="hero-media">
+        <!-- The mill-to-door sequence, drawn instead of photographed: the previous hero image
+             showed the wrong process (milling around the block). Here the cutter traces the
+             contour INSIDE the blank, the surround is milled away, the part stays on uncut
+             tabs until release — then packs, travels the lane, and lands at the seeker's door.
+             Self-contained SVG + CSS, 12s loop, brand tokens only. Reduced motion (and any
+             browser with animations off) gets the finished diagram: milled blank on the left,
+             delivered carton on the right. -->
+        <svg id="millAnim" viewBox="0 0 800 500" role="img" style="display:block;width:100%;height:auto;background:#fff"
+             aria-label="An insole is milled inside a partner facility, packed, and delivered to the door of the lab that asked for capacity">
+          <title>From the mill to your door</title>
+          <style>
+            #millAnim .albl{font:600 11px var(--font-body,Inter,sans-serif);letter-spacing:.09em;fill:rgba(14,22,38,.55)}
+            #millAnim .apill{font:600 10px var(--font-body,Inter,sans-serif);letter-spacing:.08em;fill:#5a8f1d}
+            @keyframes maDyn{0%,95%{opacity:1}98%,99%{opacity:0}100%{opacity:1}}
+            #maDyn{animation:maDyn 12s linear infinite}
+            @keyframes maCutO{0%,3%{opacity:0}5%,30%{opacity:1}33%,100%{opacity:0}}
+            @keyframes maCutD{0%,4%{offset-distance:0%}30%,100%{offset-distance:100%}}
+            #maCutter{offset-path:path('M 123,298 C 123,274 145,264 169,266 C 205,268 233,274 263,270 C 287,267 305,276 306,296 C 305,316 287,326 261,322 C 233,318 211,308 181,314 C 153,320 123,318 123,298 Z');offset-rotate:0deg;
+              animation:maCutO 12s linear infinite,maCutD 12s cubic-bezier(.45,.1,.55,.9) infinite}
+            @keyframes maDraw{0%,4%{stroke-dashoffset:100}30%,97%{stroke-dashoffset:0}99%,100%{stroke-dashoffset:100}}
+            @keyframes maOutO{0%,33%{opacity:1}36%,98%{opacity:0}100%{opacity:1}}
+            #maOutline{animation:maDraw 12s cubic-bezier(.45,.1,.55,.9) infinite,maOutO 12s linear infinite}
+            @keyframes maWipe{0%,10%{transform:scaleX(0)}32%,98%{transform:scaleX(1)}99.5%,100%{transform:scaleX(0)}}
+            #maWipeRect{transform-box:fill-box;transform-origin:left center;animation:maWipe 12s cubic-bezier(.3,.1,.7,.9) infinite}
+            @keyframes maPins{0%,24%{opacity:0}27%,32%{opacity:1}35%,100%{opacity:0}}
+            #maPins{animation:maPins 12s linear infinite}
+            @keyframes maVoid{0%,34%{opacity:0}37%,96%{opacity:.55}98.5%,100%{opacity:0}}
+            #maVoid{animation:maVoid 12s linear infinite}
+            @keyframes maPart{0%,33%{opacity:0;transform:translate(0,0) scale(1)}
+              34.5%{opacity:1}
+              40%{transform:translate(95px,-10px) scale(.78)}
+              46%{opacity:1;transform:translate(190px,39px) scale(.46)}
+              48.5%,100%{opacity:0;transform:translate(190px,39px) scale(.46)}}
+            #maPart{transform-box:fill-box;transform-origin:center;animation:maPart 12s cubic-bezier(.3,.1,.4,1) infinite}
+            @keyframes maTape{0%,48%{opacity:0}51%,95%{opacity:1}98%,100%{opacity:0}}
+            #maTape{animation:maTape 12s linear infinite}
+            @keyframes maParcel{0%,52.5%{transform:translateX(0)}69.5%{transform:translateX(249px)}71%,98.5%{transform:translateX(246px)}100%{transform:translateX(0)}}
+            #maParcel{animation:maParcel 12s cubic-bezier(.35,.05,.25,1) infinite}
+            @keyframes maLane{0%,52.5%{stroke-dashoffset:0}71%,100%{stroke-dashoffset:-64}}
+            #maLane{animation:maLane 12s cubic-bezier(.35,.05,.25,1) infinite}
+            @keyframes maHalo{0%,72%{opacity:0;transform:scale(.5)}74.5%{opacity:.45}79%{opacity:0;transform:scale(1.3)}
+              80%{opacity:0;transform:scale(.5)}82.5%{opacity:.3}87%,100%{opacity:0;transform:scale(1.3)}}
+            #maHalo{transform-box:fill-box;transform-origin:center;animation:maHalo 12s linear infinite}
+            @keyframes maPill{0%,73%{opacity:0;transform:translateY(5px)}76.5%,94%{opacity:1;transform:translateY(0)}97%,100%{opacity:0;transform:translateY(0)}}
+            #maPillG{animation:maPill 12s cubic-bezier(.2,.8,.2,1) infinite}
+            @media (prefers-reduced-motion:reduce){#millAnim *{animation:none !important}}
+          </style>
+
+          <g transform="translate(0,-50)"><!-- scene, centred in the panel -->
+          <!-- static furniture -->
+          <line x1="70" y1="360" x2="350" y2="360" stroke="rgba(14,22,38,.16)" stroke-width="1.5"/>
+          <line x1="560" y1="360" x2="740" y2="360" stroke="rgba(14,22,38,.16)" stroke-width="1.5"/>
+          <line id="maLane" x1="356" y1="360" x2="552" y2="360" stroke="rgba(0,92,200,.30)" stroke-width="1.5" stroke-dasharray="2 8"/>
+          <polyline points="546,354 554,360 546,366" fill="none" stroke="rgba(0,92,200,.35)" stroke-width="1.5"/>
+          <!-- the blank -->
+          <rect x="90" y="230" width="240" height="130" rx="10" fill="#fff" stroke="#E3E7ED" stroke-width="1.5"/>
+          <!-- the door -->
+          <line x1="618" y1="258" x2="618" y2="360" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
+          <line x1="682" y1="258" x2="682" y2="360" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
+          <line x1="608" y1="258" x2="692" y2="258" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
+          <text class="albl" x="210" y="394" text-anchor="middle">THE MILL</text>
+          <text class="albl" x="650" y="394" text-anchor="middle">YOUR DOOR</text>
+
+          <g id="maDyn">
+            <!-- milled-out surround, revealed left-to-right as the cutter works -->
+            <mask id="maWipeMask"><rect id="maWipeRect" x="104" y="244" width="212" height="102" fill="#fff"/></mask>
+            <g mask="url(#maWipeMask)">
+              <path id="maMoat" fill-rule="evenodd" fill="rgba(14,22,38,.07)"
+                d="M104,244 H316 V346 H104 Z
+                   M 123,298 C 123,274 145,264 169,266 C 205,268 233,274 263,270 C 287,267 305,276 306,296 C 305,316 287,326 261,322 C 233,318 211,308 181,314 C 153,320 123,318 123,298 Z"/>
+            </g>
+            <!-- uncut tabs holding the part, cut at release -->
+            <g id="maPins" opacity="1" stroke="#fff" stroke-width="6">
+              <line x1="104" y1="298" x2="123" y2="298"/>
+              <line x1="306" y1="294" x2="316" y2="294"/>
+              <line x1="215" y1="244" x2="215" y2="267"/>
+              <line x1="235" y1="320" x2="235" y2="346"/>
+            </g>
+            <g transform="translate(115,258)">
+              <!-- the contour the cutter traces -->
+              <path id="maOutline" pathLength="100" stroke-dasharray="100" fill="none" stroke="var(--blue,#005CC8)" stroke-width="2.5" stroke-linecap="round"
+                d="M 8,40 C 8,16 30,6 54,8 C 90,10 118,16 148,12 C 172,9 190,18 191,38 C 190,58 172,68 146,64 C 118,60 96,50 66,56 C 38,62 8,60 8,40 Z"/>
+              <!-- the hole the part leaves behind -->
+              <path id="maVoid" opacity="0" fill="rgba(14,22,38,.09)"
+                d="M 8,40 C 8,16 30,6 54,8 C 90,10 118,16 148,12 C 172,9 190,18 191,38 C 190,58 172,68 146,64 C 118,60 96,50 66,56 C 38,62 8,60 8,40 Z"/>
+              <!-- the released part, off to be packed -->
+              <path id="maPart" opacity="0" fill="#fff" stroke="var(--blue,#005CC8)" stroke-width="2.5"
+                d="M 8,40 C 8,16 30,6 54,8 C 90,10 118,16 148,12 C 172,9 190,18 191,38 C 190,58 172,68 146,64 C 118,60 96,50 66,56 C 38,62 8,60 8,40 Z"/>
+            </g>
+            <!-- the cutter -->
+            <g id="maCutter" opacity="0">
+              <line x1="0" y1="-10" x2="0" y2="-48" stroke="rgba(14,22,38,.28)" stroke-width="4" stroke-linecap="round"/>
+              <circle r="8" fill="#fff" stroke="var(--blue,#005CC8)" stroke-width="2.5"/>
+              <circle r="2.2" fill="var(--blue,#005CC8)"/>
+            </g>
+            <!-- the carton: waits at the end of the mill platform, then travels the lane -->
+            <g id="maParcel" transform="translate(246,0)">
+              <rect x="372" y="308" width="64" height="52" rx="5" fill="#fff" stroke="#E3E7ED" stroke-width="1.5"/>
+              <line x1="372" y1="319" x2="436" y2="319" stroke="#E3E7ED" stroke-width="1.5"/>
+              <line id="maTape" x1="404" y1="308" x2="404" y2="360" stroke="var(--blue,#005CC8)" stroke-width="3" opacity="1"/>
+            </g>
+            <!-- arrival -->
+            <circle id="maHalo" cx="650" cy="334" r="30" fill="none" stroke="var(--green,#8BC53F)" stroke-width="2" opacity="0"/>
+            <g id="maPillG" opacity="1">
+              <rect x="597" y="210" width="106" height="26" rx="13" fill="#fff" stroke="rgba(14,22,38,.12)"/>
+              <circle cx="613" cy="223" r="4" fill="var(--green,#8BC53F)"/>
+              <text class="apill" x="624" y="227">RECEIVED</text>
+            </g>
+          </g>
+          </g>
+        </svg>
+        <span class="tag"><span class="live-dot"></span>Accepting introductions</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROOF BAND — parallel to the Print Hub's network band -->
+<section>
+  <div class="container">
+    <div class="net-band">
+      <div class="net enter enter--up" style="--d:0ms"><b>1</b><span>verified node<br>seen first-hand</span></div>
+      <div class="net enter enter--up" style="--d:60ms"><b>2</b><span>continents<br>cells mirrored</span></div>
+      <div class="net enter enter--up" style="--d:120ms"><b>~1,000</b><span>pairs a day<br>combined capacity</span></div>
+      <div class="net enter enter--up" style="--d:180ms"><b>2</b><span>regions next<br>Europe · Australia</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- PRIORITY ONE: why you'd bother -->
+
+<!-- WHO IT'S FOR — the triggers Chris singled out as the main reason -->
+
+<!-- PRIORITY TWO: the action. Same two doors as the Print Hub. -->
+<section class="section">
+  <div class="container">
+    <div class="enter enter--up">
+      <h2>Which side of the network are you on?</h2>
+      <p class="sub">The two journeys are different, so they get different pages. Pick yours.</p>
+    </div>
+    <div class="doors">
+      <a class="door enter enter--up" style="--d:0ms" href="find.html">
+        <div class="door__media"><img src="assets/img/mill-finish.jpg" alt=""></div>
+        <div class="door__body">
+          <span class="door__kicker">I need capacity</span>
+          <h3>Find milled capacity</h3>
+          <p>Start on the map. See what serves your market today, and what a dedicated cell would look like.</p>
+          <span class="go">Open the capacity map <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </div>
+      </a>
+      <a class="door enter enter--up" style="--d:70ms" href="offer.html">
+        <div class="door__media"><img src="assets/img/mill-hub.jpg" alt=""></div>
+        <div class="door__body">
+          <span class="door__kicker">I have capacity</span>
+          <h3>Offer milling capacity</h3>
+          <p>Run a milling facility? The hub needs nodes in Europe and Australia next. Tell the desk what you run.</p>
+          <span class="go">Apply to host <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+<section class="section alt">
+  <div class="container">
+    <div class="enter enter--up">
+    <h2>A cell of your own, without the overhead.</h2>
+    <p class="sub">An established multi-site manufacturer allocates a section of its production floor to you alone, trained on your product, your styles, your top covers and your packaging, and held to your standard.</p>
+    </div>
+    <div class="rows">
+      <div class="row enter enter--up" style="--d:0ms">
+        <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+        <span class="lead">Price that changes the sums</span>
+        <p>Per-pair pricing materially below in-house manufacturing cost in high-wage markets, with design work included, not bolted on. We share the exact per-pair number when we introduce you.</p>
+      </div>
+      <div class="row enter enter--up" style="--d:70ms">
+        <span class="material-symbols-outlined" aria-hidden="true">sync_alt</span>
+        <span class="lead">Redundancy, built in</span>
+        <p>Production mirrored across facilities on different continents. A storm, a materials shortage or a shutdown in one region never reaches your customers; work simply reroutes.</p>
+      </div>
+      <div class="row enter enter--up" style="--d:140ms">
+        <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+        <span class="lead">Control you keep</span>
+        <p>One named production manager, as accountable to you as your own factory floor. "Rush this one through", "change how we do the heels" — and it happens. The brand and the relationships stay yours.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="section">
+  <div class="container">
+    <div class="split rev">
+      <div class="enter enter--left">
+        <h2>Built for labs in a time of change.</h2>
+        <p class="sub" style="margin-bottom:24px">Any step change, up or down, is the moment this model earns its keep. If one of these is you, the conversation is worth a chat.</p>
+        <ul class="chip-list">
+          <li><span class="material-symbols-outlined" aria-hidden="true">group_off</span>Skilled fabrication staff getting harder to hire and keep</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">trending_up</span>Growth your current production can't keep up with</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">family_restroom</span>An owner retiring, with the next generation taking over</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">storefront</span>A lab being sold, merged or restructured</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">warehouse</span>Facilities changing: moving, outgrowing, downsizing</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">gavel</span>Regulation making it harder to operate where you are</li>
+        </ul>
+      </div>
+      <div class="media enter enter--right">
+        <img src="assets/img/mill-finish.jpg" alt="Finished custom milled orthotic insoles with top covers, boxed on a production line ready to ship">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DETAIL, demoted -->
+<section class="section alt">
+  <div class="container">
+    <div class="enter enter--up">
+    <h2>How a mill introduction runs</h2>
+    <p class="sub">Three steps. Identities, pricing and references are never published; they are shared only when both sides agree to meet.</p>
+    </div>
+    <div class="steps three">
+      <div class="step enter enter--up" style="--d:0ms"><span class="n">01</span><h3>Tell the desk what you make</h3><p>Volumes, materials, systems, and what's changing in your business. Two minutes, in confidence.</p></div>
+      <div class="step enter enter--up" style="--d:70ms"><span class="n">02</span><h3>We weigh the fit personally</h3><p>Chris or Will reviews every request against capacity we have seen first-hand — usually within two working days.</p></div>
+      <div class="step enter enter--up" style="--d:140ms"><span class="n">03</span><h3>Meet the manufacturer</h3><p>Names, faces, facilities and the exact per-pair number, shared once both sides choose to meet.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- NEXT HUB -->
+<section class="section next-hub" style="padding-bottom:0;padding-top:0">
+  <div class="container">
+    <a class="enter enter--rise" href="https://printhub.nexpoint.co.uk/">
+      <div class="txt">
+        <span class="kicker">Next door</span>
+        <h3>Certified 3D-printing capacity, worldwide — the Global Print Hub <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></h3>
+      </div>
+      <img src="assets/img/print-hub.jpg" alt="Printed nylon orthotic shells in front of an SLS 3D printer">
+    </a>
+  </div>
+</section>
+
+<section class="post" style="padding-top:clamp(24px,3vh,40px)">
+  <div class="container">
+    <div class="post-inner enter enter--rise">
+      <h2>A production line to hand over, or a quiet exit to plan?</h2>
+      <p>Tell us once. We hold your name back, put it to the network, and bring you matched, qualified conversations, instead of you knocking on doors one at a time.</p>
+      <button class="btn btn-primary" onclick="openIntro('MILL HUB','Start at the desk')">Start at the desk, two minutes</button>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer__inner">
+    <div class="footer__brand">
+      <a href="https://nexpoint.co.uk/" aria-label="NexPoint home"><img src="assets/nexpoint-logo.png" alt="NexPoint"></a>
+      <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, and Australia.</p>
+    </div>
+    <div class="footer__col">
+      <h5>Mill Hub</h5>
+      <ul>
+        <li><a href="find.html">Find milled capacity</a></li>
+        <li><a href="offer.html">Offer milling capacity</a></li>
+        <li><a href="https://nexpoint.co.uk/hub/">Global Hub home</a></li>
+        <li><a href="https://printhub.nexpoint.co.uk/">Global Print Hub</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>NexPoint</h5>
+      <ul>
+        <li><a href="https://nexpoint.co.uk/">Main site</a></li>
+        <li><a href="https://nexpoint.co.uk/#services">Services</a></li>
+        <li><a href="https://nexpoint.co.uk/#network">Global network</a></li>
+        <li><a href="https://opportunities.nexpoint.co.uk/">The opportunity board</a></li>
+      </ul>
+    </div>
+    <div class="footer__col">
+      <h5>Get in touch</h5>
+      <div class="footer__contact">
+        <a href="mailto:hello@nexpoint.co.uk" class="footer__contact-mail">hello@nexpoint.co.uk</a>
+        <div class="footer__socials">
+          <a href="https://www.linkedin.com/company/nexpoint-global/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer__bar">
+    <span>&copy; 2026 NexPoint Ltd. All rights reserved. Capacity figures are illustrative summaries held in confidence; identities, pricing and locations are never published.</span>
+    <div class="footer__bar-links">
+      <a href="https://nexpoint.co.uk/hub/privacy.html">Privacy</a>
+      <a href="https://nexpoint.co.uk/">Main site</a>
+    </div>
+  </div>
+</footer>
+
+<div class="overlay" id="introOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Ask us to introduce you">
+    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    <div id="introContent"></div>
+  </div>
+</div>
+
+<div class="overlay" id="signOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Sign in" style="max-width:440px">
+    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    <div id="signContent">
+      <h2>Welcome back</h2>
+      <p class="body" style="margin-bottom:4px">Sign in to see the board matched to your profile.</p>
+      <div class="form-grid" style="grid-template-columns:1fr;margin-top:24px">
+        <div class="field"><label for="sEmail">Email</label><input id="sEmail" type="email" placeholder="you@company.com"></div>
+        <div class="field"><label for="sPass">Password</label><input id="sPass" type="password" placeholder="Your password"></div>
+      </div>
+      <div class="modal-actions"><button class="btn btn-primary" onclick="signSubmit()">Sign in</button></div>
+      <p class="np-sign-error" style="display:none;color:#E5484D;font:500 13px/1.4 var(--font-body);margin-top:10px"></p>
+      <div class="privacy">New here? <a href="#" onclick="event.preventDefault();closeAll();window.NPAccount&&NPAccount.openQuestionnaire({})" style="color:var(--blue);font-weight:600">Create your hub account</a> — two minutes, in confidence.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var apex = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
+    var s = document.createElement('script'); s.src = apex + '/assets/hub-account.js';
+    document.head.appendChild(s);
+  })();
+</script>
+<script src="assets/portal.js"></script>
 </body>
 </html>
