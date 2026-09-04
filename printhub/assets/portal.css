@@ -497,7 +497,7 @@ a.hub-line:hover .go svg{transform:translateX(4px)}
   .hub-line .go{padding-top:4px}
 }
 
-[data-np-account-slot]{display:inline-flex;align-items:center;gap:18px}
+[data-np-account-slot]{display:inline-flex;align-items:center;gap:28px}
 .np-chip{display:inline-flex;align-items:center;gap:10px;font:600 12px/1 var(--font-body);color:var(--on-surface-var);letter-spacing:.02em}
 .np-chip__out{background:none;border:none;color:var(--blue);font:600 12px/1 var(--font-body);cursor:pointer;padding:4px 0;text-transform:uppercase;letter-spacing:.05em}
 
