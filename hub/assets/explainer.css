@@ -1,8 +1,7 @@
-/* Global Hub explainer — static storyboard (default markup: no-JS and
-   reduced-motion rendering) plus the story player chrome that
-   hub/assets/story.js builds into the same #explainer mount when JS and
-   motion allow (signed story, approved 2026-09-03). Palette and type ride on
-   portal.css tokens; no new colours. */
+/* Global Hub explainer — static storyboard (the permanent interim rendering
+   until the single explainer video ships; concept §8.3). Animation chrome
+   retired with hub/assets/explainer.js. Palette and type ride on portal.css
+   tokens; no new colours. */
 
 .hero-how{color:var(--blue);font:600 14px/1 var(--font-body);text-decoration:none;border-bottom:2px solid var(--green)}
 .hero-how:hover{border-bottom-color:var(--blue)}
@@ -15,21 +14,3 @@
 .xp-panel p{font:400 13.5px/1.55 var(--font-body);color:var(--on-surface-var);margin:0}
 @media (max-width:900px){.xp-board{grid-template-columns:1fr 1fr}}
 @media (max-width:560px){.xp-board{grid-template-columns:1fr}}
-
-/* ── story player (built by story.js; same card treatment as the old .xp) ── */
-.xp{position:relative;background:var(--surface);border:1px solid var(--border-card);border-radius:14px;overflow:hidden}
-.xp-videowrap{position:relative;background:#0E1626}
-.xp-video,.xp-fallback{display:block;width:100%;height:auto;aspect-ratio:1472/624;object-fit:cover}
-.xp-video[hidden],.xp-fallback[hidden]{display:none}
-.xp-caption{padding:16px 22px 6px;min-height:86px}
-.xp-cap-title{font:700 15px/1 var(--font-display);color:var(--on-surface);display:block}
-.xp-cap-body{font:400 13.5px/1.55 var(--font-body);color:var(--on-surface-var);margin:7px 0 0;max-width:640px}
-.xp-dots{display:flex;gap:8px;padding:0 22px 18px}
-.xp-dot{width:26px;height:4px;border-radius:9999px;background:var(--border-card);border:none;padding:0;cursor:pointer;transition:background .3s}
-.xp-dot.is-on{background:var(--blue)}
-.xp-dot:hover{background:var(--green)}
-
-/* end card */
-.xp-end{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--surface) 88%,transparent);opacity:0;pointer-events:none;transition:opacity .6s var(--ease)}
-.xp.is-end .xp-end{opacity:1}
-.xp-end p{font:700 clamp(22px,3.4vw,32px)/1.2 var(--font-display);color:var(--on-surface);margin:0}
