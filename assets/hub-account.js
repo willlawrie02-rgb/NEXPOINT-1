@@ -17,6 +17,17 @@
     return r.json().catch(() => ({ error: 'bad response' }));
   }
 
+  /* Platform Terms (spec §6, layer 1): registration requires a current terms_version_id.
+     Kicked off the moment the questionnaire opens, so by the time someone reaches step 3
+     it has usually already resolved — step3 awaits it rather than blocking earlier steps. */
+  let termsFetch = null;
+  let termsResult = null;
+  function loadPlatformTerms() {
+    termsResult = null;
+    termsFetch = call('/terms/current?layer=platform', { method: 'GET' }).then((d) => { termsResult = d; return d; });
+    return termsFetch;
+  }
+
   const A = {
     api: API,
     user: null,
@@ -163,25 +174,33 @@
         `<label class="np-interest"><input type="checkbox" value="${v}"${(draft.interests || []).includes(v) ? ' checked' : ''}> ${label}</label>`).join('') + `
         </div>
         <div class="field full" style="margin-top:16px"><label for="qNotes">Volumes and systems</label><textarea id="qNotes" placeholder="Anything that helps us weigh the fit">${esc(draft.notes)}</textarea></div>
+        <div id="npTermsBlock" style="margin-top:16px"></div>
         <input type="text" name="company_url" value="" style="position:absolute;left:-9999px" tabindex="-1" autocomplete="off" aria-hidden="true">
         <p class="np-sign-error" style="display:none"></p>
         <div class="privacy">Seen by NexPoint only. Never shared without your say-so.</div>
         <div class="modal-actions">
           <button class="btn btn-outline" type="button" data-np-back>Go back</button>
-          <button class="btn btn-primary" type="submit">Create my hub account</button>
+          <button class="btn btn-primary" type="submit" disabled>Create my hub account</button>
         </div>
       </form>`;
     content().querySelector('[data-np-back]').addEventListener('click', () => step2(pending));
+    renderTermsBlock();
     content().querySelector('form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = e.target.querySelector('button[type="submit"]');
       if (btn.disabled) return;
+      if (!draft.terms_version_id) {
+        const err = e.target.querySelector('.np-sign-error');
+        err.style.display = 'block';
+        err.textContent = 'We couldn\'t load the current Platform Terms, so we can\'t register you yet — refresh and try again, or email hello@nexpoint.co.uk.';
+        return;
+      }
       draft.interests = Array.from(content().querySelectorAll('.np-interests input:checked')).map((i) => i.value);
       draft.notes = qv('qNotes');
       const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Creating your account…';
       const body = { name: draft.name, company: draft.company, email: draft.email, password: draft.password,
         region: draft.region, country: draft.country, town: draft.town,
-        interests: draft.interests, notes: draft.notes,
+        interests: draft.interests, notes: draft.notes, terms_version_id: draft.terms_version_id,
         company_url: e.target.querySelector('[name="company_url"]').value };
       if (pending) body.pending_request = { hub: pending.hub, side: pending.side,
         brief_ref: pending.brief_ref || '', payload: pending.payload || {} };
@@ -206,6 +225,32 @@
     });
   }
 
+  /* Renders the Platform Terms tick inside step3's form, keeping the submit button
+     disabled until a current terms_version_id is confirmed — registration is refused
+     server-side without one, so the client says so honestly rather than letting the
+     click fail silently. */
+  function renderTermsBlock() {
+    const apply = (d) => {
+      const box = content().querySelector('#npTermsBlock');
+      const btn = content().querySelector('form[data-np-step="3"] button[type="submit"]');
+      if (!box) return; // the questionnaire moved on (back / closed) before this resolved
+      if (!d || d.error || !d.id) {
+        draft.terms_version_id = null;
+        box.innerHTML = '<p class="np-sign-error" style="display:block">We couldn\'t load the current Platform Terms, so we can\'t register you yet — refresh and try again, or email hello@nexpoint.co.uk.</p>';
+        if (btn) btn.disabled = true;
+        return;
+      }
+      draft.terms_version_id = d.id;
+      box.innerHTML = '<label class="np-terms-tick"><input type="checkbox" id="qTerms" required> I accept the ' +
+        '<a href="https://nexpoint.co.uk/hub/terms/" target="_blank" rel="noopener">NexPoint Platform Terms</a></label>';
+      if (btn) btn.disabled = false;
+    };
+    if (termsResult) { apply(termsResult); return; }
+    const box = content().querySelector('#npTermsBlock');
+    if (box) box.innerHTML = '<p class="body" style="margin:0">Loading the Platform Terms…</p>';
+    (termsFetch || loadPlatformTerms()).then(apply);
+  }
+
   function successCard(line) {
     content().innerHTML = `
       <div class="success">
@@ -220,7 +265,7 @@
   function qv(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
   function esc(v) { return escapeText(v == null ? '' : v); }
 
-  A.openQuestionnaire = function (opts) { step1((opts || {}).pending || null); };
+  A.openQuestionnaire = function (opts) { loadPlatformTerms(); step1((opts || {}).pending || null); };
 
   /* ── the act gate ────────────────────────────────────────── */
   A.gate = function (action) {

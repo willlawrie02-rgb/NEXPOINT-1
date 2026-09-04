@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Quick question — The NexPoint Global Hub</title>
+<link rel="icon" href="../assets/nexpoint-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--canvas:#F5F7FA;--ink:#0E1626;--muted:#5A6B84;--blue:#005CC8;--green:#8BC53F;--border:#E3E8EF}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--canvas);color:var(--ink);font:400 16px/1.6 'Inter',system-ui,sans-serif;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{max-width:440px;text-align:center}
+  .mark{font:700 22px/1 'Montserrat',sans-serif;letter-spacing:-.02em}
+  .mark span{color:var(--blue)}
+  .rule{width:44px;height:3px;background:var(--green);border-radius:9999px;margin:22px auto}
+  h1{font:700 clamp(22px,4vw,28px)/1.25 'Montserrat',sans-serif;letter-spacing:-.02em;margin:0 0 14px}
+  p{color:var(--muted)}
+  .actions{display:flex;gap:12px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+  button{font:600 14px/1 'Inter',sans-serif;padding:13px 22px;border-radius:4px;border:none;cursor:pointer}
+  .yes{background:var(--blue);color:#fff}
+  .no{background:transparent;border:1px solid rgba(14,22,38,.2);color:var(--ink)}
+  .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="mark">Nex<span>Point</span></div>
+    <div class="rule"></div>
+    <div id="checkBody">
+      <h1>One moment…</h1>
+      <p>Recording your answer.</p>
+    </div>
+    <div class="foot">NexPoint — the commercial bridge for Orthotics &amp; Prosthetics worldwide.</div>
+  </main>
+
+<script>
+/* Seeker-check landing (spec §2's 30-day question). No sign-in — the HMAC token in the
+   link is the whole of the security model, checked server-side. Auto-submits only when
+   intro, token and a valid yes/no answer are all present in the query string; otherwise
+   this shows plain yes/no buttons so a person can still answer by hand. */
+const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const API = local ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
+
+function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+function render(title, body){
+  document.getElementById('checkBody').innerHTML = `<h1>${escapeHtml(title)}</h1><p>${escapeHtml(body)}</p>`;
+}
+function renderChoice(introId, token){
+  document.getElementById('checkBody').innerHTML = `
+    <h1>Have you placed an order with this host?</h1>
+    <p>One question — it keeps the network honest.</p>
+    <div class="actions">
+      <button class="yes" type="button" onclick="submitAnswer('${escapeHtml(introId)}','${escapeHtml(token)}','yes')">Yes</button>
+      <button class="no" type="button" onclick="submitAnswer('${escapeHtml(introId)}','${escapeHtml(token)}','no')">No</button>
+    </div>`;
+}
+
+async function submitAnswer(introId, token, answer){
+  render('One moment…', 'Recording your answer.');
+  const n = Number(introId);
+  let d;
+  try {
+    d = await fetch(API + '/seeker-check', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ introduction_id: Number.isInteger(n) ? n : introId, token, answer }),
+    }).then(r => r.json());
+  } catch (e) { d = { error: 'network' }; }
+
+  if (d && d.ok) { render('Thank you.', 'Your answer is recorded.'); return; }
+  const err = d && d.error;
+  if (err === 'already recorded') render('Already recorded.', 'We already have an answer for this introduction — thank you.');
+  else if (err === 'invalid token' || err === 'no seeker check due for this introduction') render('Link no longer valid.', 'This link has expired or was already used. Email hello@nexpoint.co.uk if you think that is wrong.');
+  else if (err === 'network') render('That did not send.', 'Check your connection and try again, or email hello@nexpoint.co.uk.');
+  else render('That did not go through.', 'Try again, or email hello@nexpoint.co.uk.');
+}
+
+(function boot(){
+  const q = new URLSearchParams(location.search);
+  const introId = q.get('intro');
+  const token = q.get('token');
+  const answer = q.get('answer');
+  if (introId && token && (answer === 'yes' || answer === 'no')) {
+    submitAnswer(introId, token, answer);
+  } else if (introId && token) {
+    renderChoice(introId, token);
+  } else {
+    render('Link incomplete.', 'This link is missing information — use the link from your email, or email hello@nexpoint.co.uk.');
+  }
+})();
+</script>
+</body>
+</html>
