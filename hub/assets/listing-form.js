@@ -207,10 +207,17 @@
       '<a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
   }
 
-  function renderDeclined() {
+  function renderDeclined(d) {
+    const rev = (d && (d.pending || d.live)) || null;
+    const accepted = (d && d.host_terms_accepted_version_id) || null;
     body().innerHTML =
       '<p class="body">This listing was not approved this time. Email ' +
-      '<a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a> if anything has changed and we will talk it through.</p>';
+      '<a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a> if anything has changed and we will talk it through.</p>' +
+      '<div class="modal-actions"><button class="btn btn-outline" type="button" id="listingDeclinedEdit">Edit and resubmit</button></div>';
+    const btn = el('listingDeclinedEdit');
+    if (btn) btn.addEventListener('click', () => {
+      renderForm({ live: null, prefill: rev, host_terms_accepted_version_id: accepted });
+    });
   }
 
   function renderSuccess() {
@@ -447,6 +454,12 @@
   function renderForm(d) {
     const u = (window.NPAccount && NPAccount.user) || {};
     const live = d.live || null;
+    /* `rev` is what the fields are filled from: the live revision when
+       editing one, or (from renderDeclined) the declined revision the host
+       is resubmitting. `editing` stays bound to a true live listing, not to
+       whether there is anything to prefill from, so a declined resubmission
+       still reads and submits as a first listing. */
+    const rev = live || d.prefill || null;
     /* Assume the tick is needed until GET /terms/current says otherwise: a
        submit that lands before that call resolves must be stopped by this
        form, not by a 422 from the worker. */
@@ -457,8 +470,8 @@
     const regions = (vocab && vocab.regions) || [];
     const services = (vocab && vocab.services) || [];
 
-    const chosenRegions = (live && live.ships_to) || [];
-    const chosenServices = (live && live.services) || [];
+    const chosenRegions = (rev && rev.ships_to) || [];
+    const chosenServices = (rev && rev.services) || [];
     const serviceTerms = services.map((s) => s.term);
     const extraServices = chosenServices.filter((t) => serviceTerms.indexOf(t) === -1);
     const regionTerms = regions.map((r) => r.term);
@@ -474,16 +487,17 @@
       '<form id="listingForm" novalidate>' +
 
       '<div class="lsec"><div class="lsec__h">Your site</div><div class="form-grid">' +
-      '<div class="field full"><label for="siteName">Site name</label>' +
-      '<input id="siteName" value="' + esc(u.company || '') + '"></div>' +
+      '<div class="field full"><label for="siteName">Site name' +
+      '<span class="np-hint">Taken from your hub account.</span></label>' +
+      '<p class="body" id="siteName" style="margin:0">' + esc(u.company || 'Your site') + '</p></div>' +
       '<div class="field full"><label for="siteAddress1">Address</label>' +
-      '<input id="siteAddress1" value="' + esc((live && live.address_line) || '') + '"></div>' +
+      '<input id="siteAddress1" value="' + esc((rev && rev.address_line) || '') + '"></div>' +
       '<div class="field full"><label for="siteAddress2">Address line 2 (optional)</label>' +
       '<input id="siteAddress2"></div>' +
       '<div class="field"><label for="siteTown">Town or city</label>' +
-      '<input id="siteTown" value="' + esc((live && live.town) || u.town || '') + '"></div>' +
+      '<input id="siteTown" value="' + esc((rev && rev.town) || u.town || '') + '"></div>' +
       '<div class="field"><label for="sitePostcode">Postcode (optional)</label>' +
-      '<input id="sitePostcode" value="' + esc((live && live.postcode) || '') + '"></div>' +
+      '<input id="sitePostcode" value="' + esc((rev && rev.postcode) || '') + '"></div>' +
       '<div class="field full"><label for="siteCountry">Country</label>' +
       '<input id="siteCountry" placeholder="Start typing"></div>' +
       '</div></div>' +
@@ -515,10 +529,10 @@
       '<div class="lsec"><div class="lsec__h">Quality and capacity</div><div class="form-grid">' +
       '<div class="field full"><label for="qualityNotes">Quality systems and standards' +
       '<span class="np-hint">How you inspect, calibrate and package. Written for Chris and Will, not published.</span></label>' +
-      '<textarea id="qualityNotes">' + esc((live && live.quality_notes) || '') + '</textarea></div>' +
+      '<textarea id="qualityNotes">' + esc((rev && rev.quality_notes) || '') + '</textarea></div>' +
       '<div class="field"><label for="monthlyCapacity">Monthly capacity (pairs), optional</label>' +
       '<input id="monthlyCapacity" type="number" min="0" step="1" inputmode="numeric" value="' +
-      esc(live && live.monthly_capacity != null ? String(live.monthly_capacity) : '') + '"></div>' +
+      esc(rev && rev.monthly_capacity != null ? String(rev.monthly_capacity) : '') + '"></div>' +
       '</div></div>' +
 
       '<div id="hostTermsBlock" style="margin-top:20px"></div>' +
@@ -529,7 +543,7 @@
 
     TA.siteCountry = NPTypeahead.attach(el('siteCountry'), {
       options: countryOptions(), allowFree: true,
-      value: (live && live.country) || u.country || '',
+      value: (rev && rev.country) || u.country || '',
     });
     TA.servicesAdd = NPTypeahead.attach(el('servicesAdd'), {
       options: services, allowFree: true,
@@ -539,7 +553,7 @@
         TA.servicesAdd.clear();
       },
     });
-    wireAttrFields(listingDefs, (k) => 'attr-' + k, (live && live.attributes) || {});
+    wireAttrFields(listingDefs, (k) => 'attr-' + k, (rev && rev.attributes) || {});
 
     /* chips toggle their own class; one delegated listener per group */
     ['shipsTo', 'services'].forEach((groupId) => {
@@ -558,7 +572,7 @@
     el('listingForm').addEventListener('submit', onSubmit);
     el('machineRows').addEventListener('input', updateRemoveButtons);
 
-    const machines = (live && live.machines) || [];
+    const machines = (rev && rev.machines) || [];
     if (machines.length) machines.forEach((m) => addMachineRow(m, false));
     else addMachineRow(null, false);
 
@@ -1025,7 +1039,7 @@
       if (d.pending) { renderPending(d); return; }
       /* a pending status with no revision behind it is a shell: let them fill it in */
     }
-    if (status === 'declined') { renderDeclined(); return; }
+    if (status === 'declined') { renderDeclined(d); return; }
     renderForm(d);
   }
 
