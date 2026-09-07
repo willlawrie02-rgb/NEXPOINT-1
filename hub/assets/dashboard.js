@@ -37,7 +37,16 @@
   /* The five steps every introduction walks, in order. A stopped one keeps the
      steps it actually reached and ends on the word for how it stopped. */
   var CHAIN = ['Requested', 'Approved by NexPoint', 'Awaiting provider', 'Accepted', 'In progress'];
-  var CHAIN_AT = { proposed: 0, awaiting_acceptance: 2, introduced: 3 };
+  var CHAIN_AT = {
+    proposed: 0,
+    approved: 1,
+    awaiting_acceptance: 2,
+    introduced: 3,
+    in_discussion: 4,
+    deal_done: 4,
+    invoiced: 4,
+    paid: 4,
+  };
 
   var CURRENCIES = ['GBP', 'EUR', 'USD'];
 
@@ -196,10 +205,12 @@
     }).join('') + '</ol>';
   }
 
-  /* Accepted, and everything the older summaries called a live deal after it. */
+  /* Accepted, and everything the older summaries called a live deal after it.
+     An allowlist, not a blocklist: `approved` is pre-introduction (Approved by
+     NexPoint, step 1) and must never release a counterpart or claim contact
+     details were sent. */
   function acceptedStage(stage) {
-    if (!stage) return false;
-    return ['proposed', 'awaiting_acceptance', 'declined', 'expired'].indexOf(stage) === -1;
+    return ['introduced', 'in_discussion', 'deal_done', 'invoiced', 'paid'].indexOf(stage) !== -1;
   }
 
   function introDate(i) {
@@ -425,7 +436,7 @@
     else if (dec.due_state === 'submitted') body = empty('Declared for ' + (dec.period_open || 'this period') + '. Nothing else to send.');
     else if (dec.due_state === 'due' || dec.due_state === 'reminder' || dec.due_state === 'overdue') {
       body = declCard(dec, declHubOf(dec, byId) || hostHubs(s)[0] || '');
-    } else body = empty('Nothing to declare right now.');
+    } else body = empty('Nothing due. Declarations open on the 1st for hosts with accepted introductions.');
 
     fill('declarations',
       '<h2>Declarations</h2>' +
@@ -440,7 +451,7 @@
     if (o.units != null && o.units !== '') facts.push(o.units + ' units');
     if (o.value != null && o.value !== '') facts.push(money(o.value, o.currency));
     if (o.declared_at) facts.push('Declared ' + fmtDate(o.declared_at));
-    return '<div class="acct-row">' +
+    return '<div class="acct-row" id="line-' + esc(id) + '">' +
       '<div class="acct-row__meta">' +
         '<b>' + esc([o.ref, o.period].filter(Boolean).join(' · ') || 'Declared order') + '</b>' +
         '<span>' + esc(facts.join(' · ')) + '</span>' +
@@ -450,8 +461,8 @@
         '<button class="btn btn-outline acct-btn-sm" type="button" data-act="line-query" data-line="' + esc(id) + '">Query</button>' +
       '</div>' +
       '<div class="acct-note" id="lineNote-' + esc(id) + '" hidden>' +
-        '<label class="np-hint" for="lineNoteText-' + esc(id) + '">What does not match?</label>' +
-        '<textarea id="lineNoteText-' + esc(id) + '" placeholder="What does not match?"></textarea>' +
+        '<label class="np-hint" for="dispute-' + esc(id) + '">What does not match?</label>' +
+        '<textarea id="dispute-' + esc(id) + '" placeholder="What does not match?"></textarea>' +
         '<button class="btn btn-outline acct-btn-sm" type="button" data-act="line-query-send" data-line="' + esc(id) + '" data-kind="' + esc(o.kind) + '">Send the query</button>' +
       '</div>' +
       '<p class="acct-msg" id="lineMsg-' + esc(id) + '" hidden></p>' +
@@ -617,7 +628,7 @@
       '<div class="tile-grid">' +
         '<button class="tile" type="button" data-act="education">' +
           '<h4>Education Hub</h4>' +
-          '<p>Training for O&amp;P teams, opening with founding partners. Name and email, nothing else.</p>' +
+          '<p>Education Hub: quarterly webinars for the whole community, first courses opening soon.</p>' +
           '<span class="go">Put me on the list</span>' +
         '</button>' +
       '</div>');
@@ -759,7 +770,7 @@
     var id = btn.getAttribute('data-line');
     var kind = btn.getAttribute('data-kind');
     var msg = el('lineMsg-' + id);
-    var noteEl = el('lineNoteText-' + id);
+    var noteEl = el('dispute-' + id);
     var note = noteEl ? noteEl.value.trim() : '';
     var done = busy(btn, action === 'confirm' ? 'Confirming…' : 'Sending…');
     var p = kind === 'order'
