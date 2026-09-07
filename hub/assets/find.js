@@ -815,29 +815,37 @@
     NPPending.save(held);
   }
 
-  /* The moment POST /seeker-requests returns, the ask exists on the worker
-     whatever happens to the picks call after it. A held action outlives this
-     module, so the id goes into it straight away; a reload that offers the
-     replay again then posts picks alone rather than filing a second request.
-     Saving re-stamps the hold's clock, which is right: it now holds a real
-     request that still needs its picks attached. */
-  function rememberFiledRequest(id) {
-    if (!window.NPPending) return;
+  /* The moment POST /seeker-requests returns during a replay, the ask exists
+     on the worker whatever happens to the picks call after it. Only the
+     replay path passes `savedAt` (submitPending's own `p.saved_at`, the
+     identity of the pending it is replaying), so an in-page confirmed
+     submission never calls this at all and never touches the store. The
+     identity check is the point: the store is re-read fresh, and the id is
+     merged in only if what is sitting there right now is still the same
+     pending submitPending adopted. A different ask held in the meantime, or
+     the same slot already moved on, is left exactly as it is. Saving
+     re-stamps the hold's clock, which is right: it now holds a real request
+     that still needs its picks attached. */
+  function rememberFiledRequest(id, savedAt) {
+    if (!window.NPPending || !savedAt) return;
     const held = NPPending.load();
-    if (!held || !held.search || held.request_id === id) return;
+    if (!held || !held.search || held.saved_at !== savedAt || held.request_id === id) return;
     NPPending.save(Object.assign({}, held, { request_id: id }));
   }
 
   /* The request is filed once per ask. A retry after a failed picks call
      hands back the same ask object, so it attaches to the request already
-     filed instead of filing a second one; a different ask files its own. */
-  async function sendRequestAndPicks(theSpec, thePicks, termsVersionId) {
+     filed instead of filing a second one; a different ask files its own.
+     `replaySavedAt` is only ever supplied by submitPending; the in-page
+     send() path passes nothing, so a freshly filed request there can never
+     merge into someone else's held pending. */
+  async function sendRequestAndPicks(theSpec, thePicks, termsVersionId, replaySavedAt) {
     if (!requestId || filedSpec !== theSpec) {
       const filed = await postJson('/seeker-requests', bodyFor(theSpec));
       if (!filed || !filed.ok || !filed.request_id) return filed || { error: 'network' };
       requestId = filed.request_id;
       filedSpec = theSpec;
-      rememberFiledRequest(requestId);
+      if (replaySavedAt) rememberFiledRequest(requestId, replaySavedAt);
     }
     return postJson('/seeker-requests/picks', {
       request_id: requestId, listing_ids: thePicks, terms_version_id: termsVersionId,
@@ -936,7 +944,7 @@
        picks. The held copy carries that id, so this replay attaches picks
        to the request that exists instead of filing a second one. */
     if (p.request_id) { requestId = p.request_id; filedSpec = spec; }
-    const d = await sendRequestAndPicks(spec, picks, p.terms_version_id);
+    const d = await sendRequestAndPicks(spec, picks, p.terms_version_id, p.saved_at);
     if (d && d.ok) { reveal('step3'); renderSuccess(); return d; }
     if (d && d.error === 'stale_terms') {
       /* The terms moved while the request sat held. The consent is stale;
