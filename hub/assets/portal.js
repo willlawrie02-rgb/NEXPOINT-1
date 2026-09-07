@@ -163,12 +163,6 @@ function markdownLite(md){
   return html;
 }
 
-/* Turnstile on the register form (Will, 2026-09-07 23:15): empty until Will creates
-   the widget in Cloudflare and sets this. Deploy order matters - set the site key
-   here on the website FIRST, then set the matching worker secret second, or the
-   worker will start rejecting registrations the form is not yet sending a token
-   for. Empty means the questionnaire renders nothing extra and the register body
-   is unchanged, so the live site keeps working either side of that gap. */
 const NP = {
   api: npApi,
   markdownLite: markdownLite,
@@ -176,7 +170,6 @@ const NP = {
   config: hubConfig,
   saveLoc: saveLoc,
   loadLoc: loadLoc,
-  TURNSTILE_SITE_KEY: '',
 };
 window.NP = NP;
 

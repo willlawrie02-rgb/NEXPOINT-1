@@ -68,6 +68,17 @@
   const A = {
     api: API,
     accountUrl: ACCOUNT_URL,
+    /* Turnstile on the register form (Will, 2026-09-07 23:15): empty until Will
+       creates the widget in Cloudflare and sets it here. Deploy order matters:
+       set the site key here on the website FIRST, then set the matching worker
+       secret second, or the worker will start rejecting registrations the form
+       is not yet sending a token for. It lives on this module, not on NP,
+       because this module owns the register form and is loaded on every page
+       that opens it, including the Opportunities board, which never loads
+       portal.js. Empty means the questionnaire renders nothing extra and the
+       register body is unchanged, so the live site keeps working either side
+       of that gap. */
+    TURNSTILE_SITE_KEY: '',
     user: null,
     ready: null,
     confirmed() { return !!(A.user && A.user.email_confirmed); },
@@ -219,12 +230,13 @@
     try { return JSON.parse(sessionStorage.getItem('np_loc')) || {}; } catch (e) { return {}; }
   }
 
-  /* ── Turnstile, dormant until NP.TURNSTILE_SITE_KEY is set ──────────
-     Site key first (portal.js), then the matching worker secret: see the note
-     at the top of portal.js. With no key, turnstileSiteKey() returns '' and
-     every function below is a no-op, so the register body is unchanged and
-     nothing loads. */
-  function turnstileSiteKey() { return (window.NP && NP.TURNSTILE_SITE_KEY) || ''; }
+  /* ── Turnstile, dormant until A.TURNSTILE_SITE_KEY is set ───────────
+     Site key first, then the matching worker secret: see the note on the
+     property itself. Read here at render time rather than captured, so
+     setting the key is a one-line edit above. With no key,
+     turnstileSiteKey() returns '' and every function below is a no-op, so
+     the register body is unchanged and nothing loads. */
+  function turnstileSiteKey() { return A.TURNSTILE_SITE_KEY || ''; }
   let turnstileScriptPromise = null;
   function loadTurnstileScript() {
     if (turnstileScriptPromise) return turnstileScriptPromise;
