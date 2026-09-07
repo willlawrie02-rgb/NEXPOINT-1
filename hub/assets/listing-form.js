@@ -650,6 +650,26 @@
     if (err) { err.style.display = 'none'; err.textContent = ''; }
   }
 
+  /* A refusal that arrives while an account change is in flight is written
+     on a panel that is about to be rebuilt, so it is carried across the
+     rebuild and put back on whatever comes up: the form's own error line
+     where there is one, and a line of its own where there is not. */
+  let carriedError = '';
+  function carryError(message) { carriedError = message; }
+  function flushCarriedError() {
+    if (!carriedError) return;
+    const message = carriedError;
+    carriedError = '';
+    if (el('listingErr')) { showError(message); return; }
+    const box = body();
+    if (!box) return;
+    const p = document.createElement('p');
+    p.className = 'np-sign-error';
+    p.style.display = 'block';
+    p.textContent = message;
+    box.insertBefore(p, box.firstChild);
+  }
+
   function chosen(groupId, attr) {
     const group = el(groupId);
     if (!group) return [];
@@ -846,8 +866,13 @@
       A.requireConfirmed(() => send(payload, el('listingSubmit'), orig, true));
       return;
     }
-    if (loadDeferred) { loadDeferred = false; load(); return; }
-    showError(submitErrorText(d));
+    /* The reason comes first, and it survives the re-render. A refusal that
+       lands while an account change is in flight used to be swallowed by
+       the reload the change had queued: the panel came back with nothing on
+       it to say why the listing had not gone. */
+    const message = submitErrorText(d);
+    showError(message);
+    if (loadDeferred) { loadDeferred = false; carryError(message); load(); }
   }
 
   /* The one place a listing is posted. The replay card in portal.js sends a
@@ -987,7 +1012,10 @@
     if (submitting) { loadDeferred = true; return; }
     if (bootQueued) return;
     bootQueued = true;
-    setTimeout(() => { bootQueued = false; doLoad(); }, 0);
+    setTimeout(() => {
+      bootQueued = false;
+      doLoad().then(flushCarriedError, flushCarriedError);
+    }, 0);
   }
 
   async function doLoad() {
