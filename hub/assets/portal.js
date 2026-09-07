@@ -110,10 +110,6 @@ function saveLoc(region, country, town){
 function loadLoc(){
   try { const v = JSON.parse(sessionStorage.getItem(LOC_KEY)); return (v && v.region) ? v : null; } catch(e){ return null; }
 }
-function clearLoc(){
-  try { sessionStorage.removeItem(LOC_KEY); } catch(e){}
-  location.reload();
-}
 function locLabel(l){
   if (!l) return '';
   return [l.town, l.country || l.region].filter(Boolean).join(', ');
