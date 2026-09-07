@@ -55,8 +55,8 @@
   }
 
   /* Platform Terms (spec §6, layer 1): registration requires a current terms_version_id.
-     Kicked off the moment the questionnaire opens, so by the time someone reaches step 3
-     it has usually already resolved - step3 awaits it rather than blocking earlier steps. */
+     Kicked off the moment the questionnaire opens, so by the time someone reaches step 2
+     it has usually already resolved - step2 awaits it rather than blocking earlier steps. */
   let termsFetch = null;
   let termsResult = null;
   function loadPlatformTerms() {
@@ -212,14 +212,7 @@
   }
   function content() { overlay(); return document.getElementById('npAccountContent'); }
 
-  /* ── the three steps ─────────────────────────────────────── */
-  const INTEREST_OPTS = [
-    ['find_print', 'Find 3D print capacity'],
-    ['offer_print', 'Offer print capacity'],
-    ['mill_cell', 'A milling cell of my own'],
-    ['opportunities', 'The opportunities board'],
-    ['education', 'Education and training'],
-  ];
+  /* ── the two steps ───────────────────────────────────────── */
   const draft = {};
 
   function savedLoc() {
@@ -228,7 +221,7 @@
 
   function stepDots(n) {
     return '<div class="np-steps" aria-hidden="true">' +
-      [1, 2, 3].map((i) => '<span class="np-step-dot' + (i <= n ? ' is-on' : '') + '"></span>').join('') + '</div>';
+      [1, 2].map((i) => '<span class="np-step-dot' + (i <= n ? ' is-on' : '') + '"></span>').join('') + '</div>';
   }
 
   function step1(pending) {
@@ -263,29 +256,6 @@
           <div class="field"><label for="qCountry">Country</label><input id="qCountry" required value="${esc(draft.country || l.country)}" placeholder="Country"></div>
           <div class="field full"><label for="qTown">Town or city</label><input id="qTown" value="${esc(draft.town || l.town)}" placeholder="Town"></div>
         </div>
-        <div class="modal-actions">
-          <button class="btn btn-outline" type="button" data-np-back>Go back</button>
-          <button class="btn btn-primary" type="submit">Continue to what you're after</button>
-        </div>
-      </form>`;
-    content().querySelector('[data-np-back]').addEventListener('click', () => step1(pending));
-    content().querySelector('form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      draft.region = qv('qRegion'); draft.country = qv('qCountry'); draft.town = qv('qTown');
-      step3(pending);
-    });
-  }
-
-  function step3(pending) {
-    content().innerHTML = stepDots(3) + `
-      <h2>What are you after?</h2>
-      <p class="body">Tick anything that applies. It shapes what we bring to you.</p>
-      <form data-np-step="3">
-        <div class="np-interests">` +
-      INTEREST_OPTS.map(([v, label]) =>
-        `<label class="np-interest"><input type="checkbox" value="${v}"${(draft.interests || []).includes(v) ? ' checked' : ''}> ${label}</label>`).join('') + `
-        </div>
-        <div class="field full" style="margin-top:16px"><label for="qNotes">Volumes and systems</label><textarea id="qNotes" placeholder="Anything that helps us weigh the fit">${esc(draft.notes)}</textarea></div>
         <div id="npTermsBlock" style="margin-top:16px"></div>
         <input type="text" name="company_url" value="" style="position:absolute;left:-9999px" tabindex="-1" autocomplete="off" aria-hidden="true">
         <p class="np-sign-error" style="display:none"></p>
@@ -295,7 +265,7 @@
           <button class="btn btn-primary" type="submit" disabled>Create my hub account</button>
         </div>
       </form>`;
-    content().querySelector('[data-np-back]').addEventListener('click', () => step2(pending));
+    content().querySelector('[data-np-back]').addEventListener('click', () => step1(pending));
     renderTermsBlock();
     content().querySelector('form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -307,12 +277,11 @@
         err.textContent = 'We couldn\'t load the current Platform Terms, so we can\'t register you yet. Refresh and try again, or email hello@nexpoint.co.uk.';
         return;
       }
-      draft.interests = Array.from(content().querySelectorAll('.np-interests input:checked')).map((i) => i.value);
-      draft.notes = qv('qNotes');
+      draft.region = qv('qRegion'); draft.country = qv('qCountry'); draft.town = qv('qTown');
       const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Creating your account…';
       const body = { name: draft.name, company: draft.company, email: draft.email, password: draft.password,
         region: draft.region, country: draft.country, town: draft.town,
-        interests: draft.interests, notes: draft.notes, terms_version_id: draft.terms_version_id,
+        interests: [], notes: '', terms_version_id: draft.terms_version_id,
         company_url: e.target.querySelector('[name="company_url"]').value };
       /* Only present when the questionnaire opened from an action (A.gate()):
          the worker validates it and appends it to the confirmation link, so
@@ -355,14 +324,14 @@
     });
   }
 
-  /* Renders the Platform Terms tick inside step3's form, keeping the submit button
+  /* Renders the Platform Terms tick inside step2's form, keeping the submit button
      disabled until a current terms_version_id is confirmed - registration is refused
      server-side without one, so the client says so honestly rather than letting the
      click fail silently. */
   function renderTermsBlock() {
     const apply = (d) => {
       const box = content().querySelector('#npTermsBlock');
-      const btn = content().querySelector('form[data-np-step="3"] button[type="submit"]');
+      const btn = content().querySelector('form[data-np-step="2"] button[type="submit"]');
       if (!box) return; // the questionnaire moved on (back / closed) before this resolved
       if (!d || d.error || !d.id) {
         draft.terms_version_id = null;
