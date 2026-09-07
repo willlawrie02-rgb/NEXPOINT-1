@@ -204,6 +204,9 @@ a.hub-card:hover .go svg{transform:translateX(3px)}
 @media(max-width:600px){.form-grid{grid-template-columns:1fr}}
 .field{display:flex;flex-direction:column;gap:7px}
 .field.full{grid-column:1/-1}
+/* an author display: rule beats the UA's [hidden], so every component the
+   pages hide with the attribute has to say so itself */
+.field[hidden]{display:none}
 .field label{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--on-surface-var)}
 .field input,.field select,.field textarea{background:var(--surface-input);border:1px solid rgba(14,22,38,.18);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14.5px;padding:12px 14px;outline:none;transition:border-color var(--dur) var(--ease)}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue)}
@@ -348,33 +351,7 @@ a.door:hover .go svg{transform:translateX(3px)}
 .page-head h1 em{font-style:normal;color:var(--blue)}
 .page-head .lede{font:400 clamp(14.5px,1.15vw,16.5px)/1.6 var(--font-body);color:#4A5462;max-width:600px}
 
-/* the map — dot-matrix world, same grammar as the hero globe, on the light canvas */
-.mapwrap{position:relative;border:1px solid var(--border-card);border-radius:var(--radius-xl);background:var(--surface);padding:clamp(14px,1.8vw,24px);box-shadow:0 12px 30px rgba(14,22,38,.06)}
-.mapwrap svg{display:block;width:100%;height:auto;overflow:visible}
-/* dots are zero-length segments with round caps — one light path instead of 10k arcs */
-.map-land path{fill:none;stroke:rgba(14,22,38,.34);stroke-width:1.35;stroke-linecap:round;transition:stroke var(--dur) var(--ease)}
-.map-land path.is-hot{stroke:rgba(0,92,200,.55)}
-.map-land path.is-sel{stroke:var(--blue)}
-
-
-/* the box is a hit target now, not a drawn object — the landmass carries the state */
-.map-hit{fill:transparent;stroke:none}
-.map-region{cursor:pointer}
-.map-region:focus{outline:none}
-.map-region:focus-visible .map-hit{stroke:var(--blue-bright);stroke-width:1.5;rx:8}
-.map-name{font:600 10.5px/1 'Inter',sans-serif;letter-spacing:.06em;text-transform:uppercase;fill:rgba(14,22,38,.66);pointer-events:none;transition:fill var(--dur) var(--ease)}
-.map-region:hover .map-name,.map-region.is-active .map-name{fill:var(--blue)}
-
-
-/* live nodes: brand live-dot, halo and all */
-.map-node{fill:var(--green)}
-.map-node-halo{fill:var(--green);opacity:.18}
-.map-region.is-empty .map-node,.map-region.is-empty .map-node-halo{fill:rgba(14,22,38,.22)}
-.map-legend{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--outline)}
-.map-legend b{display:inline-flex;align-items:center;gap:7px;font-weight:500;color:var(--outline)}
-@media(max-width:620px){.map-name{font-size:13px}}
-
-/* numbered flow on the find pages — step 1 map, step 2 detail, step 3 answer */
+/* numbered flow on the find pages: step 1 the ask, step 2 the shortlist, step 3 the request */
 .flow{display:flex;flex-direction:column;gap:clamp(22px,3vh,36px)}
 .flow-step{position:relative;padding-left:clamp(38px,4vw,52px)}
 .flow-step::before{counter-increment:flow;content:counter(flow,decimal-leading-zero);position:absolute;left:0;top:2px;font:600 12px/1 var(--font-body);letter-spacing:.12em;color:var(--blue)}
@@ -552,9 +529,27 @@ a.hub-line:hover .go svg{transform:translateX(4px)}
 .pick.is-on{background:rgba(0,92,200,.10);border-color:var(--blue);color:var(--blue)}
 .pick input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
 .pick input:focus-visible+span{outline:2px solid var(--blue-bright);outline-offset:3px;border-radius:4px}
-.cap.pick{border-radius:var(--radius-xl);padding:22px 22px 20px;font:inherit;color:inherit;background:var(--surface)}
+/* a whole shortlist card is the control: .pick's pill shape and row layout
+   are undone here, so the card keeps .cap's column and the hidden checkbox
+   still drives .is-on */
+.cap.pick{display:flex;flex-direction:column;align-items:stretch;text-align:left;border-radius:var(--radius-xl);padding:22px 22px 20px;font:inherit;color:inherit;background:var(--surface)}
 .cap.pick.is-on{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
+.cap.pick.is-off{opacity:.5;cursor:not-allowed}
+.cap.pick.is-off:hover{border-color:var(--border-card);transform:none}
+.cap__head{display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.cap__num{font:600 11px/1 var(--font-body);letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-var)}
+.badge-nomatch{display:inline-flex;align-items:center;font:600 10px/1 var(--font-body);letter-spacing:.06em;text-transform:uppercase;color:#8A5300;background:rgba(245,166,35,.14);border:1px solid rgba(245,166,35,.38);border-radius:9999px;padding:5px 10px;white-space:nowrap}
+.cap__tick{display:inline-flex;align-items:center;gap:9px;margin-top:auto;font:600 13px/1.3 var(--font-body);color:var(--blue)}
+.cap__tick::before{content:"";width:17px;height:17px;flex:0 0 17px;border:1px solid rgba(14,22,38,.28);border-radius:5px;background:var(--surface)}
+.cap.pick.is-on .cap__tick::before{border-color:var(--blue);background:var(--blue) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.4'%3E%3Cpath d='M4 12l6 6L20 6'/%3E%3C/svg%3E") center/12px no-repeat}
+.pick-summary{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:8px;font-size:14px;color:var(--on-surface)}
+.pick-summary li{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border-soft)}
+.pick-summary li:last-child{border-bottom:none}
+.pick-summary b{font:600 11px/1.5 var(--font-body);letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-var)}
 .pickbar{position:sticky;bottom:0;z-index:40;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;margin-top:22px;padding:14px 18px;background:rgba(255,255,255,.94);backdrop-filter:saturate(140%) blur(16px);-webkit-backdrop-filter:saturate(140%) blur(16px);border:1px solid var(--border-card);border-radius:var(--radius-lg);box-shadow:0 -8px 30px rgba(14,22,38,.10);font:600 13.5px/1.4 var(--font-body);color:#0E1626}
+.pickbar[hidden]{display:none}
+.pickbar__go{display:inline-flex;align-items:center;gap:12px}
+.pickbar__dot{color:var(--outline);font-weight:400}
 
 /* where an introduction has got to */
 .status-chain{list-style:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 0;margin:12px 0 0;padding:0}
@@ -592,6 +587,7 @@ button.notice-warn:hover,a.notice-warn:hover{background:rgba(245,166,35,.22)}
 
 /* a note under a field: the answer to "why are you asking me this?" */
 .np-hint{display:block;margin-top:5px;font:400 12px/1.5 var(--font-body);letter-spacing:0;text-transform:none;color:var(--outline)}
+.np-hint[hidden]{display:none}
 
 /* the listing form: sections, a wrapping row of pick chips, and the
    read-only face a revision under review is shown in */
