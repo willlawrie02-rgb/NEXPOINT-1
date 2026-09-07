@@ -10,7 +10,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/portal.css">
+<script>
+  /* One portal.css for the whole hub, served from the apex. These pages run on
+     their own subdomain, where /hub/ is not a path that exists, so the
+     stylesheet has to be named absolutely. NP_APEX is empty on a local
+     preview, where one server holds the whole site. */
+  window.NP_APEX = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
+  document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="' + window.NP_APEX + '/hub/assets/portal.css">');
+</script>
 </head>
 <body data-hub="mill">
 <!--
@@ -377,12 +384,29 @@ capacity CTAs collapsed into one door · logo path fixed.
 </div>
 
 <script>
+  /* The hub's modules live on the apex and load in order: the account module,
+     then the shared portal, then anything this page's own module needs, then
+     the page module itself. np:modules fires once the chain and the document
+     are both ready, and portal.js starts the page module from there. */
   (function () {
-    var apex = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
-    var s = document.createElement('script'); s.src = apex + '/assets/hub-account.js';
-    document.head.appendChild(s);
+    var apex = window.NP_APEX || '';
+    var srcs = [
+      '/assets/hub-account.js',
+      '/hub/assets/portal.js'
+    ];
+    (function next(i) {
+      if (i >= srcs.length) { done(); return; }
+      var s = document.createElement('script');
+      s.src = apex + srcs[i];
+      s.onload = s.onerror = function () { next(i + 1); };
+      document.head.appendChild(s);
+    })(0);
+    function done() {
+      var go = function () { document.dispatchEvent(new CustomEvent('np:modules')); };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go, { once: true });
+      else go();
+    }
   })();
 </script>
-<script src="assets/portal.js"></script>
 </body>
 </html>

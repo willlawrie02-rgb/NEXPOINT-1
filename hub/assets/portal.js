@@ -1,25 +1,54 @@
-/* NexPoint Global Hub v3 — shared behaviour.
-   v3 (2026-08-15) rebuilds the location layer after Chris's 14 Aug review:
-     · the map is the way in, not a dropdown list
-     · capacity actually varies by region and by country
-     · every card names its country, and flags when it is across a border
-     · location is asked once and carried into every downstream form
-   2026-09-01: the desk forms are live — submissions post to the capture
-   worker's /requests route and land in the web_requests queue.            */
+/* NexPoint Global Hub - the shared portal module.
+   One copy, served from the apex at /hub/assets/portal.js. Every hub page
+   loads this file, the subdomains by absolute URL, so printhub and millhub
+   run exactly the code the Global Hub runs. It carries only what every page
+   needs: which hub the page belongs to, the desk forms, the sign-in modal,
+   the overlays, the globe and the entrances. Anything that belongs to one
+   page lives in that page's own module and is started from the boot at the
+   bottom.
+   2026-09-07: the three forked copies (hub, printhub, millhub) were collapsed
+   into this one, and the placeholder capacity map moved out to the find
+   page's own module ahead of the find rebuild.                            */
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-/* ═══════════ live capture — the Cloudflare worker's /requests route ═══════════ */
-/* Live capture endpoint (deployed 2026-09-01) —
-   `npx wrangler deploy` (Plan B Task 3 Step 4). The forms fail safe (error
-   message + button re-enabled) until this points at the deployed worker.
-   2026-09-02: shares the accounts API host (Task 7), so anonymous submissions
-   and signed-in requests land on the same worker. */
+/* live capture + accounts share one API host (Task 7). The forms fail safe
+   (error message + button re-enabled) if it is unreachable. */
 const API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
   ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
 const CAPTURE_REQUESTS_URL = API_BASE + '/requests';
 
+/* One page, one hub. The page declares it on <body data-hub>, so nothing has
+   to read the hostname twice or guess from a path. HUB_CONFIG is the only
+   place a hub's own words live: the fork these three files used to be was
+   three copies of one module differing in a label and an empty state. */
+const HUB = document.body.dataset.hub || '';
+const HUB_CONFIG = {
+  print: {
+    label: 'Global Print Hub',
+    deskRef: 'PRINT HUB',
+    machineNoun: 'printer',
+    emptyState: {
+      heading: 'Founding print nodes are joining the network now.',
+      body: 'No node is certified in {region} yet. Every node is verified first-hand before it appears here. Tell the desk what you need and you will be matched the moment capacity comes online.',
+      cta: 'Tell the desk what you need',
+    },
+  },
+  mill: {
+    label: 'Global Mill Hub',
+    deskRef: 'MILL HUB',
+    machineNoun: 'milling cell',
+    emptyState: {
+      heading: 'Founding milling cells are joining the network now.',
+      body: 'No cell is certified in {region} yet. Every cell is verified first-hand before it appears here. Tell the desk what you need and you will be matched the moment capacity comes online.',
+      cta: 'Tell the desk what you need',
+    },
+  },
+};
+function hubConfig(){ return HUB_CONFIG[HUB] || null; }
+
 function hubOfPage(){
+  if (HUB) return HUB;
   const h = location.hostname;
   if (h.startsWith('printhub')) return 'print';
   if (h.startsWith('millhub')) return 'mill';
@@ -66,7 +95,7 @@ function formFailState(form, { btn, orig }){
     err.style.cssText = 'color:#E5484D;font-size:13px;margin-top:10px';
     form.appendChild(err);
   }
-  err.textContent = 'That did not go through — please try again, or email hello@nexpoint.co.uk.';
+  err.textContent = 'That did not go through. Please try again, or email hello@nexpoint.co.uk.';
 }
 
 /* ═══════════ location, remembered ═══════════
@@ -88,6 +117,41 @@ function locLabel(l){
   return [l.town, l.country || l.region].filter(Boolean).join(', ');
 }
 
+/* ═══════════ the shared fetch ═══════════
+   Every page module talks to the worker through this: cookies travel, the
+   body comes back parsed, and a dropped connection is an error value rather
+   than an exception nobody caught. An acting route refuses an unconfirmed
+   account with 403 {error:"email_unconfirmed"}; that is handed straight back
+   so the caller can put the confirm card up instead of a generic failure. */
+async function npApi(path, opts){
+  let r;
+  try {
+    r = await fetch(API_BASE + path, Object.assign({ credentials: 'include' }, opts || {}));
+  } catch (e) { return { error: 'network' }; }
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) return d;
+  return (d && d.error) ? d : { error: 'http_' + r.status };
+}
+
+/* Page modules arrive by an injected script tag, which can land either side of
+   DOMContentLoaded; ready() takes the guesswork out of that. */
+function npReady(fn){
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
+  else fn();
+}
+
+const NP = {
+  api: npApi,
+  ready: npReady,
+  hub: HUB,
+  config: hubConfig,
+  escapeHtml: escapeHtml,
+  saveLoc: saveLoc,
+  loadLoc: loadLoc,
+  locLabel: locLabel,
+};
+window.NP = NP;
+
 /* ═══════════ the network ═══════════ */
 const REGIONS = {
   'North America': ['United States','Canada','Mexico'],
@@ -98,31 +162,7 @@ const REGIONS = {
   'Australia & New Zealand': ['Australia','New Zealand'],
   'South America': ['Brazil','Chile','Argentina','Colombia']
 };
-/* Zero everywhere, deliberately (2026-09-03 truthfulness sweep): no print node is
-   verified yet on this copy either, and the map must never claim capacity that
-   does not exist. Real counts return here as real nodes are certified. */
-const NODE_COUNT = {
-  'North America': 0, 'UK & Ireland': 0, 'Europe': 0,
-  'Middle East': 0, 'Asia': 0, 'Australia & New Zealand': 0, 'South America': 0
-};
 
-/* Capacity is described by process and material, never by machine brand or model.
-   Machine allowlist is deliberate: only platforms we have verified first-hand
-   (Chris, 14 Aug review).
-   `near` = miles when the seeker is in the same country as the node,
-   `far`  = miles when they are elsewhere in the region.                      */
-const PRINT_NODES = {};  /* placeholder listings removed 2026-09-03 — entries return only for first-hand-verified nodes, matching the printhub fork */
-
-/* The Mill Hub runs on one verified manufacturer with cells on two continents,
-   so every region can be served today; two regions are getting their own cell. */
-const MILL_PLAN = {
-  'Europe': 'next',
-  'Australia & New Zealand': 'next'
-};
-
-/* ═══════════ the map ═══════════
-   Dot-matrix world drawn from the same land mask as the hero globe, so the map
-   and the globe speak the same language. No external tiles, no libraries.     */
 /* Land mask rasterised from Natural Earth 110m land polygons at 1.2 degrees, over the map's
    own latitude window (84N to 58S, so no Antarctic smear along the bottom). Each row is a
    list of inclusive column runs. The previous mask was 24x60, which turned every coastline
@@ -257,359 +297,6 @@ function isLand(lat, lon){
   return false;
 }
 
-const MAP_W = 720, MAP_H = 340, LAT_TOP = 84, LAT_BOT = -58;
-function mapX(lon){ return (lon + 180) / 360 * MAP_W; }
-function mapY(lat){ return (LAT_TOP - lat) / (LAT_TOP - LAT_BOT) * MAP_H; }
-
-/* lon/lat bounds per region — deliberately non-overlapping so every click is unambiguous */
-const REGION_BOX = {
-  'North America':          { lon:[-168,-52], lat:[14,72]  },
-  'South America':          { lon:[-84,-33],  lat:[-55,13] },
-  'UK & Ireland':           { lon:[-44,2.5],  lat:[49,61]  },
-  'Europe':                 { lon:[3,32],     lat:[35,62]  },
-  'Middle East':            { lon:[33,62],    lat:[12,41]  },
-  'Asia':                   { lon:[63,150],   lat:[3,56]   },
-  'Australia & New Zealand':{ lon:[112,179],  lat:[-50,-9] }
-};
-/* UK & Ireland is only ~27px of coastline at this projection — too narrow to hold its own
-   label or to be a fair click target. Its box is extended west into empty Atlantic so the
-   label and count sit inside it, the way an inset callout does. No other region reaches there. */
-const REGION_LABEL = {
-  /* the box reaches out to New Zealand, so its centre lands in the Coral Sea — pull the
-     chip back over the Australian landmass, where the nodes actually are */
-  'Australia & New Zealand': { dx:-24, dy:-6 }
-};
-
-/* a few illustrative node pins per region, in lon/lat */
-const REGION_PINS = {
-  'North America': [[-118,34],[-96,41],[-79,44],[-74,40],[-104,39]],
-  'UK & Ireland': [[-2,53],[-0.2,51.5],[-6,53]],
-  'Europe': [[5,52]],
-  'Middle East': [[55,25]],
-  'Asia': [[104,1.4]],
-  'Australia & New Zealand': [[151,-34],[145,-38],[175,-41]],
-  'South America': []
-};
-
-/* mode 'print' → node counts per region. mode 'mill' → there is ONE verified node
-   serving everywhere, so counting it per region would be a lie; regions show whether
-   they are served today or getting their own cell next. */
-function buildMap(mountId, onPick, mode){
-  const mount = document.getElementById(mountId);
-  if (!mount) return;
-  const isMill = mode === 'mill';
-  const NS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${MAP_W} ${MAP_H}`);
-  svg.setAttribute('role', 'group');
-  svg.setAttribute('aria-label', 'Choose your region on the map');
-
-  /* Land, split per region. Keeping each region's dots in their own path is what lets a
-     region light up its own landmass on hover — far better than drawing a box over it. */
-  const inBox = (lat, lon) => Object.keys(REGION_BOX).find(n => {
-    const b = REGION_BOX[n];
-    return lon >= b.lon[0] && lon <= b.lon[1] && lat >= b.lat[0] && lat <= b.lat[1];
-  }) || null;
-  const dots = { world: '' };
-  for (let lat = LAT_TOP; lat >= LAT_BOT; lat -= LAND_STEP){
-    for (let lon = -180; lon < 180; lon += LAND_STEP){
-      if (!isLand(lat, lon)) continue;
-      const seg = `M${mapX(lon).toFixed(1)} ${mapY(lat).toFixed(1)}h0`;
-      const r = inBox(lat, lon);
-      if (r) dots[r] = (dots[r] || '') + seg; else dots.world += seg;
-    }
-  }
-  const land = document.createElementNS(NS, 'g');
-  land.setAttribute('class', 'map-land');
-  land.setAttribute('aria-hidden', 'true');
-  const landEls = {};
-  Object.keys(dots).forEach(k => {
-    if (!dots[k]) return;
-    const pa = document.createElementNS(NS, 'path');
-    pa.setAttribute('d', dots[k]);
-    if (k !== 'world') landEls[k] = pa;
-    land.appendChild(pa);
-  });
-  svg.appendChild(land);
-
-  /* 'hot' follows the cursor, 'sel' sticks to the chosen region */
-  const setHot = (name, on, cls) => {
-    if (landEls[name]) landEls[name].classList.toggle(cls, on);
-  };
-  const clearSel = () => Object.values(landEls).forEach(el => el.classList.remove('is-sel'));
-
-  /* regions */
-  Object.keys(REGION_BOX).forEach(name => {
-    const b = REGION_BOX[name];
-    const x = mapX(b.lon[0]), y = mapY(b.lat[1]);
-    const w = mapX(b.lon[1]) - x, h = mapY(b.lat[0]) - y;
-    const count = NODE_COUNT[name] || 0;
-
-    const millNext = MILL_PLAN[name] === 'next';
-    const empty = isMill ? false : !count;
-    const g = document.createElementNS(NS, 'g');
-    g.setAttribute('class', 'map-region' + (empty ? ' is-empty' : ''));
-    g.setAttribute('tabindex', '0');
-    g.setAttribute('role', 'button');
-    g.setAttribute('data-region', name);
-    g.setAttribute('aria-label', isMill
-      ? `${name} — ${millNext ? 'served today, dedicated cell next' : 'served today'}`
-      : `${name} — ${count ? count + ' certified node' + (count > 1 ? 's' : '') : 'founding nodes joining now'}`);
-
-    const rect = document.createElementNS(NS, 'rect');
-    rect.setAttribute('class', 'map-hit');
-    rect.setAttribute('x', x.toFixed(1)); rect.setAttribute('y', y.toFixed(1));
-    rect.setAttribute('width', w.toFixed(1)); rect.setAttribute('height', h.toFixed(1));
-    rect.setAttribute('rx', '8');
-    g.appendChild(rect);
-
-    /* pins are the print network's certified nodes; the mill hub has no per-region pins */
-    (isMill ? [] : (REGION_PINS[name] || [])).forEach(p => {
-      const cx = mapX(p[0]).toFixed(1), cy = mapY(p[1]).toFixed(1);
-      const halo = document.createElementNS(NS, 'circle');
-      halo.setAttribute('class', 'map-node-halo');
-      halo.setAttribute('cx', cx); halo.setAttribute('cy', cy); halo.setAttribute('r', '5.4');
-      g.appendChild(halo);
-      const c = document.createElementNS(NS, 'circle');
-      c.setAttribute('class', 'map-node');
-      c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', '2.3');
-      g.appendChild(c);
-    });
-
-    const cfg = REGION_LABEL[name] || {};
-    const anchor = cfg.anchor || 'middle';
-    const tx = (anchor === 'end' ? x : x + w / 2) + (cfg.dx || 0);
-    const ty = y + h / 2 + (cfg.dy || 0);
-
-    const label = document.createElementNS(NS, 'text');
-    label.setAttribute('class', 'map-name');
-    label.setAttribute('x', tx.toFixed(1)); label.setAttribute('y', ty.toFixed(1));
-    label.setAttribute('text-anchor', anchor);
-    label.textContent = cfg.short || (name === 'Australia & New Zealand' ? 'Australia & NZ' : name);
-    g.appendChild(label);
-
-    const pick = () => {
-      svg.querySelectorAll('.map-region').forEach(r => r.classList.remove('is-active'));
-      g.classList.add('is-active');
-      clearSel(); setHot(name, true, 'is-sel');
-      onPick(name);
-    };
-    ['mouseenter', 'focus'].forEach(e => g.addEventListener(e, () => setHot(name, true, 'is-hot')));
-    ['mouseleave', 'blur'].forEach(e => g.addEventListener(e, () => setHot(name, false, 'is-hot')));
-    g.addEventListener('click', pick);
-    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pick(); } });
-    svg.appendChild(g);
-  });
-
-  mount.innerHTML = '';
-  mount.appendChild(svg);
-
-  /* Chip widths vary by mode ('9' vs 'Cell next'), so a chip centred in a narrow box can
-     hang over its neighbour. Pull anything that would fit back inside its own box, moving
-     chip and label together so they stay aligned. Anything genuinely wider than its box
-     (the 'Middle East' label) is left centred — overhanging evenly reads as map labelling,
-     overhanging to one side reads as a mistake. */
-  svg.querySelectorAll('.map-region').forEach(g => {
-    const hit = g.querySelector('.map-hit');
-    const bx = +hit.getAttribute('x'), bw = +hit.getAttribute('width');
-    const movers = [g.querySelector('.map-name')].filter(Boolean);
-    let shift = 0;
-    movers.forEach(el => {
-      const b = el.getBBox();
-      if (b.width > bw) return;
-      let s = 0;
-      if (b.x < bx) s = bx - b.x;
-      else if (b.x + b.width > bx + bw) s = (bx + bw) - (b.x + b.width);
-      if (Math.abs(s) > Math.abs(shift)) shift = s;
-    });
-    if (shift) movers.forEach(el => el.setAttribute('x', (+el.getAttribute('x') + shift).toFixed(1)));
-  });
-  return svg;
-}
-function markMapRegion(region){
-  document.querySelectorAll('.map-region').forEach(r => {
-    r.classList.toggle('is-active', r.getAttribute('data-region') === region);
-  });
-}
-
-/* ═══════════ find capacity — print ═══════════ */
-let chosenRegion = '';
-
-function onRegionPicked(region){
-  chosenRegion = region;
-  const step2 = document.getElementById('step2');
-  const sel = document.getElementById('locCountry');
-  const heading = document.getElementById('step2Region');
-  if (heading) heading.textContent = region;
-  if (sel){
-    sel.innerHTML = '<option value="">Choose a country</option>';
-    (REGIONS[region] || []).forEach(c => {
-      const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o);
-    });
-    sel.disabled = false;
-  }
-  if (step2){
-    step2.hidden = false;
-    step2.scrollIntoView({ behavior:'smooth', block:'center' });
-  }
-}
-
-function showMatches(){
-  const country = (document.getElementById('locCountry') || {}).value || '';
-  const town = ((document.getElementById('locTown') || {}).value || '').trim();
-  const intro = document.getElementById('matchIntro');
-  const grid = document.getElementById('capGrid');
-  const step3 = document.getElementById('step3');
-  if (!chosenRegion || !grid) return;
-
-  saveLoc(chosenRegion, country, town);
-
-  const all = PRINT_NODES[chosenRegion] || [];
-  /* same country first — the thing Chris actually cares about is where the work lands */
-  const nodes = all.slice().sort((a, b) => {
-    const am = a.country === country ? 0 : 1, bm = b.country === country ? 0 : 1;
-    if (am !== bm) return am - bm;
-    return (a.country === country ? a.near : a.far) - (b.country === country ? b.near : b.far);
-  }).slice(0, 3);
-
-  const n = NODE_COUNT[chosenRegion];
-  const place = town || country || chosenRegion;
-  if (step3) step3.hidden = false;
-
-  if (!nodes.length){
-    intro.style.display = 'none';
-    grid.innerHTML = `
-      <div class="cap-empty" style="grid-column:1/-1">
-        <h3>Founding nodes are joining in ${escapeHtml(chosenRegion)} now.</h3>
-        <p>Nothing certified in your region yet. Tell the desk what you need and we will route it through the nearest live node while ${escapeHtml(chosenRegion)} comes online.</p>
-        <button class="btn btn-primary" onclick="openIntro('PRINT HUB · ${escapeHtml(chosenRegion).toUpperCase()}','Ask the desk to route your work')">Ask the desk to route your work</button>
-      </div>`;
-    if (step3) step3.scrollIntoView({ behavior:'smooth', block:'nearest' });
-    return;
-  }
-
-  intro.style.display = 'block';
-  intro.innerHTML = `<b>${n} certified node${n > 1 ? 's' : ''} in ${escapeHtml(chosenRegion)}.</b> Nearest to ${escapeHtml(place)} first. Illustrative of live network capacity — an introduction confirms current availability.`;
-
-  grid.innerHTML = nodes.map((o, i) => {
-    const same = o.country === country;
-    const miles = same ? o.near : o.far;
-    const cross = (country && !same)
-      ? `<span class="xborder"><span class="material-symbols-outlined" style="font-size:12px" aria-hidden="true">flag</span>Crosses a border</span>` : '';
-    return `
-    <div class="cap reveal" style="animation-delay:${i * 90}ms">
-      <div class="cap__top">
-        <span class="cap__opt">Option ${i + 1}</span>
-        <span class="cap__badge">${escapeHtml(o.badge)}</span>
-      </div>
-      <h3>${escapeHtml(o.proc)}</h3>
-      <dl>
-        <div><dt>Distance</dt><dd>Within ~${miles} miles</dd></div>
-        <div><dt>Country</dt><dd><span class="flag-row">${escapeHtml(o.country)}${cross}</span></dd></div>
-        <div><dt>Materials</dt><dd>${escapeHtml(o.mat)}</dd></div>
-        <div><dt>Price</dt><dd class="price">One standard network price</dd></div>
-        <div><dt>Capacity</dt><dd>${escapeHtml(o.cap)}</dd></div>
-        <div><dt>Minimum</dt><dd>${escapeHtml(o.min)}</dd></div>
-      </dl>
-      <button class="btn btn-primary" onclick="openIntro('PRINT HUB · OPTION ${i + 1} · ${escapeHtml(o.proc)}, ${escapeHtml(o.country)}','Ask us to introduce you')">Ask us to introduce you</button>
-    </div>`;
-  }).join('');
-  if (step3) step3.scrollIntoView({ behavior:'smooth', block:'nearest' });
-}
-
-/* ═══════════ find capacity — mill ═══════════ */
-function showMill(){
-  const country = (document.getElementById('locCountry') || {}).value || '';
-  const town = ((document.getElementById('locTown') || {}).value || '').trim();
-  const out = document.getElementById('millResult');
-  const step3 = document.getElementById('step3');
-  if (!chosenRegion || !out) return;
-
-  saveLoc(chosenRegion, country, town);
-  if (step3) step3.hidden = false;
-
-  const planned = MILL_PLAN[chosenRegion] === 'next';
-  const place = town || country || chosenRegion;
-  out.innerHTML = `
-    <div id="matchIntro" style="margin-bottom:20px;font-size:14px;color:var(--on-surface)">
-      <b>One verified node serves ${escapeHtml(place)} today.</b>
-      ${planned
-        ? `A dedicated cell for ${escapeHtml(chosenRegion)} is next in the roadmap — until it opens, work runs from the verified node and ships to you.`
-        : `Production is mirrored across cells on two continents, so a shutdown in one region never reaches your customers.`}
-    </div>
-    <div class="cap reveal" style="cursor:default;max-width:520px">
-      <div class="cap__top">
-        <span class="cap__opt">Mill node 01 · verified first-hand</span>
-        <span class="cap__badge">Accepting introductions</span>
-      </div>
-      <h3>Established multi-site manufacturer, cells on two continents</h3>
-      <dl>
-        <div><dt>Products</dt><dd>Direct-milled &amp; moulded insoles</dd></div>
-        <div><dt>Combined capacity</dt><dd>~1,000 pairs a day</dd></div>
-        <div><dt>Finish</dt><dd>Coated, branded &amp; packaged to your standard</dd></div>
-        <div><dt>Design work</dt><dd>Included where needed</dd></div>
-        <div><dt>Serving</dt><dd>${escapeHtml(chosenRegion)}${planned ? ' · local cell next' : ''}</dd></div>
-        <div><dt>Track record</dt><dd>Never closed, even through COVID</dd></div>
-      </dl>
-      <button class="btn btn-primary" onclick="openIntro('MILL NODE 01 · ${escapeHtml(chosenRegion).toUpperCase()}','Ask us to introduce you')">Ask us to introduce you</button>
-      <div class="locked">
-        <span class="label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Shared in a personal introduction only</span>
-        <ul>
-          <li>Partner identity &amp; facilities <span class="blurval">██████ ██████</span></li>
-          <li>Per-pair pricing <span class="blurval">one standard network price</span></li>
-          <li>Reference customers <span class="blurval">██████</span></li>
-        </ul>
-        <div class="note">Identities, pricing and references are never published. They are shared only when both sides agree to meet.</div>
-      </div>
-    </div>`;
-  if (step3) step3.scrollIntoView({ behavior:'smooth', block:'nearest' });
-}
-
-/* ═══════════ offer pages — never ask twice ═══════════ */
-function initOfferPage(){
-  const recall = document.getElementById('locRecall');
-  if (!recall) return;
-  const l = loadLoc();
-  const cIn = document.getElementById('jCountry'), tIn = document.getElementById('jTown');
-  const rSel = document.getElementById('jRegion');
-
-  if (rSel){
-    rSel.innerHTML = '<option value="">Choose a region</option>';
-    Object.keys(REGIONS).forEach(r => {
-      const o = document.createElement('option'); o.value = r; o.textContent = r; rSel.appendChild(o);
-    });
-  }
-  if (l){
-    if (rSel) rSel.value = l.region || '';
-    if (cIn) cIn.value = l.country || '';
-    if (tIn) tIn.value = l.town || '';
-    recall.hidden = false;
-    const txt = document.getElementById('locRecallText');
-    if (txt) txt.innerHTML = `We already have you in <b>${escapeHtml(locLabel(l) || l.region)}</b> — carried over, so you don't type it twice.`;
-  } else {
-    recall.hidden = true;
-  }
-
-  /* Signed-in hosts never retype what's already on their profile.
-     The listener is registered unconditionally — it's a plain document event
-     that needs nothing loaded — because on the subdomain pages hub-account.js
-     arrives via an async, dynamically-injected loader that can land after
-     DOMContentLoaded. If we gated the listener behind `window.NPAccount`, a
-     late-loading module would never get subscribed and a signed-in host's
-     profile would silently never prefill. The module always dispatches
-     npaccount:change after its initial /auth/me refresh, so a late load is
-     still caught; ready.then covers the case where it was already loaded and
-     resolved by the time we get here. fillProfile no-ops without a user. */
-  const fillProfile = () => {
-    const u = window.NPAccount && NPAccount.user; if (!u) return;
-    const set = (id, v) => { const el = document.getElementById(id); if (el && !el.value && v) el.value = v; };
-    set('jName', u.name); set('jCompany', u.company); set('jEmail', u.email);
-    set('jCountry', u.country); set('jTown', u.town);
-  };
-  document.addEventListener('npaccount:change', fillProfile);
-  if (window.NPAccount) NPAccount.ready.then(fillProfile);
-}
-
 /* ═══════════ modals ═══════════ */
 function openIntro(ref, heading){
   if (window.NPAccount && typeof NPAccount.gate === 'function'){
@@ -632,7 +319,7 @@ function openIntro(ref, heading){
         <div class="field"><label for="iEmail">Email</label><input id="iEmail" type="email" required placeholder="you@company.com"></div>
         <div class="field"><label for="iMobile">Mobile (optional)</label><input id="iMobile" placeholder="+44"></div>
         <div class="field full"><label for="iWhere">Where you are</label><input id="iWhere" value="${escapeHtml(where)}" placeholder="Town, country"></div>
-        <div class="field full"><label for="iNotes">What should we know?</label><textarea id="iNotes" placeholder="Volumes, systems, timing — anything that helps us weigh the fit"></textarea></div>
+        <div class="field full"><label for="iNotes">What should we know?</label><textarea id="iNotes" placeholder="Volumes, systems, timing: anything that helps us weigh the fit"></textarea></div>
       </div>
       <div class="privacy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5a8f1d" stroke-width="2" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg> Seen by NexPoint only. Never shared without your say-so. Introductions carry the network's simple terms, so both sides know where they stand.</div>
       <div class="modal-actions"><button class="btn btn-primary" type="submit">Request the introduction</button></div>
@@ -657,7 +344,7 @@ function introSubmit(e){
       <div class="success">
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>Received, in confidence.</h2>
-        <p>Chris or Will reads every request personally — expect to hear from one of us within two working days.</p>
+        <p>Chris or Will reads every request personally. Expect to hear from one of us within two working days.</p>
         <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
       </div>`;
   }, () => {
@@ -669,7 +356,7 @@ function openEducationList(){
   const c = document.getElementById('introContent');
   c.innerHTML = `
     <h2>Put me on the Education Hub list</h2>
-    <p class="body">Name and email — nothing else. We'll write when the first courses open.</p>
+    <p class="body">Name and email, nothing else. We'll write when the first courses open.</p>
     <form onsubmit="return eduSubmit(event)">
       <div class="form-grid" style="grid-template-columns:1fr">
         <div class="field"><label for="eName">Your name</label><input id="eName" required placeholder="Full name"></div>
@@ -689,42 +376,10 @@ function eduSubmit(e){
       <div class="success">
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>You're on the list.</h2>
-        <p>We'll write the moment the first courses open — nothing else lands in your inbox.</p>
+        <p>We'll write the moment the first courses open. Nothing else lands in your inbox.</p>
         <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
       </div>`;
   }, () => formFailState(form, state));
-  return false;
-}
-function joinSubmit(e){
-  e.preventDefault();
-  const form = e.target;
-  const fields = serializeForm(form);
-  const state = formSendingState(form);
-  sendRequest({
-    hub: hubOfPage(),
-    side: 'offer_capacity',
-    company: fields.jCompany || '', contact_name: fields.jName || '',
-    email: fields.jEmail || '', phone: '',
-    location: [fields.jTown, fields.jCountry].filter(Boolean).join(', ') || (fields.jRegion || ''),
-    brief_ref: '',
-    payload: {
-      website: fields.jWebsite || '', region: fields.jRegion || '',
-      machines: fields.jPrinters || '', capacity: fields.jCapacity || '',
-      notes: fields.jNotes || '',
-    },
-    company_url: '',
-  }, () => {
-    document.getElementById('introContent').innerHTML = `
-      <div class="success">
-        <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
-        <h2>Received, in confidence.</h2>
-        <p>We'll confirm your account by email, then verify equipment, materials and standards with you directly. Founding places are limited to twenty laboratories.</p>
-        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
-      </div>`;
-    openOverlay('introOverlay');
-  }, () => {
-    formFailState(form, state);
-  });
   return false;
 }
 function openSignIn(){ openOverlay('signOverlay'); }
@@ -732,7 +387,7 @@ async function signSubmit(){
   const email = (document.getElementById('sEmail') || {}).value || '';
   const pass = (document.getElementById('sPass') || {}).value || '';
   const err = document.querySelector('#signContent .np-sign-error');
-  if (!window.NPAccount){ if (err){ err.style.display = 'block'; err.textContent = 'Accounts are briefly unavailable — email hello@nexpoint.co.uk and we will help directly.'; } return; }
+  if (!window.NPAccount){ if (err){ err.style.display = 'block'; err.textContent = 'Accounts are briefly unavailable. Email hello@nexpoint.co.uk and we will help directly.'; } return; }
   const d = await NPAccount.signIn(email.trim(), pass);
   if (d.ok){
     document.getElementById('signContent').innerHTML = `
@@ -745,7 +400,7 @@ async function signSubmit(){
   } else if (err){
     err.style.display = 'block';
     err.textContent = d.error === 'network'
-      ? 'That didn\'t send — check your connection and try again.'
+      ? 'That didn\'t send. Check your connection and try again.'
       : 'That email and password don\'t match an account. Check them, or create your hub account below.';
   }
 }
@@ -765,41 +420,7 @@ function closeAll(){
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
 
-/* ═══════════ find-page boot ═══════════ */
-function initFindPage(){
-  const mount = document.getElementById('mapMount');
-  if (!mount) return;
-  const isMill = document.body.dataset.hub === 'mill';
-  buildMap('mapMount', onRegionPicked, isMill ? 'mill' : 'print');
-
-  /* if they already told us where they are, pick up where they left off */
-  const l = loadLoc();
-  if (l && REGIONS[l.region]){
-    onRegionPicked(l.region);
-    markMapRegion(l.region);
-    const cs = document.getElementById('locCountry'), ts = document.getElementById('locTown');
-    if (cs && l.country) cs.value = l.country;
-    if (ts && l.town) ts.value = l.town;
-    if (l.country || l.town) isMill ? showMill() : showMatches();
-  }
-}
-
-/* ?demo=match | ?demo=intro | ?demo=offer — pre-filled state for walkthroughs */
-function runDemo(){
-  const demo = new URLSearchParams(location.search).get('demo');
-  if (!demo) return;
-  if (document.getElementById('mapMount')){
-    onRegionPicked('North America');
-    markMapRegion('North America');
-    const cs = document.getElementById('locCountry'), ts = document.getElementById('locTown');
-    if (cs) cs.value = 'Canada';
-    if (ts) ts.value = 'Toronto';
-    document.body.dataset.hub === 'mill' ? showMill() : showMatches();
-    if (demo === 'intro') openIntro('PRINT HUB · OPTION 1','Ask us to introduce you');
-  }
-}
-
-/* ═══════════ hero globe (landing only) — dotted Earth with live connection arcs ═══════════ */
+/* ═══════════ hero globe (landing only): dotted Earth with live connection arcs ═══════════ */
 (function initGlobe() {
   const canvas = document.getElementById('globeCanvas');
   if (!canvas) return;
@@ -1032,7 +653,7 @@ function fireEnterGroup(el){
 
     /* A grid fires as one unit. Observing each card separately meant the top row of a 2x2
        crossed the threshold long before the bottom row, and each card then added its own
-       --d on top — two ragged waves instead of one sequence. Grouped, every card flips on
+       --d on top, so two ragged waves instead of one sequence. Grouped, every card flips on
        the same frame and --d alone spaces them, so the stagger is the same every time.
        threshold 0 with a bottom margin keys off the container's top edge, which stays
        predictable however tall the group is. */
@@ -1056,9 +677,17 @@ function fireEnterGroup(el){
   }
 })();
 
-document.addEventListener('DOMContentLoaded', () => { initFindPage(); initOfferPage(); runDemo(); });
+/* ═══════════ boot ═══════════
+   The loader in each page fires np:modules once its whole chain has loaded and
+   the document is ready, so a page module is always started after both it and
+   the DOM exist. A page with no module of its own simply never fires it. */
+function bootPageModules(){
+  if (window.NPFind) NPFind.init();
+  if (window.NPListing) NPListing.init();
+}
+document.addEventListener('np:modules', bootPageModules, { once: true });
 
-/* ═══════════ hero handoff — the globe launches, the doors take the frame ═══════════
+/* ═══════════ hero handoff: the globe launches, the doors take the frame ═══════════
    Progress is derived from scrollY alone (no per-frame layout reads), written once per
    rAF into custom properties that CSS turns into transform/opacity/filter. Nothing here
    animates a layout property, so the whole sequence stays on the compositor. */
@@ -1082,7 +711,7 @@ document.addEventListener('DOMContentLoaded', () => { initFindPage(); initOfferP
   function measure(){
     const h = head ? head.offsetHeight : 0;
     root.style.setProperty('--header-h', h + 'px');
-    /* distance from rest to the doors meeting the header — the whole handoff */
+    /* distance from rest to the doors meeting the header, the whole handoff */
     span = Math.max(1, nextSection.getBoundingClientRect().top + window.scrollY - h);
   }
 
