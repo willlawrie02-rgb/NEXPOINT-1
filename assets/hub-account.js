@@ -319,13 +319,27 @@
          the link can bring the visitor back to the page the pending action
          lives on. */
       if (draft.return_to) body.return_to = draft.return_to;
+      /* Two pending shapes, two mechanisms, and never both for one action.
+         A desk request - the shape this gate builds, with a side and a
+         brief_ref - travels WITH the registration: the worker validates it,
+         stashes it on the unconfirmed profile and files it the moment the
+         link is clicked. That is the only mechanism it can have, because the
+         Opportunities board loads this module without portal.js, so nothing
+         there could ever replay one held on the device.
+         A listing or a find request is the other way round: held in
+         NPPending by the page that built it and replayed there by portal.js.
+         Those paths reach the questionnaire through requireConfirmed(),
+         which opens it with no `pending` at all, so they never reach this
+         line and are never filed twice. */
+      if (pending) {
+        body.pending_request = { hub: pending.hub, side: pending.side,
+          brief_ref: pending.brief_ref || '', payload: pending.payload || {} };
+      }
       const d = await postJson('/auth/register', body);
       if (d.ok) {
         /* No cookie comes back: the account exists but cannot act until the
-           link in the email is clicked, so nothing here signs anyone in. What
-           they were doing is held until the confirm page can finish it. */
+           link in the email is clicked, so nothing here signs anyone in. */
         const email = draft.email;
-        if (pending) setPending(pendingOf(pending));
         delete draft.password;
         confirmSentCard(email, !!pending);
       } else {
