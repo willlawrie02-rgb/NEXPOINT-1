@@ -20,6 +20,14 @@
     ? 'https://nexpoint.co.uk/hub/account/' : '/hub/account/';
 
   const PENDING_KEY = 'np_pending';
+  const PENDING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+  /* The current page, without the hash: what a registration started here
+     hands the worker so the confirmation link can bring the visitor back to
+     it, rather than only to the account page. */
+  function currentReturnTo() {
+    return location.origin + location.pathname + location.search;
+  }
 
   async function call(path, opts) {
     let r;
@@ -88,17 +96,34 @@
   };
 
   /* ── the action someone started before they had an account ──────────
-     Held in sessionStorage so a refresh, or the questionnaire, does not lose
-     what they were doing. Shape: {kind, hub, payload}. */
-  function setPending(p) {
-    try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(p)); } catch (e) {}
-  }
-  function getPending() {
-    try { return JSON.parse(sessionStorage.getItem(PENDING_KEY)) || null; } catch (e) { return null; }
-  }
-  function clearPending() {
-    try { sessionStorage.removeItem(PENDING_KEY); } catch (e) {}
-  }
+     A confirmation link is opened from an email client, almost always in a
+     fresh tab - and often on a different host, since the confirm page lives
+     on the apex while the questionnaire can open from a subdomain. Held in
+     localStorage (not sessionStorage) so it survives that new tab on the
+     same origin, and stamped with a time so a very stale action is never
+     resurrected. Shape: {kind, hub, payload, saved_at}. */
+  const NPPending = {
+    save(p) {
+      try {
+        localStorage.setItem(PENDING_KEY, JSON.stringify(Object.assign({}, p, { saved_at: Date.now() })));
+      } catch (e) {}
+    },
+    load() {
+      let v;
+      try { v = JSON.parse(localStorage.getItem(PENDING_KEY)); } catch (e) { return null; }
+      if (!v) return null;
+      if (!v.saved_at || (Date.now() - v.saved_at) > PENDING_MAX_AGE_MS) { NPPending.clear(); return null; }
+      return v;
+    },
+    clear() {
+      try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
+    },
+  };
+  window.NPPending = NPPending;
+
+  function setPending(p) { NPPending.save(p); }
+  function getPending() { return NPPending.load(); }
+  function clearPending() { NPPending.clear(); }
   A.setPending = setPending;
   A.pending = getPending;
   A.clearPending = clearPending;
@@ -288,6 +313,11 @@
         region: draft.region, country: draft.country, town: draft.town,
         interests: draft.interests, notes: draft.notes, terms_version_id: draft.terms_version_id,
         company_url: e.target.querySelector('[name="company_url"]').value };
+      /* Only present when the questionnaire opened from an action (A.gate()):
+         the worker validates it and appends it to the confirmation link, so
+         the link can bring the visitor back to the page the pending action
+         lives on. */
+      if (draft.return_to) body.return_to = draft.return_to;
       const d = await postJson('/auth/register', body);
       if (d.ok) {
         /* No cookie comes back: the account exists but cannot act until the
@@ -354,7 +384,7 @@
       <div class="success">
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>Check your inbox…</h2>
-        <p>We have sent a confirmation link to <strong>${esc(email)}</strong>. Open it and your account is ready${hasPending ? ', and we will finish the request you started' : ''}. It is how we keep every introduction tied to a real inbox.</p>
+        <p>We have sent a confirmation link to <strong>${esc(email)}</strong>. Open it and your account is ready${hasPending ? '. The link brings you back to where you were, so you can send your request from there' : ''}. It is how we keep every introduction tied to a real inbox.</p>
         <p class="np-sign-error" style="display:none"></p>
         <div class="modal-actions" style="justify-content:center">
           <button class="btn btn-outline" type="button" data-np-resend>Resend the email</button>
@@ -406,11 +436,16 @@
   function qv(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
   function esc(v) { return escapeText(v == null ? '' : v); }
 
-  A.openQuestionnaire = function (opts) { loadPlatformTerms(); step1((opts || {}).pending || null); };
+  A.openQuestionnaire = function (opts) {
+    opts = opts || {};
+    draft.return_to = opts.return_to || null;
+    loadPlatformTerms();
+    step1(opts.pending || null);
+  };
 
   /* ── the act gate ────────────────────────────────────────── */
   A.gate = function (action) {
-    if (!A.user) { A.openQuestionnaire({ pending: action }); return; }
+    if (!A.user) { A.openQuestionnaire({ pending: action, return_to: currentReturnTo() }); return; }
     if (!A.confirmed()) { setPending(pendingOf(action)); confirmGateCard(() => A.gate(action)); return; }
     const u = A.user;
     content().innerHTML = `
