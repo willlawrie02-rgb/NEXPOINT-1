@@ -21,11 +21,12 @@
 </head>
 <body data-hub="mill">
 <!--
-v3 · 2026-08-15 — the Mill Hub now uses the SAME location interface as the Print Hub.
-Chris: "We should still have the same interface as the printer where it asks where
-you are… at the moment it doesn't have that in there. They're not consistent."
+2026-09-07 (Global Hub v2) - the seeker's own page, rebuilt around the live
+marketplace. The placeholder capacity map and the fabricated single-cell card
+are gone: what a seeker needs is an ask in the network's own vocabulary, a
+ranked shortlist of anonymous cells, and at most three picks.
+hub/assets/find.js owns all three steps, in the Mill Hub's own words.
 -->
-
 <div class="scroll-progress" aria-hidden="true"></div>
 
 <header>
@@ -55,7 +56,7 @@ you are… at the moment it doesn't have that in there. They're not consistent."
   <div class="container">
     <span class="eyebrow"><span class="live-dot"></span>I need capacity</span>
     <h1>Find milled capacity <em>for your market.</em></h1>
-    <p class="lede">One verified node is live today, seen first-hand by NexPoint, with cells on two continents. Tell us where you sell and we'll show you what serves you.</p>
+    <p class="lede">Tell us what you need and where it lands. We rank the cells that can take it, nearest first, and you pick up to three to be introduced to.</p>
   </div>
 </section>
 
@@ -63,41 +64,38 @@ you are… at the moment it doesn't have that in there. They're not consistent."
   <div class="container">
     <div class="flow">
 
+      <!-- 01 - the ask -->
       <div class="flow-step">
-        <h2>Where are you?</h2>
-        <p class="hint">Pick your region on the map. Milled work is mirrored across continents, so every region can be served today.</p>
-        <div class="mapwrap enter enter--rise">
-          <div id="mapMount"></div>
-          <div class="map-legend">
-            <b>Every region is served today from the verified node</b>
-            <b>Europe and Australia are next for a dedicated cell.</b>
-          </div>
-        </div>
-      </div>
-
-      <div class="flow-step" id="step2" hidden>
-        <h2>Where in <span id="step2Region">your region</span>?</h2>
-        <p class="hint">Country matters for freight, duty and lead time. Your town is optional.</p>
+        <h2>What do you need?</h2>
+        <p class="hint">The network describes capacity in one shared vocabulary, so the words you pick here are the words the cells listed themselves under. Nothing is sent until you say so.</p>
         <div class="panel">
-          <div class="loc-grid">
-            <div class="field">
-              <label for="locCountry">Country</label>
-              <select id="locCountry"><option value="">Choose a country</option></select>
-            </div>
-            <div class="field">
-              <label for="locTown">City / town <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></label>
-              <input id="locTown" placeholder="Type your town">
-            </div>
-            <button class="btn btn-primary" onclick="showMill()">Show what serves me</button>
-          </div>
-          <div class="loc-note">Your location is only used to match you. Nothing is stored in this draft; it is carried to the next screen so you never type it twice.</div>
+          <div id="findMount"><p class="body">Loading…</p></div>
         </div>
       </div>
 
+      <!-- 02 - the shortlist -->
+      <div class="flow-step" id="step2" hidden>
+        <h2>The cells that fit</h2>
+        <p class="hint">Ten at most, nearest first. Names, addresses and rates are shared only inside a personal introduction.</p>
+        <div id="matchIntro" style="display:none;margin-bottom:20px;font-size:14px;color:var(--on-surface)"></div>
+        <div id="noMatch" hidden style="margin-bottom:20px"></div>
+        <div class="cap-grid" id="capGrid"></div>
+        <p class="np-hint" id="pickHint" hidden></p>
+        <div class="pickbar" id="pickBar" hidden><span id="pickCount">0 of 3 picked</span> <span class="pickbar__go"><span class="pickbar__dot" aria-hidden="true">·</span> <button class="btn btn-primary" type="button" id="pickContinue">Continue</button></span></div>
+      </div>
+
+      <!-- 03 - the request -->
       <div class="flow-step" id="step3" hidden>
-        <h2>Verified capacity, accepting introductions now</h2>
-        <p class="hint">Partner identity, per-pair pricing and reference customers are shared only inside a personal introduction.</p>
-        <div id="millResult"></div>
+        <h2>Ask for the introductions</h2>
+        <p class="hint">We read every request personally before anything reaches a cell. Contact details are exchanged only once both sides have accepted.</p>
+        <div class="panel">
+          <div id="step3Body">
+            <div id="pickSummary"></div>
+            <div id="introTermsBlock" style="margin-top:20px"></div>
+            <p class="np-sign-error" id="requestErr" style="display:none"></p>
+            <div class="modal-actions"><button class="btn btn-primary" type="button" id="requestSubmit">Request the introductions</button></div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -188,7 +186,7 @@ you are… at the moment it doesn't have that in there. They're not consistent."
       '/hub/assets/portal.js',
       '/hub/assets/vocab.js',
       '/hub/assets/typeahead.js',
-      '/hub/assets/find-legacy.js'
+      '/hub/assets/find.js'
     ];
     (function next(i) {
       if (i >= srcs.length) { done(); return; }

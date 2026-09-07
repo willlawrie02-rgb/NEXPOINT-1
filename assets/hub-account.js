@@ -152,12 +152,13 @@
     });
   };
 
-  /* Finishes a stored action now that the account can act. Only requests are
-     replayed today; the listing and pick flows store their own kinds and will
-     claim them here as they land. */
+  /* Finishes a stored desk request now that the account can act. The find
+     page holds its own kind of request - one carrying the search it was
+     built from and the sites picked - and replays it through NPFind, so a
+     pending with a `search` on it is not this path's to send. */
   A.replayPending = async function () {
     const p = getPending();
-    if (!p || p.kind !== 'request') return { error: 'no_pending' };
+    if (!p || p.kind !== 'request' || p.search) return { error: 'no_pending' };
     const d = await A.submitRequest(actionOf(p));
     if (d && d.ok) clearPending();
     return d;
