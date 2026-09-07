@@ -63,6 +63,8 @@
     const n = siteNoun();
     return n.charAt(0).toUpperCase() + n.slice(1);
   }
+  const HUB_NAME = { print: 'Print Hub', mill: 'Mill Hub' };
+  function hubName() { return HUB_NAME[HUB]; }
   function deskRef() {
     const c = (window.NP && NP.config && NP.config()) || null;
     return (c && c.deskRef) || (HUB === 'mill' ? 'MILL HUB' : 'PRINT HUB');
@@ -77,14 +79,30 @@
     'Germany', 'France', 'Netherlands', 'Spain', 'Italy', 'Poland',
   ];
   function countryOptions() {
-    let map = null;
-    try { map = REGIONS; } catch (e) { map = null; }
-    if (!map || typeof map !== 'object') return FALLBACK_COUNTRIES.slice();
+    const map = regionsMap();
+    if (!map) return FALLBACK_COUNTRIES.slice();
     const out = [];
     Object.keys(map).forEach((k) => {
       (map[k] || []).forEach((c) => { if (out.indexOf(c) === -1) out.push(c); });
     });
     return out.length ? out.sort() : FALLBACK_COUNTRIES.slice();
+  }
+  function regionsMap() {
+    let map = null;
+    try { map = REGIONS; } catch (e) { map = null; }
+    return (map && typeof map === 'object') ? map : null;
+  }
+  /* Which region a country sits in, for the remembered location. NP.loadLoc
+     only hands back a value that carries a region, so a country nobody has
+     mapped yet stands in for its own. */
+  function regionOf(country) {
+    const map = regionsMap();
+    if (!map || !country) return '';
+    const keys = Object.keys(map);
+    for (let i = 0; i < keys.length; i++) {
+      if ((map[keys[i]] || []).indexOf(country) !== -1) return keys[i];
+    }
+    return '';
   }
 
   /* ── state ────────────────────────────────────────────────────────── */
@@ -309,11 +327,12 @@
     return Number.isInteger(n) ? n : NaN;
   }
 
-  /* The ask, read off the form once, in the shape POST /seeker-requests
-     takes. `materials`, `quantity_unit` and `per_month` have no column of
-     their own on the worker yet, so they travel as extra keys (ignored
-     today) AND as a plain sentence on the notes, which is what actually
-     reaches the desk. Nothing the seeker typed is dropped. */
+  /* The ask, read off the form once. It is wider than the worker's request
+     body on purpose: `materials`, `quantity_unit` and `per_month` have no
+     column of their own there, so they stay on this object (which drives
+     the notes sentence and the held pending) and are dropped by bodyFor
+     before anything is posted. Nothing the seeker typed is lost: what has
+     no column reaches the desk as a plain sentence on the notes. */
   function buildSpec() {
     const materials = TA.fMaterial ? TA.fMaterial.value() : [];
     if (!materials.length) return { error: 'Name the material you need.', focus: 'fMaterial' };
@@ -328,9 +347,11 @@
 
     const cadence = groupValue('fCadence', 'fCadence') || 'one_off';
     let perMonth = null;
+    /* The per-month figure is the whole reason the cadence question is
+       asked, so a recurring ask without one is not an ask we can route. */
     if (cadence === 'recurring') {
       perMonth = wholeNumber(val('fPerMonth'));
-      if (perMonth !== null && (!Number.isFinite(perMonth) || perMonth < 1)) {
+      if (perMonth === null || !Number.isFinite(perMonth) || perMonth < 1) {
         return { error: 'How many per month? Whole numbers only.', focus: 'fPerMonth' };
       }
     }
@@ -431,6 +452,13 @@
     }
     if (!d || d.error) { showFindError(searchErrorText(d)); return; }
 
+    /* Chris, on being asked for his country a second time. The next hub
+       page reads this back through NP.loadLoc(), which is where step 1's
+       own prefill comes from. */
+    if (window.NP && NP.saveLoc) {
+      NP.saveLoc(regionOf(spec.country) || spec.country, spec.country, spec.town);
+    }
+
     matches = Array.isArray(d.matches) ? d.matches : [];
     noMatch = !!d.no_match;
     picks = [];
@@ -492,15 +520,24 @@
                  : n + ' ' + siteNounPlural() + ' can take this, nearest first. ') + privacy;
   }
 
+  /* Two things can leave the shortlist without a card to tick: a search
+     that met nobody but had a pool to fall back on (no exact match), and a
+     hub whose visible pool is empty, which is where a new hub starts. Both
+     end at the same place, so both offer the same desk route rather than
+     leaving the seeker on a heading with nothing under it. */
   function renderNoMatch() {
     const box = el('noMatch');
     if (!box) return;
-    if (!noMatch || !matches.length) { box.innerHTML = ''; box.hidden = true; return; }
+    if (matches.length && !noMatch) { box.innerHTML = ''; box.hidden = true; return; }
+    const line = matches.length
+      ? 'No exact match yet. These are the nearest ' + esc(siteNounPlural()) +
+        '; tick any you would still like to meet, or tell the desk and we will route it by hand.'
+      : 'No ' + esc(siteNounPlural()) + ' are listed on ' + esc(hubName()) +
+        ' yet. Tell the desk what you need and we will route it by hand.';
     box.hidden = false;
     box.innerHTML =
       '<div class="cap-empty">' +
-      '<p>No exact match yet. These are the nearest ' + esc(siteNounPlural()) +
-      '; tick any you would still like to meet, or tell the desk and we will route it by hand.</p>' +
+      '<p>' + line + '</p>' +
       '<button class="btn btn-outline" type="button" id="noMatchDesk">Tell the desk</button>' +
       '</div>';
     const btn = el('noMatchDesk');
@@ -566,6 +603,16 @@
         'aria-label="' + esc(tick + ': ' + who + ', ' + where) + '">' +
         '<span>' + esc(tick) + '</span>' +
       '</label></div>';
+  }
+
+  /* The ticks follow `picks`, rather than the other way round: a restored
+     set of picks has to reach the boxes that are on screen now. */
+  function syncPickBoxes() {
+    const grid = el('capGrid');
+    if (!grid) return;
+    grid.querySelectorAll('input[data-pick]').forEach((box) => {
+      box.checked = picks.indexOf(box.getAttribute('data-pick')) !== -1;
+    });
   }
 
   function onPickChange(e) {
@@ -717,10 +764,7 @@
     /* Signed out or unconfirmed, the whole request is held so the account
        flow can finish it rather than losing everything the seeker chose.
        portal.js offers the replay when they come back confirmed. */
-    if ((!A.user || !A.confirmed()) && window.NPPending) {
-      NPPending.save({ kind: 'request', hub: HUB, search: spec,
-        picks: picks.slice(), terms_version_id: introTerms.id });
-    }
+    if (!A.user || !A.confirmed()) holdPending(spec, picks, introTerms.id);
     A.requireConfirmed(() => send(spec, picks.slice(), introTerms.id, false));
   }
 
@@ -742,10 +786,7 @@
 
     if (d && d.error === 'email_unconfirmed' && !retried && window.NPAccount) {
       /* the session outlived the confirmation state we had cached */
-      if (window.NPPending) {
-        NPPending.save({ kind: 'request', hub: HUB, search: theSpec,
-          picks: thePicks.slice(), terms_version_id: termsVersionId });
-      }
+      holdPending(theSpec, thePicks, termsVersionId);
       await NPAccount.refresh();
       NPAccount.requireConfirmed(() => send(theSpec, thePicks, termsVersionId, true));
       return d;
@@ -753,7 +794,7 @@
     if (d && d.error === 'stale_terms') {
       /* The version ticked is no longer the current one: fetch the new text
          and ask for the tick again rather than sending on a stale consent. */
-      showRequestError('The introduction terms have been updated. Read them again and tick to accept.');
+      showRequestError(TERMS_MOVED);
       await renderTermsBlock();
       const tick = el('introTick');
       if (tick && tick.scrollIntoView) tick.scrollIntoView({ block: 'center' });
@@ -761,6 +802,30 @@
     }
     showRequestError(requestErrorText(d), pickErrorFocus(d));
     return d;
+  }
+
+  /* The one writer of the held action. `requestId` only survives while this
+     page does, so when the ask is already filed the held copy carries its id
+     too: that is what stops a replay in the next tab from filing it again. */
+  function holdPending(theSpec, thePicks, termsVersionId) {
+    if (!window.NPPending) return;
+    const held = { kind: 'request', hub: HUB, search: theSpec,
+      picks: thePicks.slice(), terms_version_id: termsVersionId };
+    if (requestId && filedSpec === theSpec) held.request_id = requestId;
+    NPPending.save(held);
+  }
+
+  /* The moment POST /seeker-requests returns, the ask exists on the worker
+     whatever happens to the picks call after it. A held action outlives this
+     module, so the id goes into it straight away; a reload that offers the
+     replay again then posts picks alone rather than filing a second request.
+     Saving re-stamps the hold's clock, which is right: it now holds a real
+     request that still needs its picks attached. */
+  function rememberFiledRequest(id) {
+    if (!window.NPPending) return;
+    const held = NPPending.load();
+    if (!held || !held.search || held.request_id === id) return;
+    NPPending.save(Object.assign({}, held, { request_id: id }));
   }
 
   /* The request is filed once per ask. A retry after a failed picks call
@@ -772,20 +837,23 @@
       if (!filed || !filed.ok || !filed.request_id) return filed || { error: 'network' };
       requestId = filed.request_id;
       filedSpec = theSpec;
+      rememberFiledRequest(requestId);
     }
     return postJson('/seeker-requests/picks', {
       request_id: requestId, listing_ids: thePicks, terms_version_id: termsVersionId,
     });
   }
 
-  /* The request body the worker takes. `materials`, `quantity_unit` and
-     `per_month` have no column yet and are ignored today; they are sent so
-     the day the worker grows one, the page is already honest about them. */
+  /* The request body the worker takes, and nothing else. POST
+     /seeker-requests reads exactly these eleven names; `materials`,
+     `quantity_unit` and `per_month` have no column and no reader there, so
+     sending them would be a contract the worker never agreed to. They stay
+     on the internal `spec` (which the held pending keeps whole) and reach
+     the desk as a sentence on the notes. */
   function bodyFor(s) {
     return {
-      hub: s.hub, material: s.material, materials: s.materials,
-      process: s.process, quantity: s.quantity, quantity_unit: s.quantity_unit,
-      cadence: s.cadence, per_month: s.per_month,
+      hub: s.hub, material: s.material, process: s.process,
+      quantity: s.quantity, cadence: s.cadence,
       max_lead_time_days: s.max_lead_time_days, needed_by: s.needed_by,
       town: s.town, country: s.country, services: s.services, notes: s.notes,
     };
@@ -853,6 +921,8 @@
     scrollTo('step3');
   }
 
+  const TERMS_MOVED = 'The introduction terms have been updated. Read them again and tick to accept.';
+
   /* What portal.js's replay card sends when a seeker comes back confirmed.
      It restores what was held, so a success also puts the page into the
      state the seeker would have reached had they never been stopped. */
@@ -862,9 +932,46 @@
     }
     spec = p.search;
     picks = p.picks.slice();
+    /* An earlier attempt may already have filed the ask and failed on the
+       picks. The held copy carries that id, so this replay attaches picks
+       to the request that exists instead of filing a second one. */
+    if (p.request_id) { requestId = p.request_id; filedSpec = spec; }
     const d = await sendRequestAndPicks(spec, picks, p.terms_version_id);
-    if (d && d.ok) { reveal('step3'); renderSuccess(); }
+    if (d && d.ok) { reveal('step3'); renderSuccess(); return d; }
+    if (d && d.error === 'stale_terms') {
+      /* The terms moved while the request sat held. The consent is stale;
+         the request is not. The hold goes, because a card cannot ask for a
+         tick, and the filed id stays in this module so nothing files twice.
+         The seeker lands back on step 3 with the new text to read. */
+      if (window.NPPending) NPPending.clear();
+      await restoreForNewTerms(p.picks.slice());
+    }
     return d;
+  }
+
+  /* Puts the page back where the held request left off: the shortlist re-run
+     from the same ask, the picks that are still on it ticked again, step 3
+     open on freshly fetched terms. `spec` is the same object throughout, so
+     the request already filed still belongs to it. */
+  async function restoreForNewTerms(held) {
+    await runSearch(false);
+    picks = held.filter((id) => matches.some((c) => String(c.listing_id) === id))
+      .slice(0, MAX_PICKS);
+    syncPickBoxes();
+    updatePickState();
+    if (picks.length) {
+      onContinue();
+      showRequestError(TERMS_MOVED);
+      return;
+    }
+    /* Nothing held is on the shortlist any more, so there is nothing to
+       open step 3 on; the message belongs on the list they pick from. */
+    const hint = el('pickHint');
+    if (hint) {
+      hint.hidden = false;
+      hint.textContent = 'The introduction terms have been updated, and your shortlist has moved on. ' +
+        'Pick again and tick the new terms.';
+    }
   }
 
   /* ══════════════ steps, on and off ══════════════ */
@@ -897,6 +1004,6 @@
     syncConditionalFields();
   }
 
-  window.NPFind = { init: init, submitPending: submitPending };
+  window.NPFind = { init: init, submitPending: submitPending, errorText: requestErrorText };
 })();
 

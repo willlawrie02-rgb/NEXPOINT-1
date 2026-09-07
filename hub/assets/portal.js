@@ -737,6 +737,10 @@ const PENDING_KINDS = {
     ready: () => !!(window.NPFind && NPFind.submitPending),
     alreadyError: 'picks_already_made',
     submit: (p) => NPFind.submitPending(p),
+    /* The find module already writes one sentence per worker refusal; the
+       card says the same thing rather than flattening eight answers into
+       "that did not send". */
+    errorText: (d) => (window.NPFind && NPFind.errorText) ? NPFind.errorText(d) : '',
   },
 };
 
@@ -796,6 +800,10 @@ function renderPendingCard(pending, kind){
       card.innerHTML = '<span>' + kind.already + '</span>';
       return;
     }
+    /* The module dropped the held action while handling this: it has taken
+       the seeker on somewhere else in the page (stale terms wanting a fresh
+       tick), so the card no longer stands for anything. */
+    if (window.NPPending && !NPPending.load()){ wrap.remove(); return; }
     btn.disabled = false; btn.textContent = kind.send;
     let err = card.querySelector('.pending-error');
     if (!err){
@@ -804,7 +812,8 @@ function renderPendingCard(pending, kind){
       err.style.cssText = 'color:#E5484D;font-size:13px';
       card.appendChild(err);
     }
-    err.textContent = 'That did not send. Try again, or email hello@nexpoint.co.uk.';
+    err.textContent = (kind.errorText && kind.errorText(d)) ||
+      'That did not send. Try again, or email hello@nexpoint.co.uk.';
   });
   card.querySelector('[data-np-pending-skip]').addEventListener('click', () => {
     NPPending.clear();
