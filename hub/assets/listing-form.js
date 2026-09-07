@@ -468,7 +468,9 @@
       '<form id="listingForm" novalidate>' +
 
       '<div class="lsec"><div class="lsec__h">Your site</div><div class="form-grid">' +
-      '<div class="field full"><label for="siteName">Site name' +
+      /* Not an input, so not a `for`: the site name is read off the account
+         and shown, and a label pointing at a paragraph labels nothing. */
+      '<div class="field full"><label>Site name' +
       '<span class="np-hint">Taken from your hub account.</span></label>' +
       '<p class="body" id="siteName" style="margin:0">' + esc(u.company || 'Your site') + '</p></div>' +
       '<div class="field full"><label for="siteAddress1">Address</label>' +
