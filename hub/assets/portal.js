@@ -436,7 +436,7 @@ async function signSubmit(){
   } else if (err){
     err.style.display = 'block';
     err.textContent = d.error === 'network'
-      ? 'That didn\'t send. Check your connection and try again.'
+      ? 'That did not send. Check your connection and try again.'
       : 'That email and password don\'t match an account. Check them, or create your hub account below.';
   }
 }

@@ -349,8 +349,8 @@
         err.textContent = d.error === 'account_exists'
           ? 'There\'s already an account for that email. Close this and choose Sign in instead.'
           : d.error === 'network'
-          ? 'That didn\'t save. Check your connection and try again, or email hello@nexpoint.co.uk.'
-          : 'That didn\'t save. Check the details and try again, or email hello@nexpoint.co.uk.';
+          ? 'That did not save. Check your connection and try again, or email hello@nexpoint.co.uk.'
+          : 'That did not save. Check the details and try again, or email hello@nexpoint.co.uk.';
       }
     });
   }
@@ -499,8 +499,8 @@
       btn.disabled = false; btn.textContent = action.heading || 'Request the introduction';
       const err = content().querySelector('.np-sign-error'); err.style.display = 'block';
       err.textContent = d.error === 'network'
-        ? 'That didn\'t send. Check your connection and try again, or email hello@nexpoint.co.uk.'
-        : 'That didn\'t send. Try again, or email hello@nexpoint.co.uk.';
+        ? 'That did not send. Check your connection and try again, or email hello@nexpoint.co.uk.'
+        : 'That did not send. Try again, or email hello@nexpoint.co.uk.';
     });
   };
 
