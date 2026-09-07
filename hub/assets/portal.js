@@ -28,6 +28,7 @@ const HUB_CONFIG = {
     label: 'Global Print Hub',
     deskRef: 'PRINT HUB',
     machineNoun: 'printer',
+    siteNoun: 'site',
     emptyState: {
       heading: 'Founding print nodes are joining the network now.',
       body: 'No node is certified in {region} yet. Every node is verified first-hand before it appears here. Tell the desk what you need and you will be matched the moment capacity comes online.',
@@ -38,6 +39,7 @@ const HUB_CONFIG = {
     label: 'Global Mill Hub',
     deskRef: 'MILL HUB',
     machineNoun: 'milling cell',
+    siteNoun: 'cell',
     emptyState: {
       heading: 'Founding milling cells are joining the network now.',
       body: 'No cell is certified in {region} yet. Every cell is verified first-hand before it appears here. Tell the desk what you need and you will be matched the moment capacity comes online.',
@@ -303,10 +305,15 @@ function isLand(lat, lon){
 }
 
 /* ═══════════ modals ═══════════ */
-function openIntro(ref, heading){
+/* `payload` is what a page has already collected and should not make anyone
+   type again: the find page's no-match route hands the desk the whole search.
+   The anonymous fallback below has no structured payload of its own, so it
+   is only carried on the account path. */
+function openIntro(ref, heading, payload){
   if (window.NPAccount && typeof NPAccount.gate === 'function'){
     NPAccount.gate({ hub: hubOfPage(), side: ref ? 'request_intro' : 'request_capacity',
-      brief_ref: ref || '', heading: heading || 'Ask us to introduce you', payload: {} });
+      brief_ref: ref || '', heading: heading || 'Ask us to introduce you',
+      payload: payload || {} });
     return;
   }
   /* fallback: original anonymous desk form, unchanged below */
@@ -691,7 +698,13 @@ function fireEnterGroup(el){
    portal.js, so every hub page gets the offer. `kind:'request'` goes through
    the same submitRequest() path the desk forms already use; `kind:'listing'`
    goes back through the offer page's own module, which is why that kind is
-   only offered on a page that has NPListing loaded. */
+   only offered on a page that has NPListing loaded.
+
+   Two different things are held under `kind:'request'`: a desk request from
+   the questionnaire, which carries a `payload`, and a seeker's find request,
+   which carries the `search` it was built from and the sites picked. They
+   post to different routes, so `kindFor()` tells them apart by that field
+   rather than by inventing a second word for "request". */
 const PENDING_KINDS = {
   request: {
     line: 'You started a request before confirming your email. Send it now?',
@@ -713,14 +726,40 @@ const PENDING_KINDS = {
       return d;
     }),
   },
+  /* Getters, not strings: the Mill Hub calls a provider a cell where the
+     Print Hub calls it a site, and the card is only built once the page
+     (and so the hub) is known. */
+  find_request: {
+    get line(){ return 'You picked ' + pendingSiteNoun() + ' before confirming your email. Send the request now?'; },
+    send: 'Send it',
+    get done(){ return '<strong>Received.</strong> ' + pendingSentLine(); },
+    get already(){ return '<strong>Already sent.</strong> ' + pendingSentLine(); },
+    ready: () => !!(window.NPFind && NPFind.submitPending),
+    alreadyError: 'picks_already_made',
+    submit: (p) => NPFind.submitPending(p),
+  },
 };
+
+function pendingSiteNoun(){
+  const c = hubConfig();
+  return ((c && c.siteNoun) || 'site') + 's';
+}
+function pendingSentLine(){
+  return 'We check every request personally and put it to the ' + pendingSiteNoun() +
+    ' you picked. You can follow it on your account.';
+}
+
+function kindFor(pending){
+  if (pending.kind === 'request' && pending.search) return PENDING_KINDS.find_request;
+  return PENDING_KINDS[pending.kind];
+}
 
 function checkPendingReplay(){
   if (!window.NPAccount || !window.NPPending) return;
   if (!NPAccount.user || !NPAccount.confirmed()) return;
   const p = NPPending.load();
   if (!p) return;
-  const kind = PENDING_KINDS[p.kind];
+  const kind = kindFor(p);
   if (!kind || !kind.ready()) return;
   if (p.hub && p.hub !== hubOfPage()) return;
   renderPendingCard(p, kind);
