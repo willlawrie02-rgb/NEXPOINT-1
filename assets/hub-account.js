@@ -238,7 +238,7 @@
       <form data-np-step="1">
         <div class="form-grid">
           <div class="field"><label for="qName">Your name</label><input id="qName" required value="${esc(draft.name)}" placeholder="Full name"></div>
-          <div class="field"><label for="qCompany">Company and site<span class="np-hint">One account per site. A company with several sites registers each site separately, with its own email.</span></label><input id="qCompany" required value="${esc(draft.company)}" placeholder="Held in confidence"></div>
+          <div class="field"><label for="qCompany">Company and site</label><input id="qCompany" required value="${esc(draft.company)}" placeholder="Held in confidence"></div>
           <div class="field"><label for="qEmail">Email</label><input id="qEmail" type="email" required value="${esc(draft.email)}" placeholder="you@company.com"></div>
           <div class="field"><label for="qPass">Choose a password</label><input id="qPass" type="password" required minlength="8" maxlength="72" placeholder="At least 8 characters"></div>
         </div>
