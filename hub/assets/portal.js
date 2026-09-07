@@ -860,6 +860,7 @@ function bootPageModules(){
   if (window.NPFind) NPFind.init();
   if (window.NPListing) NPListing.init();
   if (window.NPDashboard) NPDashboard.init();
+  if (window.NPAccept) NPAccept.init();
   /* the page's own module may be what a held action replays through, and it
      only exists now, so the offer is re-checked once the modules are up */
   checkPendingReplay();
