@@ -119,6 +119,41 @@
   let searching = false;
   let sending = false;
   let step3Shell = null;       /* step 3's panel before a success card replaced it */
+  let restored = null;         /* the held ask this render is putting back */
+
+  /* ── the ask, held across the account gate ─────────────────────────────
+     The worker only shows a shortlist to a confirmed account, so a seeker
+     who is signed out is sent off to register in the middle of step 1 and
+     comes back through an email link to a fresh load of this page. What
+     they typed is held here so the form they come back to is the form they
+     left. Its own key, not NPPending: that is a single slot and it holds
+     requests, and a held ask must not be able to push a held request out of
+     it. The same 24 hours, for the same reason. */
+  const DRAFT_KEY = 'np_find_draft';
+  const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+  function saveDraft(theSpec) {
+    if (!theSpec) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        hub: HUB, spec: theSpec, saved_at: Date.now(),
+        /* What the spec cannot carry back: the notes before the volume
+           sentence was appended to them, and which of the two "when do you
+           need it" answers was open when both of them are empty. */
+        form: { notes: val('fNotes'), lead_mode: groupValue('fLeadMode', 'fLeadMode') || 'max_lead' },
+      }));
+    } catch (e) {}
+  }
+  function loadDraft() {
+    let v;
+    try { v = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch (e) { return null; }
+    if (!v || !v.spec || v.hub !== HUB) return null;
+    if (!v.saved_at || (Date.now() - v.saved_at) > DRAFT_MAX_AGE_MS) { clearDraft(); return null; }
+    return v;
+  }
+  function clearDraft() {
+    try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+  }
 
   const el = (id) => document.getElementById(id);
   const mount = () => el('findMount');
@@ -165,6 +200,15 @@
     if (!box) return;
     const services = (vocab && vocab.services) || [];
     const place = prefilledPlace();
+    /* The ask held before the account gate opened, if there is one: every
+       field below reads from it first and from the account second. */
+    const back = restored ? restored.spec : null;
+    const backForm = (restored && restored.form) || {};
+    const recurring = !!(back && back.cadence === 'recurring');
+    const byDate = back ? backForm.lead_mode === 'needed_by' : false;
+    const town = back ? back.town : place.town;
+    const country = back ? back.country : place.country;
+    const num = (v) => (v == null || v === '' ? '' : String(v));
 
     box.innerHTML =
       '<form id="findForm" novalidate>' +
@@ -179,64 +223,79 @@
         '<input id="fProcess" placeholder="Type and press Enter"></div>' +
 
         '<div class="field"><label for="fQuantity">How many</label>' +
-        '<input id="fQuantity" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 200"></div>' +
+        '<input id="fQuantity" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 200"' +
+        (back ? ' value="' + esc(num(back.quantity)) + '"' : '') + '></div>' +
 
         '<div class="field"><label for="fQuantityUnit">Counted in</label>' +
         '<select id="fQuantityUnit"><option value="pairs">Pairs</option>' +
-        '<option value="units">Units</option></select></div>' +
+        '<option value="units"' + (back && back.quantity_unit === 'units' ? ' selected' : '') +
+        '>Units</option></select></div>' +
 
         '<div class="field full"><label id="fCadenceLabel">Is this a one off?</label>' +
         '<div class="lgroup" id="fCadence" role="radiogroup" aria-labelledby="fCadenceLabel">' +
-        pickChip('fCadence', 'one_off', 'One off', true, 'radio') +
-        pickChip('fCadence', 'recurring', 'Recurring', false, 'radio') +
+        pickChip('fCadence', 'one_off', 'One off', !recurring, 'radio') +
+        pickChip('fCadence', 'recurring', 'Recurring', recurring, 'radio') +
         '</div></div>' +
 
         '<div class="field" id="fPerMonthField" hidden><label for="fPerMonth">How many per month</label>' +
-        '<input id="fPerMonth" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 60"></div>' +
+        '<input id="fPerMonth" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 60"' +
+        (back ? ' value="' + esc(num(back.per_month)) + '"' : '') + '></div>' +
 
         '<div class="field full"><label id="fLeadModeLabel">When do you need it?</label>' +
         '<div class="lgroup" id="fLeadMode" role="radiogroup" aria-labelledby="fLeadModeLabel">' +
-        pickChip('fLeadMode', 'max_lead', 'Within a lead time', true, 'radio') +
-        pickChip('fLeadMode', 'needed_by', 'By a date', false, 'radio') +
+        pickChip('fLeadMode', 'max_lead', 'Within a lead time', !byDate, 'radio') +
+        pickChip('fLeadMode', 'needed_by', 'By a date', byDate, 'radio') +
         '</div></div>' +
 
         '<div class="field" id="fMaxLeadField"><label for="fMaxLead">Lead time (days)</label>' +
-        '<input id="fMaxLead" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 21"></div>' +
+        '<input id="fMaxLead" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 21"' +
+        (back ? ' value="' + esc(num(back.max_lead_time_days)) + '"' : '') + '></div>' +
 
         '<div class="field" id="fNeededByField" hidden><label for="fNeededBy">Needed by</label>' +
-        '<input id="fNeededBy" type="date"></div>' +
+        '<input id="fNeededBy" type="date"' +
+        (back && back.needed_by ? ' value="' + esc(back.needed_by) + '"' : '') + '></div>' +
 
         '<div class="field"><label for="fTown">Town or city</label>' +
-        '<input id="fTown" value="' + esc(place.town) + '" placeholder="Where the work lands"></div>' +
+        '<input id="fTown" value="' + esc(town) + '" placeholder="Where the work lands"></div>' +
 
         '<div class="field"><label for="fCountry">Country</label>' +
         '<input id="fCountry" placeholder="Start typing"></div>' +
 
         '<div class="field full"><label id="fServicesLabel">Services you also want (optional)</label>' +
         '<div class="lgroup" id="fServices" role="group" aria-labelledby="fServicesLabel">' +
-        services.map((s) => pickChip('service', s.term, s.label, false, 'checkbox')).join('') +
+        services.map((s) => pickChip('service', s.term, s.label,
+          !!(back && (back.services || []).indexOf(s.term) !== -1), 'checkbox')).join('') +
         '</div></div>' +
 
         '<div class="field full"><label for="fNotes">Anything else we should know? (optional)</label>' +
-        '<textarea id="fNotes" placeholder="Tolerances, finishing, the deadline behind the deadline"></textarea></div>' +
+        '<textarea id="fNotes" placeholder="Tolerances, finishing, the deadline behind the deadline">' +
+        esc(backForm.notes || '') + '</textarea></div>' +
 
       '</div>' +
       '<p class="np-sign-error" id="findErr" style="display:none"></p>' +
+      '<p class="np-hint" id="findGateHint">Seeing the shortlist needs a confirmed hub account. ' +
+      'Nothing goes to any ' + esc(siteNoun()) + ' until you ask for the introductions.</p>' +
       '<div class="modal-actions"><button class="btn btn-primary" type="submit" id="findSubmit">' +
       'Show the ' + esc(siteNounPlural()) + ' that fit</button></div>' +
       '</form>';
 
     TA.fMaterial = window.NPTypeahead ? NPTypeahead.attach(el('fMaterial'), {
       options: (vocab && vocab.materials) || [], multi: true, allowFree: true,
+      value: (back && back.materials && back.materials.length) ? back.materials : null,
     }) : null;
     TA.fProcess = window.NPTypeahead ? NPTypeahead.attach(el('fProcess'), {
       options: (vocab && vocab.processes) || [], allowFree: true,
+      value: (back && back.process) ? back.process : null,
     }) : null;
     TA.fCountry = window.NPTypeahead ? NPTypeahead.attach(el('fCountry'), {
       options: countryOptions(), allowFree: true,
-      value: place.country ? [{ term: place.country, label: place.country }] : null,
+      value: country ? [{ term: country, label: country }] : null,
     }) : null;
-    if (!TA.fCountry && el('fCountry')) el('fCountry').value = place.country;
+    if (!TA.fCountry && el('fCountry')) el('fCountry').value = country;
+
+    /* Put back once. If the retry is refused again the gate holds it afresh,
+       so the key is never left standing for a form nobody is looking at. */
+    if (restored) { restored = null; clearDraft(); }
 
     wireGroup('fCadence', 'fCadence');
     wireGroup('fLeadMode', 'fLeadMode');
@@ -426,10 +485,16 @@
         showFindError('Confirm your email and we will show you the ' + siteNounPlural() + ' that fit.');
         return;
       }
+      /* Registering means leaving for an email client and coming back to a
+         fresh load of this page, so the ask is held before the gate opens. */
+      saveDraft(spec);
       NPAccount.requireConfirmed(() => runSearch(true));
       return;
     }
     if (!d || d.error) { showFindError(searchErrorText(d)); return; }
+
+    /* The ask is on screen and answered: nothing left to put back. */
+    clearDraft();
 
     /* Chris, on being asked for his country a second time. The next hub
        page reads this back through NP.loadLoc(), which is where step 1's
@@ -987,6 +1052,8 @@
       window.NPAccount ? NPAccount.ready.catch(() => null) : Promise.resolve(null),
     ]);
     vocab = v;
+    /* Read before the render, because the render is what puts it back. */
+    restored = loadDraft();
     renderForm();
     syncConditionalFields();
   }
