@@ -752,6 +752,7 @@ document.addEventListener('npaccount:change', checkPendingReplay);
 function bootPageModules(){
   if (window.NPFind) NPFind.init();
   if (window.NPListing) NPListing.init();
+  if (window.NPDashboard) NPDashboard.init();
 }
 document.addEventListener('np:modules', bootPageModules, { once: true });
 
