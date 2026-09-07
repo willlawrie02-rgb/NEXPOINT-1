@@ -21,12 +21,11 @@
 </head>
 <body data-hub="print">
 <!--
-v3 · 2026-08-15 — the seeker's own page. Chris: "I need the map instead of this
-boring list… I would love to see the map as an interface before this."
-The three-field workflow he praised is kept intact; the map just leads it.
-Results now vary by region AND country, and every card names its country.
+2026-09-07 (Global Hub v2) - the seeker's own page, rebuilt around the live
+marketplace. The placeholder capacity map is gone: what a seeker needs is an
+ask in the network's own vocabulary, a ranked shortlist of anonymous sites,
+and at most three picks. hub/assets/find.js owns all three steps.
 -->
-
 <div class="scroll-progress" aria-hidden="true"></div>
 
 <header>
@@ -56,7 +55,7 @@ Results now vary by region AND country, and every card names its country.
   <div class="container">
     <span class="eyebrow"><span class="live-dot"></span>I need capacity</span>
     <h1>Find print capacity <em>near you.</em></h1>
-    <p class="lede">Matching starts with location, so the logistics work from the first conversation. Three clicks, no account, nothing stored.</p>
+    <p class="lede">Tell us what you need and where it lands. We rank the sites that can take it, nearest first, and you pick up to three to be introduced to.</p>
   </div>
 </section>
 
@@ -64,46 +63,38 @@ Results now vary by region AND country, and every card names its country.
   <div class="container">
     <div class="flow">
 
-      <!-- 01 · the map -->
+      <!-- 01 - the ask -->
       <div class="flow-step">
-        <h2>Where are you?</h2>
-        <p class="hint">Pick your region on the map. Green markers are certified nodes, live today; grey regions are opening to founding labs next.</p>
-        <div class="mapwrap enter enter--rise">
-          <div id="mapMount"></div>
-          <div class="map-legend">
-            <b><span style="width:9px;height:9px;border-radius:50%;background:var(--green);display:inline-block"></span> Certified node, live today</b>
-            <b><span style="width:9px;height:9px;border-radius:50%;background:rgba(14,22,38,.22);display:inline-block"></span> Not yet certified — tell us what you need</b>
-            <b>Founding nodes are limited to twenty laboratories worldwide.</b>
-          </div>
-        </div>
-      </div>
-
-      <!-- 02 · narrow it down -->
-      <div class="flow-step" id="step2" hidden>
-        <h2>Where in <span id="step2Region">your region</span>?</h2>
-        <p class="hint">Country matters more than distance: 250 miles is no use if it crosses a border. Your town is optional and only sharpens the ordering.</p>
+        <h2>What do you need?</h2>
+        <p class="hint">The network describes capacity in one shared vocabulary, so the words you pick here are the words the sites listed themselves under. Nothing is sent until you say so.</p>
         <div class="panel">
-          <div class="loc-grid">
-            <div class="field">
-              <label for="locCountry">Country</label>
-              <select id="locCountry"><option value="">Choose a country</option></select>
-            </div>
-            <div class="field">
-              <label for="locTown">City / town <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></label>
-              <input id="locTown" placeholder="Type your town">
-            </div>
-            <button class="btn btn-primary" onclick="showMatches()">Show the capacity near me</button>
-          </div>
-          <div class="loc-note">Your location is only used to match you to nearby nodes. Nothing is stored in this draft; it is carried to the next screen so you never type it twice.</div>
+          <div id="findMount"><p class="body">Loading…</p></div>
         </div>
       </div>
 
-      <!-- 03 · the answer -->
-      <div class="flow-step" id="step3" hidden>
-        <h2>What the network can print</h2>
-        <p class="hint">Capacity is described by process and material. Identities, exact locations and lab names are shared only inside a personal introduction.</p>
+      <!-- 02 - the shortlist -->
+      <div class="flow-step" id="step2" hidden>
+        <h2>The sites that fit</h2>
+        <p class="hint">Ten at most, nearest first. Names, addresses and rates are shared only inside a personal introduction.</p>
         <div id="matchIntro" style="display:none;margin-bottom:20px;font-size:14px;color:var(--on-surface)"></div>
+        <div id="noMatch" hidden style="margin-bottom:20px"></div>
         <div class="cap-grid" id="capGrid"></div>
+        <p class="np-hint" id="pickHint" hidden></p>
+        <div class="pickbar" id="pickBar" hidden><span id="pickCount">0 of 3 picked</span> <span class="pickbar__go"><span class="pickbar__dot" aria-hidden="true">·</span> <button class="btn btn-primary" type="button" id="pickContinue">Continue</button></span></div>
+      </div>
+
+      <!-- 03 - the request -->
+      <div class="flow-step" id="step3" hidden>
+        <h2>Ask for the introductions</h2>
+        <p class="hint">We read every request personally before anything reaches a site. Contact details are exchanged only once both sides have accepted.</p>
+        <div class="panel">
+          <div id="step3Body">
+            <div id="pickSummary"></div>
+            <div id="introTermsBlock" style="margin-top:20px"></div>
+            <p class="np-sign-error" id="requestErr" style="display:none"></p>
+            <div class="modal-actions"><button class="btn btn-primary" type="button" id="requestSubmit">Request the introductions</button></div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -194,7 +185,7 @@ Results now vary by region AND country, and every card names its country.
       '/hub/assets/portal.js',
       '/hub/assets/vocab.js',
       '/hub/assets/typeahead.js',
-      '/hub/assets/find-legacy.js'
+      '/hub/assets/find.js'
     ];
     (function next(i) {
       if (i >= srcs.length) { done(); return; }
