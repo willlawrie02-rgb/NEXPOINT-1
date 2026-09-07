@@ -17,6 +17,18 @@
      preview, where one server holds the whole site. */
   window.NP_APEX = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
   document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="' + window.NP_APEX + '/hub/assets/portal.css">');
+
+  /* The header renders its buttons before the module chain that defines what
+     they call: portal.js arrives from the apex over a sequential chain of
+     cross-origin loads, and a click landing first threw a ReferenceError and
+     did nothing at all. These stubs record the call instead; portal.js
+     replays the queue once, at the end of its own boot. */
+  window.NP_QUEUE = [];
+  ['openSignIn', 'openIntro', 'openEducationList', 'closeAll'].forEach(function (name) {
+    window[name] = function () {
+      window.NP_QUEUE.push({ name: name, args: [].slice.call(arguments) });
+    };
+  });
 </script>
 </head>
 <body data-hub="print">

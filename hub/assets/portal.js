@@ -460,6 +460,30 @@ function closeAll(){
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
 
+/* ═══════════ the clicks that arrived before this file did ═══════════
+   The subdomain pages render their header CTAs immediately but load this
+   module from the apex, over a sequential chain of cross-origin requests:
+   two round trips on the doors, five on find and offer. A click in that gap
+   used to throw a ReferenceError and do nothing, so each of those pages
+   defines a stub in its inline head script that records the call instead.
+   The declarations above have already replaced those stubs by the time any
+   of this runs, so the queue is drained once and never refilled.
+   It is drained after the account has settled, because what openIntro puts
+   up depends on whether anyone is signed in, and the click that queued it
+   happened before /auth/me could possibly have answered. */
+(function replayQueuedCalls(){
+  const queue = window.NP_QUEUE;
+  if (!Array.isArray(queue)) return;
+  window.NP_QUEUE = null;
+  const fns = { openSignIn, openIntro, openEducationList, closeAll };
+  const run = () => queue.forEach(call => {
+    const fn = call && fns[call.name];
+    if (typeof fn === 'function') fn.apply(null, call.args || []);
+  });
+  if (window.NPAccount && NPAccount.ready && NPAccount.ready.then) NPAccount.ready.then(run, run);
+  else run();
+})();
+
 /* ═══════════ hero globe (landing only): dotted Earth with live connection arcs ═══════════ */
 (function initGlobe() {
   const canvas = document.getElementById('globeCanvas');
