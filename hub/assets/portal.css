@@ -592,3 +592,16 @@ button.notice-warn:hover,a.notice-warn:hover{background:rgba(245,166,35,.22)}
 
 /* a note under a field: the answer to "why are you asking me this?" */
 .np-hint{display:block;margin-top:5px;font:400 12px/1.5 var(--font-body);letter-spacing:0;text-transform:none;color:var(--outline)}
+
+/* the listing form: sections, a wrapping row of pick chips, and the
+   read-only face a revision under review is shown in */
+.lsec{margin-top:28px}
+.lsec:first-child{margin-top:0}
+.lsec__h{font:600 11px/1 var(--font-body);letter-spacing:.12em;text-transform:uppercase;color:var(--on-surface-var);margin-bottom:14px}
+.lgroup{display:flex;flex-wrap:wrap;gap:10px}
+.lread{display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px 20px;margin:0;font-size:13.5px;line-height:20px}
+.lread dt{color:var(--on-surface-var);font-weight:500}
+.lread dd{margin:0;color:#0E1626;overflow-wrap:anywhere}
+@media(max-width:560px){.lread{grid-template-columns:1fr;gap:0}.lread dd{margin-bottom:10px}}
+.lmach{border:1px solid var(--border-card);border-radius:var(--radius-lg);background:var(--surface);padding:13px 15px;margin-bottom:10px;font-size:13.5px;line-height:20px;color:var(--on-surface-var);overflow-wrap:anywhere}
+.lmach b{color:#0E1626}

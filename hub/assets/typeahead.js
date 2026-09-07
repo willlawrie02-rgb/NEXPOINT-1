@@ -173,9 +173,30 @@
       input.focus();
     });
 
+    /* A single-select's `chosen` only ever moves on a pick (mousedown on a
+       list item, or Enter over an exact match / as free text), so typing
+       over an already-chosen value and then leaving the field without
+       picking anything left `chosen` pointing at the old value while the
+       input showed whatever the host had typed. Blur is the one moment a
+       single-select's text is final: reconcile there, so what leaves the
+       field is always what the field displays. Multi-select chips do not
+       go through this: a multi input is always cleared after each pick, so
+       there is nothing of its own left to commit on blur. */
+    function commitSingleOnBlur() {
+      if (multi) return;
+      const raw = input.value.trim();
+      const currentLabel = chosen.length ? chosen[0].label : '';
+      if (raw === currentLabel) return;
+      if (!raw) { if (chosen.length) { chosen = []; fire(); } return; }
+      const exact = options.find((o) => o.label.toLowerCase() === raw.toLowerCase());
+      if (exact) { chosen = [exact]; input.value = exact.label; fire(); return; }
+      if (allowFree) { chosen = [{ term: raw, label: raw, free: true }]; input.value = raw; fire(); return; }
+      input.value = currentLabel;
+    }
+
     input.addEventListener('input', renderList);
     input.addEventListener('focus', renderList);
-    input.addEventListener('blur', () => { setTimeout(closeList, 120); });
+    input.addEventListener('blur', () => { commitSingleOnBlur(); setTimeout(closeList, 120); });
 
     input.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowDown') { e.preventDefault(); move(1); return; }
@@ -197,7 +218,10 @@
 
     /* ── the handle a page holds ───────────────────────────────────── */
     const api = {
-      value: function () { return multi ? values() : (values()[0] || ''); },
+      value: function () {
+        if (multi) return values();
+        return input.value.trim() ? (values()[0] || null) : null;
+      },
       chosen: function () { return chosen.slice(); },
       set: function (v) {
         const wanted = normalise(Array.isArray(v) ? v : (v ? [v] : []));
