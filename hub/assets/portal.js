@@ -801,9 +801,15 @@ function pendingSentLine(){
     ' you picked. You can follow it on your account.';
 }
 
+/* `pending.kind` is a string off localStorage, so it can be anything at all,
+   including "constructor" or "__proto__" - and a plain object lookup would
+   hand one of those back a function or Object.prototype and throw on the
+   `.ready()` below, killing the replay check for a pending that is perfectly
+   good. Own keys only. */
 function kindFor(pending){
   if (pending.kind === 'request' && pending.search) return PENDING_KINDS.find_request;
-  return PENDING_KINDS[pending.kind];
+  return Object.prototype.hasOwnProperty.call(PENDING_KINDS, pending.kind)
+    ? PENDING_KINDS[pending.kind] : null;
 }
 
 function checkPendingReplay(){

@@ -94,7 +94,10 @@
      Where the page stops. Each one is a card and a line saying who to
      write to, because a provider who has just been told "no" by a web page
      needs a person, not a refresh button. */
-  const ENDS = {
+  /* Null-prototype, both of these: what is looked up in them is a worker
+     error string or a key derived from one, and "constructor" off a plain
+     object literal is a function, not a miss. */
+  const ENDS = Object.assign(Object.create(null), {
     accepted: (ref) => ({
       heading: 'Accepted',
       lines: [ref
@@ -129,14 +132,14 @@
       fallback: 'Open the most recent link in your email, or email ' + HELLO +
         ' and we will send you a fresh one.',
     }),
-  };
+  });
 
   /* The worker's own words, mapped to those cards. Everything a refusal can
      say that ends the page is here; anything else is worth another try and
      is shown next to the buttons instead. A network drop is deliberately
      NOT in this table: on the preview it falls to the invalid-link card
      below, but on an answer it is a retry, not a dead link. */
-  const TERMINAL = {
+  const TERMINAL = Object.assign(Object.create(null), {
     'invalid token': 'invalid',
     'introduction not found': 'invalid',
     'introduction_id required': 'invalid',
@@ -148,7 +151,7 @@
     'already answered': 'answered',
     'this introduction has no acceptance window': 'invalid',
     'the acceptance window has expired': 'expired',
-  };
+  });
 
   function end(key, ref) {
     const card = (ENDS[key] || ENDS.invalid)(ref);
