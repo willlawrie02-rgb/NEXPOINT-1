@@ -740,7 +740,11 @@
     var prefix = 'decl-' + period + '-';
     var table = btn.closest('.acct-card');
     if (table) {
-      Array.prototype.forEach.call(table.querySelectorAll('input[id^="' + prefix + '"][id$="-units"]'), function (u) {
+      /* prefix is built from period, API text off data-period rather than
+         anything this page chose - CSS.escape it before it goes into a
+         selector. The ids it is compared against below go through el(), a
+         plain getElementById lookup that needs no escaping of its own. */
+      Array.prototype.forEach.call(table.querySelectorAll('input[id^="' + CSS.escape(prefix) + '"][id$="-units"]'), function (u) {
         var introId = u.id.slice(prefix.length, u.id.length - '-units'.length);
         var nothing = el(prefix + introId + '-nothing');
         if (nothing && nothing.checked) return;

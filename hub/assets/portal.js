@@ -478,9 +478,16 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); 
   const queue = window.NP_QUEUE;
   if (!Array.isArray(queue)) return;
   window.NP_QUEUE = null;
-  const fns = { openSignIn, openIntro, openEducationList, closeAll };
+  /* Object.create(null) plus an explicit own-property check: `call.name` is a
+     string off a stub's own recording, so nothing stops it being "constructor"
+     or "__proto__" - a plain object literal would hand one of those back a
+     function or Object.prototype rather than undefined. */
+  const fns = Object.create(null);
+  fns.openSignIn = openSignIn; fns.openIntro = openIntro;
+  fns.openEducationList = openEducationList; fns.closeAll = closeAll;
   const run = () => queue.forEach(call => {
-    const fn = call && fns[call.name];
+    const name = call && call.name;
+    const fn = (name && Object.prototype.hasOwnProperty.call(fns, name)) ? fns[name] : null;
     if (typeof fn === 'function') fn.apply(null, call.args || []);
   });
   if (window.NPAccount && NPAccount.ready && NPAccount.ready.then) NPAccount.ready.then(run, run);
