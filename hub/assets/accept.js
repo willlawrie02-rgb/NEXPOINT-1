@@ -359,6 +359,10 @@
     const d = await api('/terms/current?layer=introduction');
     terms = (d && !d.error && d.id) ? d : null;
     renderTerms();
+    /* The refetch failed too, so there is no new text to read and no tick to
+       give it. renderTerms has already said so; telling them to read it
+       again and tick would contradict the line right above. */
+    if (!terms) return;
     showErr('The introduction terms have been updated. Read them again and tick to accept them.',
       el('acceptTick'));
   }
