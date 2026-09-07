@@ -677,6 +677,68 @@ function fireEnterGroup(el){
   }
 })();
 
+/* ═══════════ pending replay ═══════════
+   A pending action lives in NPPending, on localStorage, on whichever origin
+   the visitor started on (see hub-account.js). The confirm page cannot see
+   it - it usually lives on a different host - so it only sends the visitor
+   back here; this is the one place that can actually offer to send it,
+   because this is the page it was saved from. Every hub page loads
+   portal.js, so every hub page gets the offer. Only `kind:'request'` is
+   wired up today, through the same submitRequest() path the desk forms
+   already use; a listing or pick kind adds its own branch when those flows
+   land. */
+function checkPendingReplay(){
+  if (!window.NPAccount || !window.NPPending) return;
+  if (!NPAccount.user || !NPAccount.confirmed()) return;
+  const p = NPPending.load();
+  if (!p || p.kind !== 'request') return;
+  if (p.hub && p.hub !== hubOfPage()) return;
+  renderPendingCard();
+}
+
+function renderPendingCard(){
+  if (document.getElementById('npPendingCard')) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'container';
+  wrap.style.marginTop = '16px';
+  wrap.innerHTML =
+    '<div class="notice-warn notice-warn--block" id="npPendingCard">' +
+      '<span>You started a request before confirming your email. Send it now?</span>' +
+      '<button class="btn btn-primary" type="button" data-np-pending-send>Send it</button>' +
+      '<button class="btn btn-outline" type="button" data-np-pending-skip>Not now</button>' +
+    '</div>';
+  const header = document.querySelector('header');
+  if (header && header.parentNode) header.parentNode.insertBefore(wrap, header.nextSibling);
+  else document.body.insertBefore(wrap, document.body.firstChild);
+
+  const card = wrap.querySelector('#npPendingCard');
+  card.querySelector('[data-np-pending-send]').addEventListener('click', async (e) => {
+    const btn = e.target;
+    btn.disabled = true; btn.textContent = 'Sending…';
+    const d = await NPAccount.replayPending();
+    if (d && d.ok){
+      card.innerHTML = '<span><strong>Received, in confidence.</strong> Chris or Will reads every request personally. Expect to hear within two working days.</span>';
+      return;
+    }
+    btn.disabled = false; btn.textContent = 'Send it';
+    let err = card.querySelector('.pending-error');
+    if (!err){
+      err = document.createElement('span');
+      err.className = 'pending-error';
+      err.style.cssText = 'color:#E5484D;font-size:13px';
+      card.appendChild(err);
+    }
+    err.textContent = 'That did not send. Try again, or email hello@nexpoint.co.uk.';
+  });
+  card.querySelector('[data-np-pending-skip]').addEventListener('click', () => {
+    NPPending.clear();
+    wrap.remove();
+  });
+}
+
+if (window.NPAccount) NPAccount.ready.then(checkPendingReplay);
+document.addEventListener('npaccount:change', checkPendingReplay);
+
 /* ═══════════ boot ═══════════
    The loader in each page fires np:modules once its whole chain has loaded and
    the document is ready, so a page module is always started after both it and

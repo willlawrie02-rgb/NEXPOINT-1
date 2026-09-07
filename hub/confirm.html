@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root{--canvas:#F5F7FA;--ink:#0E1626;--muted:#5A6B84;--blue:#005CC8;--blue-hover:#0066DC;--green:#8BC53F;--border:#E3E8EF;--warn:#8A5300}
+  :root{--canvas:#F5F7FA;--ink:#0E1626;--muted:#5A6B84;--blue:#005CC8;--blue-hover:#0066DC;--green:#8BC53F;--border:#E3E8EF}
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:var(--canvas);color:var(--ink);font:400 16px/1.6 'Inter',system-ui,sans-serif;
        min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -24,8 +24,6 @@
   button,.btn{font:600 14px/1 'Inter',sans-serif;padding:13px 22px;border-radius:4px;border:none;cursor:pointer;display:inline-flex;align-items:center;text-decoration:none}
   .yes{background:var(--blue);color:#fff}
   .yes:hover{background:var(--blue-hover)}
-  .no{background:transparent;border:1px solid rgba(14,22,38,.2);color:var(--ink)}
-  .no:hover{border-color:rgba(14,22,38,.4)}
   :is(a,button,input):focus-visible{outline:2px solid #3D8EEB;outline-offset:3px}
   .panel{margin-top:26px;padding:22px;background:#fff;border:1px solid var(--border);border-radius:8px;text-align:left}
   .panel .actions{justify-content:flex-start;margin-top:18px}
@@ -33,7 +31,6 @@
   input{width:100%;background:#fff;border:1px solid rgba(14,22,38,.18);border-radius:4px;color:var(--ink);
         font:400 14.5px/1.4 'Inter',sans-serif;padding:12px 14px;outline:none}
   input:focus{border-color:var(--blue)}
-  .note{margin-top:14px;font-size:13px;color:var(--warn)}
   .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
   .foot a{color:var(--blue)}
 </style>
@@ -50,7 +47,6 @@
       Stuck? Email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</div>
   </main>
 
-<script src="../assets/hub-account.js"></script>
 <script>
 /* Confirmation landing. The link in the email carries a one-time token; posting
    it back is what wakes the account up and sets the session cookie, so this is
@@ -58,7 +54,16 @@
 
    It is deliberately standalone, like check.html: someone arriving here has
    just come from an email client and may have no session, no portal.css cached
-   and no patience, so the page carries its own styles and one job. */
+   and no patience, so the page carries its own styles and one job.
+
+   A pending action (something started before the account existed) lives in
+   localStorage on the origin the visitor started on - almost always a
+   subdomain, while this page is served from the apex - so this page cannot
+   see it and does not try to. Instead, when the registration that led here
+   carried a return_to, the worker appends it to this link as &return=, and
+   this page's only job on success is to send the visitor back to it; the
+   originating page (portal.js) offers the replay once it sees a confirmed,
+   signed-in visitor with a pending action of its own. */
 const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const API = local ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
 const ACCOUNT_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
@@ -71,51 +76,34 @@ const body = () => document.getElementById('confirmBody');
 function render(html){ body().innerHTML = html; }
 function say(title, line){ render(`<h1>${escapeHtml(title)}</h1><p>${escapeHtml(line)}</p>`); }
 
+function actionLink(label, href){
+  return `<div class="actions"><a class="btn yes" href="${escapeHtml(href)}">${escapeHtml(label)}</a></div>`;
+}
 function accountLink(label){
-  return `<div class="actions"><a class="btn yes" href="${ACCOUNT_URL}">${escapeHtml(label)}</a></div>`;
+  return actionLink(label, ACCOUNT_URL);
+}
+
+/* The confirmation email's link carries &return= when the registration that
+   led here started from an action on another page (see A.gate() /
+   return_to in hub-account.js). Only ever followed to a NexPoint host, so a
+   crafted link cannot use this page to redirect someone elsewhere. */
+function safeReturnTo(){
+  const raw = new URLSearchParams(location.search).get('return');
+  if (!raw) return null;
+  let u;
+  try { u = new URL(raw, location.href); } catch (e) { return null; }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+  const host = u.hostname;
+  const ok = host === 'nexpoint.co.uk' || host.endsWith('.nexpoint.co.uk') || host === 'localhost';
+  return ok ? u.href : null;
 }
 
 /* ── the states ──────────────────────────────────────────────────── */
 
 function renderConfirmed(){
-  const pending = window.NPAccount ? NPAccount.pending() : null;
-  if (pending && pending.kind === 'request'){
-    render(`
-      <h1>You're confirmed.</h1>
-      <p>Your hub account is ready and you are signed in on this device.</p>
-      <div class="panel">
-        <h2>Send the request you started?</h2>
-        <p>You asked us for an introduction before you had an account. We held on to it rather than losing your place.</p>
-        <div class="actions">
-          <button class="yes" type="button" id="sendPendingBtn">Send it now</button>
-          <button class="no" type="button" id="skipPendingBtn">Not now</button>
-        </div>
-      </div>`);
-    document.getElementById('sendPendingBtn').addEventListener('click', sendPending);
-    document.getElementById('skipPendingBtn').addEventListener('click', () => {
-      NPAccount.clearPending();
-      render(`<h1>You're confirmed.</h1><p>Your hub account is ready. Ask for the introduction whenever you are ready.</p>` + accountLink('Go to your account'));
-    });
-    return;
-  }
-  render(`<h1>You're confirmed.</h1><p>Your hub account is ready and you are signed in on this device.</p>` + accountLink('Go to your account'));
-}
-
-async function sendPending(){
-  const btn = document.getElementById('sendPendingBtn');
-  btn.disabled = true; btn.textContent = 'Sending…';
-  const d = await NPAccount.replayPending();
-  if (d && d.ok){
-    render(`<h1>Received, in confidence.</h1><p>Chris or Will reads every request personally. Expect to hear within two working days.</p>` + accountLink('Go to your account'));
-    return;
-  }
-  btn.disabled = false; btn.textContent = 'Send it now';
-  const note = document.createElement('p');
-  note.className = 'note';
-  note.textContent = d && d.error === 'network'
-    ? 'That did not send. Check your connection and try again.'
-    : 'That did not send. Try again, or email hello@nexpoint.co.uk.';
-  btn.parentNode.parentNode.appendChild(note);
+  const dest = safeReturnTo();
+  const cta = dest ? actionLink('Continue where you left off', dest) : accountLink('Go to your account');
+  render(`<h1>You're confirmed.</h1><p>Your hub account is ready and you are signed in on this device.</p>` + cta);
 }
 
 function renderExpired(){
@@ -172,9 +160,8 @@ async function resend(){
   }
 
   if (r.ok && d && d.ok){
-    /* the cookie is set now, so the module can pick the account up and any
-       held action can be finished from here */
-    if (window.NPAccount) await NPAccount.refresh();
+    /* the cookie is set now; the account can act as soon as the visitor is
+       back on a page that loads hub-account.js */
     renderConfirmed();
     return;
   }
