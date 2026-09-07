@@ -21,14 +21,7 @@
   var BRIEFS_URL = '/opportunities/briefs.json';
   var OPPORTUNITIES_URL = '/opportunities/';
 
-  /* What a hub or a stated interest says about the board. `any` means the
-     board is relevant whatever is on it. */
-  var INTEREST_SECTORS = {
-    find_print: ['print', 'manufacturing', 'materials'],
-    offer_print: ['print', 'manufacturing', 'materials'],
-    mill_cell: ['mill', 'manufacturing'],
-    opportunities: ['any'],
-  };
+  /* What a hub says about the board. */
   var HUB_SECTORS = {
     print: ['print', 'manufacturing', 'materials'],
     mill: ['mill', 'manufacturing'],
@@ -549,11 +542,11 @@
     return Object.keys(seen);
   }
 
-  function sectorsFor(d, used) {
+  /* Driven by hubs_used alone (host or seeker, either counts as "used"): a
+     stated interest was never anything but empty from sign-up onward, since
+     PR #35 dropped the interests step before anyone could tick one. */
+  function sectorsFor(used) {
     var out = {};
-    (Array.isArray(d.interests) ? d.interests : []).forEach(function (k) {
-      (INTEREST_SECTORS[k] || []).forEach(function (sec) { out[sec] = true; });
-    });
     used.forEach(function (h) {
       (HUB_SECTORS[h] || []).forEach(function (sec) { out[sec] = true; });
     });
@@ -600,7 +593,11 @@
     });
     paintMore(tiles);
 
-    var sectors = sectorsFor(d, used);
+    /* The Opportunities cross-sell earns its place only for an account that
+       has used at least one hub already and has not used Opportunities
+       itself - never as a rediscovery of a door it already walked through. */
+    if (!used.length || used.indexOf('opportunities') !== -1) return;
+    var sectors = sectorsFor(used);
     if (!sectors.length) return;
     loadBriefs().then(function (briefs) {
       var hit = briefs.some(function (b) { return briefMatches(b, sectors); });
