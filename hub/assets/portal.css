@@ -1,4 +1,4 @@
-/* NexPoint User Portal v2 — shared styles. Tokens from brand/colors_and_type.css (light canvas). */
+/* NexPoint User Portal v2: shared styles. Tokens from brand/colors_and_type.css (light canvas). */
 :root{
   --font-display:'Montserrat',system-ui,sans-serif;--font-body:'Inter',system-ui,sans-serif;
   --bg:#F5F7FA; --bg-alt:#ECEFF3; --surface:#FFFFFF; --surface-input:#FFFFFF;
@@ -82,7 +82,7 @@ header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.82);backdro
 .section h2 em{font-style:normal;color:var(--blue)}
 .section .sub{font-size:15px;line-height:24px;color:var(--on-surface-var);max-width:640px;margin-bottom:44px}
 
-/* proof band — thin typographic, no boxes */
+/* proof band: thin typographic, no boxes */
 .proof{border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .proof .container{padding-top:clamp(20px,2.6vh,28px);padding-bottom:clamp(20px,2.6vh,28px)}
 .stats{display:flex;flex-wrap:wrap;gap:clamp(18px,2.5vw,26px) clamp(24px,2.8vw,40px)}
@@ -90,7 +90,7 @@ header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.82);backdro
 .stat b{flex:0 0 auto;font:700 clamp(21px,1.9vw,27px)/1 var(--font-display);letter-spacing:-.02em;color:#0E1626}
 .stat span{display:block;font-size:12.5px;color:var(--on-surface-var);line-height:1.4}
 
-/* hub chooser cards (landing) — image-led */
+/* hub chooser cards (landing): image-led */
 .hub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(16px,2vw,24px)}
 @media(max-width:860px){.hub-grid{grid-template-columns:1fr}}
 .hub-card{position:relative;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-xl);overflow:hidden;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
@@ -109,7 +109,7 @@ a.hub-card:hover .go svg{transform:translateX(3px)}
 .hub-card.soon .media img{filter:saturate(.5) opacity(.85)}
 .hub-card.soon h3{color:rgba(14,22,38,.75)}
 
-/* editorial rows (why / pillars) — hairline separated, no card wall */
+/* editorial rows (why / pillars): hairline separated, no card wall */
 .rows{border-top:1px solid var(--border)}
 .row{display:grid;grid-template-columns:44px minmax(0,.75fr) minmax(0,1.6fr);gap:clamp(14px,3vw,40px);align-items:baseline;padding:clamp(20px,2.8vh,28px) 0;border-bottom:1px solid var(--border)}
 .row .material-symbols-outlined{font-size:22px;color:var(--blue);position:relative;top:3px}
@@ -120,7 +120,7 @@ a.hub-card:hover .go svg{transform:translateX(3px)}
   .row p{grid-column:2}
 }
 
-/* steps — hanging-rule sequence */
+/* steps: hanging-rule sequence */
 .steps-head{font:600 12px/1 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:rgba(14,22,38,.62);margin-bottom:26px}
 .steps{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:clamp(14px,1.8vw,24px)}
 .steps.four{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -142,7 +142,7 @@ a.hub-card:hover .go svg{transform:translateX(3px)}
   .step::after{top:22px;left:-3px}
 }
 
-/* network band — typographic region counts */
+/* network band: typographic region counts */
 .net-band{display:flex;flex-wrap:wrap;gap:clamp(18px,2.5vw,30px) clamp(28px,3.2vw,48px);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:clamp(20px,2.8vh,30px) 0}
 .net{display:flex;align-items:baseline;gap:10px}
 .net b{font:700 clamp(22px,2vw,28px)/1 var(--font-display);letter-spacing:-.02em;color:#0E1626}
@@ -285,7 +285,7 @@ a.hub-card:hover .go svg{transform:translateX(3px)}
 
 .material-symbols-outlined{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-feature-settings:'liga';-webkit-font-smoothing:antialiased}
 
-/* mobile hub switcher — hubs stay one tap away below 900px */
+/* mobile hub switcher: hubs stay one tap away below 900px */
 .hub-switch{display:none}
 @media(max-width:900px){
   .hub-switch{display:flex;gap:8px;overflow-x:auto;padding:10px var(--side-pad);background:rgba(255,255,255,.92);border-bottom:1px solid var(--border-soft);-webkit-overflow-scrolling:touch}
@@ -311,12 +311,12 @@ html.js-motion .cap.enter.is-in:hover { transform: translateY(-2px); }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   v3 additions — Chris review 2026-08-14
+   v3 additions, Chris review 2026-08-14
    Action before explanation; the two audiences get their own doors and
    their own pages.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* two big doors — "are you a lab or a clinician? literally two big fat buttons".
+/* two big doors: "are you a lab or a clinician? literally two big fat buttons".
    Image on top, words on solid white: a white scrim over bright clinical photography
    erased both, and small text over a picture is exactly what Chris warned about for
    readers in their 40s, 50s and 60s. */
@@ -335,7 +335,7 @@ a.door:hover .door__media img{transform:scale(1.04);filter:saturate(1)}
 .door .go svg{transition:transform var(--dur) var(--ease)}
 a.door:hover .go svg{transform:translateX(3px)}
 
-/* sub-page head — find / offer pages open on the action, not on prose */
+/* sub-page head: find / offer pages open on the action, not on prose */
 .page-head{padding:clamp(30px,4.5vh,52px) 0 clamp(20px,2.6vh,32px)}
 .page-head h1{font:700 clamp(29px,3.4vw,46px)/1.1 var(--font-display);letter-spacing:-.024em;color:#0E1626;margin:0 0 14px}
 .page-head h1 em{font-style:normal;color:var(--blue)}
@@ -353,14 +353,14 @@ a.door:hover .go svg{transform:translateX(3px)}
 .flow-step[hidden]{display:none}
 @media(max-width:620px){.flow-step{padding-left:26px}.flow-step::after{left:4px}}
 
-/* location recall — we already asked, so we don't ask twice */
+/* location recall: we already asked, so we don't ask twice */
 .loc-recall{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;border:1px solid rgba(0,92,200,.22);background:rgba(0,92,200,.06);border-radius:var(--radius-lg);padding:13px 16px;margin-bottom:24px;font-size:13.5px;color:var(--on-surface)}
 .loc-recall .material-symbols-outlined{font-size:18px;color:var(--blue)}
 .loc-recall b{font-weight:600;color:#0E1626}
 .loc-recall button{background:none;border:none;color:var(--blue);font:600 13px/1 var(--font-body);cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:0}
 .loc-recall button:hover{color:var(--blue-hover)}
 
-/* cross-border flag on a capacity card — distance alone is misleading */
+/* cross-border flag on a capacity card: distance alone is misleading */
 .xborder{display:inline-flex;align-items:center;gap:5px;font:600 9.5px/1 var(--font-body);letter-spacing:.06em;text-transform:uppercase;color:var(--blue);background:rgba(0,92,200,.10);border:1px solid rgba(0,92,200,.20);border-radius:9999px;padding:4px 8px;margin-left:8px;white-space:nowrap}
 
 /* empty / waiting states inside the matcher */
@@ -372,7 +372,7 @@ a.door:hover .go svg{transform:translateX(3px)}
    reduced-motion visitors get the plain stacked page and never meet a pinned section.
    Two-column hero only; below 961px the hero stacks and the effect has nothing to say.
    The stage's padding-bottom and the doors' negative margin cancel, so the document is
-   exactly as long as it was — the travel is borrowed, not added. */
+   exactly as long as it was: the travel is borrowed, not added. */
 @media (min-width:961px){
   html.js-motion .hero-stage{padding-bottom:var(--hero-runway,105vh)}
   html.js-motion .hero-stage .hub-hero{position:sticky;top:var(--header-h,73px);z-index:1}
@@ -403,7 +403,7 @@ a.door:hover .go svg{transform:translateX(3px)}
 /* ═══════════ the four doors ═══════════
    Ported from the main site's own vocabulary rather than invented here: alternating
    svc-row bands for the two live hubs, hairline why-item rows for the two that aren't
-   doors. No card boxes — the rule and the space carry the structure. */
+   doors. No card boxes: the rule and the space carry the structure. */
 .hub-bands{display:grid;gap:clamp(28px,3.4vw,52px)}
 .hub-band{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);
   gap:clamp(28px,4vw,64px);align-items:center;text-decoration:none}
@@ -430,7 +430,7 @@ a.door:hover .go svg{transform:translateX(3px)}
 .hub-band .go svg{transition:transform var(--dur) var(--ease)}
 .hub-band:hover .go svg{transform:translateX(4px)}
 
-/* the two that aren't doors — a board you read, and a list you join */
+/* the two that aren't doors: a board you read, and a list you join */
 .hub-lines{margin-top:clamp(40px,5vw,72px)}
 .hub-line{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr) auto;
   gap:clamp(18px,3vw,48px);align-items:start;padding:clamp(26px,3.2vh,38px) 0;
