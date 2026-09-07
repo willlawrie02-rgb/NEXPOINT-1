@@ -255,13 +255,20 @@
   let turnstileToken = '';
   /* Renders into #npTurnstile once the script is ready. If step2 has moved on
      (back, closed, re-rendered) by the time the script resolves, the container
-     is gone and this quietly does nothing. */
+     is gone and this quietly does nothing. A script that never arrives fails
+     closed, so the submit button stays disabled: it says so in the container
+     rather than leaving a blank space and a button that cannot be pressed. */
   function renderTurnstile(siteKey) {
     turnstileToken = '';
     refreshSubmitGate();
     loadTurnstileScript().then((ts) => {
       const box = content().querySelector('#npTurnstile');
-      if (!box || !ts) return;
+      if (!box) return;
+      if (!ts) {
+        box.innerHTML = '<p class="np-sign-error" style="display:block">' +
+          'The check could not load. Reload the page to try again.</p>';
+        return;
+      }
       turnstileWidgetId = ts.render(box, {
         sitekey: siteKey,
         callback: (token) => { turnstileToken = token || ''; refreshSubmitGate(); },
