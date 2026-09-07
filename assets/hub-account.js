@@ -219,6 +219,66 @@
     try { return JSON.parse(sessionStorage.getItem('np_loc')) || {}; } catch (e) { return {}; }
   }
 
+  /* ── Turnstile, dormant until NP.TURNSTILE_SITE_KEY is set ──────────
+     Site key first (portal.js), then the matching worker secret: see the note
+     at the top of portal.js. With no key, turnstileSiteKey() returns '' and
+     every function below is a no-op, so the register body is unchanged and
+     nothing loads. */
+  function turnstileSiteKey() { return (window.NP && NP.TURNSTILE_SITE_KEY) || ''; }
+  let turnstileScriptPromise = null;
+  function loadTurnstileScript() {
+    if (turnstileScriptPromise) return turnstileScriptPromise;
+    turnstileScriptPromise = new Promise((resolve) => {
+      if (window.turnstile) { resolve(window.turnstile); return; }
+      const s = document.createElement('script');
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      s.async = true; s.defer = true;
+      s.onload = () => resolve(window.turnstile || null);
+      s.onerror = () => resolve(null);
+      document.head.appendChild(s);
+    });
+    return turnstileScriptPromise;
+  }
+  let turnstileWidgetId = null;
+  let turnstileToken = '';
+  /* Renders into #npTurnstile once the script is ready. If step2 has moved on
+     (back, closed, re-rendered) by the time the script resolves, the container
+     is gone and this quietly does nothing. */
+  function renderTurnstile(siteKey) {
+    turnstileToken = '';
+    refreshSubmitGate();
+    loadTurnstileScript().then((ts) => {
+      const box = content().querySelector('#npTurnstile');
+      if (!box || !ts) return;
+      turnstileWidgetId = ts.render(box, {
+        sitekey: siteKey,
+        callback: (token) => { turnstileToken = token || ''; refreshSubmitGate(); },
+        'error-callback': () => { turnstileToken = ''; refreshSubmitGate(); },
+        'expired-callback': () => { turnstileToken = ''; refreshSubmitGate(); },
+      });
+    });
+  }
+  /* After a captcha_failed / captcha_unavailable reply: the token that was
+     sent is spent (or never arrived), so the widget goes back to asking. */
+  function resetTurnstile() {
+    turnstileToken = '';
+    if (window.turnstile && turnstileWidgetId != null) {
+      try { window.turnstile.reset(turnstileWidgetId); } catch (e) {}
+    }
+    refreshSubmitGate();
+  }
+  /* The one place that decides whether step2's submit button may be pressed:
+     a current Platform Terms version, and - only when a site key is set - a
+     Turnstile token in hand. */
+  function submitGateOk() {
+    const key = turnstileSiteKey();
+    return !!draft.terms_version_id && (!key || !!turnstileToken);
+  }
+  function refreshSubmitGate() {
+    const btn = content().querySelector('form[data-np-step="2"] button[type="submit"]');
+    if (btn) btn.disabled = !submitGateOk();
+  }
+
   function stepDots(n) {
     return '<div class="np-steps" aria-hidden="true">' +
       [1, 2].map((i) => '<span class="np-step-dot' + (i <= n ? ' is-on' : '') + '"></span>').join('') + '</div>';
@@ -247,6 +307,7 @@
 
   function step2(pending) {
     const l = savedLoc();
+    const tsKey = turnstileSiteKey();
     content().innerHTML = stepDots(2) + `
       <h2>Where is this site?</h2>
       <p class="body">Every hub answers by distance first. Tell us once and never again.</p>
@@ -256,6 +317,7 @@
           <div class="field"><label for="qCountry">Country</label><input id="qCountry" required value="${esc(draft.country || l.country)}" placeholder="Country"></div>
           <div class="field full"><label for="qTown">Town or city</label><input id="qTown" value="${esc(draft.town || l.town)}" placeholder="Town"></div>
         </div>
+        ${tsKey ? '<div id="npTurnstile" style="margin-top:16px"></div>' : ''}
         <div id="npTermsBlock" style="margin-top:16px"></div>
         <input type="text" name="company_url" value="" style="position:absolute;left:-9999px" tabindex="-1" autocomplete="off" aria-hidden="true">
         <p class="np-sign-error" style="display:none"></p>
@@ -267,6 +329,7 @@
       </form>`;
     content().querySelector('[data-np-back]').addEventListener('click', () => step1(pending));
     renderTermsBlock();
+    if (tsKey) renderTurnstile(tsKey);
     content().querySelector('form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = e.target.querySelector('button[type="submit"]');
@@ -304,6 +367,10 @@
         body.pending_request = { hub: pending.hub, side: pending.side,
           brief_ref: pending.brief_ref || '', payload: pending.payload || {} };
       }
+      /* Only present when a site key is set and the widget has actually
+         handed back a token: with no key the body is exactly what it was
+         before Turnstile existed. */
+      if (turnstileToken) body.turnstile_token = turnstileToken;
       const d = await postJson('/auth/register', body);
       if (d.ok) {
         /* No cookie comes back: the account exists but cannot act until the
@@ -312,14 +379,22 @@
         delete draft.password;
         confirmSentCard(email, !!pending);
       } else {
-        btn.disabled = false; btn.textContent = orig;
+        btn.textContent = orig;
         const err = e.target.querySelector('.np-sign-error');
         err.style.display = 'block';
-        err.textContent = d.error === 'account_exists'
-          ? 'There\'s already an account for that email. Close this and choose Sign in instead.'
-          : d.error === 'network'
-          ? 'That did not save. Check your connection and try again, or email hello@nexpoint.co.uk.'
-          : 'That did not save. Check the details and try again, or email hello@nexpoint.co.uk.';
+        if (d.error === 'captcha_failed' || d.error === 'captcha_unavailable') {
+          err.textContent = d.error === 'captcha_failed'
+            ? 'Please complete the check and try again.'
+            : 'The check is unavailable right now. Try again in a minute.';
+          resetTurnstile(); // clears the token and re-disables submit until a fresh one arrives
+        } else {
+          btn.disabled = false;
+          err.textContent = d.error === 'account_exists'
+            ? 'There\'s already an account for that email. Close this and choose Sign in instead.'
+            : d.error === 'network'
+            ? 'That did not save. Check your connection and try again, or email hello@nexpoint.co.uk.'
+            : 'That did not save. Check the details and try again, or email hello@nexpoint.co.uk.';
+        }
       }
     });
   }
@@ -331,18 +406,17 @@
   function renderTermsBlock() {
     const apply = (d) => {
       const box = content().querySelector('#npTermsBlock');
-      const btn = content().querySelector('form[data-np-step="2"] button[type="submit"]');
       if (!box) return; // the questionnaire moved on (back / closed) before this resolved
       if (!d || d.error || !d.id) {
         draft.terms_version_id = null;
         box.innerHTML = '<p class="np-sign-error" style="display:block">We couldn\'t load the current Platform Terms, so we can\'t register you yet. Refresh and try again, or email hello@nexpoint.co.uk.</p>';
-        if (btn) btn.disabled = true;
+        refreshSubmitGate();
         return;
       }
       draft.terms_version_id = d.id;
       box.innerHTML = '<label class="np-terms-tick"><input type="checkbox" id="qTerms" required> I accept the ' +
         '<a href="https://nexpoint.co.uk/hub/terms/" target="_blank" rel="noopener">NexPoint Platform Terms</a></label>';
-      if (btn) btn.disabled = false;
+      refreshSubmitGate();
     };
     if (termsResult) { apply(termsResult); return; }
     const box = content().querySelector('#npTermsBlock');
