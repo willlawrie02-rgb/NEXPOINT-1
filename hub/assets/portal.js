@@ -122,7 +122,10 @@ function locLabel(l){
    body comes back parsed, and a dropped connection is an error value rather
    than an exception nobody caught. An acting route refuses an unconfirmed
    account with 403 {error:"email_unconfirmed"}; that is handed straight back
-   so the caller can put the confirm card up instead of a generic failure. */
+   so the caller can put the confirm card up instead of a generic failure.
+   An error body also carries http_status, because "this route is not
+   deployed yet" (404) and "this route refused me" read the same otherwise,
+   and a page that falls back on 404 has to be able to tell them apart. */
 async function npApi(path, opts){
   let r;
   try {
@@ -130,7 +133,9 @@ async function npApi(path, opts){
   } catch (e) { return { error: 'network' }; }
   const d = await r.json().catch(() => ({}));
   if (r.ok) return d;
-  return (d && d.error) ? d : { error: 'http_' + r.status };
+  return (d && d.error)
+    ? Object.assign({ http_status: r.status }, d)
+    : { error: 'http_' + r.status, http_status: r.status };
 }
 
 /* Page modules arrive by an injected script tag, which can land either side of
@@ -683,28 +688,53 @@ function fireEnterGroup(el){
    it - it usually lives on a different host - so it only sends the visitor
    back here; this is the one place that can actually offer to send it,
    because this is the page it was saved from. Every hub page loads
-   portal.js, so every hub page gets the offer. Only `kind:'request'` is
-   wired up today, through the same submitRequest() path the desk forms
-   already use; a listing or pick kind adds its own branch when those flows
-   land. */
+   portal.js, so every hub page gets the offer. `kind:'request'` goes through
+   the same submitRequest() path the desk forms already use; `kind:'listing'`
+   goes back through the offer page's own module, which is why that kind is
+   only offered on a page that has NPListing loaded. */
+const PENDING_KINDS = {
+  request: {
+    line: 'You started a request before confirming your email. Send it now?',
+    send: 'Send it',
+    done: '<strong>Received, in confidence.</strong> Chris or Will reads every request personally. Expect to hear within two working days.',
+    already: '<strong>Already sent.</strong> Chris or Will reads every request personally. Expect to hear within two working days.',
+    ready: () => !!(window.NPAccount && NPAccount.replayPending),
+    submit: () => NPAccount.replayPending(),
+  },
+  listing: {
+    line: 'You filled in your listing before confirming your email. Send it for review now?',
+    send: 'Send it for review',
+    done: '<strong>Received.</strong> Nothing is listed until we have checked it; you will get an email when it is live.',
+    already: '<strong>Already sent.</strong> Nothing is listed until we have checked it; you will get an email when it is live.',
+    ready: () => !!(window.NPListing && NPListing.submitPayload),
+    alreadyError: 'listing_locked_pending',
+    submit: (p) => NPListing.submitPayload(p.payload).then(d => {
+      if (d && d.ok && window.NPListing.reload) NPListing.reload();
+      return d;
+    }),
+  },
+};
+
 function checkPendingReplay(){
   if (!window.NPAccount || !window.NPPending) return;
   if (!NPAccount.user || !NPAccount.confirmed()) return;
   const p = NPPending.load();
-  if (!p || p.kind !== 'request') return;
+  if (!p) return;
+  const kind = PENDING_KINDS[p.kind];
+  if (!kind || !kind.ready()) return;
   if (p.hub && p.hub !== hubOfPage()) return;
-  renderPendingCard();
+  renderPendingCard(p, kind);
 }
 
-function renderPendingCard(){
+function renderPendingCard(pending, kind){
   if (document.getElementById('npPendingCard')) return;
   const wrap = document.createElement('div');
   wrap.className = 'container';
   wrap.style.marginTop = '16px';
   wrap.innerHTML =
     '<div class="notice-warn notice-warn--block" id="npPendingCard">' +
-      '<span>You started a request before confirming your email. Send it now?</span>' +
-      '<button class="btn btn-primary" type="button" data-np-pending-send>Send it</button>' +
+      '<span>' + escapeHtml(kind.line) + '</span>' +
+      '<button class="btn btn-primary" type="button" data-np-pending-send>' + escapeHtml(kind.send) + '</button>' +
       '<button class="btn btn-outline" type="button" data-np-pending-skip>Not now</button>' +
     '</div>';
   const header = document.querySelector('header');
@@ -715,18 +745,19 @@ function renderPendingCard(){
   card.querySelector('[data-np-pending-send]').addEventListener('click', async (e) => {
     const btn = e.target;
     btn.disabled = true; btn.textContent = 'Sending…';
-    const d = await NPAccount.replayPending();
+    const d = await kind.submit(pending);
     if (d && d.ok){
-      card.innerHTML = '<span><strong>Received, in confidence.</strong> Chris or Will reads every request personally. Expect to hear within two working days.</span>';
+      NPPending.clear();
+      card.innerHTML = '<span>' + kind.done + '</span>';
       return;
     }
-    if (d && d.error === 'no_pending'){
+    if (d && (d.error === 'no_pending' || (kind.alreadyError && d.error === kind.alreadyError))){
       /* Already sent elsewhere (e.g. the modal completed the send while this
          card sat on screen from before it opened) - not a failure. */
-      card.innerHTML = '<span><strong>Already sent.</strong> Chris or Will reads every request personally. Expect to hear within two working days.</span>';
+      card.innerHTML = '<span>' + kind.already + '</span>';
       return;
     }
-    btn.disabled = false; btn.textContent = 'Send it';
+    btn.disabled = false; btn.textContent = kind.send;
     let err = card.querySelector('.pending-error');
     if (!err){
       err = document.createElement('span');
@@ -753,6 +784,9 @@ function bootPageModules(){
   if (window.NPFind) NPFind.init();
   if (window.NPListing) NPListing.init();
   if (window.NPDashboard) NPDashboard.init();
+  /* the page's own module may be what a held action replays through, and it
+     only exists now, so the offer is re-checked once the modules are up */
+  checkPendingReplay();
 }
 document.addEventListener('np:modules', bootPageModules, { once: true });
 
