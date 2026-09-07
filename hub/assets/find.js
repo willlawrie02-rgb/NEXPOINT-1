@@ -116,6 +116,8 @@
   let introTerms = null;       /* {id, version, body_md} for layer=introduction */
   let requestId = null;        /* set by the first call, reused by a retry */
   let filedSpec = null;        /* the ask `requestId` belongs to (by identity) */
+  let heldSpec = null;         /* the ask this page's own held pending was written for */
+  let heldSavedAt = 0;         /* that pending's `saved_at`: its only identity */
   let searching = false;
   let sending = false;
   let step3Shell = null;       /* step 3's panel before a success card replaced it */
@@ -850,14 +852,25 @@
 
   /* The one writer of the held action. `requestId` only survives while this
      page does, so when the ask is already filed the held copy carries its id
-     too: that is what stops a replay in the next tab from filing it again. */
+     too: that is what stops a replay in the next tab from filing it again.
+     The store round-trips through JSON, so what comes back out of it is never
+     the object that went in: the `saved_at` the store stamps on this write,
+     re-read here, is the only handle this page has on its own hold, and
+     `heldSpec` says which in-memory ask that hold was written for. */
   function holdPending(theSpec, thePicks, termsVersionId) {
     if (!window.NPPending) return;
     const held = { kind: 'request', hub: HUB, search: theSpec,
       picks: thePicks.slice(), terms_version_id: termsVersionId };
     if (requestId && filedSpec === theSpec) held.request_id = requestId;
     NPPending.save(held);
+    const written = NPPending.load();
+    heldSpec = written ? theSpec : null;
+    heldSavedAt = written ? written.saved_at : 0;
   }
+
+  /* This page no longer has a hold of its own, so the stamp it was tracking
+     must never be matched again. */
+  function forgetHeldIdentity() { heldSpec = null; heldSavedAt = 0; }
 
   /* The moment POST /seeker-requests returns during a replay, the ask exists
      on the worker whatever happens to the picks call after it. `savedAt` is
@@ -884,10 +897,11 @@
      nothing - but it can still be filing the very ask that an
      email_unconfirmed refusal left held earlier (holdPending() ran, then the
      same-page recheck confirmed and this call went on to file for real:
-     Task 12 addendum), so a freshly filed request here also checks whatever
-     currently sits in NPPending and merges its id in only when that
-     pending's own `search` is this same spec object - never an unrelated ask
-     sitting held from before, which is left exactly as it was. */
+     Task 12 addendum), so a freshly filed request here merges its id into the
+     pending this page itself wrote for this same ask, identified by the
+     `saved_at` captured at that write. An unrelated ask sitting held from
+     before was written for a different spec, so it is left exactly as it
+     was, and so is a hold this page never wrote. */
   async function sendRequestAndPicks(theSpec, thePicks, termsVersionId, replaySavedAt) {
     if (!requestId || filedSpec !== theSpec) {
       const filed = await postJson('/seeker-requests', bodyFor(theSpec));
@@ -896,9 +910,8 @@
       filedSpec = theSpec;
       if (replaySavedAt) {
         rememberFiledRequest(requestId, replaySavedAt);
-      } else {
-        const held = window.NPPending && NPPending.load();
-        if (held && held.search === theSpec) rememberFiledRequest(requestId, held.saved_at);
+      } else if (heldSpec === theSpec && heldSavedAt) {
+        rememberFiledRequest(requestId, heldSavedAt);
       }
     }
     return postJson('/seeker-requests/picks', {
@@ -967,6 +980,7 @@
 
   function renderSuccess() {
     if (window.NPPending) NPPending.clear();
+    forgetHeldIdentity();
     const box = el('step3Body');
     if (!box) return;
     box.innerHTML =
@@ -1006,6 +1020,7 @@
          tick, and the filed id stays in this module so nothing files twice.
          The seeker lands back on step 3 with the new text to read. */
       if (window.NPPending) NPPending.clear();
+      forgetHeldIdentity();
       await restoreForNewTerms(p.picks.slice());
     }
     return d;
