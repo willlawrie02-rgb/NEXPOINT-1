@@ -918,7 +918,7 @@ let briefs=
       ],
       [
         "Acquisition criteria & range",
-        "██ — range shared on introduction"
+        "██, range shared on introduction"
       ],
       [
         "Deal structures offered",
@@ -954,7 +954,7 @@ let briefs=
       ],
       [
         "Standing discount",
-        "on materials — arranged by us"
+        "on materials, arranged by us"
       ],
       [
         "New",
@@ -1193,7 +1193,7 @@ let briefs=
       ],
       [
         "Unit economics & commission structure",
-        "██ per pair — shared on introduction"
+        "██ per pair, shared on introduction"
       ],
       [
         "Reference customers",
@@ -1248,7 +1248,7 @@ let briefs=
       ],
       [
         "Transfer pricing",
-        "██ per pair — shared on introduction, volume dependent"
+        "██ per pair, shared on introduction, volume dependent"
       ],
       [
         "Range documentation",
@@ -1303,7 +1303,7 @@ let briefs=
       ],
       [
         "Wholesale pricing tiers",
-        "██ — tiers shared on introduction"
+        "██, tiers shared on introduction"
       ],
       [
         "Existing territory references",
@@ -1413,7 +1413,7 @@ let briefs=
       ],
       [
         "Distributor pricing tiers",
-        "██ — tiers shared on introduction"
+        "██, tiers shared on introduction"
       ],
       [
         "Trial design & data",
@@ -1435,8 +1435,8 @@ let briefs=
     "regions": [
       "Global"
     ],
-    "sum": "A European manufacturer with more than twenty years in optical scanning designs and builds professional 3D foot scanners entirely in-house. The current range delivers 0.5 mm accuracy with full-colour capture and open file export into any CAD/CAM and 3D Print workflows. It is seeking clinics, labs and retailers buying scanners, and regional resellers to carry the line — with preferential pricing for hub accounts.",
-    "fit": "<b>Best fit:</b> clinics, labs and retailers adding or replacing 3D foot scanning; equipment distributors wanting a proven scanner line — North America and Asia-Pacific territories particularly open.",
+    "sum": "A European manufacturer with more than twenty years in optical scanning designs and builds professional 3D foot scanners entirely in-house. The current range delivers 0.5 mm accuracy with full-colour capture and open file export into any CAD/CAM and 3D Print workflows. It is seeking clinics, labs and retailers buying scanners, and regional resellers to carry the line, with preferential pricing for hub accounts.",
+    "fit": "<b>Best fit:</b> clinics, labs and retailers adding or replacing 3D foot scanning; equipment distributors wanting a proven scanner line. North America and Asia-Pacific territories are particularly open.",
     "tags": [
       "3D foot scanning",
       "CAD/CAM ready",
@@ -1460,7 +1460,7 @@ let briefs=
         "STL, OBJ and PLY export to any workflow"
       ]
     ],
-    "detail": "<p>The maker started in industrial machine vision and has built foot scanners since the mid-2000s — this is engineering-led hardware, not a rebadged import. The range runs from a compact portable unit to a full foot-and-object scanner, with a new flagship launched this year: four-camera colour capture, integrated heel-positioning laser and a tempered-glass scan surface.</p><p>Scans export in open formats that drop straight into the major orthotic CAD/CAM platforms and additive workflows, and the hardware is already bundled by market leading digital-workflow providers. The manufacturer supports both direct purchases and regional reseller arrangements. Every hub account will get preferential terms.</p>",
+    "detail": "<p>The maker started in industrial machine vision and has built foot scanners since the mid-2000s. This is engineering-led hardware, not a rebadged import. The range runs from a compact portable unit to a full foot-and-object scanner, with a new flagship launched this year: four-camera colour capture, integrated heel-positioning laser and a tempered-glass scan surface.</p><p>Scans export in open formats that drop straight into the major orthotic CAD/CAM platforms and additive workflows, and the hardware is already bundled by market leading digital-workflow providers. The manufacturer supports both direct purchases and regional reseller arrangements. Every hub account will get preferential terms.</p>",
     "locked": [
       [
         "Manufacturer identity",
@@ -1468,7 +1468,7 @@ let briefs=
       ],
       [
         "Account pricing & discount",
-        "██ — range shared on introduction"
+        "██, range shared on introduction"
       ],
       [
         "Reference installations",
@@ -1509,7 +1509,7 @@ function buildCard(b,why){
   const el=document.createElement('article');
   el.className='op';el.dataset.ref=b.ref;
   el.tabIndex=0;el.setAttribute('role','button');
-  el.setAttribute('aria-label',`${cardHead(b)} — ${b.dir}, ${b.regions.join(', ')}`);
+  el.setAttribute('aria-label',`${cardHead(b)}, ${b.dir}, ${b.regions.join(', ')}`);
   el.onclick=()=>openBrief(b.id);
   el.onkeydown=(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openBrief(b.id);}};
   const matched=member&&matches.has(b.id)?'<span class="badge-match">MATCHED</span>':'';
@@ -1683,7 +1683,7 @@ const steps=[
   chips:['Vacuum Forming Hardware','Finishing Hardware (grinders, buffers, etc)','CNC Routers','3D Printers','General (benches, tooling, etc)']},
  {key:'more',type:'single',loop:true,q:"Are there any other products you are seeking or offering?",
   chips:['Yes, add more','No, continue']},
- {key:'goals',type:'multi',q:"Select any that match your reason for joining the Global Opportunities Hub. I want to —",
+ {key:'goals',type:'multi',q:"Select any that match your reason for joining the Global Opportunities Hub. I want to:",
   chips:['Outsource my manufacturing to a high-quality provider','Sell our spare manufacturing capacity','Find a new partner / representative in a new country','Hire new talent','Start something new','Find new manufacturing technologies','Find new design technologies','Buy or sell O&P equipment','Source materials or consumables','Find new products to represent','Sell my business (discretely)','Just explore what you have to offer']},
  {key:'pressing',type:'multi',q:"Now the question that matters most. What are you hoping the network can do for you? Choose one or more, this decides which opportunities and introductions reach you first. Don't worry too much, you can browse everything later.",
   chips:['I am looking for new ideas','Networking with likeminded companies is important to our future','Staffing pressures are forcing change','Rising costs (materials, people, etc) are a challenge','I need to plan an exit','I need to expand my business','We are growing fast','We need to find new suppliers','Nothing urgent, just browsing']},
@@ -1785,7 +1785,7 @@ function renderChips(s){
   let otherInput;
   if(s.other){
     const of=document.createElement('div');of.className='other-field';
-    otherInput=document.createElement('input');otherInput.type='text';otherInput.placeholder=(s.otherLabel||'Other')+' — type to add';otherInput.value=otherVal;
+    otherInput=document.createElement('input');otherInput.type='text';otherInput.placeholder=(s.otherLabel||'Other')+': type to add';otherInput.value=otherVal;
     otherInput.oninput=refresh;
     of.appendChild(otherInput);wrap.appendChild(of);
   }
@@ -2041,7 +2041,7 @@ async function doSignIn(form){
     }
     e.style.color='#ff6b6b';
     e.textContent = d.error==='network'
-      ? "That didn't send — check your connection and try again."
+      ? "That did not send. Check your connection and try again."
       : "That email and password don't match an account. Check them, or create a hub account below.";
     e.style.display='block';
     return;
