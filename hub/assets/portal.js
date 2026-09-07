@@ -780,7 +780,10 @@ const PENDING_KINDS = {
   find_request: {
     get line(){ return 'You picked ' + pendingSiteNoun() + ' before confirming your email. Send the request now?'; },
     send: 'Send it',
-    get done(){ return '<strong>Received.</strong> ' + pendingSentLine(); },
+    /* No `done`: NPFind.submitPending paints the page's own success card on
+       the way back, and a second Received under the header would be the same
+       news twice. A card with no `done` simply clears itself. */
+    done: null,
     get already(){ return '<strong>Already sent.</strong> ' + pendingSentLine(); },
     ready: () => !!(window.NPFind && NPFind.submitPending),
     alreadyError: 'picks_already_made',
@@ -845,6 +848,8 @@ function renderPendingCard(pending, kind){
     const d = await kind.submit(pending);
     if (d && d.ok){
       NPPending.clear();
+      /* The page said it itself: get out of the way rather than say it again. */
+      if (!kind.done){ wrap.remove(); return; }
       card.innerHTML = '<span>' + kind.done + '</span>';
       return;
     }
