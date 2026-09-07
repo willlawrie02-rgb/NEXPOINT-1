@@ -467,7 +467,13 @@
       const extra = qv('gNotes'); if (extra) payload.notes = payload.notes ? payload.notes + '. ' + extra : extra;
       const sent = Object.assign({}, action, { payload: payload });
       const d = await A.submitRequest(sent);
-      if (d.ok) { clearPending(); successCard('Chris or Will reads every request personally. Expect to hear within two working days.'); return; }
+      if (d.ok) {
+        clearPending();
+        const pc = document.getElementById('npPendingCard');
+        if (pc && pc.parentNode) pc.parentNode.remove();
+        successCard('Chris or Will reads every request personally. Expect to hear within two working days.');
+        return;
+      }
       if (d.error === 'email_unconfirmed') {
         /* the session outlived the confirmation state we had cached */
         setPending(pendingOf(sent));
@@ -488,7 +494,7 @@
      for someone who has to go and register first. */
   A.requireConfirmed = function (cb, pending) {
     if (pending) setPending(pending);
-    if (!A.user) { A.openQuestionnaire({}); return; }
+    if (!A.user) { A.openQuestionnaire({ return_to: currentReturnTo() }); return; }
     if (!A.confirmed()) { confirmGateCard(() => A.requireConfirmed(cb)); return; }
     cb();
   };

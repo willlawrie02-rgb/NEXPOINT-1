@@ -720,6 +720,12 @@ function renderPendingCard(){
       card.innerHTML = '<span><strong>Received, in confidence.</strong> Chris or Will reads every request personally. Expect to hear within two working days.</span>';
       return;
     }
+    if (d && d.error === 'no_pending'){
+      /* Already sent elsewhere (e.g. the modal completed the send while this
+         card sat on screen from before it opened) - not a failure. */
+      card.innerHTML = '<span><strong>Already sent.</strong> Chris or Will reads every request personally. Expect to hear within two working days.</span>';
+      return;
+    }
     btn.disabled = false; btn.textContent = 'Send it';
     let err = card.querySelector('.pending-error');
     if (!err){
