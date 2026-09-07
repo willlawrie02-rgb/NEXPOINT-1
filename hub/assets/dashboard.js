@@ -825,5 +825,5 @@
     NPAccount.ready.then(load);
   }
 
-  window.NPDashboard = { init: init, render: render };
+  window.NPDashboard = { init: init };
 })();

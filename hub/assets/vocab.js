@@ -208,7 +208,5 @@
   window.NPVocab = {
     load: load,
     label: label,
-    seed: { regions: REGIONS, materials: MATERIALS, processes: PROCESSES,
-      services: SERVICES, machines: MACHINES, attributes: ATTRIBUTES },
   };
 })();

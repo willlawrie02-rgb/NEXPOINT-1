@@ -136,13 +136,6 @@ async function npApi(path, opts){
     : { error: 'http_' + r.status, http_status: r.status };
 }
 
-/* Page modules arrive by an injected script tag, which can land either side of
-   DOMContentLoaded; ready() takes the guesswork out of that. */
-function npReady(fn){
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
-  else fn();
-}
-
 /* ═══════════ the terms reader ═══════════
    Markdown as the worker serves it, in the small subset of HTML a terms
    scroll needs: headings, bullets, paragraphs and the two inline marks.
@@ -179,13 +172,10 @@ function markdownLite(md){
 const NP = {
   api: npApi,
   markdownLite: markdownLite,
-  ready: npReady,
   hub: HUB,
   config: hubConfig,
-  escapeHtml: escapeHtml,
   saveLoc: saveLoc,
   loadLoc: loadLoc,
-  locLabel: locLabel,
   TURNSTILE_SITE_KEY: '',
 };
 window.NP = NP;

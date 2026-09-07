@@ -231,15 +231,7 @@
         return api;
       },
       clear: function () { chosen = []; input.value = ''; renderChips(); return api; },
-      setOptions: function (list2) { options = normalise(list2); return api; },
       input: input,
-      destroy: function () {
-        closeList();
-        delete input.dataset.taOn;
-        ['role', 'aria-autocomplete', 'aria-expanded', 'aria-controls', 'aria-activedescendant'].forEach((a) => input.removeAttribute(a));
-        wrap.parentNode.insertBefore(input, wrap);
-        wrap.parentNode.removeChild(wrap);
-      },
     };
     if (cfg.value) api.set(cfg.value);
     return api;
