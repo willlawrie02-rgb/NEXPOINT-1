@@ -110,10 +110,6 @@ function saveLoc(region, country, town){
 function loadLoc(){
   try { const v = JSON.parse(sessionStorage.getItem(LOC_KEY)); return (v && v.region) ? v : null; } catch(e){ return null; }
 }
-function clearLoc(){
-  try { sessionStorage.removeItem(LOC_KEY); } catch(e){}
-  location.reload();
-}
 function locLabel(l){
   if (!l) return '';
   return [l.town, l.country || l.region].filter(Boolean).join(', ');
@@ -147,8 +143,36 @@ function npReady(fn){
   else fn();
 }
 
+/* ═══════════ the terms reader ═══════════
+   Markdown as the worker serves it, in the small subset of HTML a terms
+   scroll needs: headings, bullets, paragraphs and the two inline marks.
+   One copy for the three pages that render a terms layer - the find flow,
+   the listing form and the provider's accept page - because three copies
+   of a reader that turns text into markup is three places for one of them
+   to stop escaping first. Escaped first it is: nothing a terms body
+   carries can arrive as markup of its own.                              */
+function markdownLite(md){
+  const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+  let html = '', inList = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  const inline = (s) => escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+  lines.forEach((raw) => {
+    const line = raw.trim();
+    if (!line) { closeList(); return; }
+    const h = /^(#{1,4})\s+(.*)$/.exec(line);
+    if (h) { closeList(); const lvl = Math.min(h[1].length + 2, 6); html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>'; return; }
+    const li = /^[-*]\s+(.*)$/.exec(line);
+    if (li) { if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(li[1]) + '</li>'; return; }
+    closeList();
+    html += '<p>' + inline(line) + '</p>';
+  });
+  closeList();
+  return html;
+}
+
 const NP = {
   api: npApi,
+  markdownLite: markdownLite,
   ready: npReady,
   hub: HUB,
   config: hubConfig,
@@ -412,7 +436,7 @@ async function signSubmit(){
   } else if (err){
     err.style.display = 'block';
     err.textContent = d.error === 'network'
-      ? 'That didn\'t send. Check your connection and try again.'
+      ? 'That did not send. Check your connection and try again.'
       : 'That email and password don\'t match an account. Check them, or create your hub account below.';
   }
 }
@@ -431,6 +455,30 @@ function closeAll(){
   if (lastFocus && lastFocus.focus){ lastFocus.focus(); lastFocus = null; }
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+
+/* ═══════════ the clicks that arrived before this file did ═══════════
+   The subdomain pages render their header CTAs immediately but load this
+   module from the apex, over a sequential chain of cross-origin requests:
+   two round trips on the doors, five on find and offer. A click in that gap
+   used to throw a ReferenceError and do nothing, so each of those pages
+   defines a stub in its inline head script that records the call instead.
+   The declarations above have already replaced those stubs by the time any
+   of this runs, so the queue is drained once and never refilled.
+   It is drained after the account has settled, because what openIntro puts
+   up depends on whether anyone is signed in, and the click that queued it
+   happened before /auth/me could possibly have answered. */
+(function replayQueuedCalls(){
+  const queue = window.NP_QUEUE;
+  if (!Array.isArray(queue)) return;
+  window.NP_QUEUE = null;
+  const fns = { openSignIn, openIntro, openEducationList, closeAll };
+  const run = () => queue.forEach(call => {
+    const fn = call && fns[call.name];
+    if (typeof fn === 'function') fn.apply(null, call.args || []);
+  });
+  if (window.NPAccount && NPAccount.ready && NPAccount.ready.then) NPAccount.ready.then(run, run);
+  else run();
+})();
 
 /* ═══════════ hero globe (landing only): dotted Earth with live connection arcs ═══════════ */
 (function initGlobe() {
@@ -732,7 +780,10 @@ const PENDING_KINDS = {
   find_request: {
     get line(){ return 'You picked ' + pendingSiteNoun() + ' before confirming your email. Send the request now?'; },
     send: 'Send it',
-    get done(){ return '<strong>Received.</strong> ' + pendingSentLine(); },
+    /* No `done`: NPFind.submitPending paints the page's own success card on
+       the way back, and a second Received under the header would be the same
+       news twice. A card with no `done` simply clears itself. */
+    done: null,
     get already(){ return '<strong>Already sent.</strong> ' + pendingSentLine(); },
     ready: () => !!(window.NPFind && NPFind.submitPending),
     alreadyError: 'picks_already_made',
@@ -753,9 +804,15 @@ function pendingSentLine(){
     ' you picked. You can follow it on your account.';
 }
 
+/* `pending.kind` is a string off localStorage, so it can be anything at all,
+   including "constructor" or "__proto__" - and a plain object lookup would
+   hand one of those back a function or Object.prototype and throw on the
+   `.ready()` below, killing the replay check for a pending that is perfectly
+   good. Own keys only. */
 function kindFor(pending){
   if (pending.kind === 'request' && pending.search) return PENDING_KINDS.find_request;
-  return PENDING_KINDS[pending.kind];
+  return Object.prototype.hasOwnProperty.call(PENDING_KINDS, pending.kind)
+    ? PENDING_KINDS[pending.kind] : null;
 }
 
 function checkPendingReplay(){
@@ -791,6 +848,8 @@ function renderPendingCard(pending, kind){
     const d = await kind.submit(pending);
     if (d && d.ok){
       NPPending.clear();
+      /* The page said it itself: get out of the way rather than say it again. */
+      if (!kind.done){ wrap.remove(); return; }
       card.innerHTML = '<span>' + kind.done + '</span>';
       return;
     }
@@ -832,6 +891,7 @@ function bootPageModules(){
   if (window.NPFind) NPFind.init();
   if (window.NPListing) NPListing.init();
   if (window.NPDashboard) NPDashboard.init();
+  if (window.NPAccept) NPAccept.init();
   /* the page's own module may be what a held action replays through, and it
      only exists now, so the offer is re-checked once the modules are up */
   checkPendingReplay();

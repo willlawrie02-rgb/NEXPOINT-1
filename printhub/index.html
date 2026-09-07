@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>Global Print Hub — The NexPoint Global Hub</title>
+<title>Global Print Hub: The NexPoint Global Hub</title>
 <link rel="icon" href="assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,14 +17,26 @@
      preview, where one server holds the whole site. */
   window.NP_APEX = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
   document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="' + window.NP_APEX + '/hub/assets/portal.css">');
+
+  /* The header renders its buttons before the module chain that defines what
+     they call: portal.js arrives from the apex over a sequential chain of
+     cross-origin loads, and a click landing first threw a ReferenceError and
+     did nothing at all. These stubs record the call instead; portal.js
+     replays the queue once, at the end of its own boot. */
+  window.NP_QUEUE = [];
+  ['openSignIn', 'openIntro', 'openEducationList', 'closeAll'].forEach(function (name) {
+    window[name] = function () {
+      window.NP_QUEUE.push({ name: name, args: [].slice.call(arguments) });
+    };
+  });
 </script>
 </head>
 <body data-hub="print">
 <!--
-v3 · 2026-08-15 — rebuilt from Chris's 14 Aug review.
+v3 · 2026-08-15, rebuilt from Chris's 14 Aug review.
 ORDER: hero → the four opportunity rows (his "priority one") → two doors (the action)
        → how it works, demoted to footer-weight detail.
-CHANGED: step 04 "The file moves" deleted — NexPoint is not in the transactional
+CHANGED: step 04 "The file moves" deleted, because NexPoint is not in the transactional
 relationship · step 05 no longer claims every lab carries your brand · "Printers
 sitting idle" → "3D print capacity available" · seeker and provider now have their
 own pages · logo path fixed.
@@ -62,7 +74,7 @@ own pages · logo path fixed.
       <div>
         <span class="eyebrow"><span class="live-dot"></span>Global Print Hub</span>
         <h1>The file travels.<br><em>Not the product.</em></h1>
-        <p class="lede">Certified labs print each other's work close to the end customer — founding nodes joining across six regions now. No freight, no customs, no import taxes: a device printed and shipped inside the destination market, at one standard network price.</p>
+        <p class="lede">Certified labs print each other's work close to the end customer, with founding nodes joining across six regions now. No freight, no customs, no import taxes: a device printed and shipped inside the destination market, at one standard network price.</p>
         <div class="ctas">
           <a class="btn btn-primary" href="find.html">Find print capacity</a>
           <a class="btn btn-outline" href="offer.html">Offer print capacity</a>
@@ -71,12 +83,12 @@ own pages · logo path fixed.
       <div class="hero-media">
         <!-- The headline, acted out: the FILE crosses the lane; the PRODUCT is printed at the
              far end and only hops next door. Counterpart to the mill hub's mill-to-door
-             sequence — same construction, opposite story. Self-contained SVG + CSS, 12s loop,
+             sequence: same construction, opposite story. Self-contained SVG + CSS, 12s loop,
              brand tokens only. Reduced motion gets the finished diagram: file sent, part
              printed and delivered at the door. -->
         <svg id="printAnim" viewBox="0 0 800 500" role="img" style="display:block;width:100%;height:auto;background:#fff"
              aria-label="A design file travels from your lab across the network; the insole is 3D-printed close to the end customer and delivered locally">
-          <title>The file travels — the product is printed next door</title>
+          <title>The file travels: the product is printed next door</title>
           <style>
             #printAnim .albl{font:600 11px var(--font-body,Inter,sans-serif);letter-spacing:.09em;fill:rgba(14,22,38,.55)}
             #printAnim .apill{font:600 10px var(--font-body,Inter,sans-serif);letter-spacing:.08em;fill:#5a8f1d}
@@ -198,17 +210,17 @@ own pages · logo path fixed.
         <div class="door__body">
           <span class="door__kicker">I need capacity</span>
           <h3>Find print capacity near you</h3>
-          <p>Start on the map. Three clicks and you can see what the network can print close to your customers.</p>
-          <span class="go">Open the capacity map <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          <p>Tell us the material, quantity and lead time. Pick up to three verified sites and we make the introduction.</p>
+          <span class="go">Find capacity <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
         </div>
       </a>
       <a class="door enter enter--up" style="--d:70ms" href="offer.html">
         <div class="door__media"><img src="assets/img/product-hub.jpg" alt=""></div>
         <div class="door__body">
-          <span class="door__kicker">I have capacity</span>
+          <span class="door__kicker">List your site</span>
           <h3>Offer print capacity</h3>
           <p>Own printers? Twenty founding laboratories shape the network they'll profit from.</p>
-          <span class="go">Apply to host <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          <span class="go">Start your listing <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
         </div>
       </a>
     </div>
@@ -254,7 +266,7 @@ own pages · logo path fixed.
     </div>
     <div class="steps" style="grid-template-columns:repeat(5,minmax(0,1fr))">
       <div class="step enter enter--up" style="--d:0ms"><span class="n">01</span><h3>Join &amp; verify</h3><p>We verify every lab's equipment, materials, print quality and production standards before it joins.</p></div>
-      <div class="step enter enter--up" style="--d:60ms"><span class="n">02</span><h3>Build your profile</h3><p>Printers, build sizes, materials, capacity, lead times and the countries you serve: your entry on the capacity map.</p></div>
+      <div class="step enter enter--up" style="--d:60ms"><span class="n">02</span><h3>Build your listing</h3><p>Printers, build sizes, materials, capacity, lead times and the countries you serve: what a seeker's search is matched against.</p></div>
       <div class="step enter enter--up" style="--d:120ms"><span class="n">03</span><h3>Demand arrives</h3><p>Search the network yourself, or ask us to recommend the right partner for the job.</p></div>
       <div class="step enter enter--up" style="--d:180ms"><span class="n">04</span><h3>Printed locally</h3><p>The receiving lab prints, packages and ships inside the destination market, to the network's standard. Branding and finish are agreed between the two labs.</p></div>
       <div class="step enter enter--up" style="--d:240ms"><span class="n">05</span><h3>Everyone earns</h3><p>The lab's own invoice is paid at the standard network price; billing, shipping and warranty run direct between the two parties.</p></div>
@@ -273,7 +285,7 @@ own pages · logo path fixed.
     <a class="enter enter--rise" href="https://millhub.nexpoint.co.uk/">
       <div class="txt">
         <span class="kicker">Next door</span>
-        <h3>Milled production, run as your own line — the Global Mill Hub <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></h3>
+        <h3>Milled production, run as your own line: the Global Mill Hub <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></h3>
       </div>
       <img src="assets/img/mill-hub.jpg" alt="CNC mill cutting a custom orthotic insole from a polypropylene blank">
     </a>
@@ -352,7 +364,7 @@ own pages · logo path fixed.
       </div>
       <div class="modal-actions"><button class="btn btn-primary" onclick="signSubmit()">Sign in</button></div>
       <p class="np-sign-error" style="display:none;color:#E5484D;font:500 13px/1.4 var(--font-body);margin-top:10px"></p>
-      <div class="privacy">New here? <a href="#" onclick="event.preventDefault();closeAll();window.NPAccount&&NPAccount.openQuestionnaire({})" style="color:var(--blue);font-weight:600">Create your hub account</a> — two minutes, in confidence.</div>
+      <div class="privacy">New here? <a href="#" onclick="event.preventDefault();closeAll();window.NPAccount&&NPAccount.openQuestionnaire({})" style="color:var(--blue);font-weight:600">Create your hub account</a>. Two minutes, in confidence.</div>
     </div>
   </div>
 </div>

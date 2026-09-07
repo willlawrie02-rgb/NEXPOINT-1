@@ -131,25 +131,6 @@
   function el(id) { return document.getElementById(id); }
   function val(id) { const e = el(id); return e ? e.value.trim() : ''; }
 
-  function markdownLite(md) {
-    const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
-    let html = '', inList = false;
-    const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
-    const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
-    lines.forEach((raw) => {
-      const line = raw.trim();
-      if (!line) { closeList(); return; }
-      const h = /^(#{1,4})\s+(.*)$/.exec(line);
-      if (h) { closeList(); const lvl = Math.min(h[1].length + 2, 6); html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>'; return; }
-      const li = /^[-*]\s+(.*)$/.exec(line);
-      if (li) { if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(li[1]) + '</li>'; return; }
-      closeList();
-      html += '<p>' + inline(line) + '</p>';
-    });
-    closeList();
-    return html;
-  }
-
   function termLabel(list, term) {
     if (window.NPVocab && NPVocab.label) return NPVocab.label(list, term);
     const hit = (list || []).find((o) => o.term === term);
@@ -487,7 +468,9 @@
       '<form id="listingForm" novalidate>' +
 
       '<div class="lsec"><div class="lsec__h">Your site</div><div class="form-grid">' +
-      '<div class="field full"><label for="siteName">Site name' +
+      /* Not an input, so not a `for`: the site name is read off the account
+         and shown, and a label pointing at a paragraph labels nothing. */
+      '<div class="field full"><label>Site name' +
       '<span class="np-hint">Taken from your hub account.</span></label>' +
       '<p class="body" id="siteName" style="margin:0">' + esc(u.company || 'Your site') + '</p></div>' +
       '<div class="field full"><label for="siteAddress1">Address</label>' +
@@ -644,7 +627,7 @@
     }
     termsRequired = true;
     el('hostTermsBlock').innerHTML =
-      '<div class="terms-scroll">' + markdownLite(d.body_md) + '</div>' +
+      '<div class="terms-scroll">' + NP.markdownLite(d.body_md) + '</div>' +
       '<label class="np-terms-tick"><input type="checkbox" id="hostTick"> ' +
       'I accept the Host Agreement, version ' + esc(d.version) + '</label>';
   }
@@ -667,6 +650,26 @@
   function clearError() {
     const err = el('listingErr');
     if (err) { err.style.display = 'none'; err.textContent = ''; }
+  }
+
+  /* A refusal that arrives while an account change is in flight is written
+     on a panel that is about to be rebuilt, so it is carried across the
+     rebuild and put back on whatever comes up: the form's own error line
+     where there is one, and a line of its own where there is not. */
+  let carriedError = '';
+  function carryError(message) { carriedError = message; }
+  function flushCarriedError() {
+    if (!carriedError) return;
+    const message = carriedError;
+    carriedError = '';
+    if (el('listingErr')) { showError(message); return; }
+    const box = body();
+    if (!box) return;
+    const p = document.createElement('p');
+    p.className = 'np-sign-error';
+    p.style.display = 'block';
+    p.textContent = message;
+    box.insertBefore(p, box.firstChild);
   }
 
   function chosen(groupId, attr) {
@@ -865,8 +868,13 @@
       A.requireConfirmed(() => send(payload, el('listingSubmit'), orig, true));
       return;
     }
-    if (loadDeferred) { loadDeferred = false; load(); return; }
-    showError(submitErrorText(d));
+    /* The reason comes first, and it survives the re-render. A refusal that
+       lands while an account change is in flight used to be swallowed by
+       the reload the change had queued: the panel came back with nothing on
+       it to say why the listing had not gone. */
+    const message = submitErrorText(d);
+    showError(message);
+    if (loadDeferred) { loadDeferred = false; carryError(message); load(); }
   }
 
   /* The one place a listing is posted. The replay card in portal.js sends a
@@ -936,7 +944,7 @@
       return;
     }
     legacyTermsId = d.id;
-    el('hostTermsBlock').innerHTML = '<div class="terms-scroll">' + markdownLite(d.body_md) + '</div>' +
+    el('hostTermsBlock').innerHTML = '<div class="terms-scroll">' + NP.markdownLite(d.body_md) + '</div>' +
       '<label class="np-terms-tick"><input type="checkbox" id="hostTick" required> I accept the Host Agreement, version ' +
       esc(d.version) + '</label>';
     if (btn) btn.disabled = false;
@@ -1006,7 +1014,10 @@
     if (submitting) { loadDeferred = true; return; }
     if (bootQueued) return;
     bootQueued = true;
-    setTimeout(() => { bootQueued = false; doLoad(); }, 0);
+    setTimeout(() => {
+      bootQueued = false;
+      doLoad().then(flushCarriedError, flushCarriedError);
+    }, 0);
   }
 
   async function doLoad() {

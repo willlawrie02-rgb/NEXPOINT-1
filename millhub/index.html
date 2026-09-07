@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>Global Mill Hub — The NexPoint Global Hub</title>
+<title>Global Mill Hub: The NexPoint Global Hub</title>
 <link rel="icon" href="assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,15 +17,27 @@
      preview, where one server holds the whole site. */
   window.NP_APEX = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
   document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="' + window.NP_APEX + '/hub/assets/portal.css">');
+
+  /* The header renders its buttons before the module chain that defines what
+     they call: portal.js arrives from the apex over a sequential chain of
+     cross-origin loads, and a click landing first threw a ReferenceError and
+     did nothing at all. These stubs record the call instead; portal.js
+     replays the queue once, at the end of its own boot. */
+  window.NP_QUEUE = [];
+  ['openSignIn', 'openIntro', 'openEducationList', 'closeAll'].forEach(function (name) {
+    window[name] = function () {
+      window.NP_QUEUE.push({ name: name, args: [].slice.call(arguments) });
+    };
+  });
 </script>
 </head>
 <body data-hub="mill">
 <!--
-v3 · 2026-08-15 — rebuilt to the SAME shape as the Print Hub. Chris: "they're both
+v3 · 2026-08-15, rebuilt to the SAME shape as the Print Hub. Chris: "they're both
 the same thing, just one of them is mill, one of them is print… it just makes it
 more confusing" when they differ.
 ORDER: hero → why (pillars + the triggers he singled out) → two doors → detail.
-CHANGED: AFOs removed (they don't mill AFOs — direct-milled & moulded insoles) ·
+CHANGED: AFOs removed (they don't mill AFOs: direct-milled & moulded insoles) ·
 "worth an hour" → "worth a chat" · the pricing sentence reworded · duplicate
 capacity CTAs collapsed into one door · logo path fixed.
 -->
@@ -72,7 +84,7 @@ capacity CTAs collapsed into one door · logo path fixed.
         <!-- The mill-to-door sequence, drawn instead of photographed: the previous hero image
              showed the wrong process (milling around the block). Here the cutter traces the
              contour INSIDE the blank, the surround is milled away, the part stays on uncut
-             tabs until release — then packs, travels the lane, and lands at the seeker's door.
+             tabs until release, then packs, travels the lane, and lands at the seeker's door.
              Self-contained SVG + CSS, 12s loop, brand tokens only. Reduced motion (and any
              browser with animations off) gets the finished diagram: milled blank on the left,
              delivered carton on the right. -->
@@ -186,7 +198,7 @@ capacity CTAs collapsed into one door · logo path fixed.
   </div>
 </section>
 
-<!-- PROOF BAND — parallel to the Print Hub's network band -->
+<!-- PROOF BAND: parallel to the Print Hub's network band -->
 <section>
   <div class="container">
     <div class="net-band">
@@ -200,7 +212,7 @@ capacity CTAs collapsed into one door · logo path fixed.
 
 <!-- PRIORITY ONE: why you'd bother -->
 
-<!-- WHO IT'S FOR — the triggers Chris singled out as the main reason -->
+<!-- WHO IT'S FOR: the triggers Chris singled out as the main reason -->
 
 <!-- PRIORITY TWO: the action. Same two doors as the Print Hub. -->
 <section class="section">
@@ -215,17 +227,17 @@ capacity CTAs collapsed into one door · logo path fixed.
         <div class="door__body">
           <span class="door__kicker">I need capacity</span>
           <h3>Find milled capacity</h3>
-          <p>Start on the map. See what serves your market today, and what a dedicated cell would look like.</p>
-          <span class="go">Open the capacity map <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          <p>Tell us the material, quantity and lead time. Pick up to three verified sites and we make the introduction.</p>
+          <span class="go">Find capacity <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
         </div>
       </a>
       <a class="door enter enter--up" style="--d:70ms" href="offer.html">
         <div class="door__media"><img src="assets/img/mill-hub.jpg" alt=""></div>
         <div class="door__body">
-          <span class="door__kicker">I have capacity</span>
+          <span class="door__kicker">List your site</span>
           <h3>Offer milling capacity</h3>
-          <p>Run a milling facility? The hub needs nodes in Europe and Australia next. Tell the desk what you run.</p>
-          <span class="go">Apply to host <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          <p>Run a milling facility? The hub needs nodes in Europe and Australia next. List your cell.</p>
+          <span class="go">Start your listing <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
         </div>
       </a>
     </div>
@@ -251,7 +263,7 @@ capacity CTAs collapsed into one door · logo path fixed.
       <div class="row enter enter--up" style="--d:140ms">
         <span class="material-symbols-outlined" aria-hidden="true">tune</span>
         <span class="lead">Control you keep</span>
-        <p>One named production manager, as accountable to you as your own factory floor. "Rush this one through", "change how we do the heels" — and it happens. The brand and the relationships stay yours.</p>
+        <p>One named production manager, as accountable to you as your own factory floor. "Rush this one through", "change how we do the heels", and it happens. The brand and the relationships stay yours.</p>
       </div>
     </div>
   </div>
@@ -287,7 +299,7 @@ capacity CTAs collapsed into one door · logo path fixed.
     </div>
     <div class="steps three">
       <div class="step enter enter--up" style="--d:0ms"><span class="n">01</span><h3>Tell the desk what you make</h3><p>Volumes, materials, systems, and what's changing in your business. Two minutes, in confidence.</p></div>
-      <div class="step enter enter--up" style="--d:70ms"><span class="n">02</span><h3>We weigh the fit personally</h3><p>Chris or Will reviews every request against capacity we have seen first-hand — usually within two working days.</p></div>
+      <div class="step enter enter--up" style="--d:70ms"><span class="n">02</span><h3>We weigh the fit personally</h3><p>Chris or Will reviews every request against capacity we have seen first-hand, usually within two working days.</p></div>
       <div class="step enter enter--up" style="--d:140ms"><span class="n">03</span><h3>Meet the manufacturer</h3><p>Names, faces, facilities and the exact per-pair number, shared once both sides choose to meet.</p></div>
     </div>
   </div>
@@ -299,7 +311,7 @@ capacity CTAs collapsed into one door · logo path fixed.
     <a class="enter enter--rise" href="https://printhub.nexpoint.co.uk/">
       <div class="txt">
         <span class="kicker">Next door</span>
-        <h3>Certified 3D-printing capacity, worldwide — the Global Print Hub <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></h3>
+        <h3>Certified 3D-printing capacity, worldwide: the Global Print Hub <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></h3>
       </div>
       <img src="assets/img/print-hub.jpg" alt="Printed nylon orthotic shells in front of an SLS 3D printer">
     </a>
@@ -378,7 +390,7 @@ capacity CTAs collapsed into one door · logo path fixed.
       </div>
       <div class="modal-actions"><button class="btn btn-primary" onclick="signSubmit()">Sign in</button></div>
       <p class="np-sign-error" style="display:none;color:#E5484D;font:500 13px/1.4 var(--font-body);margin-top:10px"></p>
-      <div class="privacy">New here? <a href="#" onclick="event.preventDefault();closeAll();window.NPAccount&&NPAccount.openQuestionnaire({})" style="color:var(--blue);font-weight:600">Create your hub account</a> — two minutes, in confidence.</div>
+      <div class="privacy">New here? <a href="#" onclick="event.preventDefault();closeAll();window.NPAccount&&NPAccount.openQuestionnaire({})" style="color:var(--blue);font-weight:600">Create your hub account</a>. Two minutes, in confidence.</div>
     </div>
   </div>
 </div>
