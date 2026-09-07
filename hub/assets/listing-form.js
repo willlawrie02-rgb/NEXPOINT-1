@@ -131,25 +131,6 @@
   function el(id) { return document.getElementById(id); }
   function val(id) { const e = el(id); return e ? e.value.trim() : ''; }
 
-  function markdownLite(md) {
-    const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
-    let html = '', inList = false;
-    const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
-    const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
-    lines.forEach((raw) => {
-      const line = raw.trim();
-      if (!line) { closeList(); return; }
-      const h = /^(#{1,4})\s+(.*)$/.exec(line);
-      if (h) { closeList(); const lvl = Math.min(h[1].length + 2, 6); html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>'; return; }
-      const li = /^[-*]\s+(.*)$/.exec(line);
-      if (li) { if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(li[1]) + '</li>'; return; }
-      closeList();
-      html += '<p>' + inline(line) + '</p>';
-    });
-    closeList();
-    return html;
-  }
-
   function termLabel(list, term) {
     if (window.NPVocab && NPVocab.label) return NPVocab.label(list, term);
     const hit = (list || []).find((o) => o.term === term);
@@ -644,7 +625,7 @@
     }
     termsRequired = true;
     el('hostTermsBlock').innerHTML =
-      '<div class="terms-scroll">' + markdownLite(d.body_md) + '</div>' +
+      '<div class="terms-scroll">' + NP.markdownLite(d.body_md) + '</div>' +
       '<label class="np-terms-tick"><input type="checkbox" id="hostTick"> ' +
       'I accept the Host Agreement, version ' + esc(d.version) + '</label>';
   }
@@ -936,7 +917,7 @@
       return;
     }
     legacyTermsId = d.id;
-    el('hostTermsBlock').innerHTML = '<div class="terms-scroll">' + markdownLite(d.body_md) + '</div>' +
+    el('hostTermsBlock').innerHTML = '<div class="terms-scroll">' + NP.markdownLite(d.body_md) + '</div>' +
       '<label class="np-terms-tick"><input type="checkbox" id="hostTick" required> I accept the Host Agreement, version ' +
       esc(d.version) + '</label>';
     if (btn) btn.disabled = false;

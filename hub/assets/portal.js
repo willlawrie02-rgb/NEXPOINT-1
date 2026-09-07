@@ -147,8 +147,36 @@ function npReady(fn){
   else fn();
 }
 
+/* ═══════════ the terms reader ═══════════
+   Markdown as the worker serves it, in the small subset of HTML a terms
+   scroll needs: headings, bullets, paragraphs and the two inline marks.
+   One copy for the three pages that render a terms layer - the find flow,
+   the listing form and the provider's accept page - because three copies
+   of a reader that turns text into markup is three places for one of them
+   to stop escaping first. Escaped first it is: nothing a terms body
+   carries can arrive as markup of its own.                              */
+function markdownLite(md){
+  const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+  let html = '', inList = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  const inline = (s) => escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+  lines.forEach((raw) => {
+    const line = raw.trim();
+    if (!line) { closeList(); return; }
+    const h = /^(#{1,4})\s+(.*)$/.exec(line);
+    if (h) { closeList(); const lvl = Math.min(h[1].length + 2, 6); html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>'; return; }
+    const li = /^[-*]\s+(.*)$/.exec(line);
+    if (li) { if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(li[1]) + '</li>'; return; }
+    closeList();
+    html += '<p>' + inline(line) + '</p>';
+  });
+  closeList();
+  return html;
+}
+
 const NP = {
   api: npApi,
+  markdownLite: markdownLite,
   ready: npReady,
   hub: HUB,
   config: hubConfig,

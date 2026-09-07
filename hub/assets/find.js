@@ -133,27 +133,6 @@
     return (terms || []).map((t) => termLabel(list, t));
   }
 
-  /* Turns markdown the worker serves into the small subset of HTML the
-     terms scroll needs. The same reader the listing form uses. */
-  function markdownLite(md) {
-    const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
-    let html = '', inList = false;
-    const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
-    const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
-    lines.forEach((raw) => {
-      const line = raw.trim();
-      if (!line) { closeList(); return; }
-      const h = /^(#{1,4})\s+(.*)$/.exec(line);
-      if (h) { closeList(); const lvl = Math.min(h[1].length + 2, 6); html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>'; return; }
-      const li = /^[-*]\s+(.*)$/.exec(line);
-      if (li) { if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(li[1]) + '</li>'; return; }
-      closeList();
-      html += '<p>' + inline(line) + '</p>';
-    });
-    closeList();
-    return html;
-  }
-
   /* ══════════════ step 1: the ask ══════════════ */
 
   /* The chip's own data attribute is what the readers below select on. HTML
@@ -721,7 +700,7 @@
     }
     introTerms = d;
     el('introTermsBlock').innerHTML =
-      '<div class="terms-scroll">' + markdownLite(d.body_md) + '</div>' +
+      '<div class="terms-scroll">' + NP.markdownLite(d.body_md) + '</div>' +
       '<label class="np-terms-tick"><input type="checkbox" id="introTick"> ' +
       'I accept the introduction terms, version ' + esc(d.version) + '</label>';
   }
