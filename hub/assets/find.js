@@ -222,7 +222,8 @@
         '<div class="field full"><label for="fProcess">Process (optional)</label>' +
         '<input id="fProcess" placeholder="Type and press Enter"></div>' +
 
-        '<div class="field"><label for="fQuantity">How many</label>' +
+        '<div class="field"><label for="fQuantity" id="fQuantityLabel">' +
+        (recurring ? 'How many per month' : 'How many') + '</label>' +
         '<input id="fQuantity" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 200"' +
         (back ? ' value="' + esc(num(back.quantity)) + '"' : '') + '></div>' +
 
@@ -236,10 +237,6 @@
         pickChip('fCadence', 'one_off', 'One off', !recurring, 'radio') +
         pickChip('fCadence', 'recurring', 'Recurring', recurring, 'radio') +
         '</div></div>' +
-
-        '<div class="field" id="fPerMonthField" hidden><label for="fPerMonth">How many per month</label>' +
-        '<input id="fPerMonth" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 60"' +
-        (back ? ' value="' + esc(num(back.per_month)) + '"' : '') + '></div>' +
 
         '<div class="field full"><label id="fLeadModeLabel">When do you need it?</label>' +
         '<div class="lgroup" id="fLeadMode" role="radiogroup" aria-labelledby="fLeadModeLabel">' +
@@ -338,7 +335,8 @@
   function syncConditionalFields() {
     const cadence = groupValue('fCadence', 'fCadence');
     const mode = groupValue('fLeadMode', 'fLeadMode');
-    if (el('fPerMonthField')) el('fPerMonthField').hidden = cadence !== 'recurring';
+    if (el('fQuantityLabel')) el('fQuantityLabel').textContent =
+      cadence === 'recurring' ? 'How many per month' : 'How many';
     if (el('fMaxLeadField')) el('fMaxLeadField').hidden = mode !== 'max_lead';
     if (el('fNeededByField')) el('fNeededByField').hidden = mode !== 'needed_by';
   }
@@ -366,7 +364,7 @@
   }
 
   /* The ask, read off the form once. It is wider than the worker's request
-     body on purpose: `materials`, `quantity_unit` and `per_month` have no
+     body on purpose: `materials` and `quantity_unit` have no
      column of their own there, so they stay on this object (which drives
      the notes sentence and the held pending) and are dropped by bodyFor
      before anything is posted. Nothing the seeker typed is lost: what has
@@ -383,16 +381,9 @@
     }
     const quantityUnit = val('fQuantityUnit') || 'pairs';
 
+    /* One figure serves both cadences: for a recurring ask "How many" is
+       read as the monthly volume (Will, 2026-09-08). */
     const cadence = groupValue('fCadence', 'fCadence') || 'one_off';
-    let perMonth = null;
-    /* The per-month figure is the whole reason the cadence question is
-       asked, so a recurring ask without one is not an ask we can route. */
-    if (cadence === 'recurring') {
-      perMonth = wholeNumber(val('fPerMonth'));
-      if (perMonth === null || !Number.isFinite(perMonth) || perMonth < 1) {
-        return { error: 'How many per month? Whole numbers only.', focus: 'fPerMonth' };
-      }
-    }
 
     const mode = groupValue('fLeadMode', 'fLeadMode') || 'max_lead';
     let maxLead = null, neededBy = null;
@@ -424,22 +415,21 @@
       quantity: quantity,
       quantity_unit: quantityUnit,
       cadence: cadence,
-      per_month: perMonth,
       max_lead_time_days: maxLead,
       needed_by: neededBy,
       town: town,
       country: country,
       services: services,
-      notes: notesWithVolume(notes, materials, quantity, quantityUnit, perMonth),
+      notes: notesWithVolume(notes, materials, quantity, quantityUnit, cadence),
     } };
   }
 
   /* What the worker has no column for still has to reach a human, so it is
      spelled out on the notes the desk reads. */
-  function notesWithVolume(notes, materials, quantity, unit, perMonth) {
+  function notesWithVolume(notes, materials, quantity, unit, cadence) {
     const bits = [];
     bits.push('Volume: ' + quantity + ' ' + unit +
-      (perMonth ? ', about ' + perMonth + ' per month' : '') + '.');
+      (cadence === 'recurring' ? ' per month, recurring.' : ', one off.'));
     if (materials.length > 1) {
       bits.push('Materials that would work: ' +
         labelsFor(vocab && vocab.materials, materials).join(', ') + '.');
@@ -897,8 +887,8 @@
   }
 
   /* The request body the worker takes, and nothing else. POST
-     /seeker-requests reads exactly these eleven names; `materials`,
-     `quantity_unit` and `per_month` have no column and no reader there, so
+     /seeker-requests reads exactly these eleven names; `materials` and
+     `quantity_unit` have no column and no reader there, so
      sending them would be a contract the worker never agreed to. They stay
      on the internal `spec` (which the held pending keeps whole) and reach
      the desk as a sentence on the notes. */
