@@ -253,15 +253,25 @@
   }
   let turnstileWidgetId = null;
   let turnstileToken = '';
+  let turnstileRender = 0;     /* which render the script promise belongs to */
+  let turnstileBox = null;     /* the container the live widget was rendered into */
   /* Renders into #npTurnstile once the script is ready. If step2 has moved on
      (back, closed, re-rendered) by the time the script resolves, the container
      is gone and this quietly does nothing. A script that never arrives fails
      closed, so the submit button stays disabled: it says so in the container
-     rather than leaving a blank space and a button that cannot be pressed. */
+     rather than leaving a blank space and a button that cannot be pressed.
+     Step 2 can be entered, left and entered again before the script promise
+     settles, and every entry calls this: only the newest call may render, so
+     one container never ends up with two widgets. A widget already sitting in
+     the very container about to be rendered into is removed first. One left
+     in a container step 2 has since thrown away went with it, and asking
+     Turnstile to remove that only prints a warning. */
   function renderTurnstile(siteKey) {
     turnstileToken = '';
+    const mine = ++turnstileRender;
     refreshSubmitGate();
     loadTurnstileScript().then((ts) => {
+      if (mine !== turnstileRender) return;
       const box = content().querySelector('#npTurnstile');
       if (!box) return;
       if (!ts) {
@@ -269,6 +279,11 @@
           'The check could not load. Reload the page to try again.</p>';
         return;
       }
+      if (turnstileWidgetId != null && turnstileBox === box) {
+        try { ts.remove(turnstileWidgetId); } catch (e) {}
+      }
+      turnstileWidgetId = null;
+      turnstileBox = box;
       turnstileWidgetId = ts.render(box, {
         sitekey: siteKey,
         callback: (token) => { turnstileToken = token || ''; refreshSubmitGate(); },
