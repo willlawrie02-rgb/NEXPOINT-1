@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint Admin — Organisations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+<style>
+  .muted { color: var(--fg-2); font-size: 12.5px; }
+  .subb, .hostb, .founding {
+    display: inline-block; border-radius: 999px; text-transform: uppercase;
+    letter-spacing: 0.05em; white-space: nowrap;
+  }
+  .subb { font: 700 10.5px/1 var(--font-body); padding: 5px 9px; }
+  .subb-none    { background: var(--bg-alt);   color: var(--fg-2); }
+  .subb-active  { background: var(--ok-wash);  color: var(--ok-ink); }
+  .subb-overdue { background: var(--warn-wash); color: var(--warn-ink); }
+  .subb-hidden  { background: var(--err-wash); color: var(--err-ink); }
+  .hostb { font: 600 10.5px/1 var(--font-body); padding: 4px 8px; margin-right: 4px; text-transform: none; letter-spacing: 0; }
+  .hostb-none     { background: var(--bg-alt);   color: var(--fg-2); }
+  .hostb-applied  { background: var(--info-wash); color: var(--info-ink); }
+  .hostb-approved { background: var(--ok-wash);  color: var(--ok-ink); }
+  .hostb-declined { background: var(--cold-wash); color: var(--cold-ink); }
+  .founding { background: var(--np-green); color: #fff; font: 700 9.5px/1 var(--font-body);
+              padding: 3px 7px; margin-left: 6px; }
+  .hidden-flag { color: var(--err-ink); font-weight: 700; font-size: 12px; }
+  .fees { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .fees .cur { color: var(--fg-2); font-size: 11.5px; margin-right: 4px; }
+</style>
+</head>
+<body>
+<!--
+THESIS: The admin is the main site's back office — same light material world,
+no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
+OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
+ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
+accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
+STORY: every organisation on the Global Hub — subscription standing (with the
+Founding badge honoured for life, spec §3), host status per hub, open strikes,
+fees owed on confirmed-but-uninvoiced orders, and whether they are hidden from
+results. Recording a payment queues an intent; the engine advances the billing
+period and lifts a subscription-hide (never a strike-hide — that clears only
+when the strikes themselves cure).
+FIRST VIEWPORT: brand bar, boards tabs, "Organisations", then the register.
+FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
+-->
+
+<div id="login" class="door" style="display:none">
+  <img class="door-logo" src="nexpoint-logo.png" alt="NexPoint">
+  <h1>Admin sign in</h1>
+  <p>The opportunity board, leads, tasks and engine health.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+  <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
+</div>
+
+<div id="admin" style="display:none">
+  <header class="topbar">
+    <div class="wrap bar">
+      <a class="brandmark" href="index.html">
+        <img src="nexpoint-logo.png" alt="NexPoint">
+        <span class="admin-tag">Admin</span>
+      </a>
+      <div class="session">
+        <span class="who" id="who"></span>
+        <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <nav class="boards" aria-label="Admin boards">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="leads.html">Leads</a>
+        <a href="tasks.html">Tasks</a>
+        <a href="health.html">Health</a>
+        <a href="print-hub.html">Print Hub</a>
+        <a href="mill-hub.html">Mill Hub</a>
+        <a href="opportunities.html">Opportunities</a>
+        <a href="members.html">Members</a>
+        <a href="organisations.html" aria-current="page">Organisations</a>
+        <a href="orders.html">Orders</a>
+        <a href="campaigns.html">Campaigns</a>
+        <a href="linkedin.html">LinkedIn</a>
+      </nav>
+
+      <div class="arrive">
+        <div class="intro">
+          <h1>Organisations</h1>
+          <span class="count" id="count"></span>
+        </div>
+        <p class="note">
+          Every organisation on the Global Hub: subscription standing, host status per hub,
+          open strikes and fees owed on confirmed but uninvoiced orders. Recording a payment
+          queues the engine to advance the billing period and, only when the organisation was
+          hidden for a lapsed subscription, restore its listing.
+        </p>
+        <div id="banner"></div>
+        <div class="register">
+          <table>
+            <thead><tr>
+              <th>Organisation</th><th>Subscription</th><th>Host status</th>
+              <th>Strikes</th><th>Fees owed</th><th>Hidden</th><th>Manage</th>
+            </tr></thead>
+            <tbody id="orgRows"><tr><td colspan="7" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI gate; real gate is database RLS
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let me=null, orgs=[], pendingByOrg={};
+
+async function boot(){
+  const {data}=await sb.auth.getSession();const s=data&&data.session;
+  if(s&&isAdmin(s.user.email))showAdmin(s.user);else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))$('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pw').value});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  showAdmin(data.user);
+}
+async function signOut(){await sb.auth.signOut();location.reload();}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='block';$('who').textContent=u.email;me=u;load();}
+
+function fmtMoney(map){
+  const parts=Object.entries(map||{});
+  if(!parts.length)return '—';
+  return parts.map(([cur,amt])=>`<span class="cur">${esc(cur)}</span>${amt.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}`).join('<br>');
+}
+
+async function load(){
+  $('banner').innerHTML='';
+  const oq=await sb.from('organisations').select('*').order('name',{ascending:true});
+  if(oq.error){
+    $('banner').innerHTML=`<div class="banner">Could not read organisations: ${esc(oq.error.message)}.
+      If this says the table does not exist or permission is denied, migration 0024 (schema) and
+      0025 (engine_worker grants) may not be applied yet.</div>`;
+    $('orgRows').innerHTML='';
+    return;
+  }
+  orgs=oq.data||[];
+
+  const [strikesQ, ordersQ, intentsQ] = await Promise.all([
+    sb.from('strikes').select('org_id').is('cured_at', null),
+    sb.from('orders').select('org_provider,value,fee_rate,currency,confirmed_at,invoiced_at'),
+    sb.from('engine_intents').select('id,type,payload_json,status,result_note')
+      .in('status',['pending','claimed','failed']).eq('type','record-sub-paid'),
+  ]);
+
+  const strikeCounts={};
+  (strikesQ.data||[]).forEach(s=>{strikeCounts[s.org_id]=(strikeCounts[s.org_id]||0)+1;});
+
+  const feesByOrg={};
+  (ordersQ.data||[]).forEach(o=>{
+    if(!o.confirmed_at||o.invoiced_at)return;
+    const m=feesByOrg[o.org_provider]||(feesByOrg[o.org_provider]={});
+    const cur=o.currency||'GBP';
+    m[cur]=(m[cur]||0)+Number(o.value||0)*Number(o.fee_rate||0);
+  });
+
+  pendingByOrg={};
+  (intentsQ.data||[]).forEach(i=>{
+    const orgId=(i.payload_json||{}).org_id;
+    if(orgId!=null)pendingByOrg[orgId]=i;
+  });
+
+  render(strikeCounts, feesByOrg);
+}
+
+function subBadge(o){
+  const s=o.sub_status||'none';
+  const label = s==='none' ? 'No subscription' : s.charAt(0).toUpperCase()+s.slice(1);
+  let extra='';
+  if(s!=='none'&&o.sub_rate_gbp!=null)extra=` — £${Number(o.sub_rate_gbp).toLocaleString('en-GB')}/${o.sub_period==='monthly'?'mo':'yr'}`;
+  const founding=o.founding?'<span class="founding">Founding</span>':'';
+  return `<span class="subb subb-${esc(s)}">${esc(label)}</span>${esc(extra)}${founding}`;
+}
+
+function hostBadge(label, status){
+  const s=status||'none';
+  return `<span class="hostb hostb-${esc(s)}">${esc(label)}: ${esc(s)}</span>`;
+}
+
+function render(strikeCounts, feesByOrg){
+  $('count').textContent=orgs.length?`${orgs.length} organisation${orgs.length===1?'':'s'}`:'';
+  $('orgRows').innerHTML = orgs.length ? orgs.map(o=>{
+    const q=pendingByOrg[o.id];
+    const strikes=strikeCounts[o.id]||0;
+    let manage;
+    if(q&&q.status==='failed'){
+      manage=`<span class="status fail">Failed: ${esc(q.result_note||'')}</span>
+        <button class="btn btn-gh btn-sm" onclick="retry(${JSON.stringify(q.id)})">Try again</button>`;
+    }else if(q){
+      manage=`<span class="status">Queued — moments away.</span>`;
+    }else{
+      manage=o.sub_period
+        ?`<button class="btn btn-grn btn-sm" onclick="recordPaid('${esc(o.id)}','${esc((o.name||'').replace(/'/g,"\\'"))}')">
+            <span class="material-symbols-outlined" aria-hidden="true">payments</span>Record payment</button>`
+        :'<span class="muted">no subscription yet</span>';
+    }
+    return `<tr>
+      <td><strong>${esc(o.name||'(unnamed)')}</strong>${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}
+        ${o.fee_exempt_note?`<br><span class="muted">${esc(o.fee_exempt_note)}</span>`:''}</td>
+      <td>${subBadge(o)}</td>
+      <td>${hostBadge('Print',o.host_print)}${hostBadge('Mill',o.host_mill)}</td>
+      <td>${strikes?`<span class="hidden-flag">${strikes} open</span>`:'<span class="muted">none</span>'}</td>
+      <td class="fees">${fmtMoney(feesByOrg[o.id])}</td>
+      <td>${o.hidden_at?`<span class="hidden-flag">Hidden</span>`:'<span class="muted">visible</span>'}</td>
+      <td><div class="actions" style="margin-top:0">${manage}</div></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7">No organisations yet.</td></tr>';
+}
+
+async function raise(type,payload,verb){
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){$('banner').innerHTML=`<div class="banner">Could not queue it: ${esc(error.message)}</div>`;return;}
+  $('banner').innerHTML=`<div class="banner" style="border-color:var(--ok-line);color:var(--ok-ink)">${esc(verb)} — queued — the engine acts within a minute or two.</div>`;
+  setTimeout(load,1200);
+}
+function recordPaid(orgId,name){
+  if(!confirm(`Record the subscription for "${name}" as paid? This advances the renewal date by one period${''}.`))return;
+  raise('record-sub-paid',{org_id:orgId},'Payment recorded');
+}
+function retry(intentId){
+  sb.from('engine_intents').select('type,payload_json').eq('id',intentId).single().then(({data})=>{
+    if(!data)return;
+    raise(data.type,data.payload_json,'Sent again');
+  });
+}
+
+boot();
+</script>
+</body>
+</html>

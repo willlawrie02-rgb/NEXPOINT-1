@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint Admin — Orders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+<style>
+  .muted { color: var(--fg-2); font-size: 12.5px; }
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 20px; }
+  .money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .obadge { display: inline-block; font: 700 10.5px/1 var(--font-body); letter-spacing: 0.05em;
+            text-transform: uppercase; padding: 5px 9px; border-radius: 999px; }
+  .obadge-logged    { background: var(--bg-alt);   color: var(--fg-2); }
+  .obadge-confirmed { background: var(--ok-wash);  color: var(--ok-ink); }
+  .obadge-disputed  { background: var(--err-wash); color: var(--err-ink); }
+  .obadge-batch     { background: var(--info-wash); color: var(--info-ink); margin-left: 4px; }
+  .flag { display: inline-block; font: 600 10.5px/1 var(--font-body); padding: 4px 8px;
+          border-radius: 999px; margin-right: 4px; }
+  .flag-yes { background: var(--ok-wash); color: var(--ok-ink); }
+  .flag-no  { background: var(--bg-alt);  color: var(--fg-2); }
+  .selrow { width: 22px; }
+  .selbar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 13px; color: var(--fg-2); }
+</style>
+</head>
+<body>
+<!--
+THESIS: The admin is the main site's back office — same light material world,
+no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
+OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
+ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
+accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
+STORY: the order ledger — every job between introduced parties, logged by the
+provider and confirmed or disputed by the seeker. This board is where the 8%
+becomes real: select confirmed, uninvoiced rows and mark them invoiced, then
+mark paid once settled. fee-invoices' daily summary reads exactly this queue;
+this board is the only place it is ever cleared.
+FIRST VIEWPORT: brand bar, boards tabs, "Orders", filters, then the ledger.
+FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
+-->
+
+<div id="login" class="door" style="display:none">
+  <img class="door-logo" src="nexpoint-logo.png" alt="NexPoint">
+  <h1>Admin sign in</h1>
+  <p>The opportunity board, leads, tasks and engine health.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+  <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
+</div>
+
+<div id="admin" style="display:none">
+  <header class="topbar">
+    <div class="wrap bar">
+      <a class="brandmark" href="index.html">
+        <img src="nexpoint-logo.png" alt="NexPoint">
+        <span class="admin-tag">Admin</span>
+      </a>
+      <div class="session">
+        <span class="who" id="who"></span>
+        <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <nav class="boards" aria-label="Admin boards">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="leads.html">Leads</a>
+        <a href="tasks.html">Tasks</a>
+        <a href="health.html">Health</a>
+        <a href="print-hub.html">Print Hub</a>
+        <a href="mill-hub.html">Mill Hub</a>
+        <a href="opportunities.html">Opportunities</a>
+        <a href="members.html">Members</a>
+        <a href="organisations.html">Organisations</a>
+        <a href="orders.html" aria-current="page">Orders</a>
+        <a href="campaigns.html">Campaigns</a>
+        <a href="linkedin.html">LinkedIn</a>
+      </nav>
+
+      <div class="arrive">
+        <div class="intro">
+          <h1>Orders</h1>
+          <span class="count" id="count"></span>
+        </div>
+        <p class="note">
+          Every job logged on the Global Hub — provider and seeker, units and value, the
+          seeker's confirm or dispute, and the invoice/paid trail. Select rows and mark them
+          invoiced once billed, then paid once settled — the only two ways an order's money
+          fields change.
+        </p>
+        <div class="toolbar" id="filters"></div>
+        <div id="banner"></div>
+        <div class="selbar" id="selbar" style="display:none">
+          <span id="selCount"></span>
+          <button class="btn btn-pri btn-sm" onclick="markSelected('invoiced')">Mark invoiced</button>
+          <button class="btn btn-grn btn-sm" onclick="markSelected('paid')">Mark paid</button>
+        </div>
+        <div class="register">
+          <table>
+            <thead><tr>
+              <th class="selrow"></th><th>ID</th><th>Hub</th><th>Provider</th><th>Seeker</th>
+              <th>Units</th><th>Value</th><th>Status</th><th>Logged</th><th>Invoiced</th><th>Paid</th>
+            </tr></thead>
+            <tbody id="orderRows"><tr><td colspan="11" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI gate; real gate is database RLS
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let me=null, orders=[], orgById={}, selected=new Set(), filter='uninvoiced';
+
+const FILTERS=[
+  {f:'uninvoiced',label:'Awaiting invoice'},{f:'unpaid',label:'Invoiced, unpaid'},
+  {f:'disputed',label:'Disputed'},{f:'all',label:'All'},
+];
+
+async function boot(){
+  const {data}=await sb.auth.getSession();const s=data&&data.session;
+  if(s&&isAdmin(s.user.email))showAdmin(s.user);else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))$('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pw').value});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  showAdmin(data.user);
+}
+async function signOut(){await sb.auth.signOut();location.reload();}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='block';$('who').textContent=u.email;me=u;load();}
+
+function fmtDate(v){
+  if(!v)return '—';
+  return new Date(v).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+function orgName(id){return id&&orgById[id]?orgById[id]:(id?'—':'—');}
+
+async function load(){
+  $('banner').innerHTML='';
+  const oq=await sb.from('orders').select('*').order('logged_at',{ascending:false});
+  if(oq.error){
+    $('banner').innerHTML=`<div class="banner">Could not read orders: ${esc(oq.error.message)}.
+      If this says the table does not exist or permission is denied, migration 0024 (schema) and
+      0025 (engine_worker grants) may not be applied yet.</div>`;
+    $('orderRows').innerHTML='';
+    return;
+  }
+  orders=oq.data||[];
+  const orgsQ=await sb.from('organisations').select('id,name');
+  orgById={};(orgsQ.data||[]).forEach(o=>{orgById[o.id]=o.name;});
+  selected=new Set();
+  render();
+}
+
+function statusBadge(o){
+  if(o.disputed_at)return '<span class="obadge obadge-disputed">Disputed</span>';
+  if(o.confirmed_at)return '<span class="obadge obadge-confirmed">Confirmed</span>';
+  return '<span class="obadge obadge-logged">Logged</span>';
+}
+
+function matchesFilter(o){
+  if(filter==='all')return true;
+  if(filter==='uninvoiced')return !!o.confirmed_at&&!o.invoiced_at;
+  if(filter==='unpaid')return !!o.invoiced_at&&!o.paid_at;
+  if(filter==='disputed')return !!o.disputed_at;
+  return true;
+}
+
+function render(){
+  const rows=orders.filter(matchesFilter);
+  $('count').textContent=orders.length?`${orders.length} order${orders.length===1?'':'s'} · ${rows.length} shown`:'';
+  $('filters').innerHTML=FILTERS.map(x=>
+    `<button class="fchip" aria-pressed="${filter===x.f}" onclick="setFilter('${x.f}')">${esc(x.label)}</button>`).join('');
+
+  $('orderRows').innerHTML = rows.length ? rows.map(o=>`
+    <tr>
+      <td class="selrow"><input type="checkbox" ${selected.has(o.id)?'checked':''} onchange="toggle(${o.id},this.checked)"></td>
+      <td>${o.id}${o.is_batch?'<span class="obadge obadge-batch">Batch'+(o.period?': '+esc(o.period):'')+'</span>':''}</td>
+      <td>${esc(o.hub||'')}</td>
+      <td>${esc(orgName(o.org_provider))}</td>
+      <td>${esc(orgName(o.org_seeker))}</td>
+      <td>${o.units==null?'—':o.units}</td>
+      <td class="money">${esc(o.currency||'GBP')} ${Number(o.value||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td>${statusBadge(o)}</td>
+      <td>${fmtDate(o.logged_at)}</td>
+      <td>${o.invoiced_at?`<span class="flag flag-yes">${fmtDate(o.invoiced_at)}</span>`:'<span class="flag flag-no">—</span>'}</td>
+      <td>${o.paid_at?`<span class="flag flag-yes">${fmtDate(o.paid_at)}</span>`:'<span class="flag flag-no">—</span>'}</td>
+    </tr>`).join('') : `<tr><td colspan="11">${orders.length?'Nothing matches this filter.':'No orders logged yet.'}</td></tr>`;
+
+  $('selbar').style.display=selected.size?'flex':'none';
+  $('selCount').textContent=`${selected.size} selected`;
+}
+
+function setFilter(f){filter=f;selected=new Set();render();}
+function toggle(id,on){if(on)selected.add(id);else selected.delete(id);render();}
+
+async function markSelected(kind){
+  if(!selected.size)return;
+  const ids=[...selected];
+  const label=kind==='invoiced'?'invoiced':'paid';
+  if(!confirm(`Mark ${ids.length} order(s) as ${label}?`))return;
+  const {error}=await sb.from('engine_intents').insert({
+    type:kind==='invoiced'?'mark-invoiced':'mark-paid',
+    payload_json:{order_ids:ids}, requested_by:me.email,
+  });
+  if(error){$('banner').innerHTML=`<div class="banner">Could not queue it: ${esc(error.message)}</div>`;return;}
+  $('banner').innerHTML=`<div class="banner" style="border-color:var(--ok-line);color:var(--ok-ink)">Marking ${label} — queued — the engine acts within a minute or two.</div>`;
+  selected=new Set();
+  setTimeout(load,1200);
+}
+
+boot();
+</script>
+</body>
+</html>

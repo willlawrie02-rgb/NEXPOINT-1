@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint Admin — LinkedIn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+<style>
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 0 4px; }
+  .tile { background: var(--bg); border: 1px solid var(--border-faint); border-radius: var(--radius-sm); padding: 12px 14px; }
+  .tile .k { font: 600 11px/1 var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--fg-2); }
+  .tile .v { font: 700 22px/1.2 var(--font-display); color: var(--fg); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .tile .sub { font-size: 11.5px; color: var(--fg-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .tile .sub.amber { color: var(--warn-ink); }
+  @media (max-width: 720px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  .section-title { font: 700 13px/1 var(--font-body); letter-spacing: .07em; text-transform: uppercase;
+                   color: var(--fg-2); margin: 30px 0 14px; }
+
+  /* Follower trend: a vanilla inline SVG polyline, no chart library. */
+  .trend { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+           box-shadow: var(--shadow-rest); padding: 16px; }
+  .trend svg { display: block; width: 100%; height: 120px; }
+
+  /* Post performance table */
+  .perf { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+          box-shadow: var(--shadow-rest); overflow-x: auto; margin-bottom: 12px; }
+  .perf table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 640px; }
+  .perf th { text-align: left; font: 600 11px/1 var(--font-body); letter-spacing: .06em;
+             text-transform: uppercase; color: var(--fg-2); padding: 12px 16px;
+             border-bottom: 1px solid var(--border); background: var(--bg); }
+  .perf td { padding: 11px 16px; border-bottom: 1px solid var(--border-faint); color: var(--fg-1);
+             font-variant-numeric: tabular-nums; }
+  .perf tr:last-child td { border-bottom: 0; }
+  .up   { color: var(--ok-ink); }
+  .down { color: var(--err-ink); }
+
+  /* Queue cards */
+  .slot-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .slot-head .spacer { flex: 1; }
+  .badge.b-planned { background: var(--cold-wash); color: var(--cold-ink); }
+  .badge.b-drafted { background: var(--info-wash, var(--cold-wash)); color: var(--info-ink, var(--cold-ink)); }
+  .badge.b-ready   { background: var(--warn-wash); color: var(--warn-ink); }
+  .badge.b-posted  { background: var(--ok-wash);   color: var(--ok-ink); }
+  .slot-meta { font-size: 12.5px; color: var(--fg-2); margin-top: 6px; }
+  .slot-notes { font-size: 13px; color: var(--fg-1); margin-top: 8px; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+</style>
+</head>
+<body>
+<!--
+The LinkedIn board reads the content-queue mirror and the post/page
+analytics the engine keeps in Supabase (migration 0022). The queue's
+master copy is marketing/linkedin-queue.yaml in the workspace repo; the
+engine mirrors it Mon/Wed/Fri 07:40. HUMANS POST — "Mark as posted"
+records what you already published (it asks for the post URL) as an
+engine_intents row; the engine commits the file edit, exactly like a
+Tasks tick. Post metrics arrive once the Apify pull is wired (gated on
+Will's Apify token + the actor probe).
+-->
+
+<div id="login" class="door" style="display:none">
+  <img class="door-logo" src="nexpoint-logo.png" alt="NexPoint">
+  <h1>Admin sign in</h1>
+  <p>The opportunity board, leads, tasks and engine health.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+  <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
+</div>
+
+<div id="admin" style="display:none">
+  <header class="topbar">
+    <div class="wrap bar">
+      <a class="brandmark" href="dashboard.html">
+        <img src="nexpoint-logo.png" alt="NexPoint">
+        <span class="admin-tag">Admin</span>
+      </a>
+      <div class="session">
+        <span class="who" id="who"></span>
+        <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <nav class="boards" aria-label="Admin boards">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="leads.html">Leads</a>
+        <a href="tasks.html">Tasks</a>
+        <a href="health.html">Health</a>
+        <a href="print-hub.html">Print Hub</a>
+        <a href="mill-hub.html">Mill Hub</a>
+        <a href="opportunities.html">Opportunities</a>
+        <a href="members.html">Members</a>
+        <a href="organisations.html">Organisations</a>
+        <a href="orders.html">Orders</a>
+        <a href="campaigns.html">Campaigns</a>
+        <a href="linkedin.html" aria-current="page">LinkedIn</a>
+      </nav>
+
+      <div class="arrive">
+        <div class="intro">
+          <h1>LinkedIn</h1>
+          <span class="count" id="synced"></span>
+        </div>
+        <p class="note">
+          The content queue lives in the workspace (marketing/linkedin-queue.yaml); the engine
+          mirrors it here Mon/Wed/Fri at 07:40. You and Chris post by hand — "Mark as posted"
+          records your publish and the engine commits it back to the file. Post metrics fill in
+          once the Apify pull is connected.
+        </p>
+        <div id="banner"></div>
+
+        <div class="tiles" id="tiles"></div>
+
+        <div id="trendWrap" style="display:none">
+          <div class="section-title">Follower trend</div>
+          <div class="trend"><svg id="trendSvg" viewBox="0 0 600 120" preserveAspectRatio="none"></svg></div>
+        </div>
+
+        <div id="perfWrap" style="display:none">
+          <div class="section-title">Post performance</div>
+          <div class="perf">
+            <table>
+              <thead><tr><th>Posted</th><th>Post</th><th>Reactions</th><th>Comments</th>
+                <th>Reposts</th><th>Impressions</th><th>Queue</th></tr></thead>
+              <tbody id="perfRows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="perfEmpty" class="empty" style="display:none">
+          No scraped posts yet. Engagement numbers appear once the Apify pull step is wired —
+          it needs the Apify API token and the actor probe (see the plan). The queue below
+          works in full without it.
+        </div>
+
+        <div class="section-title">Content queue</div>
+        <div id="queue">
+          <div class="row skeleton"><div class="bone" style="width:34%"></div><div class="bone" style="width:88%;margin-top:12px"></div></div>
+          <div class="row skeleton"><div class="bone" style="width:28%"></div><div class="bone" style="width:80%;margin-top:12px"></div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI gate; real gate is database RLS
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let me=null,queue=[],posts=[],pageStats=[],pending={};
+
+async function boot(){
+  const {data}=await sb.auth.getSession();
+  const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)) showAdmin(s.user); else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))
+    $('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const email=$('email').value.trim(),password=$('pw').value;
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  showAdmin(data.user);
+}
+async function signOut(){await sb.auth.signOut();location.reload();}
+function showAdmin(user){
+  me=user;$('login').style.display='none';$('admin').style.display='block';
+  $('who').textContent=user.email;
+  load();
+}
+
+async function load(){
+  $('banner').innerHTML='';
+  const {data:q,error}=await sb.from('linkedin_queue')
+    .select('id,title,pillar,slot,format,status,scheduled_for,posted_url,posted_at,notes,matched_post_id,synced_at')
+    .order('scheduled_for',{ascending:true});
+  if(error){
+    $('banner').innerHTML=`<div class="banner">Could not read the LinkedIn mirror: ${esc(error.message)}.
+      If this mentions a missing table or permission, migration 0022 has not been run yet.</div>`;
+    $('queue').innerHTML='';return;
+  }
+  queue=q||[];
+  const {data:p}=await sb.from('linkedin_posts')
+    .select('id,url,posted_at,text_excerpt,post_type,reactions,comments,reposts,impressions,synced_at')
+    .order('posted_at',{ascending:false});
+  posts=p||[];
+  const {data:ps}=await sb.from('linkedin_page_stats')
+    .select('captured_at,followers').order('captured_at',{ascending:true});
+  pageStats=ps||[];
+  const {data:intents}=await sb.from('engine_intents')
+    .select('payload_json,status').eq('type','update-linkedin-queue').eq('status','pending');
+  pending={};
+  (intents||[]).forEach(i=>{const p=i.payload_json||{};if(p.item_id)pending[p.item_id]=p.status;});
+  render();
+}
+
+const eng=p=>(p.reactions||0)+(p.comments||0)+(p.reposts||0);
+const fmtDate=d=>d?String(d).slice(0,10):'—';
+
+function render(){
+  const latest=queue.map(r=>r.synced_at).sort().pop();
+  $('synced').textContent=latest?`queue · synced ${String(latest).slice(11,16)}`:'';
+  renderTiles();renderTrend();renderPerf();renderQueue();
+}
+
+function renderTiles(){
+  // Followers + 30d delta (page stats arrive with the Apify pull).
+  let followers='—',fSub='awaiting the Apify pull';
+  if(pageStats.length){
+    const last=pageStats[pageStats.length-1];
+    followers=last.followers;
+    const cutoff=new Date(Date.now()-30*864e5).toISOString();
+    const base=pageStats.find(s=>s.captured_at>=cutoff)||pageStats[0];
+    const d=last.followers-base.followers;
+    fSub=(d>=0?'+':'')+d+' in 30 days';
+  }
+  // Average engagement over the last 10 scraped posts.
+  let avg='—',aSub='awaiting the Apify pull';
+  if(posts.length){
+    const ten=posts.slice(0,10);
+    avg=Math.round(ten.reduce((n,p)=>n+eng(p),0)/ten.length*10)/10;
+    aSub=`last ${ten.length} post(s)`;
+  }
+  // Posts this month, from the queue (the posting record we own today).
+  const month=new Date().toISOString().slice(0,7);
+  const monthPosts=queue.filter(r=>r.status==='posted'&&String(r.posted_at||'').startsWith(month)).length;
+  // Queue health: ready count + days since the last posted slot.
+  const ready=queue.filter(r=>r.status==='ready').length;
+  const lastPosted=queue.filter(r=>r.posted_at).map(r=>r.posted_at).sort().pop();
+  const days=lastPosted?Math.floor((Date.now()-new Date(lastPosted).getTime())/864e5):null;
+  const stale=days==null||days>7;
+  $('tiles').innerHTML=`
+    <div class="tile"><div class="k">Page followers</div><div class="v">${esc(followers)}</div><div class="sub">${esc(fSub)}</div></div>
+    <div class="tile"><div class="k">Avg engagement</div><div class="v">${esc(avg)}</div><div class="sub">${esc(aSub)}</div></div>
+    <div class="tile"><div class="k">Posts this month</div><div class="v">${monthPosts}</div><div class="sub">target 8 (2 a week)</div></div>
+    <div class="tile"><div class="k">Queue health</div><div class="v">${ready} ready</div>
+      <div class="sub ${stale?'amber':''}">${days==null?'nothing posted yet':days+' day(s) since last post'}</div></div>`;
+}
+
+function renderTrend(){
+  if(pageStats.length<2){$('trendWrap').style.display='none';return;}
+  $('trendWrap').style.display='block';
+  const w=600,h=120,pad=8;
+  const vals=pageStats.map(s=>s.followers);
+  const min=Math.min(...vals),max=Math.max(...vals),span=(max-min)||1;
+  const pts=pageStats.map((s,i)=>{
+    const x=pad+(w-2*pad)*(i/(pageStats.length-1));
+    const y=h-pad-(h-2*pad)*((s.followers-min)/span);
+    return `${Math.round(x)},${Math.round(y)}`;
+  }).join(' ');
+  $('trendSvg').innerHTML=
+    `<polyline points="${pts}" fill="none" stroke="var(--np-blue)" stroke-width="2.5"
+       stroke-linejoin="round" stroke-linecap="round"/>`;
+}
+
+function renderPerf(){
+  if(!posts.length){$('perfWrap').style.display='none';$('perfEmpty').style.display='block';return;}
+  $('perfEmpty').style.display='none';$('perfWrap').style.display='block';
+  const matched={};queue.forEach(r=>{if(r.matched_post_id)matched[r.matched_post_id]=r.id;});
+  $('perfRows').innerHTML=posts.map(p=>`<tr>
+    <td>${fmtDate(p.posted_at)}</td>
+    <td><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc((p.text_excerpt||p.id).slice(0,80))}</a></td>
+    <td>${p.reactions}</td><td>${p.comments}</td><td>${p.reposts}</td>
+    <td>${p.impressions==null?'—':p.impressions}</td>
+    <td>${matched[p.id]?`<span class="badge b-posted">Measured</span>`:''}</td>
+  </tr>`).join('');
+}
+
+const STATUS_ORDER=['ready','drafted','planned','posted'];
+function renderQueue(){
+  if(!queue.length){
+    $('queue').innerHTML=`<div class="empty">No queue slots mirrored yet. They appear after
+      migration 0022 has been run and the first linkedin-sync has completed — the engine
+      mirrors the queue file Mon/Wed/Fri at 07:40.</div>`;
+    return;
+  }
+  const groups=STATUS_ORDER.map(st=>{
+    let rows=queue.filter(r=>r.status===st);
+    if(st==='posted')rows=rows.slice().reverse();  // newest posted first
+    if(!rows.length)return '';
+    return `<div class="section-title">${st}</div>`+rows.map(card).join('');
+  }).join('');
+  $('queue').innerHTML=groups;
+}
+
+function card(r){
+  const queued=pending[r.id];
+  const badge=`<span class="badge b-${esc(r.status)}">${esc(r.status)}</span>`;
+  const meta=[fmtDate(r.scheduled_for),r.slot,r.pillar,r.format].filter(Boolean).map(esc).join(' · ');
+  const link=r.posted_url?` · <a href="${esc(r.posted_url)}" target="_blank" rel="noopener">view post</a>`:'';
+  let controls='';
+  if(queued){
+    controls=`<span class="status done">Queued → ${esc(queued)} — the engine commits it to the
+      queue file within the hour.</span>`;
+  }else if(r.status==='drafted'){
+    controls=`<button class="btn btn-grn btn-sm" onclick="markReady('${esc(r.id)}')">
+      <span class="material-symbols-outlined" aria-hidden="true">check</span>Mark ready</button>`;
+  }else if(r.status==='ready'||r.status==='planned'){
+    controls=`<button class="btn btn-pri btn-sm" onclick="markPosted('${esc(r.id)}')">
+      <span class="material-symbols-outlined" aria-hidden="true">task_alt</span>Mark as posted</button>`;
+  }
+  return `<div class="row">
+    <div class="slot-head">
+      <span class="company">${esc(r.title||r.id)}</span>${badge}<span class="spacer"></span>
+    </div>
+    <div class="slot-meta">${meta}${link}</div>
+    ${r.notes?`<div class="slot-notes">${esc(r.notes)}</div>`:''}
+    <div class="controls">${controls}</div>
+  </div>`;
+}
+
+async function submitQueueIntent(payload,message){
+  const {data:s}=await sb.auth.getSession();
+  const by=s&&s.session?s.session.user.email:'unknown';
+  const {error}=await sb.from('engine_intents').insert({
+    type:'update-linkedin-queue',payload_json:payload,requested_by:by,status:'pending'});
+  if(error){showBanner('Could not queue the update: '+error.message);return;}
+  showBanner(message);
+  load();
+}
+function showBanner(msg){$('banner').innerHTML=`<div class="banner">${esc(msg)}</div>`;}
+
+function markReady(id){
+  if(!confirm('Mark this slot ready to post?'))return;
+  submitQueueIntent({item_id:id,status:'ready'},
+    'Queued — the slot goes ready once the engine commits it.');
+}
+function markPosted(id){
+  // Records what YOU already published on LinkedIn — nothing here posts.
+  const url=prompt('Paste the LinkedIn URL of the post you published:');
+  if(url==null)return;
+  if(!/linkedin\.com/i.test(url||'')){alert('That does not look like a linkedin.com URL — nothing queued.');return;}
+  submitQueueIntent(
+    {item_id:id,status:'posted',posted_url:url.trim(),posted_at:new Date().toISOString().slice(0,10)},
+    'Queued — the engine records your post in the queue file within the hour.');
+}
+
+boot();
+</script>
+</body>
+</html>

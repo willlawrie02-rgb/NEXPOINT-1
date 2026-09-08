@@ -362,6 +362,18 @@ nav.boards a[aria-current="page"]::after { transform: scaleX(1); }
 .stg-dead          { background: var(--cold-wash); color: var(--cold-ink); }
 .stg-invoiced      { background: var(--warn-wash); color: var(--warn-ink); }
 .stg-paid          { background: var(--ok-wash);   color: var(--ok-ink); }
+/* Hub v2 — listing statuses, seeker-request statuses, acceptance stages. */
+.stg-pending       { background: var(--warn-wash); color: var(--warn-ink); }
+.stg-live          { background: var(--ok-wash);   color: var(--ok-ink); }
+.stg-hidden        { background: var(--cold-wash); color: var(--cold-ink); }
+.stg-open          { background: var(--info-wash); color: var(--info-ink); }
+.stg-picked        { background: var(--info-wash); color: var(--info-ink); }
+.stg-desk          { background: var(--warn-wash); color: var(--warn-ink); }
+.stg-closed        { background: var(--cold-wash); color: var(--cold-ink); }
+.stg-proposed      { background: var(--info-wash); color: var(--info-ink); }
+.stg-awaiting_acceptance { background: var(--warn-wash); color: var(--warn-ink); }
+.stg-expired       { background: var(--cold-wash); color: var(--cold-ink); }
+.when { color: var(--fg-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* The introductions register — same table voice as the Health jobs table. */
 .register { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
@@ -383,6 +395,44 @@ nav.boards a[aria-current="page"]::after { transform: scaleX(1); }
   transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
 }
 .register select:focus-visible { border-color: var(--np-blue); box-shadow: var(--ring); }
+
+/* Listing review — the submitted detail, or a revision's old -> new, inside
+   the listings table rather than behind a modal: the decision is made where
+   the row is. */
+.register tr.detail td { padding-top: 0; }
+.register tr.detail details summary { cursor: pointer; list-style: none; display: inline-flex;
+                                      align-items: center; gap: 5px; font-size: 12.5px;
+                                      color: var(--fg-2); padding: 4px 0; }
+.register tr.detail details summary::-webkit-details-marker { display: none; }
+.register tr.detail details summary:hover { color: var(--fg); }
+.register tr.detail details[open] summary .material-symbols-outlined { transform: rotate(90deg); }
+table.diff { width: auto; min-width: 60%; margin: 8px 0 4px; border-collapse: collapse;
+             font-size: 12.5px; }
+table.diff th { padding: 4px 14px 4px 0; font: 600 11px/1 var(--font-body); letter-spacing: 0.05em;
+                text-transform: uppercase; color: var(--fg-2); text-align: left;
+                border-bottom: 1px solid var(--border-faint); }
+table.diff td { padding: 5px 14px 5px 0; border-bottom: 1px solid var(--border-faint);
+                vertical-align: top; max-width: 34ch; }
+table.diff td.was { color: var(--fg-2); text-decoration: line-through; }
+table.diff td.now { color: var(--fg); font-weight: 600; }
+
+/* Seeker picks — every provider ticked, untick to leave one out. */
+.picks { margin-top: 10px; border-top: 1px solid var(--border-faint); }
+.picks label { display: flex; align-items: center; gap: 9px; padding: 7px 0;
+               border-bottom: 1px solid var(--border-faint); font-size: 13px;
+               color: var(--fg-1); cursor: pointer; }
+.picks label:last-child { border-bottom: none; }
+
+/* The legacy website-enquiry inbox, folded away under the working queues. */
+details.legacy { margin: 6px 0 24px; }
+details.legacy > summary { cursor: pointer; list-style: none; display: inline-flex;
+                           align-items: center; gap: 8px; font: 700 13px/1 var(--font-body);
+                           letter-spacing: 0.07em; text-transform: uppercase; color: var(--fg-2);
+                           padding: 8px 0; }
+details.legacy > summary::-webkit-details-marker { display: none; }
+details.legacy > summary::before { content: "+"; font-size: 15px; line-height: 1; }
+details.legacy[open] > summary::before { content: "\2212"; }
+details.legacy > summary:hover { color: var(--fg); }
 
 /* Standing-rule note — info voice, never an alarm. */
 .note-box {

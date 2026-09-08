@@ -18,13 +18,14 @@ no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
 OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
 ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
 accent, green reserved for "go" semantics, the square logo in a translucent bar.
-STORY: hosts offering milling capacity on the left, seekers requesting it on
-the right; the operator reviews each request, approves or declines with a reason,
-then pairs approved sides into an introduction tracked to commission paid.
+STORY: hosts' listings first, then the seeker request queue beneath them; the
+operator reviews each listing, then approves, adds to or declines each seeker's
+picks, and tracks the resulting introductions to commission paid. The old
+website enquiry inbox stays, collapsed, under "Legacy requests".
 Every button raises an intent — the engine acts, the browser only asks, and
-the introduction email itself is always sent by a human from Outlook.
-FIRST VIEWPORT: brand bar, boards tabs, "Mill Hub", filters, then the two
-request columns and the introductions register.
+the provider's accept-or-decline email is sent by the worker, never here.
+FIRST VIEWPORT: brand bar, boards tabs, "Mill Hub", then the listings table
+and the seeker request queue.
 FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 -->
 
@@ -68,7 +69,10 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         <a href="mill-hub.html" aria-current="page">Mill Hub</a>
         <a href="opportunities.html">Opportunities</a>
         <a href="members.html">Members</a>
+        <a href="organisations.html">Organisations</a>
+        <a href="orders.html">Orders</a>
         <a href="campaigns.html">Campaigns</a>
+        <a href="linkedin.html">LinkedIn</a>
       </nav>
 
       <div class="arrive">
@@ -77,25 +81,23 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <span class="count" id="count"></span>
         </div>
         <p class="note">
-          Hosts offer CNC milling capacity; seekers request it. Review each request, approve
-          or decline it, then pair approved sides into an introduction and track it here.
+          Hosts list their CNC milling sites; seekers search them and pick up to three. Review
+          each listing before it goes live, then approve, add to or decline each seeker's
+          picks — no provider is asked anything until you do.
         </p>
-        <div class="toolbar" id="filters"></div>
         <div id="banner"></div>
 
-        <div class="cols">
-          <section>
-            <div class="colhead"><h2 id="leftTitle"></h2><span class="n" id="leftN"></span><span class="rule"></span></div>
-            <div id="leftCol">
-              <div class="row skeleton"><div class="bone" style="width:38%"></div><div class="bone" style="width:82%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
-            </div>
-          </section>
-          <section>
-            <div class="colhead"><h2 id="rightTitle"></h2><span class="n" id="rightN"></span><span class="rule"></span></div>
-            <div id="rightCol">
-              <div class="row skeleton"><div class="bone" style="width:31%"></div><div class="bone" style="width:74%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
-            </div>
-          </section>
+        <div class="colhead"><h2>Listings</h2><span class="rule"></span></div>
+        <div class="register">
+          <table>
+            <thead><tr><th>Site</th><th>Hub</th><th>Status</th><th>Where</th><th>Ships to</th><th>Submitted</th><th>Manage</th></tr></thead>
+            <tbody id="listingRows"><tr><td colspan="7" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="colhead"><h2>Seeker requests</h2><span class="n" id="seekerN"></span><span class="rule"></span></div>
+        <div id="seekerCol">
+          <div class="row skeleton"><div class="bone" style="width:31%"></div><div class="bone" style="width:74%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
         </div>
 
         <div class="colhead"><h2>Introductions register</h2><span class="rule"></span></div>
@@ -106,9 +108,44 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           </table>
         </div>
 
+        <div class="colhead"><h2>Host applications</h2><span class="rule"></span></div>
+        <div class="register">
+          <table>
+            <thead><tr><th>Organisation</th><th>Submitted</th><th>Status</th><th>Profile</th><th>Manage</th></tr></thead>
+            <tbody id="hostAppRows"><tr><td colspan="5" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+          </table>
+        </div>
+
+        <details class="legacy">
+          <summary>Legacy requests</summary>
+          <p class="note">The website enquiry inbox that ran the hub before listings and seeker
+            requests. New arrivals still land here and are still worth reading; the working
+            queues above are where a decision is made.</p>
+          <div class="toolbar" id="filters"></div>
+          <div class="cols">
+            <section>
+              <div class="colhead"><h2 id="leftTitle"></h2><span class="n" id="leftN"></span><span class="rule"></span></div>
+              <div id="leftCol">
+                <div class="row skeleton"><div class="bone" style="width:38%"></div><div class="bone" style="width:82%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
+              </div>
+            </section>
+            <section>
+              <div class="colhead"><h2 id="rightTitle"></h2><span class="n" id="rightN"></span><span class="rule"></span></div>
+              <div id="rightCol">
+                <div class="row skeleton"><div class="bone" style="width:31%"></div><div class="bone" style="width:74%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
+              </div>
+            </section>
+          </div>
+        </details>
+
         <div class="note-box">
-          Approving a request records your decision only — no company is ever told about
-          another until you make the introduction yourselves and log it here.
+          Approving a listing puts it in front of seekers; approving a seeker's picks asks
+          each of those providers, and nobody else, to accept or decline. No company is ever
+          named to another until the provider accepts the introduction; the seeker accepted
+          its terms when requesting.
+          Approving a host application starts billing immediately at the rate and period you
+          enter — nothing is listed or charged before that click (spec §4). A declined
+          application is never charged.
         </div>
       </div>
     </div>
