@@ -78,7 +78,7 @@ async function load(){
   catch (e) { d = { error: 'network' }; }
   if (!d || d.error || !d.body_md) {
     document.getElementById('termsMeta').textContent = '';
-    document.getElementById('termsBody').innerHTML = '<p style="color:var(--on-surface-var)">We could not load the current Platform Terms — try again, or email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
+    document.getElementById('termsBody').innerHTML = '<p style="color:var(--on-surface-var)">We could not load the current Platform Terms. Try again, or email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
     return;
   }
   const metaParts = [];
