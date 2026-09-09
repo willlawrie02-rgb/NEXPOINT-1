@@ -116,6 +116,8 @@
   let introTerms = null;       /* {id, version, body_md} for layer=introduction */
   let requestId = null;        /* set by the first call, reused by a retry */
   let filedSpec = null;        /* the ask `requestId` belongs to (by identity) */
+  let heldSpec = null;         /* the ask this page's own held pending was written for */
+  let heldSavedAt = 0;         /* that pending's `saved_at`: its only identity */
   let searching = false;
   let sending = false;
   let step3Shell = null;       /* step 3's panel before a success card replaced it */
@@ -840,23 +842,33 @@
 
   /* The one writer of the held action. `requestId` only survives while this
      page does, so when the ask is already filed the held copy carries its id
-     too: that is what stops a replay in the next tab from filing it again. */
+     too: that is what stops a replay in the next tab from filing it again.
+     The store round-trips through JSON, so what comes back out of it is never
+     the object that went in: the `saved_at` the store stamps on this write,
+     re-read here, is the only handle this page has on its own hold, and
+     `heldSpec` says which in-memory ask that hold was written for. */
   function holdPending(theSpec, thePicks, termsVersionId) {
     if (!window.NPPending) return;
     const held = { kind: 'request', hub: HUB, search: theSpec,
       picks: thePicks.slice(), terms_version_id: termsVersionId };
     if (requestId && filedSpec === theSpec) held.request_id = requestId;
     NPPending.save(held);
+    const written = NPPending.load();
+    heldSpec = written ? theSpec : null;
+    heldSavedAt = written ? written.saved_at : 0;
   }
 
+  /* This page no longer has a hold of its own, so the stamp it was tracking
+     must never be matched again. */
+  function forgetHeldIdentity() { heldSpec = null; heldSavedAt = 0; }
+
   /* The moment POST /seeker-requests returns during a replay, the ask exists
-     on the worker whatever happens to the picks call after it. Only the
-     replay path passes `savedAt` (submitPending's own `p.saved_at`, the
-     identity of the pending it is replaying), so an in-page confirmed
-     submission never calls this at all and never touches the store. The
-     identity check is the point: the store is re-read fresh, and the id is
-     merged in only if what is sitting there right now is still the same
-     pending submitPending adopted. A different ask held in the meantime, or
+     on the worker whatever happens to the picks call after it. `savedAt` is
+     the identity of the pending being merged into - submitPending's own
+     `p.saved_at` on the replay path, or the currently-held pending's own
+     `saved_at` on the in-page path below - and the store is re-read fresh
+     here regardless: the id is merged in only if what is sitting there right
+     now is still that same pending. A different ask held in the meantime, or
      the same slot already moved on, is left exactly as it is. Saving
      re-stamps the hold's clock, which is right: it now holds a real request
      that still needs its picks attached. */
@@ -870,16 +882,27 @@
   /* The request is filed once per ask. A retry after a failed picks call
      hands back the same ask object, so it attaches to the request already
      filed instead of filing a second one; a different ask files its own.
-     `replaySavedAt` is only ever supplied by submitPending; the in-page
-     send() path passes nothing, so a freshly filed request there can never
-     merge into someone else's held pending. */
+     `replaySavedAt` is only ever supplied by submitPending, which already
+     knows which held pending it is replaying. The in-page send() path passes
+     nothing - but it can still be filing the very ask that an
+     email_unconfirmed refusal left held earlier (holdPending() ran, then the
+     same-page recheck confirmed and this call went on to file for real:
+     Task 12 addendum), so a freshly filed request here merges its id into the
+     pending this page itself wrote for this same ask, identified by the
+     `saved_at` captured at that write. An unrelated ask sitting held from
+     before was written for a different spec, so it is left exactly as it
+     was, and so is a hold this page never wrote. */
   async function sendRequestAndPicks(theSpec, thePicks, termsVersionId, replaySavedAt) {
     if (!requestId || filedSpec !== theSpec) {
       const filed = await postJson('/seeker-requests', bodyFor(theSpec));
       if (!filed || !filed.ok || !filed.request_id) return filed || { error: 'network' };
       requestId = filed.request_id;
       filedSpec = theSpec;
-      if (replaySavedAt) rememberFiledRequest(requestId, replaySavedAt);
+      if (replaySavedAt) {
+        rememberFiledRequest(requestId, replaySavedAt);
+      } else if (heldSpec === theSpec && heldSavedAt) {
+        rememberFiledRequest(requestId, heldSavedAt);
+      }
     }
     return postJson('/seeker-requests/picks', {
       request_id: requestId, listing_ids: thePicks, terms_version_id: termsVersionId,
@@ -947,6 +970,7 @@
 
   function renderSuccess() {
     if (window.NPPending) NPPending.clear();
+    forgetHeldIdentity();
     const box = el('step3Body');
     if (!box) return;
     box.innerHTML =
@@ -986,6 +1010,7 @@
          tick, and the filed id stays in this module so nothing files twice.
          The seeker lands back on step 3 with the new text to read. */
       if (window.NPPending) NPPending.clear();
+      forgetHeldIdentity();
       await restoreForNewTerms(p.picks.slice());
     }
     return d;

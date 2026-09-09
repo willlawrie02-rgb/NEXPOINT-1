@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Platform Terms — The NexPoint Global Hub</title>
+<title>Platform Terms · The NexPoint Global Hub</title>
 <link rel="icon" href="../../assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -78,7 +78,7 @@ async function load(){
   catch (e) { d = { error: 'network' }; }
   if (!d || d.error || !d.body_md) {
     document.getElementById('termsMeta').textContent = '';
-    document.getElementById('termsBody').innerHTML = '<p style="color:var(--on-surface-var)">We could not load the current Platform Terms — try again, or email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
+    document.getElementById('termsBody').innerHTML = '<p style="color:var(--on-surface-var)">We could not load the current Platform Terms. Try again, or email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
     return;
   }
   const metaParts = [];

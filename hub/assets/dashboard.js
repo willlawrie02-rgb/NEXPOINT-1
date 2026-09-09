@@ -21,14 +21,7 @@
   var BRIEFS_URL = '/opportunities/briefs.json';
   var OPPORTUNITIES_URL = '/opportunities/';
 
-  /* What a hub or a stated interest says about the board. `any` means the
-     board is relevant whatever is on it. */
-  var INTEREST_SECTORS = {
-    find_print: ['print', 'manufacturing', 'materials'],
-    offer_print: ['print', 'manufacturing', 'materials'],
-    mill_cell: ['mill', 'manufacturing'],
-    opportunities: ['any'],
-  };
+  /* What a hub says about the board. */
   var HUB_SECTORS = {
     print: ['print', 'manufacturing', 'materials'],
     mill: ['mill', 'manufacturing'],
@@ -391,7 +384,7 @@
       var base = pid + it.introduction_id + '-';
       var seeker = [it.seeker_town, it.seeker_country].filter(Boolean).join(', ');
       var ref = it.ref || String(it.introduction_id);
-      return '<tr>' +
+      return '<tr data-ref="' + esc(ref) + '">' +
         '<td><b>' + esc(ref) + '</b>' + (seeker ? '<br><span>' + esc(seeker) + '</span>' : '') + '</td>' +
         '<td><input id="' + esc(base + 'units') + '" type="number" min="0" step="1" inputmode="numeric" aria-label="Units for ' + esc(ref) + '"></td>' +
         '<td><input id="' + esc(base + 'value') + '" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Value for ' + esc(ref) + '"></td>' +
@@ -549,11 +542,11 @@
     return Object.keys(seen);
   }
 
-  function sectorsFor(d, used) {
+  /* Driven by hubs_used alone (host or seeker, either counts as "used"): a
+     stated interest was never anything but empty from sign-up onward, since
+     PR #35 dropped the interests step before anyone could tick one. */
+  function sectorsFor(used) {
     var out = {};
-    (Array.isArray(d.interests) ? d.interests : []).forEach(function (k) {
-      (INTEREST_SECTORS[k] || []).forEach(function (sec) { out[sec] = true; });
-    });
     used.forEach(function (h) {
       (HUB_SECTORS[h] || []).forEach(function (sec) { out[sec] = true; });
     });
@@ -600,7 +593,11 @@
     });
     paintMore(tiles);
 
-    var sectors = sectorsFor(d, used);
+    /* The Opportunities cross-sell earns its place only for an account that
+       has used at least one hub already and has not used Opportunities
+       itself - never as a rediscovery of a door it already walked through. */
+    if (!used.length || used.indexOf('opportunities') !== -1) return;
+    var sectors = sectorsFor(used);
     if (!sectors.length) return;
     loadBriefs().then(function (briefs) {
       var hit = briefs.some(function (b) { return briefMatches(b, sectors); });
@@ -715,6 +712,20 @@
      yet", not a failure, and it says so in the section's own words. */
   function isNotBuilt(d) { return d && d.error === 'http_404'; }
 
+  var GENERIC_ERROR = 'That did not go through. Try again, or email hello@nexpoint.co.uk.';
+  /* The worker's line-level refusals for POST /declarations, in the host's
+     own words rather than the generic sentence above. Anything not listed
+     here (including no error code at all) keeps the generic sentence. */
+  var DECL_ERRORS = {
+    line_value_required: 'Every line needs a value. Enter one, or tick Nothing for that introduction.',
+    line_currency_invalid: 'Choose a currency from the list.',
+    not_your_introduction: 'One of these introductions is not yours to declare. Reload the page and try again.',
+    period_out_of_range: 'That month is not open for declarations.',
+    statement_issued: 'That month is already on a statement and cannot be changed. Email hello@nexpoint.co.uk if something is wrong.',
+    nothing_or_lines: 'Either tick Nothing for every introduction or enter at least one line.',
+  };
+  function declError(code) { return DECL_ERRORS[code] || GENERIC_ERROR; }
+
   /* A successful action changes what the summary says, so the page reloads it.
      The pause is only so the reader sees the line that says it worked before
      the section is rewritten underneath it. */
@@ -740,10 +751,16 @@
     var hub = btn.getAttribute('data-hub') || '';
     var msg = el('declMsg-' + period);
     var lines = [];
+    var blocked = null;
     var prefix = 'decl-' + period + '-';
     var table = btn.closest('.acct-card');
     if (table) {
-      Array.prototype.forEach.call(table.querySelectorAll('input[id^="' + prefix + '"][id$="-units"]'), function (u) {
+      /* prefix is built from period, API text off data-period rather than
+         anything this page chose - CSS.escape it before it goes into a
+         selector. The ids it is compared against below go through el(), a
+         plain getElementById lookup that needs no escaping of its own. */
+      Array.prototype.forEach.call(table.querySelectorAll('input[id^="' + CSS.escape(prefix) + '"][id$="-units"]'), function (u) {
+        if (blocked) return;
         var introId = u.id.slice(prefix.length, u.id.length - '-units'.length);
         var nothing = el(prefix + introId + '-nothing');
         if (nothing && nothing.checked) return;
@@ -752,9 +769,24 @@
         var units = u.value === '' ? null : Number(u.value);
         var val = (!value || value.value === '') ? null : Number(value.value);
         if (units == null && val == null) return;
+        /* Units typed but no value: the worker refuses the whole submission
+           for this (line_value_required), so catch it here and point at the
+           one row that needs fixing instead of sending it. A value with no
+           units is fine - units are optional. */
+        if (units != null && val == null) {
+          var row = u.closest('tr');
+          var ref = (row && row.getAttribute('data-ref')) || introId;
+          blocked = { input: value, ref: ref };
+          return;
+        }
         lines.push({ introduction_id: /^\d+$/.test(introId) ? Number(introId) : introId,
           units: units, value: val, currency: currency ? currency.value : 'GBP' });
       });
+    }
+    if (blocked) {
+      say(msg, 'Enter a value for ' + blocked.ref + ', or tick Nothing.', true);
+      if (blocked.input) blocked.input.focus();
+      return;
     }
     var done = busy(btn, 'Sending…');
     post('/declarations', { hub: hub, period: period, nothing_this_month: lines.length === 0, lines: lines })
@@ -762,7 +794,7 @@
         if (d && d.ok) { say(msg, 'Sent. Thank you.'); reload(); return; }
         done();
         if (isNotBuilt(d)) { say(msg, 'Declarations open soon.'); return; }
-        say(msg, 'That did not go through. Try again, or email hello@nexpoint.co.uk.', true);
+        say(msg, declError(d && d.error), true);
       });
   }
 
@@ -824,5 +856,5 @@
     NPAccount.ready.then(load);
   }
 
-  window.NPDashboard = { init: init, render: render };
+  window.NPDashboard = { init: init };
 })();

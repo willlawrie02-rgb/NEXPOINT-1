@@ -136,13 +136,6 @@ async function npApi(path, opts){
     : { error: 'http_' + r.status, http_status: r.status };
 }
 
-/* Page modules arrive by an injected script tag, which can land either side of
-   DOMContentLoaded; ready() takes the guesswork out of that. */
-function npReady(fn){
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
-  else fn();
-}
-
 /* ═══════════ the terms reader ═══════════
    Markdown as the worker serves it, in the small subset of HTML a terms
    scroll needs: headings, bullets, paragraphs and the two inline marks.
@@ -173,13 +166,10 @@ function markdownLite(md){
 const NP = {
   api: npApi,
   markdownLite: markdownLite,
-  ready: npReady,
   hub: HUB,
   config: hubConfig,
-  escapeHtml: escapeHtml,
   saveLoc: saveLoc,
   loadLoc: loadLoc,
-  locLabel: locLabel,
 };
 window.NP = NP;
 
@@ -471,9 +461,16 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); 
   const queue = window.NP_QUEUE;
   if (!Array.isArray(queue)) return;
   window.NP_QUEUE = null;
-  const fns = { openSignIn, openIntro, openEducationList, closeAll };
+  /* Object.create(null) plus an explicit own-property check: `call.name` is a
+     string off a stub's own recording, so nothing stops it being "constructor"
+     or "__proto__" - a plain object literal would hand one of those back a
+     function or Object.prototype rather than undefined. */
+  const fns = Object.create(null);
+  fns.openSignIn = openSignIn; fns.openIntro = openIntro;
+  fns.openEducationList = openEducationList; fns.closeAll = closeAll;
   const run = () => queue.forEach(call => {
-    const fn = call && fns[call.name];
+    const name = call && call.name;
+    const fn = (name && Object.prototype.hasOwnProperty.call(fns, name)) ? fns[name] : null;
     if (typeof fn === 'function') fn.apply(null, call.args || []);
   });
   if (window.NPAccount && NPAccount.ready && NPAccount.ready.then) NPAccount.ready.then(run, run);

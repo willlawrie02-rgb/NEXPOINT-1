@@ -565,7 +565,10 @@
   function addServiceChip(term, label) {
     const group = el('services');
     if (!group) return;
-    const existing = group.querySelector('[data-service="' + String(term).replace(/"/g, '') + '"]');
+    /* pickChip() writes the same term into the data-service attribute HTML-
+       escaped for that context; CSS.escape here is the read side's own
+       escaping, for the selector context it is actually used in. */
+    const existing = group.querySelector('[data-service="' + CSS.escape(String(term)) + '"]');
     if (existing) {
       existing.checked = true;
       const lab = existing.closest('.pick');
