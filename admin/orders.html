@@ -817,7 +817,7 @@ function renderLedger(){
 
   $('orderRows').innerHTML = rows.length ? rows.map(o=>`
     <tr>
-      <td class="selrow">${pendByOrder[o.id]?'':`<input type="checkbox" aria-label="Select order ${o.id}" ${selected.has(o.id)?'checked':''} onchange="toggle(${o.id},this.checked)">`}</td>
+      <td class="selrow">${pendByOrder[o.id]||(!canInvoice(o)&&!canPay(o))?'':`<input type="checkbox" aria-label="Select order ${o.id}" ${selected.has(o.id)?'checked':''} onchange="toggle(${o.id},this.checked)">`}</td>
       <td>${o.id}${o.is_batch?'<span class="obadge obadge-batch">Batch'+(o.period?': '+esc(o.period):'')+'</span>':''}</td>
       <td>${esc(o.hub||'')}</td>
       <td>${esc(orgName(o.org_provider))}</td>
@@ -837,11 +837,25 @@ function renderLedger(){
 function setFilter(f){filter=f;selected=new Set();renderLedger();}
 function toggle(id,on){if(on)selected.add(id);else selected.delete(id);renderLedger();}
 
+/* Mirrors the handler preconditions (handlers.py, audit 2026-09-09): the
+   engine skips ineligible ids anyway; filtering here keeps the confirm
+   dialog honest about what will actually be stamped. */
+const canInvoice=o=>!!o.confirmed_at&&!o.disputed_at&&!o.invoiced_at;
+const canPay=o=>!!o.invoiced_at&&!o.paid_at;
+
 function markSelected(kind){
   if(!selected.size)return;
-  const ids=[...selected];
+  const eligible=kind==='invoiced'?canInvoice:canPay;
+  const byId={};orders.forEach(o=>{byId[o.id]=o;});
+  const ids=[...selected].filter(id=>byId[id]&&eligible(byId[id]));
+  const dropped=selected.size-ids.length;
   const label=kind==='invoiced'?'invoiced':'paid';
-  if(!confirm(`Mark ${ids.length} order(s) as ${label}?`))return;
+  if(!ids.length){
+    $('banner').innerHTML=`<div class="banner">None of the selected orders can be marked ${esc(label)} — ${
+      kind==='invoiced'?'only confirmed, undisputed, uninvoiced orders can be invoiced':'only invoiced, unpaid orders can be marked paid'}.</div>`;
+    return;
+  }
+  if(!confirm(`Mark ${ids.length} order(s) as ${label}?${dropped?` (${dropped} ineligible selection(s) will be skipped.)`:''}`))return;
   raise(kind==='invoiced'?'mark-invoiced':'mark-paid',{order_ids:ids},`Marked ${label}`);
 }
 

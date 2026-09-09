@@ -757,7 +757,7 @@ function seekerCard(r){
     actions=`<div class="actions">
       ${picks.length?`<button class="btn btn-grn btn-sm" onclick="approveRequest(${r.id})">
         <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve picks</button>`:''}
-      ${r.status==='picked'?adder:''}
+      ${['picked','desk'].includes(r.status)?adder:''}
       <button class="btn btn-danger btn-sm" onclick="declineRequest(${r.id})">
         <span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button></div>`;
   }else{
