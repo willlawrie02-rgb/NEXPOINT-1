@@ -255,7 +255,7 @@ async function load(){
     : '';
 
   $('jobs').innerHTML=jobs.length? `<table><thead><tr>
-      <th>Job</th><th>Status</th><th>Last run</th><th>Run</th></tr></thead><tbody>${
+      <th scope="col">Job</th><th scope="col">Status</th><th scope="col">Last run</th><th scope="col">Run</th></tr></thead><tbody>${
     jobs.sort((a,b)=>a.job.localeCompare(b.job)).map(j=>`<tr>
       <td class="job">${esc(j.job)}</td>
       <td><span class="st ${CLS[j.status]||'st-idle'}">${esc(j.status||'running')}</span></td>
