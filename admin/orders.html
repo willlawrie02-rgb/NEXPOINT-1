@@ -180,8 +180,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <div class="register">
             <table>
               <thead><tr>
-                <th class="selrow"></th><th>Quarter</th><th>Site</th><th>Value</th><th>Fee</th>
-                <th>Status</th><th>Issued</th><th>Invoiced</th><th>Paid</th><th>Manage</th>
+                <th scope="col" class="selrow"></th><th scope="col">Quarter</th><th scope="col">Site</th><th scope="col">Value</th><th scope="col">Fee</th>
+                <th scope="col">Status</th><th scope="col">Issued</th><th scope="col">Invoiced</th><th scope="col">Paid</th><th scope="col">Manage</th>
               </tr></thead>
               <tbody id="stRows"><tr><td colspan="10" style="color:var(--fg-2)">Loading…</td></tr></tbody>
             </table>
@@ -211,8 +211,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <div class="register">
             <table>
               <thead><tr>
-                <th>Received</th><th>Sender</th><th>Subject</th><th>Quoted ref</th>
-                <th>Period</th><th>Status</th><th>Manage</th>
+                <th scope="col">Received</th><th scope="col">Sender</th><th scope="col">Subject</th><th scope="col">Quoted ref</th>
+                <th scope="col">Period</th><th scope="col">Status</th><th scope="col">Manage</th>
               </tr></thead>
               <tbody id="evRows"><tr><td colspan="7" style="color:var(--fg-2)">Loading…</td></tr></tbody>
             </table>
@@ -234,8 +234,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <div class="register">
             <table>
               <thead><tr>
-                <th class="selrow"></th><th>ID</th><th>Hub</th><th>Provider</th><th>Seeker</th>
-                <th>Units</th><th>Value</th><th>Status</th><th>Logged</th><th>Invoiced</th><th>Paid</th>
+                <th scope="col" class="selrow"></th><th scope="col">ID</th><th scope="col">Hub</th><th scope="col">Provider</th><th scope="col">Seeker</th>
+                <th scope="col">Units</th><th scope="col">Value</th><th scope="col">Status</th><th scope="col">Logged</th><th scope="col">Invoiced</th><th scope="col">Paid</th>
               </tr></thead>
               <tbody id="orderRows"><tr><td colspan="11" style="color:var(--fg-2)">Loading…</td></tr></tbody>
             </table>
@@ -484,7 +484,7 @@ function statementLines(s){
   const rows=Array.isArray(s.lines)?s.lines:[];
   if(!rows.length)return '<p class="muted" style="padding:6px 0">No lines on this statement.</p>';
   return `<table class="stlines">
-    <thead><tr><th>Reference</th><th>Month</th><th>Hub</th><th>Units</th><th>Value</th><th>Fee</th></tr></thead>
+    <thead><tr><th scope="col">Reference</th><th scope="col">Month</th><th scope="col">Hub</th><th scope="col">Units</th><th scope="col">Value</th><th scope="col">Fee</th></tr></thead>
     <tbody>${rows.map(l=>`<tr>
       <td>${esc(l.ref||'—')}</td><td>${esc(l.period||'—')}</td><td>${esc(l.hub||'—')}</td>
       <td>${l.units==null?'—':esc(l.units)}</td>

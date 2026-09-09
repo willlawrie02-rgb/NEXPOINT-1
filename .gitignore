@@ -3,6 +3,6 @@
 .vscode/
 .idea/
 node_modules/
-portal/
-admin/
 .claude/
+.worktrees/
+.superpowers/
