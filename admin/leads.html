@@ -379,7 +379,7 @@ function blockedCard(r,q){
 
 function gradeButtons(id,leadLabel){
   return `<span class="grade-label">${esc(leadLabel||'Grade:')}</span>` + GRADES.map(g=>
-    `<button class="btn btn-gh btn-sm btn-grade" data-q="${g.q}" onclick="grade(${id},'${g.q}')">${g.label}</button>`
+    `<button class="btn btn-gh btn-sm btn-grade" data-q="${esc(g.q)}" onclick="grade(${id},this.dataset.q)">${g.label}</button>`
   ).join('');
 }
 

@@ -316,10 +316,10 @@ function card(r){
     controls=`<span class="status done">Queued → ${esc(queued)} — the engine commits it to the
       queue file within the hour.</span>`;
   }else if(r.status==='drafted'){
-    controls=`<button class="btn btn-grn btn-sm" onclick="markReady('${esc(r.id)}')">
+    controls=`<button class="btn btn-grn btn-sm" data-id="${esc(r.id)}" onclick="markReady(this.dataset.id)">
       <span class="material-symbols-outlined" aria-hidden="true">check</span>Mark ready</button>`;
   }else if(r.status==='ready'||r.status==='planned'){
-    controls=`<button class="btn btn-pri btn-sm" onclick="markPosted('${esc(r.id)}')">
+    controls=`<button class="btn btn-pri btn-sm" data-id="${esc(r.id)}" onclick="markPosted(this.dataset.id)">
       <span class="material-symbols-outlined" aria-hidden="true">task_alt</span>Mark as posted</button>`;
   }
   return `<div class="row">

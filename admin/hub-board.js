@@ -680,6 +680,18 @@ function shipsTo(l,region){
   return to.map(x=>String(x).toLowerCase()).some(r=>r==='worldwide'||r===want);
 }
 
+/* A host that named no region at all has not refused one: `ships_to`
+   empty is a gap in the listing, not a "serves nowhere". The engine
+   agrees — add-provider's _live_listing reports ships_to_unset and
+   never filters on it — so the picker offers these listings with the
+   gap named beside them and lets the desk judge. shipsTo() above is
+   deliberately untouched: for a listing that DID name regions, an
+   unlisted one is still not served. */
+function shipsToUnset(l){
+  const to=(revById[l.live_revision_id]||{}).ships_to;
+  return !to||!to.length;
+}
+
 function cardSummary(intro){
   const l=listingById(intro.listing_id);
   const rev=revById[intro.listing_revision_id]||(l?revById[l.live_revision_id]:null)||{};
@@ -721,11 +733,13 @@ function seekerCard(r){
     :'';
 
   const taken=new Set(mine.map(i=>String(i.listing_id)));
-  const spare=listings.filter(l=>l.status==='live'&&!taken.has(String(l.id))&&shipsTo(l,r.region));
+  const spare=listings.filter(l=>l.status==='live'&&!taken.has(String(l.id))
+    &&(shipsTo(l,r.region)||shipsToUnset(l)));
   const adder=spare.length
     ?`<select id="addp-${r.id}" aria-label="Add a provider to ${esc(seekRef(r))}">
         <option value="">Add a provider…</option>
-        ${spare.map(l=>`<option value="${esc(l.id)}">${esc(listingLabel(l))}</option>`).join('')}
+        ${spare.map(l=>`<option value="${esc(l.id)}">${esc(listingLabel(l))}${
+          shipsToUnset(l)?' · ships-to unset':''}</option>`).join('')}
       </select>
       <button class="btn btn-gh btn-sm" onclick="addProvider(${r.id})">Add</button>`
     :'';

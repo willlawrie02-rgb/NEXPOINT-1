@@ -293,10 +293,10 @@ function render(){
         <div class="ground">Grounded in <b>${escv(dealStr(b.deal))}</b></div>
       </div>
       <div class="acts">
-        ${b.status!=='published'?`<button class="btn btn-grn btn-sm" onclick="setStatus('${escv(b.id)}','published')">Publish</button>`:''}
-        ${b.status!=='withheld'?`<button class="btn btn-amb btn-sm" onclick="setStatus('${escv(b.id)}','withheld')">Withhold</button>`:''}
-        ${b.status!=='draft'?`<button class="btn btn-gh btn-sm" onclick="setStatus('${escv(b.id)}','draft')">Draft</button>`:''}
-        <button class="btn btn-gh btn-sm" onclick="openEditor('${escv(b.id)}')">Edit</button>
+        ${b.status!=='published'?`<button class="btn btn-grn btn-sm" data-id="${escv(b.id)}" onclick="setStatus(this.dataset.id,'published')">Publish</button>`:''}
+        ${b.status!=='withheld'?`<button class="btn btn-amb btn-sm" data-id="${escv(b.id)}" onclick="setStatus(this.dataset.id,'withheld')">Withhold</button>`:''}
+        ${b.status!=='draft'?`<button class="btn btn-gh btn-sm" data-id="${escv(b.id)}" onclick="setStatus(this.dataset.id,'draft')">Draft</button>`:''}
+        <button class="btn btn-gh btn-sm" data-id="${escv(b.id)}" onclick="openEditor(this.dataset.id)">Edit</button>
       </div>
     </div>`).join('');
 }
