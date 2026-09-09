@@ -51,13 +51,21 @@ function render(title, body){
   document.getElementById('checkBody').innerHTML = `<h1>${escapeHtml(title)}</h1><p>${escapeHtml(body)}</p>`;
 }
 function renderChoice(introId, token){
+  /* The two query parameters never enter markup: the buttons are built
+     with DOM APIs and carry introId/token as closure variables. An inline
+     onclick would be HTML-decoded before being parsed as JS, which is how
+     a crafted link could run script here. */
   document.getElementById('checkBody').innerHTML = `
     <h1>Have you placed an order with this host?</h1>
-    <p>One question — it keeps the network honest.</p>
-    <div class="actions">
-      <button class="yes" type="button" onclick="submitAnswer('${escapeHtml(introId)}','${escapeHtml(token)}','yes')">Yes</button>
-      <button class="no" type="button" onclick="submitAnswer('${escapeHtml(introId)}','${escapeHtml(token)}','no')">No</button>
-    </div>`;
+    <p>One question: it keeps the network honest.</p>
+    <div class="actions"></div>`;
+  const actions = document.querySelector('#checkBody .actions');
+  for (const [cls, label, answer] of [['yes', 'Yes', 'yes'], ['no', 'No', 'no']]) {
+    const b = document.createElement('button');
+    b.className = cls; b.type = 'button'; b.textContent = label;
+    b.addEventListener('click', () => submitAnswer(introId, token, answer));
+    actions.appendChild(b);
+  }
 }
 
 async function submitAnswer(introId, token, answer){

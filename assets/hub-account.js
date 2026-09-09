@@ -463,7 +463,7 @@
       <div class="success">
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>Received, in confidence.</h2>
-        <p>${line}</p>
+        <p>${esc(line)}</p>
         <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" data-np-done>Back to the hub</button></div>
       </div>`;
     content().querySelector('[data-np-done]').addEventListener('click', hide);
