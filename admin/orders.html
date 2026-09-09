@@ -12,8 +12,8 @@
 <link rel="stylesheet" href="admin.css">
 <style>
   .muted { color: var(--fg-2); font-size: 12.5px; }
-  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 20px; }
   .money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .money .cur { color: var(--fg-2); font-size: 11.5px; margin-right: 4px; }
   .obadge { display: inline-block; font: 700 10.5px/1 var(--font-body); letter-spacing: 0.05em;
             text-transform: uppercase; padding: 5px 9px; border-radius: 999px; }
   .obadge-logged    { background: var(--bg-alt);   color: var(--fg-2); }
@@ -25,7 +25,68 @@
   .flag-yes { background: var(--ok-wash); color: var(--ok-ink); }
   .flag-no  { background: var(--bg-alt);  color: var(--fg-2); }
   .selrow { width: 22px; }
-  .selbar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 13px; color: var(--fg-2); }
+  .selbar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 13px;
+            color: var(--fg-2); flex-wrap: wrap; }
+  /* Statement, declaration and evidence statuses — the same ink-on-wash
+     badge language as admin.css's .stg-*, for vocabularies only this
+     board speaks. */
+  .stg-draft     { background: var(--bg-alt);    color: var(--fg-2); }
+  .stg-issued    { background: var(--info-wash); color: var(--info-ink); }
+  .stg-void      { background: var(--cold-wash); color: var(--cold-ink); }
+  .stg-submitted { background: var(--ok-wash);   color: var(--ok-ink); }
+  .stg-nothing   { background: var(--bg-alt);    color: var(--fg-2); }
+  .stg-missing   { background: var(--err-wash);  color: var(--err-ink); }
+  .stg-due       { background: var(--warn-wash); color: var(--warn-ink); }
+  .stg-overdue   { background: var(--err-wash);  color: var(--err-ink); }
+  .stg-unmatched { background: var(--warn-wash); color: var(--warn-ink); }
+  .stg-matched   { background: var(--ok-wash);   color: var(--ok-ink); }
+  .stg-dismissed { background: var(--cold-wash); color: var(--cold-ink); }
+  .stg-disputed  { background: var(--err-wash);  color: var(--err-ink); }
+  /* Mismatch flags: the three things a reconciliation row can be wrong about. */
+  .mis { display: inline-block; font: 600 11px/1 var(--font-body); padding: 5px 9px;
+         border-radius: 999px; margin: 0 6px 6px 0; background: var(--err-wash); color: var(--err-ink); }
+  .mis-soft { background: var(--warn-wash); color: var(--warn-ink); }
+  /* Declaration lines inside a site card. */
+  .lines { margin-top: 10px; border-top: 1px solid var(--border-faint); }
+  .lines .ln { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+               padding: 8px 0; border-bottom: 1px solid var(--border-faint); font-size: 13px; }
+  .lines .ln:last-child { border-bottom: none; }
+  .lines .ln .grow { flex: 1; min-width: 0; }
+  /* Evidence popover — the emails behind a line, without leaving the row. */
+  .evp { position: relative; display: inline-block; }
+  .evp > summary { cursor: pointer; list-style: none; font: 600 11px/1 var(--font-body);
+                   background: var(--info-wash); color: var(--info-ink);
+                   padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+  .evp > summary::-webkit-details-marker { display: none; }
+  /* Anchored to the chip's RIGHT edge: the chip always sits after a
+     flex-grown cell, so a popover growing leftwards stays on screen
+     whatever the row's width. Narrow screens drop the positioning
+     altogether and let it open inline. */
+  .evp .pop { position: absolute; z-index: 30; right: 0; left: auto; top: 100%; margin-top: 6px;
+              width: min(320px, 74vw); background: var(--surface); border: 1px solid var(--border);
+              border-radius: var(--radius-sm); box-shadow: var(--shadow-lift); padding: 10px 12px;
+              font-size: 12px; color: var(--fg-1); text-align: left; }
+  @media (max-width: 720px) {
+    .evp { display: block; }
+    .evp .pop { position: static; width: auto; box-shadow: none; margin-top: 8px; }
+  }
+  .evp .pop p { margin-bottom: 8px; }
+  .evp .pop p:last-child { margin-bottom: 0; }
+  .evp .pop .who { font-weight: 600; color: var(--fg); }
+  .none { background: var(--bg-alt); color: var(--fg-2); }
+  .sect { margin-bottom: 34px; }
+  .monthpick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 16px; }
+  .monthpick label { font: 600 12.5px/1 var(--font-body); color: var(--fg-1); }
+  .monthpick select { background: var(--surface); border: 1px solid var(--border);
+                      border-radius: var(--radius-sm); color: var(--fg-1);
+                      font: 600 12.5px/1 var(--font-body); padding: 8px 10px; outline: none; }
+  .monthpick select:focus-visible { border-color: var(--np-blue); box-shadow: var(--ring); }
+  table.stlines { width: auto; min-width: 60%; margin: 8px 0 4px; border-collapse: collapse; font-size: 12.5px; }
+  table.stlines th { padding: 4px 14px 4px 0; font: 600 11px/1 var(--font-body); letter-spacing: 0.05em;
+                     text-transform: uppercase; color: var(--fg-2); text-align: left;
+                     border-bottom: 1px solid var(--border-faint); }
+  table.stlines td { padding: 5px 14px 5px 0; border-bottom: 1px solid var(--border-faint);
+                     vertical-align: top; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -34,13 +95,14 @@ THESIS: The admin is the main site's back office — same light material world,
 no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
 OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
 ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
-accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
-STORY: the order ledger — every job between introduced parties, logged by the
-provider and confirmed or disputed by the seeker. This board is where the 8%
-becomes real: select confirmed, uninvoiced rows and mark them invoiced, then
-mark paid once settled. fee-invoices' daily summary reads exactly this queue;
-this board is the only place it is ever cleared.
-FIRST VIEWPORT: brand bar, boards tabs, "Orders", filters, then the ledger.
+accent, green reserved for "go" semantics, the square logo in a translucent bar.
+STORY: the money board. Three questions in the order the desk asks them —
+what is billable (statements), does the declared month agree with what the
+CC inbox saw (reconciliation), and what evidence is still homeless (unmatched
+CC evidence) — with the pre-declarations order ledger kept below as a filter.
+Every action here is an engine_intents row: the browser reads freely and
+changes nothing itself.
+FIRST VIEWPORT: brand bar, boards tabs, "Orders", then statements.
 FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 -->
 
@@ -96,27 +158,89 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <span class="count" id="count"></span>
         </div>
         <p class="note">
-          Every job logged on the Global Hub — provider and seeker, units and value, the
-          seeker's confirm or dispute, and the invoice/paid trail. Select rows and mark them
-          invoiced once billed, then paid once settled — the only two ways an order's money
-          fields change.
+          The money board. Quarterly statements are what gets invoiced; the reconciliation
+          shows whether each provider site declared the month the CC inbox saw; unmatched
+          evidence is every order email still waiting to be pointed at an introduction.
+          Nothing here changes a row directly: each action queues the engine.
         </p>
-        <div class="toolbar" id="filters"></div>
         <div id="banner"></div>
-        <div class="selbar" id="selbar" style="display:none">
-          <span id="selCount"></span>
-          <button class="btn btn-pri btn-sm" onclick="markSelected('invoiced')">Mark invoiced</button>
-          <button class="btn btn-grn btn-sm" onclick="markSelected('paid')">Mark paid</button>
+
+        <div class="sect">
+          <div class="colhead"><h2>Statements</h2><span class="n" id="stN"></span><span class="rule"></span></div>
+          <p class="muted" style="margin:0 0 12px">
+            One per site per quarter. Issue happens in the engine; invoicing and settling happen here.
+            Select issued statements to mark them invoiced, then invoiced ones to mark them paid.
+          </p>
+          <div class="selbar" id="stSelbar" style="display:none">
+            <span id="stSelCount"></span>
+            <button class="btn btn-pri btn-sm" id="stInvBtn" onclick="markStatements('invoiced')">Mark invoiced</button>
+            <button class="btn btn-grn btn-sm" id="stPaidBtn" onclick="markStatements('paid')">Mark paid</button>
+            <span class="muted" id="stSelHint"></span>
+          </div>
+          <div class="register">
+            <table>
+              <thead><tr>
+                <th class="selrow"></th><th>Quarter</th><th>Site</th><th>Value</th><th>Fee</th>
+                <th>Status</th><th>Issued</th><th>Invoiced</th><th>Paid</th><th>Manage</th>
+              </tr></thead>
+              <tbody id="stRows"><tr><td colspan="10" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+            </table>
+          </div>
         </div>
-        <div class="register">
-          <table>
-            <thead><tr>
-              <th class="selrow"></th><th>ID</th><th>Hub</th><th>Provider</th><th>Seeker</th>
-              <th>Units</th><th>Value</th><th>Status</th><th>Logged</th><th>Invoiced</th><th>Paid</th>
-            </tr></thead>
-            <tbody id="orderRows"><tr><td colspan="11" style="color:var(--fg-2)">Loading…</td></tr></tbody>
-          </table>
+
+        <div class="sect">
+          <div class="colhead"><h2>Declarations reconciliation</h2><span class="n" id="recN"></span><span class="rule"></span></div>
+          <p class="muted" style="margin:0 0 12px">
+            Every provider site that owed a declaration for the chosen month, whether or not one
+            arrived. A site owes one when it is the provider on an introduction made before the
+            month ended and that introduction is still alive.
+          </p>
+          <div class="monthpick">
+            <label for="month">Month</label>
+            <select id="month" onchange="setMonth(this.value)"></select>
+          </div>
+          <div id="recRows"><div class="empty">Loading…</div></div>
         </div>
+
+        <div class="sect">
+          <div class="colhead"><h2>Unmatched CC evidence</h2><span class="n" id="evN"></span><span class="rule"></span></div>
+          <p class="muted" style="margin:0 0 12px">
+            Order emails the shared inbox received that no reference matched, plus any piece of
+            evidence a site has disputed. Point one at an introduction, or dismiss it as not an order.
+          </p>
+          <div class="register">
+            <table>
+              <thead><tr>
+                <th>Received</th><th>Sender</th><th>Subject</th><th>Quoted ref</th>
+                <th>Period</th><th>Status</th><th>Manage</th>
+              </tr></thead>
+              <tbody id="evRows"><tr><td colspan="7" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <details class="legacy" id="legacy">
+          <summary>Legacy order ledger</summary>
+          <p class="muted" style="margin:0 0 12px">
+            Orders logged before the monthly declaration model, kept whole. The same two actions
+            apply, one order at a time rather than a statement at a time.
+          </p>
+          <div class="toolbar" id="filters"></div>
+          <div class="selbar" id="selbar" style="display:none">
+            <span id="selCount"></span>
+            <button class="btn btn-pri btn-sm" onclick="markSelected('invoiced')">Mark invoiced</button>
+            <button class="btn btn-grn btn-sm" onclick="markSelected('paid')">Mark paid</button>
+          </div>
+          <div class="register">
+            <table>
+              <thead><tr>
+                <th class="selrow"></th><th>ID</th><th>Hub</th><th>Provider</th><th>Seeker</th>
+                <th>Units</th><th>Value</th><th>Status</th><th>Logged</th><th>Invoiced</th><th>Paid</th>
+              </tr></thead>
+              <tbody id="orderRows"><tr><td colspan="11" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </details>
       </div>
     </div>
   </main>
@@ -132,7 +256,38 @@ const $=id=>document.getElementById(id);
 const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let me=null, orders=[], orgById={}, selected=new Set(), filter='uninvoiced';
+let me=null;
+let statements=[],declarations=[],decLines=[],evidence=[],intros=[],orders=[];
+/* Matched evidence for the month in the picker only. `evidence` above is
+   the homeless/disputed queue, which is not a month's worth of anything
+   and is read whole on purpose. */
+let periodEvidence=[];
+let orgById={},introById={};
+let selStatements=new Set(),selected=new Set(),filter='uninvoiced',month='';
+let intentById={},pendByStatement={},pendByOrder={},pendByLine={},pendByEvidence={},pendByOrg={};
+/* Set when any read the reconciliation section depends on failed, so an
+   empty result can be told apart from a load that never happened —
+   dueSites() reads an empty intros[] the same way whether nothing was
+   introduced or the introductions query itself failed. */
+let recError=false;
+/* Read once per full load and folded into recError on every period
+   re-read: without introductions there is no site list to reconcile. */
+let introError=false;
+
+/* An introduction in one of these stages is a dead end, so its provider
+   never owed a declaration for it (declarations._EXCLUDED_STAGES). */
+const DEAD_STAGES=['dead','expired','declined'];
+/* A declaration counts as answered in these states
+   (declarations.DECLARED_STATUSES). */
+const DECLARED=['submitted','nothing','closed'];
+/* How long a seeker gets to confirm a line before the desk should look. */
+const CONFIRM_DAYS=7;
+const MONEY_INTENTS=['mark-invoiced','mark-paid','resolve-dispute',
+                     'match-order-evidence','open-audit-strike'];
+const ST_BADGE={draft:'DRAFT',issued:'ISSUED',invoiced:'INVOICED',paid:'PAID',void:'VOID'};
+const DEC_BADGE={submitted:'SUBMITTED',nothing:'NOTHING DECLARED',missing:'MISSING',
+                 due:'DUE',overdue:'OVERDUE',closed:'CLOSED'};
+const EV_BADGE={unmatched:'UNMATCHED',matched:'MATCHED',dismissed:'DISMISSED'};
 
 const FILTERS=[
   {f:'uninvoiced',label:'Awaiting invoice'},{f:'unpaid',label:'Invoiced, unpaid'},
@@ -157,28 +312,489 @@ async function doLogin(){
 async function signOut(){await sb.auth.signOut();location.reload();}
 function showAdmin(u){$('login').style.display='none';$('admin').style.display='block';$('who').textContent=u.email;me=u;load();}
 
+/* ── Formatting ────────────────────────────────────────────────────── */
+
 function fmtDate(v){
   if(!v)return '—';
   return new Date(v).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
 }
-function orgName(id){return id&&orgById[id]?orgById[id]:(id?'—':'—');}
+const amount=n=>Number(n||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+function fmtTotals(totals,key){
+  const parts=Object.entries(totals||{});
+  if(!parts.length)return '—';
+  return parts.map(([cur,b])=>`<span class="cur">${esc(cur)}</span>${amount((b||{})[key])}`).join('<br>');
+}
+function orgName(id){return (id&&orgById[id])?orgById[id]:'—';}
+const introRef=i=>i?(i.ref||('INTRO-'+String(i.id).padStart(4,'0'))):'—';
+function refOf(id){return id==null?'—':introRef(introById[id]);}
+function monthLabel(period){
+  if(!period)return '—';
+  return new Date(period+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+}
+/* The first instant of the month AFTER `period` — what an introduction
+   must predate for that month's declaration to be owed. */
+function monthEnd(period){
+  const y=Number(period.slice(0,4)),m=Number(period.slice(5,7));
+  return new Date(y,m,1);
+}
+function recentMonths(n){
+  const out=[],now=new Date();
+  for(let i=1;i<=n;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
+  }
+  return out;
+}
+const daysSince=v=>v?Math.floor((Date.now()-new Date(v).getTime())/86400000):null;
+
+/* ── Data ──────────────────────────────────────────────────────────── */
+
+/* Banners are held rather than appended straight to the DOM: the month
+   picker re-reads the three period-scoped tables, and a failure there
+   must replace the last month's warning rather than pile another one
+   under it. `scope` says which read a warning belongs to. */
+let banners=[];
+function warn(what,error,hint,scope){
+  banners.push({what,message:error.message,hint:hint||'',scope:scope||'base'});
+  paintBanners();
+}
+function clearBanners(scope){
+  banners=scope?banners.filter(b=>b.scope!==scope):[];
+  paintBanners();
+}
+function paintBanners(){
+  $('banner').innerHTML=banners.map(b=>
+    `<div class="banner">Could not read ${esc(b.what)}: ${esc(b.message)}.
+    ${esc(b.hint)}</div>`).join('');
+}
+
+const MIG_HINT='If this says the table does not exist or permission is denied, migration 0029 may not be applied yet.';
 
 async function load(){
-  $('banner').innerHTML='';
-  const oq=await sb.from('orders').select('*').order('logged_at',{ascending:false});
-  if(oq.error){
-    $('banner').innerHTML=`<div class="banner">Could not read orders: ${esc(oq.error.message)}.
-      If this says the table does not exist or permission is denied, migration 0024 (schema) and
-      0025 (engine_worker grants) may not be applied yet.</div>`;
-    $('orderRows').innerHTML='';
-    return;
+  clearBanners();
+  /* The picker is filled before the reads, because the reconciliation's
+     three reads are scoped to the month it holds. */
+  if(!month){
+    const months=recentMonths(12);
+    month=months[0];
+    $('month').innerHTML=months.map(m=>
+      `<option value="${esc(m)}">${esc(monthLabel(m))}</option>`).join('');
   }
-  orders=oq.data||[];
-  const orgsQ=await sb.from('organisations').select('id,name');
-  orgById={};(orgsQ.data||[]).forEach(o=>{orgById[o.id]=o.name;});
-  selected=new Set();
+  const [stQ,evQ,introQ,orgQ,ordQ,intentQ]=await Promise.all([
+    sb.from('statements').select('*').order('quarter',{ascending:false}),
+    /* The queue only: everything still homeless, plus anything disputed
+       and unruled. Matched evidence for the month comes with the
+       reconciliation, below. */
+    sb.from('order_evidence').select('*')
+      .or('status.eq.unmatched,and(disputed_at.not.is.null,resolved_at.is.null)')
+      .order('received_at',{ascending:false}),
+    sb.from('introductions').select('id,ref,hub,org_a,org_b,stage,introduced_at'),
+    sb.from('organisations').select('id,name'),
+    sb.from('orders').select('*').order('logged_at',{ascending:false}),
+    sb.from('engine_intents').select('id,type,payload_json,status,result_note')
+      .in('status',['pending','claimed','failed']).in('type',MONEY_INTENTS),
+  ]);
+  if(stQ.error)warn('statements',stQ.error,MIG_HINT);
+  if(evQ.error)warn('the evidence queue',evQ.error,MIG_HINT);
+  if(introQ.error)warn('introductions',introQ.error,'');
+  if(ordQ.error)warn('the legacy order ledger',ordQ.error,
+    'Migration 0024 (schema) and 0025 (engine_worker grants) may not be applied yet.');
+  introError=!!introQ.error;
+
+  statements=stQ.data||[];
+  evidence=evQ.data||[];intros=introQ.data||[];orders=ordQ.data||[];
+  orgById={};(orgQ.data||[]).forEach(o=>{orgById[o.id]=o.name;});
+  introById={};intros.forEach(i=>{introById[i.id]=i;});
+
+  intentById={};pendByStatement={};pendByOrder={};pendByLine={};pendByEvidence={};pendByOrg={};
+  /* Failed first, so a re-raised pending intent wins the display
+     (the leads.html pattern). */
+  const byState=(intentQ.data||[]).slice().sort((a,b)=>
+    (a.status==='failed'?0:1)-(b.status==='failed'?0:1)||a.id-b.id);
+  byState.forEach(i=>{
+    intentById[i.id]=i;
+    const p=i.payload_json||{};
+    (p.statement_ids||[]).forEach(id=>{pendByStatement[id]=i;});
+    (p.order_ids||[]).forEach(id=>{pendByOrder[id]=i;});
+    if(i.type==='resolve-dispute'&&p.id!=null){
+      if(p.kind==='evidence')pendByEvidence[p.id]=i;else pendByLine[p.id]=i;
+    }
+    if(p.evidence_id!=null)pendByEvidence[p.evidence_id]=i;
+    if(i.type==='open-audit-strike'&&p.org_id!=null)pendByOrg[p.org_id]=i;
+  });
+
+  await loadPeriod();
+  selStatements=new Set();selected=new Set();
   render();
 }
+
+/* The reconciliation reads exactly one month: its declarations, the lines
+   hanging off them, and the matched evidence for the same month. Read
+   whole, these three grow without bound and PostgREST's row cap truncates
+   them silently rather than erroring, which on this board would read as a
+   site that declared nothing. Re-read whenever the picker moves. */
+async function loadPeriod(){
+  clearBanners('period');
+  const [decQ,pevQ]=await Promise.all([
+    sb.from('declarations').select('*').eq('period',month),
+    sb.from('order_evidence').select('*').eq('period',month)
+      .order('received_at',{ascending:false}),
+  ]);
+  if(decQ.error)warn('declarations',decQ.error,MIG_HINT,'period');
+  if(pevQ.error)warn('order evidence',pevQ.error,MIG_HINT,'period');
+  declarations=decQ.data||[];periodEvidence=pevQ.data||[];
+
+  /* The lines are reached through their declarations, which is the only
+     link they have to a month. No declarations, no lines to fetch. */
+  const ids=declarations.map(d=>d.id);
+  let lineQ={data:[],error:null};
+  if(ids.length)lineQ=await sb.from('declaration_lines').select('*').in('declaration_id',ids);
+  if(lineQ.error)warn('declaration lines',lineQ.error,MIG_HINT,'period');
+  decLines=lineQ.data||[];
+
+  recError=!!(introError||decQ.error||pevQ.error||lineQ.error);
+}
+
+function render(){
+  renderStatements();
+  renderReconciliation();
+  renderEvidence();
+  renderLedger();
+  const owed=dueSites(month).length;
+  $('count').textContent=[
+    statements.length?`${statements.length} statement${statements.length===1?'':'s'}`:'',
+    owed?`${owed} site${owed===1?'':'s'} owed ${monthLabel(month)}`:'',
+    openEvidence().length?`${openEvidence().length} evidence to place`:'',
+  ].filter(Boolean).join(' · ');
+}
+
+/* A queued or failed intent replaces a row's buttons: the same decision
+   twice would be two intents, and the engine would run both. */
+function manageFor(q,fallback){
+  if(q&&q.status==='failed')
+    return `<span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span>
+      <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button>`;
+  if(q)return '<span class="status">Queued, the engine acts within a minute or two.</span>';
+  return fallback;
+}
+
+/* ── Statements ────────────────────────────────────────────────────── */
+
+function statementLines(s){
+  const rows=Array.isArray(s.lines)?s.lines:[];
+  if(!rows.length)return '<p class="muted" style="padding:6px 0">No lines on this statement.</p>';
+  return `<table class="stlines">
+    <thead><tr><th>Reference</th><th>Month</th><th>Hub</th><th>Units</th><th>Value</th><th>Fee</th></tr></thead>
+    <tbody>${rows.map(l=>`<tr>
+      <td>${esc(l.ref||'—')}</td><td>${esc(l.period||'—')}</td><td>${esc(l.hub||'—')}</td>
+      <td>${l.units==null?'—':esc(l.units)}</td>
+      <td>${esc(l.currency||'GBP')} ${amount(l.value)}</td>
+      <td>${esc(l.currency||'GBP')} ${amount(l.fee)}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderStatements(){
+  $('stN').textContent=statements.length;
+  if(!statements.length){
+    $('stRows').innerHTML='<tr><td colspan="10" style="color:var(--fg-2)">No statements yet. The engine drafts one per site per quarter from the declared lines.</td></tr>';
+    updateStatementSelbar();
+    return;
+  }
+  $('stRows').innerHTML=statements.map(s=>{
+    const q=pendByStatement[s.id];
+    const selectable=s.status==='issued'||s.status==='invoiced';
+    const box=selectable&&!q
+      ?`<input type="checkbox" aria-label="Select statement ${esc(s.quarter)} for ${esc(orgName(s.org_id))}" ${selStatements.has(s.id)?'checked':''} onchange="toggleStatement(${s.id},this.checked)">`
+      :'';
+    const invoiced=s.invoiced_at
+      ?`<span class="flag flag-yes">${fmtDate(s.invoiced_at)}</span>${s.invoice_ref?`<br><span class="muted">${esc(s.invoice_ref)}</span>`:''}`
+      :'<span class="flag flag-no">—</span>';
+    return `<tr>
+      <td class="selrow">${box}</td>
+      <td class="rref">${esc(s.quarter||'—')}</td>
+      <td>${esc(orgName(s.org_id))}</td>
+      <td class="money">${fmtTotals(s.totals,'value')}</td>
+      <td class="money">${fmtTotals(s.totals,'fee')}</td>
+      <td><span class="stg stg-${esc(s.status)}">${esc(ST_BADGE[s.status]||s.status)}</span></td>
+      <td>${fmtDate(s.issued_at)}</td>
+      <td>${invoiced}</td>
+      <td>${s.paid_at?`<span class="flag flag-yes">${fmtDate(s.paid_at)}</span>`:'<span class="flag flag-no">—</span>'}</td>
+      <td><div class="actions" style="margin-top:0">${manageFor(q,'<span class="muted">'+(selectable?'select to act':'nothing to do')+'</span>')}</div></td>
+    </tr>
+    <tr class="detail"><td colspan="10">
+      <details><summary><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+        ${(Array.isArray(s.lines)?s.lines.length:0)} line${(Array.isArray(s.lines)?s.lines.length:0)===1?'':'s'}</summary>
+        ${statementLines(s)}</details></td></tr>`;
+  }).join('');
+  updateStatementSelbar();
+}
+
+function toggleStatement(id,on){
+  if(on)selStatements.add(id);else selStatements.delete(id);
+  updateStatementSelbar();
+}
+
+function selectedStatements(){return statements.filter(s=>selStatements.has(s.id));}
+
+function updateStatementSelbar(){
+  const rows=selectedStatements();
+  $('stSelbar').style.display=rows.length?'flex':'none';
+  if(!rows.length)return;
+  $('stSelCount').textContent=`${rows.length} selected`;
+  const canInvoice=rows.every(s=>s.status==='issued');
+  const canPay=rows.every(s=>s.status==='invoiced');
+  $('stInvBtn').disabled=!canInvoice;
+  $('stPaidBtn').disabled=!canPay;
+  $('stSelHint').textContent=canInvoice||canPay?''
+    :'A statement is invoiced only from issued, and paid only from invoiced. Select one status at a time.';
+}
+
+function markStatements(kind){
+  const rows=selectedStatements();
+  if(!rows.length)return;
+  const ids=rows.map(s=>s.id);
+  if(kind==='invoiced'){
+    if(!rows.every(s=>s.status==='issued')){alert('Only issued statements can be marked invoiced.');return;}
+    const ref=prompt(`Invoice reference for ${ids.length} statement(s) (optional):`,'');
+    if(ref===null)return;
+    const payload={statement_ids:ids};
+    if(ref.trim())payload.invoice_ref=ref.trim();
+    raise('mark-invoiced',payload,'Marked invoiced');
+  }else{
+    if(!rows.every(s=>s.status==='invoiced')){alert('Only invoiced statements can be marked paid.');return;}
+    if(!confirm(`Mark ${ids.length} statement(s) as paid?`))return;
+    raise('mark-paid',{statement_ids:ids},'Marked paid');
+  }
+}
+
+/* ── Declarations reconciliation ───────────────────────────────────── */
+
+/* Which provider sites owed a declaration for this month, and on which
+   hub: it is org_a on an introduction made before the month ended that
+   has not since died. Absence is the whole point — a site with no
+   declarations row is exactly the row the desk needs to see. */
+function dueSites(period){
+  if(!period)return [];
+  const end=monthEnd(period),seen={};
+  intros.forEach(i=>{
+    if(!i.org_a||!i.hub||!i.introduced_at)return;
+    if(DEAD_STAGES.indexOf(i.stage)>=0)return;
+    if(new Date(i.introduced_at)>=end)return;
+    seen[i.org_a+'|'+i.hub]={org_id:i.org_a,hub:i.hub};
+  });
+  // Site name then hub — not the seen key, which sorts by org_a's uuid
+  // and puts the register in no order a reader can use.
+  return Object.values(seen).sort((a,b)=>
+    orgName(a.org_id).localeCompare(orgName(b.org_id))||a.hub.localeCompare(b.hub));
+}
+
+function declarationFor(orgId,hub,period){
+  return declarations.find(d=>d.org_id===orgId&&d.hub===hub&&d.period===period)||null;
+}
+function linesFor(decl){
+  if(!decl)return [];
+  return decLines.filter(l=>l.declaration_id===decl.id&&!l.superseded_at);
+}
+/* Matched evidence for one introduction in one month. */
+function evidenceFor(introId,period){
+  return periodEvidence.filter(e=>e.introduction_id===introId&&e.period===period&&e.status==='matched');
+}
+/* Every matched piece of evidence pointing at this site's introductions
+   on this hub in this month, declared or not. */
+function siteEvidence(orgId,hub,period){
+  const mine=intros.filter(i=>i.org_a===orgId&&i.hub===hub).map(i=>i.id);
+  return periodEvidence.filter(e=>e.status==='matched'&&e.period===period&&mine.indexOf(e.introduction_id)>=0);
+}
+
+function declStatus(decl){
+  if(!decl)return 'missing';
+  if(decl.nothing_declared&&decl.status!=='submitted')return 'nothing';
+  return decl.status||'missing';
+}
+
+function confirmState(line){
+  if(line.seeker_disputed_at&&!line.resolved_at)
+    return {label:'Disputed',cls:'stg-disputed',open:true};
+  if(line.resolved_at)
+    return {label:'Dispute '+(line.resolution||'resolved'),cls:'stg-matched',open:false};
+  if(line.seeker_confirmed_at)
+    return {label:'Confirmed',cls:'stg-matched',open:false};
+  return {label:'Awaiting the seeker',cls:'stg-due',open:false};
+}
+
+function evidencePopover(rows){
+  if(!rows.length)return '<span class="flag flag-no">no evidence</span>';
+  return `<details class="evp"><summary>${rows.length} email${rows.length===1?'':'s'}</summary>
+    <div class="pop">${rows.map(e=>`<p>
+      <span class="who">${esc(e.from_email||'(no sender)')}</span>
+      <span class="muted">(${esc(partyGuess(e.sender_party))})</span><br>
+      ${esc(e.subject||'(no subject)')}<br>
+      <span class="muted">received ${esc(fmtDate(e.received_at))}</span></p>`).join('')}</div></details>`;
+}
+
+function renderReconciliation(){
+  const period=month,sites=dueSites(period);
+  $('recN').textContent=sites.length;
+  if(!sites.length){
+    // An empty read looks exactly like nothing owed — say so rather than
+    // showing a clean board when a query behind it failed.
+    $('recRows').innerHTML=recError
+      ?`<div class="empty">Could not load the reconciliation. See the banner above.</div>`
+      :`<div class="empty">No site owed a declaration for ${esc(monthLabel(period))}.
+      A site owes one from the month its first introduction was made.</div>`;
+    return;
+  }
+  $('recRows').innerHTML=sites.map(s=>siteCard(s,period)).join('');
+}
+
+function siteCard(site,period){
+  const decl=declarationFor(site.org_id,site.hub,period);
+  const status=declStatus(decl);
+  const lines=linesFor(decl);
+  const evAll=siteEvidence(site.org_id,site.hub,period);
+  const q=pendByOrg[site.org_id];
+
+  const flags=[];
+  if(evAll.length&&(DECLARED.indexOf(status)<0||status==='nothing'||!lines.length))
+    flags.push(`<span class="mis">${evAll.length} email${evAll.length===1?'':'s'} seen, nothing declared</span>`);
+  const disputed=lines.filter(l=>l.seeker_disputed_at&&!l.resolved_at);
+  if(disputed.length)
+    flags.push(`<span class="mis">${disputed.length} disputed line${disputed.length===1?'':'s'}</span>`);
+  const since=decl?daysSince(decl.submitted_at||decl.created_at):null;
+  const stale=lines.filter(l=>!l.seeker_confirmed_at&&!l.seeker_disputed_at);
+  if(stale.length&&since!=null&&since>CONFIRM_DAYS)
+    flags.push(`<span class="mis mis-soft">${stale.length} line${stale.length===1?'':'s'} unconfirmed after ${since} days</span>`);
+
+  const lineRows=lines.length?`<div class="lines">${lines.map(l=>{
+    const state=confirmState(l);
+    const ev=evidenceFor(l.introduction_id,period);
+    const lq=pendByLine[l.id];
+    const act=state.open
+      ?manageFor(lq,`<button class="btn btn-gh btn-sm" onclick="resolveDispute('line',${l.id})">Resolve dispute</button>`)
+      :'';
+    return `<div class="ln">
+      <span class="ref">${esc(refOf(l.introduction_id))}</span>
+      <span class="grow">${l.units==null?'':esc(l.units)+' units, '}${esc(l.currency||'GBP')} ${amount(l.value)}
+        ${l.dispute_note?`<br><span class="muted">${esc(l.dispute_note)}</span>`:''}</span>
+      ${evidencePopover(ev)}
+      <span class="stg ${state.cls}">${esc(state.label)}</span>
+      ${act}</div>`;
+  }).join('')}</div>`:'';
+
+  const meta=[
+    `<span>${esc(site.hub)} hub</span>`,
+    decl&&decl.submitted_at?`<span>declared ${esc(fmtDate(decl.submitted_at))}</span>`:'',
+    decl&&decl.note?`<span>${esc(decl.note)}</span>`:'',
+    `<span>${lines.length} line${lines.length===1?'':'s'}</span>`,
+    `<span>${evAll.length} matched email${evAll.length===1?'':'s'}</span>`,
+  ].filter(Boolean).join('');
+
+  return `<div class="row req s-${status==='missing'||status==='overdue'?'declined':status==='submitted'?'approved':'reviewing'}">
+    <div class="row-top">
+      <span class="company">${esc(orgName(site.org_id))}</span>
+      <span class="stg stg-${esc(status)}">${esc(DEC_BADGE[status]||status)}</span>
+    </div>
+    <div class="meta">${meta}</div>
+    ${flags.length?`<div style="margin-top:10px">${flags.join('')}</div>`:''}
+    ${lineRows}
+    <div class="actions">${manageFor(q,
+      `<button class="btn btn-danger btn-sm" data-org-id="${esc(site.org_id)}" onclick="openAuditStrike(this.dataset.orgId)">
+        <span class="material-symbols-outlined" aria-hidden="true">gavel</span>Open audit strike</button>`)}</div>
+  </div>`;
+}
+
+function setMonth(m){month=m;loadPeriod().then(render);}
+
+function resolveDispute(kind,id){
+  const resolution=(prompt("Resolve as 'upheld' (the dispute stands) or 'dismissed' (the record stands as declared):",'dismissed')||'').trim().toLowerCase();
+  if(!resolution)return;
+  if(resolution!=='upheld'&&resolution!=='dismissed'){alert("Type 'upheld' or 'dismissed'.");return;}
+  const note=prompt('Note for the record (kept beside the original dispute text):','');
+  if(note===null)return;
+  raise('resolve-dispute',{kind,id,resolution,note:note.trim()},'Dispute resolved');
+}
+
+/* orgId is looked up for its name inside the handler rather than carried
+   through onclick — a name is free text a host typed, and an onclick=""
+   attribute has no safe way to hold it (finding 1, fix round 1: esc()
+   cannot protect a single-quoted JS string, because the browser
+   HTML-decodes &#39; back to a literal quote before it compiles the
+   attribute as script). */
+function openAuditStrike(orgId){
+  const notes=prompt(`Why is an audit strike being opened against "${orgName(orgId)}"? (kept on the strike)`,'');
+  if(notes===null)return;
+  if(!notes.trim()){alert('An audit strike carries its reason.');return;}
+  raise('open-audit-strike',{org_id:orgId,notes:notes.trim()},'Audit strike opened');
+}
+
+/* ── Unmatched CC evidence ─────────────────────────────────────────── */
+
+/* The queue is everything still homeless, plus anything a site has
+   disputed and the desk has not ruled on. */
+function openEvidence(){
+  return evidence.filter(e=>e.status==='unmatched'||(e.disputed_at&&!e.resolved_at));
+}
+
+/* What an unmatched email could plausibly belong to. A dead introduction
+   is still offered: evidence often arrives after a pairing has gone
+   quiet, and the desk decides, not this list. */
+function matchOptions(){
+  return intros.slice().sort((a,b)=>String(introRef(a)).localeCompare(String(introRef(b))));
+}
+
+/* The ingest step's guess at who sent an email. 'unknown' is a real
+   answer, not a party, so it is said as one. */
+function partyGuess(party){
+  if(party==='provider')return 'looks like the provider';
+  if(party==='seeker')return 'looks like the seeker';
+  return 'sender not recognised';
+}
+
+function renderEvidence(){
+  const rows=openEvidence();
+  $('evN').textContent=rows.length;
+  if(!rows.length){
+    $('evRows').innerHTML=`<tr><td colspan="7" style="color:var(--fg-2)">Nothing waiting. Every order email the inbox received is matched, dismissed or undisputed.</td></tr>`;
+    return;
+  }
+  const options=matchOptions();
+  $('evRows').innerHTML=rows.map(e=>{
+    const q=pendByEvidence[e.id];
+    const disputed=e.disputed_at&&!e.resolved_at;
+    const picker=options.length
+      ?`<select id="ev-${e.id}" aria-label="Match evidence ${e.id} to an introduction">
+          <option value="">Match to…</option>
+          ${options.map(i=>`<option value="${esc(i.id)}">${esc(introRef(i))} · ${esc(orgName(i.org_a))} to ${esc(orgName(i.org_b))}</option>`).join('')}
+        </select>
+        <button class="btn btn-pri btn-sm" onclick="matchEvidence(${e.id})">Match</button>`
+      :'<span class="muted">No introductions to match to yet.</span>';
+    const buttons=disputed
+      ?`<button class="btn btn-gh btn-sm" onclick="resolveDispute('evidence',${e.id})">Resolve dispute</button>`
+      :`${picker}
+        <button class="btn btn-danger btn-sm" onclick="dismissEvidence(${e.id})">Dismiss</button>`;
+    return `<tr>
+      <td>${fmtDate(e.received_at)}</td>
+      <td>${esc(e.from_email||'—')}<br><span class="muted">${esc(partyGuess(e.sender_party))}</span></td>
+      <td>${esc(e.subject||'(no subject)')}</td>
+      <td>${esc(e.ref_text||'—')}</td>
+      <td>${esc(e.period||'—')}</td>
+      <td><span class="stg ${disputed?'stg-disputed':'stg-'+esc(e.status)}">${esc(disputed?'DISPUTED':(EV_BADGE[e.status]||e.status))}</span>
+        ${e.dispute_note?`<br><span class="muted">${esc(e.dispute_note)}</span>`:''}</td>
+      <td><div class="actions" style="margin-top:0">${manageFor(q,buttons)}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+function matchEvidence(id){
+  const sel=$('ev-'+id);
+  if(!sel||!sel.value){alert('Choose the introduction this email belongs to first.');return;}
+  raise('match-order-evidence',{evidence_id:id,introduction_id:Number(sel.value)},'Matched');
+}
+function dismissEvidence(id){
+  if(!confirm('Dismiss this email as not an order? It stays on the record, pointed at nothing.'))return;
+  raise('match-order-evidence',{evidence_id:id,introduction_id:null},'Dismissed');
+}
+
+/* ── Legacy order ledger ───────────────────────────────────────────── */
 
 function statusBadge(o){
   if(o.disputed_at)return '<span class="obadge obadge-disputed">Disputed</span>';
@@ -194,47 +810,55 @@ function matchesFilter(o){
   return true;
 }
 
-function render(){
+function renderLedger(){
   const rows=orders.filter(matchesFilter);
-  $('count').textContent=orders.length?`${orders.length} order${orders.length===1?'':'s'} · ${rows.length} shown`:'';
   $('filters').innerHTML=FILTERS.map(x=>
-    `<button class="fchip" aria-pressed="${filter===x.f}" onclick="setFilter('${x.f}')">${esc(x.label)}</button>`).join('');
+    `<button class="fchip" aria-pressed="${filter===x.f}" data-f="${esc(x.f)}" onclick="setFilter(this.dataset.f)">${esc(x.label)}</button>`).join('');
 
   $('orderRows').innerHTML = rows.length ? rows.map(o=>`
     <tr>
-      <td class="selrow"><input type="checkbox" ${selected.has(o.id)?'checked':''} onchange="toggle(${o.id},this.checked)"></td>
+      <td class="selrow">${pendByOrder[o.id]?'':`<input type="checkbox" aria-label="Select order ${o.id}" ${selected.has(o.id)?'checked':''} onchange="toggle(${o.id},this.checked)">`}</td>
       <td>${o.id}${o.is_batch?'<span class="obadge obadge-batch">Batch'+(o.period?': '+esc(o.period):'')+'</span>':''}</td>
       <td>${esc(o.hub||'')}</td>
       <td>${esc(orgName(o.org_provider))}</td>
       <td>${esc(orgName(o.org_seeker))}</td>
       <td>${o.units==null?'—':o.units}</td>
-      <td class="money">${esc(o.currency||'GBP')} ${Number(o.value||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td class="money">${esc(o.currency||'GBP')} ${amount(o.value)}</td>
       <td>${statusBadge(o)}</td>
       <td>${fmtDate(o.logged_at)}</td>
       <td>${o.invoiced_at?`<span class="flag flag-yes">${fmtDate(o.invoiced_at)}</span>`:'<span class="flag flag-no">—</span>'}</td>
       <td>${o.paid_at?`<span class="flag flag-yes">${fmtDate(o.paid_at)}</span>`:'<span class="flag flag-no">—</span>'}</td>
-    </tr>`).join('') : `<tr><td colspan="11">${orders.length?'Nothing matches this filter.':'No orders logged yet.'}</td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="11">${orders.length?'Nothing matches this filter.':'No orders on the legacy ledger.'}</td></tr>`;
 
   $('selbar').style.display=selected.size?'flex':'none';
   $('selCount').textContent=`${selected.size} selected`;
 }
 
-function setFilter(f){filter=f;selected=new Set();render();}
-function toggle(id,on){if(on)selected.add(id);else selected.delete(id);render();}
+function setFilter(f){filter=f;selected=new Set();renderLedger();}
+function toggle(id,on){if(on)selected.add(id);else selected.delete(id);renderLedger();}
 
-async function markSelected(kind){
+function markSelected(kind){
   if(!selected.size)return;
   const ids=[...selected];
   const label=kind==='invoiced'?'invoiced':'paid';
   if(!confirm(`Mark ${ids.length} order(s) as ${label}?`))return;
-  const {error}=await sb.from('engine_intents').insert({
-    type:kind==='invoiced'?'mark-invoiced':'mark-paid',
-    payload_json:{order_ids:ids}, requested_by:me.email,
-  });
+  raise(kind==='invoiced'?'mark-invoiced':'mark-paid',{order_ids:ids},`Marked ${label}`);
+}
+
+/* ── Intents ───────────────────────────────────────────────────────── */
+
+async function raise(type,payload,verb){
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
   if(error){$('banner').innerHTML=`<div class="banner">Could not queue it: ${esc(error.message)}</div>`;return;}
-  $('banner').innerHTML=`<div class="banner" style="border-color:var(--ok-line);color:var(--ok-ink)">Marking ${label} — queued — the engine acts within a minute or two.</div>`;
-  selected=new Set();
+  $('banner').innerHTML=`<div class="banner" style="border-color:var(--ok-line);color:var(--ok-ink)">${esc(verb)}, queued. The engine acts within a minute or two.</div>`;
+  selStatements=new Set();selected=new Set();
   setTimeout(load,1200);
+}
+
+function retry(intentId){
+  const i=intentById[intentId];
+  if(!i)return;
+  raise(i.type,i.payload_json||{},'Sent again');
 }
 
 boot();

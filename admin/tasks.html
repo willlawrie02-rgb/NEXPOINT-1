@@ -204,7 +204,7 @@ function render(){
   const shown=tasks.filter(t=>who==='all'||t.owner===who);
   $('count').textContent=tasks.length?`${tasks.length} open · ${owners.map(o=>`${o} ${tasks.filter(t=>t.owner===o).length}`).join(' · ')}`:'';
   $('owners').innerHTML=['all',...owners].map(o=>
-    `<button class="owner-btn" aria-pressed="${who===o}" onclick="who='${o}';render()">${o==='all'?'Everyone':esc(o)}</button>`).join('');
+    `<button class="owner-btn" aria-pressed="${who===o}" data-owner="${esc(o)}" onclick="who=this.dataset.owner;render()">${o==='all'?'Everyone':esc(o)}</button>`).join('');
 
   if(!shown.length){
     $('groups').innerHTML=`<div class="empty">No open action items. The hourly sync rebuilds

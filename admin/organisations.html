@@ -31,6 +31,26 @@
   .hidden-flag { color: var(--err-ink); font-weight: 700; font-size: 12px; }
   .fees { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .fees .cur { color: var(--fg-2); font-size: 11.5px; margin-right: 4px; }
+  /* Follow-through score — one number, banded, with the whole working
+     behind a tooltip so the register stays readable. */
+  .score { display: inline-block; font: 700 15px/1 var(--font-display); padding: 6px 10px;
+           border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; cursor: help; }
+  .score-green { background: var(--ok-wash);   color: var(--ok-ink); }
+  .score-amber { background: var(--warn-wash); color: var(--warn-ink); }
+  .score-red   { background: var(--err-wash);  color: var(--err-ink); }
+  .score-none  { background: var(--bg-alt);    color: var(--fg-2); font-weight: 600; font-size: 12.5px; }
+  .score .when { display: block; margin-top: 4px; font: 400 11px/1 var(--font-body); color: var(--fg-2); }
+  /* One open strike, with the source that opened it and its cure date. */
+  .strike { display: block; margin-bottom: 8px; font-size: 12.5px; }
+  .strike:last-child { margin-bottom: 0; }
+  .strike .src { display: inline-block; font: 700 10px/1 var(--font-body); letter-spacing: 0.05em;
+                 text-transform: uppercase; padding: 4px 7px; border-radius: 5px;
+                 background: var(--err-wash); color: var(--err-ink); margin-right: 6px; }
+  .strike .due { color: var(--fg-2); font-variant-numeric: tabular-nums; }
+  .strike .overdue { color: var(--err-ink); font-weight: 600; }
+  .listb { display: block; font-size: 12.5px; margin-bottom: 4px; white-space: nowrap; }
+  .listb:last-child { margin-bottom: 0; }
+  .pd { font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -40,12 +60,15 @@ no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
 OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
 ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
 accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
-STORY: every organisation on the Global Hub — subscription standing (with the
-Founding badge honoured for life, spec §3), host status per hub, open strikes,
-fees owed on confirmed-but-uninvoiced orders, and whether they are hidden from
-results. Recording a payment queues an intent; the engine advances the billing
-period and lifts a subscription-hide (never a strike-hide — that clears only
-when the strikes themselves cure).
+STORY: every organisation on the Global Hub — the follow-through score and
+its working, subscription standing (with the Founding badge honoured for
+life, spec §3), host status and listings per hub, open strikes with the
+source that opened them and the date they must cure by, the Pipedrive ids
+that tie the row to the CRM, and fees owed on confirmed-but-uninvoiced
+orders. Three actions, all intents: record a payment, cure a strike, open
+an audit strike. The engine advances the billing period and lifts a
+subscription-hide (never a strike-hide — that clears only when the strikes
+themselves cure).
 FIRST VIEWPORT: brand bar, boards tabs, "Organisations", then the register.
 FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 -->
@@ -102,19 +125,22 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <span class="count" id="count"></span>
         </div>
         <p class="note">
-          Every organisation on the Global Hub: subscription standing, host status per hub,
-          open strikes and fees owed on confirmed but uninvoiced orders. Recording a payment
-          queues the engine to advance the billing period and, only when the organisation was
-          hidden for a lapsed subscription, restore its listing.
+          Every organisation on the Global Hub: the follow-through score and its working,
+          subscription standing, host status and listings per hub, open strikes with their
+          source and cure date, the Pipedrive ids, and fees owed on confirmed but uninvoiced
+          orders. Recording a payment queues the engine to advance the billing period and,
+          only when the organisation was hidden for a lapsed subscription, restore its listing.
+          Curing a strike closes it in the requester's name; an audit strike is the manual
+          way to open one.
         </p>
         <div id="banner"></div>
         <div class="register">
           <table>
             <thead><tr>
-              <th>Organisation</th><th>Subscription</th><th>Host status</th>
-              <th>Strikes</th><th>Fees owed</th><th>Hidden</th><th>Manage</th>
+              <th>Organisation</th><th>Score</th><th>Subscription</th><th>Host status</th>
+              <th>Listings</th><th>Strikes</th><th>Fees owed</th><th>Hidden</th><th>Manage</th>
             </tr></thead>
-            <tbody id="orgRows"><tr><td colspan="7" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+            <tbody id="orgRows"><tr><td colspan="9" style="color:var(--fg-2)">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -132,7 +158,17 @@ const $=id=>document.getElementById(id);
 const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let me=null, orgs=[], pendingByOrg={};
+let me=null, orgs=[], strikes=[], listings=[];
+let intentById={}, pendingByOrg={}, pendingByStrike={};
+
+/* The score's bands, verbatim from the engine's own constants
+   (statements.SCORE_BAND_GREEN = 80, statements.SCORE_BAND_AMBER = 60):
+   80 and over is green, 60 to 79 amber, below 60 red. */
+const SCORE_BAND_GREEN=80, SCORE_BAND_AMBER=60;
+const ORG_INTENTS=['record-sub-paid','open-audit-strike','cure-strike'];
+const STRIKE_SOURCE={seeker_check:'seeker check',audit:'audit',
+                     no_declaration:'no declaration',undeclared_evidence:'undeclared evidence'};
+const LISTING_BADGE={pending:'PENDING',live:'LIVE',declined:'DECLINED',hidden:'HIDDEN'};
 
 async function boot(){
   const {data}=await sb.auth.getSession();const s=data&&data.session;
@@ -157,6 +193,16 @@ function fmtMoney(map){
   if(!parts.length)return '—';
   return parts.map(([cur,amt])=>`<span class="cur">${esc(cur)}</span>${amt.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}`).join('<br>');
 }
+function fmtDate(v){
+  if(!v)return '—';
+  return new Date(v).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+/* Looked up inside the handlers rather than carried through onclick — a
+   name is free text an admin typed, and an onclick="" attribute has no
+   safe way to hold it (finding 1, fix round 1: esc() cannot protect a
+   single-quoted JS string, because the browser HTML-decodes &#39; back to
+   a literal quote before it compiles the attribute as script). */
+function orgName(orgId){const o=orgs.find(x=>x.id===orgId);return o?(o.name||'—'):'—';}
 
 async function load(){
   $('banner').innerHTML='';
@@ -170,15 +216,20 @@ async function load(){
   }
   orgs=oq.data||[];
 
-  const [strikesQ, ordersQ, intentsQ] = await Promise.all([
-    sb.from('strikes').select('org_id').is('cured_at', null),
+  const [strikesQ, listQ, ordersQ, intentsQ] = await Promise.all([
+    sb.from('strikes').select('*'),
+    sb.from('listings').select('id,org_id,hub,status'),
     sb.from('orders').select('org_provider,value,fee_rate,currency,confirmed_at,invoiced_at'),
     sb.from('engine_intents').select('id,type,payload_json,status,result_note')
-      .in('status',['pending','claimed','failed']).eq('type','record-sub-paid'),
+      .in('status',['pending','claimed','failed']).in('type',ORG_INTENTS),
   ]);
-
-  const strikeCounts={};
-  (strikesQ.data||[]).forEach(s=>{strikeCounts[s.org_id]=(strikeCounts[s.org_id]||0)+1;});
+  if(strikesQ.error)
+    $('banner').innerHTML+=`<div class="banner">Could not read strikes: ${esc(strikesQ.error.message)}.</div>`;
+  if(listQ.error)
+    $('banner').innerHTML+=`<div class="banner">Could not read listings: ${esc(listQ.error.message)}.
+      If this says the table does not exist, migration 0029 may not be applied yet.</div>`;
+  strikes=strikesQ.data||[];
+  listings=listQ.data||[];
 
   const feesByOrg={};
   (ordersQ.data||[]).forEach(o=>{
@@ -188,13 +239,18 @@ async function load(){
     m[cur]=(m[cur]||0)+Number(o.value||0)*Number(o.fee_rate||0);
   });
 
-  pendingByOrg={};
-  (intentsQ.data||[]).forEach(i=>{
-    const orgId=(i.payload_json||{}).org_id;
-    if(orgId!=null)pendingByOrg[orgId]=i;
+  intentById={};pendingByOrg={};pendingByStrike={};
+  /* Failed first, so a re-raised pending intent wins the display. */
+  const byState=(intentsQ.data||[]).slice().sort((a,b)=>
+    (a.status==='failed'?0:1)-(b.status==='failed'?0:1)||a.id-b.id);
+  byState.forEach(i=>{
+    intentById[i.id]=i;
+    const p=i.payload_json||{};
+    if(p.strike_id!=null)pendingByStrike[p.strike_id]=i;
+    else if(p.org_id!=null)pendingByOrg[p.org_id]=i;
   });
 
-  render(strikeCounts, feesByOrg);
+  render(feesByOrg);
 }
 
 function subBadge(o){
@@ -211,51 +267,135 @@ function hostBadge(label, status){
   return `<span class="hostb hostb-${esc(s)}">${esc(label)}: ${esc(s)}</span>`;
 }
 
-function render(strikeCounts, feesByOrg){
+/* The score as a banded number, with the engine's own breakdown as the
+   tooltip: the reasons it is not 100, in the order the formula applies
+   them. A site with no months due yet has no score, which is not a bad
+   score and is not shown as one. */
+function scoreCell(o){
+  if(o.score==null)
+    return '<span class="score score-none">not scored yet</span>';
+  const score=Number(o.score);
+  const band=score>=SCORE_BAND_GREEN?'green':score>=SCORE_BAND_AMBER?'amber':'red';
+  const d=o.score_detail||{};
+  const pen=d.penalties||{};
+  const window=d.window?`Window ${d.window.from} to ${d.window.to}`:'';
+  const lines=[
+    window,
+    d.months_due!=null?`${d.months_due} month(s) owed a declaration, ${d.missing||0} missing, ${d.late||0} late`:'',
+    d.lines!=null?`${d.lines} declared line(s), ${d.lines_with_evidence||0} backed by an email`:'',
+    d.evidence_months!=null?`${d.evidence_months} month(s) with evidence, ${d.declared_evidence_months||0} of them declared`:'',
+    d.uncured_strikes!=null?`${d.uncured_strikes} uncured strike(s), ${d.strikes_cured_in_window||0} cured in the window`:'',
+    Object.keys(pen).length?'Points off: '+Object.keys(pen).map(k=>`${k.replace(/_/g,' ')} ${Number(pen[k]).toFixed(1)}`).join(', '):'',
+  ].filter(Boolean);
+  const when=o.score_computed_at?`computed ${fmtDate(o.score_computed_at)}`:'not computed yet';
+  return `<span class="score score-${band}" title="${esc(lines.join('\n')||'No breakdown recorded.')}">${esc(score)}
+    <span class="when">${esc(when)}</span></span>`;
+}
+
+function listingCell(orgId){
+  const mine=listings.filter(l=>l.org_id===orgId);
+  if(!mine.length)return '<span class="muted">none</span>';
+  const order={print:0,mill:1};
+  return mine.slice().sort((a,b)=>(order[a.hub]||9)-(order[b.hub]||9))
+    .map(l=>`<span class="listb">${esc(l.hub)}: <span class="stg stg-${esc(l.status)}">${esc(LISTING_BADGE[l.status]||l.status)}</span></span>`)
+    .join('');
+}
+
+function strikeCell(orgId){
+  const mine=strikes.filter(s=>s.org_id===orgId);
+  const open=mine.filter(s=>!s.cured_at);
+  const cured=mine.length-open.length;
+  if(!open.length)
+    return `<span class="muted">none${cured?` (${cured} cured)`:''}</span>`;
+  const today=new Date().toISOString().slice(0,10);
+  return open.map(s=>{
+    const q=pendingByStrike[s.id];
+    const late=s.cure_by&&s.cure_by<today;
+    const act=q
+      ? manageFor(q,'')
+      : `<button class="btn btn-gh btn-sm" onclick="cureStrike(${s.id})">Cure</button>`;
+    return `<span class="strike">
+      <span class="src">${esc(STRIKE_SOURCE[s.source]||s.source)}</span>
+      <span class="due ${late?'overdue':''}">cure by ${esc(fmtDate(s.cure_by))}</span>
+      ${s.order_ref?`<br><span class="muted">${esc(s.order_ref)}</span>`:''}
+      ${s.notes?`<br><span class="muted">${esc(s.notes)}</span>`:''}
+      <br>${act}</span>`;
+  }).join('')+(cured?`<span class="muted">${cured} cured</span>`:'');
+}
+
+function pipedriveCell(o){
+  const bits=[
+    o.pipedrive_org_id?`org ${esc(o.pipedrive_org_id)}`:'',
+    o.pipedrive_lead_id?`lead ${esc(o.pipedrive_lead_id)}`:'',
+  ].filter(Boolean);
+  return bits.length
+    ?`<br><span class="muted pd">Pipedrive: ${bits.join(', ')}</span>`
+    :'<br><span class="muted">not linked to Pipedrive</span>';
+}
+
+/* A queued or failed intent replaces the buttons it came from. */
+function manageFor(q,fallback){
+  if(q&&q.status==='failed')
+    return `<span class="status fail">Failed: ${esc(q.result_note||'')}</span>
+      <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button>`;
+  if(q)return '<span class="status">Queued, moments away.</span>';
+  return fallback;
+}
+
+function render(feesByOrg){
   $('count').textContent=orgs.length?`${orgs.length} organisation${orgs.length===1?'':'s'}`:'';
   $('orgRows').innerHTML = orgs.length ? orgs.map(o=>{
     const q=pendingByOrg[o.id];
-    const strikes=strikeCounts[o.id]||0;
-    let manage;
-    if(q&&q.status==='failed'){
-      manage=`<span class="status fail">Failed: ${esc(q.result_note||'')}</span>
-        <button class="btn btn-gh btn-sm" onclick="retry(${JSON.stringify(q.id)})">Try again</button>`;
-    }else if(q){
-      manage=`<span class="status">Queued — moments away.</span>`;
-    }else{
-      manage=o.sub_period
-        ?`<button class="btn btn-grn btn-sm" onclick="recordPaid('${esc(o.id)}','${esc((o.name||'').replace(/'/g,"\\'"))}')">
+    const buttons=[
+      o.sub_period
+        ?`<button class="btn btn-grn btn-sm" data-org-id="${esc(o.id)}" onclick="recordPaid(this.dataset.orgId)">
             <span class="material-symbols-outlined" aria-hidden="true">payments</span>Record payment</button>`
-        :'<span class="muted">no subscription yet</span>';
-    }
+        :'<span class="muted">no subscription yet</span>',
+      `<button class="btn btn-danger btn-sm" data-org-id="${esc(o.id)}" onclick="openAuditStrike(this.dataset.orgId)">
+        <span class="material-symbols-outlined" aria-hidden="true">gavel</span>Open audit strike</button>`,
+    ].join('');
     return `<tr>
       <td><strong>${esc(o.name||'(unnamed)')}</strong>${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}
-        ${o.fee_exempt_note?`<br><span class="muted">${esc(o.fee_exempt_note)}</span>`:''}</td>
+        ${o.fee_exempt_note?`<br><span class="muted">${esc(o.fee_exempt_note)}</span>`:''}${pipedriveCell(o)}</td>
+      <td>${scoreCell(o)}</td>
       <td>${subBadge(o)}</td>
       <td>${hostBadge('Print',o.host_print)}${hostBadge('Mill',o.host_mill)}</td>
-      <td>${strikes?`<span class="hidden-flag">${strikes} open</span>`:'<span class="muted">none</span>'}</td>
+      <td>${listingCell(o.id)}</td>
+      <td>${strikeCell(o.id)}</td>
       <td class="fees">${fmtMoney(feesByOrg[o.id])}</td>
       <td>${o.hidden_at?`<span class="hidden-flag">Hidden</span>`:'<span class="muted">visible</span>'}</td>
-      <td><div class="actions" style="margin-top:0">${manage}</div></td>
+      <td><div class="actions" style="margin-top:0">${manageFor(q,buttons)}</div></td>
     </tr>`;
-  }).join('') : '<tr><td colspan="7">No organisations yet.</td></tr>';
+  }).join('') : '<tr><td colspan="9">No organisations yet.</td></tr>';
 }
 
 async function raise(type,payload,verb){
   const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
   if(error){$('banner').innerHTML=`<div class="banner">Could not queue it: ${esc(error.message)}</div>`;return;}
-  $('banner').innerHTML=`<div class="banner" style="border-color:var(--ok-line);color:var(--ok-ink)">${esc(verb)} — queued — the engine acts within a minute or two.</div>`;
+  $('banner').innerHTML=`<div class="banner" style="border-color:var(--ok-line);color:var(--ok-ink)">${esc(verb)}, queued. The engine acts within a minute or two.</div>`;
   setTimeout(load,1200);
 }
-function recordPaid(orgId,name){
-  if(!confirm(`Record the subscription for "${name}" as paid? This advances the renewal date by one period${''}.`))return;
+function recordPaid(orgId){
+  if(!confirm(`Record the subscription for "${orgName(orgId)}" as paid? This advances the renewal date by one period.`))return;
   raise('record-sub-paid',{org_id:orgId},'Payment recorded');
 }
+/* The only cure path an audit strike has: the automatic pass in the
+   engine never touches source='audit'. */
+function cureStrike(strikeId){
+  const note=prompt('How was this cured? (appended to the strike, optional)','');
+  if(note===null)return;
+  raise('cure-strike',{strike_id:strikeId,note:note.trim()},'Strike cured');
+}
+function openAuditStrike(orgId){
+  const notes=prompt(`Why is an audit strike being opened against "${orgName(orgId)}"? (kept on the strike)`,'');
+  if(notes===null)return;
+  if(!notes.trim()){alert('An audit strike carries its reason.');return;}
+  raise('open-audit-strike',{org_id:orgId,notes:notes.trim()},'Audit strike opened');
+}
 function retry(intentId){
-  sb.from('engine_intents').select('type,payload_json').eq('id',intentId).single().then(({data})=>{
-    if(!data)return;
-    raise(data.type,data.payload_json,'Sent again');
-  });
+  const i=intentById[intentId];
+  if(!i)return;
+  raise(i.type,i.payload_json||{},'Sent again');
 }
 
 boot();

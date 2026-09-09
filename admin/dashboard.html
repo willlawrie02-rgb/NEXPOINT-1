@@ -27,9 +27,12 @@ OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
 ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
 accent, green reserved for "go" semantics, the square logo in a translucent bar.
 STORY: one glance answers "what needs a decision?" — four numbers across the
-hubs, then a needs-attention list where every row carries the link that acts
-on it. Reads only; every action happens on the board it links to.
-FIRST VIEWPORT: brand bar, boards tabs, "Dashboard", four stat tiles, then
+hubs, four more across the hub v2 queues (listings waiting on a review,
+seeker requests waiting on a match, order emails waiting to be placed,
+statements waiting to be invoiced), then a needs-attention list where every
+row carries the link that acts on it. Reads only; every action happens on
+the board it links to.
+FIRST VIEWPORT: brand bar, boards tabs, "Dashboard", the stat tiles, then
 the needs-attention rows.
 FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 -->
@@ -87,7 +90,9 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         </div>
         <p class="note">
           The hubs at a glance. Numbers read straight from the database; every action
-          happens on the board each row links to.
+          happens on the board each row links to. The second row of tiles is the hub v2
+          queues: listings to review, seeker requests open, order emails still to be
+          placed, and statements issued but not yet invoiced.
         </p>
         <div id="banner"></div>
 
@@ -96,6 +101,13 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <div class="tile"><div class="k">Awaiting approval</div><div class="v" id="t_rev">—</div><div class="s" id="t_rev_s"></div></div>
           <div class="tile"><div class="k">Live introductions</div><div class="v" id="t_live">—</div><div class="s" id="t_live_s"></div></div>
           <div class="tile"><div class="k">Commission outstanding</div><div class="v" id="t_comm">—</div><div class="s" id="t_comm_s"></div></div>
+        </div>
+
+        <div class="tiles" id="tiles2">
+          <div class="tile"><div class="k">Listings to review</div><div class="v" id="t_lst">—</div><div class="s" id="t_lst_s"></div></div>
+          <div class="tile"><div class="k">Seeker requests open</div><div class="v" id="t_sreq">—</div><div class="s" id="t_sreq_s"></div></div>
+          <div class="tile"><div class="k">Unmatched evidence</div><div class="v" id="t_ev">—</div><div class="s" id="t_ev_s"></div></div>
+          <div class="tile"><div class="k">Statements to invoice</div><div class="v" id="t_st">—</div><div class="s" id="t_st_s"></div></div>
         </div>
 
         <div class="colhead"><h2>Needs attention</h2><span class="n" id="attnN"></span><span class="rule"></span></div>
@@ -188,7 +200,38 @@ async function load(){
   $('t_comm_s').textContent=invoiced.length
     ?`${invoiced.length} invoice${invoiced.length===1?'':'s'} unpaid`:'no invoices outstanding';
 
-  // Needs attention: every new request, every invoiced introduction.
+  // Hub v2 queues. Every one is behind migration 0029, so a missing table
+  // leaves its tile blank and says why rather than blanking the board.
+  const [lstQ,sreqQ,evQ,stQ]=await Promise.all([
+    sb.from('listings').select('id,hub,status,pending_revision_id'),
+    sb.from('seeker_requests').select('id,hub,status'),
+    sb.from('order_evidence').select('id,status,disputed_at,resolved_at'),
+    sb.from('statements').select('id,status,totals'),
+  ]);
+  const notYet='migration 0029 not applied yet';
+  const toReview=(lstQ.data||[]).filter(l=>l.status==='pending'||l.pending_revision_id);
+  $('t_lst').textContent=lstQ.error?'—':toReview.length;
+  $('t_lst_s').textContent=lstQ.error?notYet
+    :(toReview.length?'waiting on a listing review':'review queue clear');
+
+  const openReqs=(sreqQ.data||[]).filter(r=>r.status==='open'||r.status==='picked'||r.status==='desk');
+  $('t_sreq').textContent=sreqQ.error?'—':openReqs.length;
+  $('t_sreq_s').textContent=sreqQ.error?notYet
+    :(openReqs.length?`${openReqs.filter(r=>r.status==='picked').length} with picks to approve`
+      :'nothing waiting on a match');
+
+  const homeless=(evQ.data||[]).filter(e=>e.status==='unmatched'||(e.disputed_at&&!e.resolved_at));
+  $('t_ev').textContent=evQ.error?'—':homeless.length;
+  $('t_ev_s').textContent=evQ.error?notYet
+    :(homeless.length?'order emails to place or rule on':'every order email is placed');
+
+  const issued=(stQ.data||[]).filter(x=>x.status==='issued');
+  $('t_st').textContent=stQ.error?'—':issued.length;
+  $('t_st_s').textContent=stQ.error?notYet
+    :(issued.length?'issued, not yet invoiced':'nothing awaiting an invoice');
+
+  // Needs attention: every new request, every invoiced introduction, and
+  // the two money queues that go stale silently.
   const rows=[];
   fresh.sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
   fresh.forEach(r=>rows.push(`<div class="row attn">
@@ -205,9 +248,24 @@ async function load(){
     <span class="spacer"></span>
     <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[i.hub]||'dashboard.html')}">Chase payment</a>
   </div>`));
+  if(homeless.length)rows.push(`<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">mark_email_unread</span>
+    <span class="t"><strong>${homeless.length} order email${homeless.length===1?'':'s'}</strong> waiting to be placed
+      <span class="sub">the CC inbox matched no reference, or a site has disputed one</span></span>
+    <span class="spacer"></span>
+    <a class="btn btn-gh btn-sm" href="orders.html">Open the evidence queue</a>
+  </div>`);
+  if(issued.length)rows.push(`<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+    <span class="t"><strong>${issued.length} statement${issued.length===1?'':'s'}</strong> issued, not yet invoiced
+      <span class="sub">the fee is billed once the statement is marked invoiced</span></span>
+    <span class="spacer"></span>
+    <a class="btn btn-gh btn-sm" href="orders.html">Open statements</a>
+  </div>`);
   $('attnN').textContent=rows.length;
   $('attn').innerHTML=rows.length?rows.join('')
-    :`<div class="empty">Nothing needs attention. New requests and unpaid invoices appear here.</div>`;
+    :`<div class="empty">Nothing needs attention. New requests, unpaid invoices, homeless order
+       emails and statements awaiting an invoice all appear here.</div>`;
 }
 
 boot();
