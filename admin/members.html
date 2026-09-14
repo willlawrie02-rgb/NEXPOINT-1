@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>NexPoint Admin — Members</title>
+<title>NexPoint Admin — Accounts</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -23,12 +23,14 @@ no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
 OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
 ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
 accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
-STORY: the Global Hub's member register — who joined, where they are, what
-they're interested in, whether they have confirmed their email (the gate the
-worker holds every acting route behind), the Pipedrive person the account is
-tied to, and how many hub requests they've raised. Read-only: members manage
-their own details, this board is for visibility only.
-FIRST VIEWPORT: brand bar, boards tabs, "Members", then the member register
+STORY: the Global Hub's account register — every site that registered, where
+it is, what it's interested in, whether it has confirmed its email (the gate
+the worker holds every acting route behind), the Pipedrive person the account
+is tied to, and how many hub requests it has raised. An account with an
+approved listing is a host; the product never says "member" (the table name
+member_profiles is the one survivor, in code only). Read-only: accounts
+manage their own details, this board is for visibility only.
+FIRST VIEWPORT: brand bar, boards tabs, "Accounts", then the account register
 table.
 FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 -->
@@ -65,34 +67,41 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
   <main>
     <div class="wrap">
       <nav class="boards" aria-label="Admin boards">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="leads.html">Leads</a>
-        <a href="tasks.html">Tasks</a>
-        <a href="health.html">Health</a>
-        <a href="print-hub.html">Print Hub</a>
-        <a href="mill-hub.html">Mill Hub</a>
-        <a href="opportunities.html">Opportunities</a>
-        <a href="members.html" aria-current="page">Members</a>
-        <a href="organisations.html">Organisations</a>
-        <a href="orders.html">Orders</a>
-        <a href="campaigns.html">Campaigns</a>
-        <a href="linkedin.html">LinkedIn</a>
+        <span class="navgroup">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="leads.html">Leads</a>
+          <a href="tasks.html">Tasks</a>
+          <a href="print-hub.html">Print Hub</a>
+          <a href="mill-hub.html">Mill Hub</a>
+          <a href="opportunities.html">Opportunities</a>
+        </span>
+        <span class="navgroup">
+          <a href="introductions.html">Introductions</a>
+          <a href="members.html" aria-current="page">Accounts</a>
+          <a href="organisations.html">Organisations</a>
+          <a href="orders.html">Orders</a>
+        </span>
+        <span class="navgroup">
+          <a href="health.html">Health</a>
+          <a href="campaigns.html">Campaigns</a>
+          <a href="linkedin.html">LinkedIn</a>
+        </span>
       </nav>
 
       <div class="arrive">
         <div class="intro">
-          <h1>Members</h1>
+          <h1>Accounts</h1>
           <span class="count" id="count"></span>
         </div>
         <p class="note">
-          Everyone registered on the Global Hub, with the date each confirmed their email
-          and the Pipedrive person the account is tied to. Read-only: members manage their
-          own details, this board is for visibility only.
+          Every site account registered on the Global Hub, with the date each confirmed its
+          email and the Pipedrive person it is tied to. Accounts with an approved listing are
+          hosts. Read-only: accounts manage their own details, this board is for visibility only.
         </p>
         <div class="register">
           <table>
             <thead><tr>
-              <th scope="col">Member</th><th scope="col">Company</th><th scope="col">Location</th><th scope="col">Interests</th><th scope="col">Joined</th>
+              <th scope="col">Account</th><th scope="col">Company</th><th scope="col">Location</th><th scope="col">Interests</th><th scope="col">Joined</th>
               <th scope="col">Confirmed</th><th scope="col">Pipedrive</th><th scope="col">Requests</th>
             </tr></thead>
             <tbody id="membersBody"><tr><td colspan="8" style="color:var(--fg-2)">Loading…</td></tr></tbody>
@@ -140,7 +149,7 @@ async function loadMembers(){
     .select('user_id,name,company,email,region,country,town,interests,created_at,email_confirmed_at,pipedrive_person_id')
     .order('created_at', { ascending: false });
   if (error){
-    $('membersBody').innerHTML = `<tr><td colspan="8">Couldn't load members: ${esc(error.message)}.
+    $('membersBody').innerHTML = `<tr><td colspan="8">Couldn't load accounts: ${esc(error.message)}.
       If this says a column does not exist, migration 0029 may not be applied yet.</td></tr>`;
     return;
   }
@@ -149,7 +158,7 @@ async function loadMembers(){
   (reqs || []).forEach(r => { counts[r.member_id] = (counts[r.member_id] || 0) + 1; });
   const unconfirmed = members.filter(m => !m.email_confirmed_at).length;
   $('count').textContent = members.length
-    ? `${members.length} member${members.length===1?'':'s'}${unconfirmed?` · ${unconfirmed} unconfirmed`:''}`
+    ? `${members.length} account${members.length===1?'':'s'}${unconfirmed?` · ${unconfirmed} unconfirmed`:''}`
     : '';
   $('membersBody').innerHTML = members.length ? members.map(m => `
     <tr>
@@ -163,7 +172,7 @@ async function loadMembers(){
         : '<span class="unconf">not confirmed</span>'}</td>
       <td class="pd">${m.pipedrive_person_id ? esc(m.pipedrive_person_id) : '<span class="muted">not linked</span>'}</td>
       <td>${counts[m.user_id] || 0}</td>
-    </tr>`).join('') : '<tr><td colspan="8">No members yet.</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="8">No accounts yet.</td></tr>';
 }
 
 boot();

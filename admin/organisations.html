@@ -28,7 +28,6 @@
   .hostb-declined { background: var(--cold-wash); color: var(--cold-ink); }
   .founding { background: var(--np-green); color: #fff; font: 700 9.5px/1 var(--font-body);
               padding: 3px 7px; margin-left: 6px; }
-  .hidden-flag { color: var(--err-ink); font-weight: 700; font-size: 12px; }
   .fees { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .fees .cur { color: var(--fg-2); font-size: 11.5px; margin-right: 4px; }
   /* Follow-through score — one number, banded, with the whole working
@@ -105,18 +104,25 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
   <main>
     <div class="wrap">
       <nav class="boards" aria-label="Admin boards">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="leads.html">Leads</a>
-        <a href="tasks.html">Tasks</a>
-        <a href="health.html">Health</a>
-        <a href="print-hub.html">Print Hub</a>
-        <a href="mill-hub.html">Mill Hub</a>
-        <a href="opportunities.html">Opportunities</a>
-        <a href="members.html">Members</a>
-        <a href="organisations.html" aria-current="page">Organisations</a>
-        <a href="orders.html">Orders</a>
-        <a href="campaigns.html">Campaigns</a>
-        <a href="linkedin.html">LinkedIn</a>
+        <span class="navgroup">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="leads.html">Leads</a>
+          <a href="tasks.html">Tasks</a>
+          <a href="print-hub.html">Print Hub</a>
+          <a href="mill-hub.html">Mill Hub</a>
+          <a href="opportunities.html">Opportunities</a>
+        </span>
+        <span class="navgroup">
+          <a href="introductions.html">Introductions</a>
+          <a href="members.html">Accounts</a>
+          <a href="organisations.html" aria-current="page">Organisations</a>
+          <a href="orders.html">Orders</a>
+        </span>
+        <span class="navgroup">
+          <a href="health.html">Health</a>
+          <a href="campaigns.html">Campaigns</a>
+          <a href="linkedin.html">LinkedIn</a>
+        </span>
       </nav>
 
       <div class="arrive">
@@ -128,8 +134,11 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           Every organisation on the Global Hub: the follow-through score and its working,
           subscription standing, host status and listings per hub, open strikes with their
           source and cure date, the Pipedrive ids, and fees owed on confirmed but uninvoiced
-          orders. Recording a payment queues the engine to advance the billing period and,
-          only when the organisation was hidden for a lapsed subscription, restore its listing.
+          orders. Recording a payment queues the engine to advance the billing period. A
+          company is On, Paused or Removed, and only you or Chris move it: Pause takes it
+          out of search and the desk's pickers with the record kept, Remove takes it off the
+          hub with its people unable to act, and both are reversible here. The engine never
+          changes a state itself; it tells you when a company needs a decision.
           Curing a strike closes it in the requester's name; an audit strike is the manual
           way to open one.
         </p>
@@ -138,10 +147,17 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <table>
             <thead><tr>
               <th scope="col">Organisation</th><th scope="col">Score</th><th scope="col">Subscription</th><th scope="col">Host status</th>
-              <th scope="col">Listings</th><th scope="col">Strikes</th><th scope="col">Fees owed</th><th scope="col">Hidden</th><th scope="col">Manage</th>
+              <th scope="col">Listings</th><th scope="col">Strikes</th><th scope="col">Fees owed</th><th scope="col">State</th><th scope="col">Manage</th>
             </tr></thead>
             <tbody id="orgRows"><tr><td colspan="9" style="color:var(--fg-2)">Loading…</td></tr></tbody>
           </table>
+        </div>
+
+        <div class="note-box">
+          <strong>Attribute definitions.</strong> The extra fields a host fills in on a listing or a
+          machine are defined by the <code>define-attribute</code> intent, which has no form here yet
+          (a prompt chain would be worse than the SQL editor). Until one lands, ask Claude Code, or
+          run <code>nx intents submit define-attribute --by you --payload '{…}'</code> from the engine.
         </div>
       </div>
     </div>
@@ -165,10 +181,14 @@ let intentById={}, pendingByOrg={}, pendingByStrike={};
    (statements.SCORE_BAND_GREEN = 80, statements.SCORE_BAND_AMBER = 60):
    80 and over is green, 60 to 79 amber, below 60 red. */
 const SCORE_BAND_GREEN=80, SCORE_BAND_AMBER=60;
-const ORG_INTENTS=['record-sub-paid','open-audit-strike','cure-strike'];
+const ORG_INTENTS=['record-sub-paid','open-audit-strike','cure-strike','pause-org','resume-org','remove-org','restore-org'];
 const STRIKE_SOURCE={seeker_check:'seeker check',audit:'audit',
                      no_declaration:'no declaration',undeclared_evidence:'undeclared evidence'};
 const LISTING_BADGE={pending:'PENDING',live:'LIVE',declined:'DECLINED',hidden:'HIDDEN'};
+/* Will's ruling (2026-09-10): a company is On, Paused or Removed, and only
+   a person moves it. Paused keeps hidden_at as its since-stamp. */
+const ORG_STATE={on:'ON',paused:'PAUSED',removed:'REMOVED'};
+function orgState(o){return o.removed_at?'removed':o.hidden_at?'paused':'on';}
 
 async function boot(){
   const {data}=await sb.auth.getSession();const s=data&&data.session;
@@ -346,14 +366,24 @@ function render(feesByOrg){
   $('count').textContent=orgs.length?`${orgs.length} organisation${orgs.length===1?'':'s'}`:'';
   $('orgRows').innerHTML = orgs.length ? orgs.map(o=>{
     const q=pendingByOrg[o.id];
+    const state=orgState(o);
     const buttons=[
-      o.sub_period
+      state==='removed'?'':(o.sub_period
         ?`<button class="btn btn-grn btn-sm" data-org-id="${esc(o.id)}" onclick="recordPaid(this.dataset.orgId)">
             <span class="material-symbols-outlined" aria-hidden="true">payments</span>Record payment</button>`
-        :'<span class="muted">no subscription yet</span>',
-      `<button class="btn btn-danger btn-sm" data-org-id="${esc(o.id)}" onclick="openAuditStrike(this.dataset.orgId)">
+        :'<span class="muted">no subscription yet</span>'),
+      state==='removed'
+        ?`<button class="btn btn-gh btn-sm" data-org-id="${esc(o.id)}" onclick="restoreOrg(this.dataset.orgId)">Restore to the hub</button>`
+        :state==='paused'
+          ?`<button class="btn btn-grn btn-sm" data-org-id="${esc(o.id)}" onclick="resumeOrg(this.dataset.orgId)">
+              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>Resume</button>`
+          :`<button class="btn btn-amb btn-sm" data-org-id="${esc(o.id)}" onclick="pauseOrg(this.dataset.orgId)">
+              <span class="material-symbols-outlined" aria-hidden="true">pause</span>Pause</button>`,
+      state==='removed'?'':`<button class="btn btn-danger btn-sm" data-org-id="${esc(o.id)}" onclick="openAuditStrike(this.dataset.orgId)">
         <span class="material-symbols-outlined" aria-hidden="true">gavel</span>Open audit strike</button>`,
-    ].join('');
+      state==='removed'?'':`<button class="btn btn-danger btn-sm" data-org-id="${esc(o.id)}" onclick="removeOrg(this.dataset.orgId)">
+        <span class="material-symbols-outlined" aria-hidden="true">delete</span>Remove from the hub</button>`,
+    ].filter(Boolean).join('');
     return `<tr>
       <td><strong>${esc(o.name||'(unnamed)')}</strong>${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}
         ${o.fee_exempt_note?`<br><span class="muted">${esc(o.fee_exempt_note)}</span>`:''}${pipedriveCell(o)}</td>
@@ -363,7 +393,7 @@ function render(feesByOrg){
       <td>${listingCell(o.id)}</td>
       <td>${strikeCell(o.id)}</td>
       <td class="fees">${fmtMoney(feesByOrg[o.id])}</td>
-      <td>${o.hidden_at?`<span class="hidden-flag">Hidden</span>`:'<span class="muted">visible</span>'}</td>
+      <td>${stateCell(o)}</td>
       <td><div class="actions" style="margin-top:0">${manageFor(q,buttons)}</div></td>
     </tr>`;
   }).join('') : '<tr><td colspan="9">No organisations yet.</td></tr>';
@@ -391,6 +421,37 @@ function openAuditStrike(orgId){
   if(notes===null)return;
   if(!notes.trim()){alert('An audit strike carries its reason.');return;}
   raise('open-audit-strike',{org_id:orgId,notes:notes.trim()},'Audit strike opened');
+}
+function stateCell(o){
+  const state=orgState(o);
+  const who=state==='removed'?o.removed_by:o.paused_by;
+  const why=state==='removed'?o.removed_reason:o.paused_reason;
+  const when=state==='removed'?o.removed_at:o.hidden_at;
+  const title=state==='on'?'On the hub: seekers can find it and the desk can route to it'
+    :`${ORG_STATE[state]} since ${String(when||'').slice(0,10)} by ${who||'unknown'}${why?': '+why:''}`;
+  return `<span class="stg stg-${esc(state)}" title="${esc(title)}">${ORG_STATE[state]}</span>${
+    state!=='on'?`<br><span class="muted">${esc(String(when||'').slice(0,10))} · ${esc(who||'unknown')}</span>`:''}`;
+}
+function pauseOrg(orgId){
+  const reason=prompt(`Why is "${orgName(orgId)}" being paused? Seekers stop seeing it and the desk stops routing to it; the record and its listings stay. (kept on the organisation)`,'');
+  if(reason===null)return;
+  if(!reason.trim()){alert('A pause carries its reason.');return;}
+  raise('pause-org',{org_id:orgId,reason:reason.trim()},'Paused');
+}
+function resumeOrg(orgId){
+  if(!confirm(`Resume "${orgName(orgId)}"? It goes back into search and the desk's pickers straight away.`))return;
+  raise('resume-org',{org_id:orgId},'Resumed');
+}
+function removeOrg(orgId){
+  const reason=prompt(`Why is "${orgName(orgId)}" being removed from the hub? Its people can still sign in to read, and can no longer act; the record is kept and you can restore it. (kept on the organisation)`,'');
+  if(reason===null)return;
+  if(!reason.trim()){alert('A removal carries its reason.');return;}
+  if(!confirm(`Remove "${orgName(orgId)}" from the hub now?`))return;
+  raise('remove-org',{org_id:orgId,reason:reason.trim()},'Removed');
+}
+function restoreOrg(orgId){
+  if(!confirm(`Restore "${orgName(orgId)}" to the hub? A pause recorded before the removal stands until you resume it.`))return;
+  raise('restore-org',{org_id:orgId},'Restored');
 }
 function retry(intentId){
   const i=intentById[intentId];

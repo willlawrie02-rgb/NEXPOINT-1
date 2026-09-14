@@ -26,7 +26,8 @@ briefs board, one click away.
 Every button raises an intent — the engine acts, the browser only asks, and
 the introduction email itself is always sent by a human from Outlook.
 FIRST VIEWPORT: brand bar, boards tabs, "Opportunities Hub", filters and the
-Manage briefs link, then the two request columns and the introductions register.
+Manage briefs link, the badge key, then the two request columns and the
+introductions register.
 FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 -->
 
@@ -62,18 +63,25 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
   <main>
     <div class="wrap">
       <nav class="boards" aria-label="Admin boards">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="leads.html">Leads</a>
-        <a href="tasks.html">Tasks</a>
-        <a href="health.html">Health</a>
-        <a href="print-hub.html">Print Hub</a>
-        <a href="mill-hub.html">Mill Hub</a>
-        <a href="opportunities.html" aria-current="page">Opportunities</a>
-        <a href="members.html">Members</a>
-        <a href="organisations.html">Organisations</a>
-        <a href="orders.html">Orders</a>
-        <a href="campaigns.html">Campaigns</a>
-        <a href="linkedin.html">LinkedIn</a>
+        <span class="navgroup">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="leads.html">Leads</a>
+          <a href="tasks.html">Tasks</a>
+          <a href="print-hub.html">Print Hub</a>
+          <a href="mill-hub.html">Mill Hub</a>
+          <a href="opportunities.html" aria-current="page">Opportunities</a>
+        </span>
+        <span class="navgroup">
+          <a href="introductions.html">Introductions</a>
+          <a href="members.html">Accounts</a>
+          <a href="organisations.html">Organisations</a>
+          <a href="orders.html">Orders</a>
+        </span>
+        <span class="navgroup">
+          <a href="health.html">Health</a>
+          <a href="campaigns.html">Campaigns</a>
+          <a href="linkedin.html">LinkedIn</a>
+        </span>
       </nav>
 
       <div class="arrive">
@@ -92,6 +100,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <a class="btn btn-gh btn-sm" href="index.html"><span class="material-symbols-outlined" aria-hidden="true">edit_note</span>Manage briefs</a>
         </div>
         <div id="banner"></div>
+        <div id="legend" class="legend"></div>
 
         <div class="cols">
           <section>
@@ -108,7 +117,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           </section>
         </div>
 
-        <div class="colhead"><h2>Introductions register</h2><span class="rule"></span></div>
+        <div class="colhead"><h2>Introductions register</h2><a class="see-all" href="introductions.html">This hub's only · see all hubs</a><span class="rule"></span></div>
         <div class="register">
           <table>
             <thead><tr><th scope="col">Ref</th><th scope="col">Party A</th><th scope="col">Party B</th><th scope="col">Stage</th><th scope="col">Commission</th><th scope="col">Manage</th></tr></thead>
