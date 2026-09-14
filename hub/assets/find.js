@@ -128,7 +128,7 @@
      who is signed out is sent off to register in the middle of step 1 and
      comes back through an email link to a fresh load of this page. What
      they typed is held here so the form they come back to is the form they
-     left. Its own key, not NPPending: that is a single slot and it holds
+     left. Its own key, not NPPendingFind: that is a single slot and it holds
      requests, and a held ask must not be able to push a held request out of
      it. The same 24 hours, for the same reason. */
   const DRAFT_KEY = 'np_find_draft';
@@ -848,12 +848,12 @@
      re-read here, is the only handle this page has on its own hold, and
      `heldSpec` says which in-memory ask that hold was written for. */
   function holdPending(theSpec, thePicks, termsVersionId) {
-    if (!window.NPPending) return;
+    if (!window.NPPendingFind) return;
     const held = { kind: 'request', hub: HUB, search: theSpec,
       picks: thePicks.slice(), terms_version_id: termsVersionId };
     if (requestId && filedSpec === theSpec) held.request_id = requestId;
-    NPPending.save(held);
-    const written = NPPending.load();
+    NPPendingFind.save(held);
+    const written = NPPendingFind.load();
     heldSpec = written ? theSpec : null;
     heldSavedAt = written ? written.saved_at : 0;
   }
@@ -873,10 +873,10 @@
      re-stamps the hold's clock, which is right: it now holds a real request
      that still needs its picks attached. */
   function rememberFiledRequest(id, savedAt) {
-    if (!window.NPPending || !savedAt) return;
-    const held = NPPending.load();
+    if (!window.NPPendingFind || !savedAt) return;
+    const held = NPPendingFind.load();
     if (!held || !held.search || held.saved_at !== savedAt || held.request_id === id) return;
-    NPPending.save(Object.assign({}, held, { request_id: id }));
+    NPPendingFind.save(Object.assign({}, held, { request_id: id }));
   }
 
   /* The request is filed once per ask. A retry after a failed picks call
@@ -969,7 +969,7 @@
   }
 
   function renderSuccess() {
-    if (window.NPPending) NPPending.clear();
+    if (window.NPPendingFind) NPPendingFind.clear();
     forgetHeldIdentity();
     const box = el('step3Body');
     if (!box) return;
@@ -1009,7 +1009,7 @@
          the request is not. The hold goes, because a card cannot ask for a
          tick, and the filed id stays in this module so nothing files twice.
          The seeker lands back on step 3 with the new text to read. */
-      if (window.NPPending) NPPending.clear();
+      if (window.NPPendingFind) NPPendingFind.clear();
       forgetHeldIdentity();
       await restoreForNewTerms(p.picks.slice());
     }

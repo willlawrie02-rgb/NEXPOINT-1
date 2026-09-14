@@ -832,8 +832,8 @@
 
     /* Signed out or unconfirmed, the listing is held so the account flow can
        come back to it rather than losing everything the host just typed. */
-    if ((!A.user || !A.confirmed()) && window.NPPending) {
-      NPPending.save({ kind: 'listing', hub: HUB, payload: built.payload });
+    if ((!A.user || !A.confirmed()) && window.NPPendingListing) {
+      NPPendingListing.save({ kind: 'listing', hub: HUB, payload: built.payload });
     }
     const btn = el('listingSubmit');
     const orig = btn ? btn.textContent : '';
@@ -852,13 +852,13 @@
     const d = await submitPayload(payload);
     submitting = false;
     if (d && d.ok) {
-      if (window.NPPending) NPPending.clear();
+      if (window.NPPendingListing) NPPendingListing.clear();
       renderSuccess();
       return;
     }
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = orig; }
     if (d && d.error === 'email_unconfirmed') {
-      if (window.NPPending) NPPending.save({ kind: 'listing', hub: HUB, payload: payload });
+      if (window.NPPendingListing) NPPendingListing.save({ kind: 'listing', hub: HUB, payload: payload });
       if (retried) {
         showError('We still need the link in your email clicked before this can be sent. ' +
           'Open it, then come back and send again.');
@@ -884,7 +884,7 @@
      held listing through here too, so there is a single submission path. */
   async function submitPayload(payload) {
     const d = await postJson('/listings', payload);
-    if (d && d.ok && window.NPPending) NPPending.clear();
+    if (d && d.ok && window.NPPendingListing) NPPendingListing.clear();
     return d;
   }
 

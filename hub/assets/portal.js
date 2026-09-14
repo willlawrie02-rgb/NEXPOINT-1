@@ -409,12 +409,26 @@ function eduSubmit(e){
   return false;
 }
 function openSignIn(){ openOverlay('signOverlay'); }
+/* One login at a time (audit plan 008): the modal is a real form now, so
+   Enter and a double click both arrive here, and the second must not fire a
+   second login while the first is in flight. */
+let signInFlight = false;
 async function signSubmit(){
+  if (signInFlight) return;
   const email = (document.getElementById('sEmail') || {}).value || '';
   const pass = (document.getElementById('sPass') || {}).value || '';
   const err = document.querySelector('#signContent .np-sign-error');
   if (!window.NPAccount){ if (err){ err.style.display = 'block'; err.textContent = 'Accounts are briefly unavailable. Email hello@nexpoint.co.uk and we will help directly.'; } return; }
-  const d = await NPAccount.signIn(email.trim(), pass);
+  const submit = document.querySelector('#signContent button[type=submit]');
+  signInFlight = true;
+  if (submit) submit.disabled = true;
+  let d;
+  try {
+    d = await NPAccount.signIn(email.trim(), pass);
+  } finally {
+    signInFlight = false;
+    if (submit && submit.isConnected) submit.disabled = false;
+  }
   if (d.ok){
     document.getElementById('signContent').innerHTML = `
       <div class="success">
@@ -841,18 +855,30 @@ function kindFor(pending){
     ? PENDING_KINDS[pending.kind] : null;
 }
 
+/* The three held-action stores (audit plan 008), in the order a page offers
+   them: the find request, then a held listing, then a desk request. The
+   first present one that this page can replay gets the card. A hold
+   stamped with another account's email is cleared, never offered. */
+function pendingStores(){
+  return [window.NPPendingFind, window.NPPendingListing, window.NPPending].filter(Boolean);
+}
 function checkPendingReplay(){
   if (!window.NPAccount || !window.NPPending) return;
   if (!NPAccount.user || !NPAccount.confirmed()) return;
-  const p = NPPending.load();
-  if (!p) return;
-  const kind = kindFor(p);
-  if (!kind || !kind.ready()) return;
-  if (p.hub && p.hub !== hubOfPage()) return;
-  renderPendingCard(p, kind);
+  for (const store of pendingStores()){
+    const p = store.load();
+    if (!p) continue;
+    if (NPAccount.heldByAnotherAccount && NPAccount.heldByAnotherAccount(p)){ store.clear(); continue; }
+    const kind = kindFor(p);
+    if (!kind || !kind.ready()) continue;
+    if (p.hub && p.hub !== hubOfPage()) continue;
+    renderPendingCard(p, kind, store);
+    return;
+  }
 }
 
-function renderPendingCard(pending, kind){
+function renderPendingCard(pending, kind, store){
+  store = store || window.NPPending;
   if (document.getElementById('npPendingCard')) return;
   const wrap = document.createElement('div');
   wrap.className = 'container';
@@ -873,7 +899,7 @@ function renderPendingCard(pending, kind){
     btn.disabled = true; btn.textContent = 'Sending…';
     const d = await kind.submit(pending);
     if (d && d.ok){
-      NPPending.clear();
+      store.clear();
       /* The page said it itself: get out of the way rather than say it again. */
       if (!kind.done){ wrap.remove(); return; }
       card.innerHTML = '<span>' + kind.done + '</span>';
@@ -888,7 +914,7 @@ function renderPendingCard(pending, kind){
     /* The module dropped the held action while handling this: it has taken
        the seeker on somewhere else in the page (stale terms wanting a fresh
        tick), so the card no longer stands for anything. */
-    if (window.NPPending && !NPPending.load()){ wrap.remove(); return; }
+    if (!store.load()){ wrap.remove(); return; }
     btn.disabled = false; btn.textContent = kind.send;
     let err = card.querySelector('.pending-error');
     if (!err){
@@ -901,7 +927,7 @@ function renderPendingCard(pending, kind){
       'That did not send. Try again, or email hello@nexpoint.co.uk.';
   });
   card.querySelector('[data-np-pending-skip]').addEventListener('click', () => {
-    NPPending.clear();
+    store.clear();
     wrap.remove();
   });
 }
