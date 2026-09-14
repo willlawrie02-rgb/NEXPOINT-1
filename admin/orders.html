@@ -138,18 +138,25 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
   <main>
     <div class="wrap">
       <nav class="boards" aria-label="Admin boards">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="leads.html">Leads</a>
-        <a href="tasks.html">Tasks</a>
-        <a href="health.html">Health</a>
-        <a href="print-hub.html">Print Hub</a>
-        <a href="mill-hub.html">Mill Hub</a>
-        <a href="opportunities.html">Opportunities</a>
-        <a href="members.html">Members</a>
-        <a href="organisations.html">Organisations</a>
-        <a href="orders.html" aria-current="page">Orders</a>
-        <a href="campaigns.html">Campaigns</a>
-        <a href="linkedin.html">LinkedIn</a>
+        <span class="navgroup">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="leads.html">Leads</a>
+          <a href="tasks.html">Tasks</a>
+          <a href="print-hub.html">Print Hub</a>
+          <a href="mill-hub.html">Mill Hub</a>
+          <a href="opportunities.html">Opportunities</a>
+        </span>
+        <span class="navgroup">
+          <a href="introductions.html">Introductions</a>
+          <a href="members.html">Accounts</a>
+          <a href="organisations.html">Organisations</a>
+          <a href="orders.html" aria-current="page">Orders</a>
+        </span>
+        <span class="navgroup">
+          <a href="health.html">Health</a>
+          <a href="campaigns.html">Campaigns</a>
+          <a href="linkedin.html">LinkedIn</a>
+        </span>
       </nav>
 
       <div class="arrive">
@@ -324,7 +331,8 @@ function fmtTotals(totals,key){
   if(!parts.length)return '—';
   return parts.map(([cur,b])=>`<span class="cur">${esc(cur)}</span>${amount((b||{})[key])}`).join('<br>');
 }
-function orgName(id){return (id&&orgById[id])?orgById[id]:'—';}
+/* Ids beat blanks: a party whose name did not load still says which org it is. */
+function orgName(id){if(id==null||id==='')return '—';return orgById[id]||('org '+id);}
 const introRef=i=>i?(i.ref||('INTRO-'+String(i.id).padStart(4,'0'))):'—';
 function refOf(id){return id==null?'—':introRef(introById[id]);}
 function monthLabel(period){
@@ -399,6 +407,8 @@ async function load(){
   if(introQ.error)warn('introductions',introQ.error,'');
   if(ordQ.error)warn('the legacy order ledger',ordQ.error,
     'Migration 0024 (schema) and 0025 (engine_worker grants) may not be applied yet.');
+  if(orgQ.error)warn('organisations',orgQ.error,
+    'Party names show as their ids until this read succeeds.');
   introError=!!introQ.error;
 
   statements=stQ.data||[];

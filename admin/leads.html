@@ -123,18 +123,25 @@ finish review, the verdict, and DESIGN.md
   <main>
     <div class="wrap">
       <nav class="boards" aria-label="Admin boards">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="leads.html" aria-current="page">Leads</a>
-        <a href="tasks.html">Tasks</a>
-        <a href="health.html">Health</a>
-        <a href="print-hub.html">Print Hub</a>
-        <a href="mill-hub.html">Mill Hub</a>
-        <a href="opportunities.html">Opportunities</a>
-        <a href="members.html">Members</a>
-        <a href="organisations.html">Organisations</a>
-        <a href="orders.html">Orders</a>
-        <a href="campaigns.html">Campaigns</a>
-        <a href="linkedin.html">LinkedIn</a>
+        <span class="navgroup">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="leads.html" aria-current="page">Leads</a>
+          <a href="tasks.html">Tasks</a>
+          <a href="print-hub.html">Print Hub</a>
+          <a href="mill-hub.html">Mill Hub</a>
+          <a href="opportunities.html">Opportunities</a>
+        </span>
+        <span class="navgroup">
+          <a href="introductions.html">Introductions</a>
+          <a href="members.html">Accounts</a>
+          <a href="organisations.html">Organisations</a>
+          <a href="orders.html">Orders</a>
+        </span>
+        <span class="navgroup">
+          <a href="health.html">Health</a>
+          <a href="campaigns.html">Campaigns</a>
+          <a href="linkedin.html">LinkedIn</a>
+        </span>
       </nav>
 
       <div class="arrive">
@@ -268,7 +275,11 @@ async function load(){
     .select('id,type,payload_json,status,result_note')
     .in('status',['pending','claimed','failed']);
   const pendingFor={};
-  (intents||[]).forEach(i=>{const r=i.payload_json&&i.payload_json.queue_row;if(r!=null)pendingFor[r]=i;});
+  /* Failed first then ascending id, so a re-raised pending intent wins the
+     display over the failure it replaced (hub-board.js's ordering). */
+  (intents||[]).slice().sort((a,b)=>
+    (a.status==='failed'?0:1)-(b.status==='failed'?0:1)||a.id-b.id)
+  .forEach(i=>{const r=i.payload_json&&i.payload_json.queue_row;if(r!=null)pendingFor[r]=i;});
   render(pendingFor);
 }
 

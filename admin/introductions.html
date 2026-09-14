@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint Admin — Introductions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+<style>
+  .register td.hub { white-space: nowrap; color: var(--fg-2); }
+  .register td.dt { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--fg-2); }
+</style>
+</head>
+<body>
+<!--
+THESIS: The admin is the main site's back office — same light material world,
+no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
+OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
+ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
+accent, green reserved for "go" semantics, the square logo in a translucent bar.
+STORY: every introduction on every hub at every stage, dead ones included, in
+one register — so "what is the state of INTRO-0012?" no longer needs its hub
+known first. Stage chips filter it; each row links to the hub board that
+holds its controls. Read-only by design: the stage dropdown, commission and
+re-route controls stay on the hub boards, and every one of those raises an
+engine_intents row. This page raises nothing.
+FIRST VIEWPORT: brand bar, boards tabs, "Introductions", the stage chips, then
+the register.
+FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
+-->
+
+<div id="login" class="door" style="display:none">
+  <img class="door-logo" src="nexpoint-logo.png" alt="NexPoint">
+  <h1>Admin sign in</h1>
+  <p>The opportunity board, leads, tasks and engine health.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+  <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
+</div>
+
+<div id="admin" style="display:none">
+  <header class="topbar">
+    <div class="wrap bar">
+      <a class="brandmark" href="dashboard.html">
+        <img src="nexpoint-logo.png" alt="NexPoint">
+        <span class="admin-tag">Admin</span>
+      </a>
+      <div class="session">
+        <span class="who" id="who"></span>
+        <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <nav class="boards" aria-label="Admin boards">
+        <span class="navgroup">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="leads.html">Leads</a>
+          <a href="tasks.html">Tasks</a>
+          <a href="print-hub.html">Print Hub</a>
+          <a href="mill-hub.html">Mill Hub</a>
+          <a href="opportunities.html">Opportunities</a>
+        </span>
+        <span class="navgroup">
+          <a href="introductions.html" aria-current="page">Introductions</a>
+          <a href="members.html">Accounts</a>
+          <a href="organisations.html">Organisations</a>
+          <a href="orders.html">Orders</a>
+        </span>
+        <span class="navgroup">
+          <a href="health.html">Health</a>
+          <a href="campaigns.html">Campaigns</a>
+          <a href="linkedin.html">LinkedIn</a>
+        </span>
+      </nav>
+
+      <div class="arrive">
+        <div class="intro">
+          <h1>Introductions</h1>
+          <span class="count" id="count"></span>
+        </div>
+        <p class="note">
+          Every introduction on every hub, at every stage, dead ones included. Read-only:
+          the stage dropdown, commission and re-route controls stay on each hub's board,
+          one click away on the row.
+        </p>
+        <div class="toolbar"><div id="filters" style="display:contents"></div></div>
+        <div id="banner"></div>
+
+        <div class="register">
+          <table>
+            <thead><tr>
+              <th scope="col">Ref</th><th scope="col">Hub</th><th scope="col">Party A</th><th scope="col">Party B</th>
+              <th scope="col">Stage</th><th scope="col">Created</th><th scope="col">Last moved</th><th scope="col">Board</th>
+            </tr></thead>
+            <tbody id="introRows"><tr><td colspan="8" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI gate; real gate is database RLS
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let me=null,intros=[],filter='all';
+let reqById={},listingById={},seekById={},orgById={};
+
+async function boot(){
+  const {data}=await sb.auth.getSession();
+  const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)) showAdmin(s.user); else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))
+    $('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const email=$('email').value.trim(),password=$('pw').value;
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  showAdmin(data.user);
+}
+async function signOut(){await sb.auth.signOut();location.reload();}
+function showAdmin(user){
+  me=user;$('login').style.display='none';$('admin').style.display='block';
+  $('who').textContent=user.email;
+  load();
+}
+
+/* ── Vocabulary ────────────────────────────────────────────────────── */
+
+const HUB_PAGE={print:'print-hub.html',mill:'mill-hub.html',opportunities:'opportunities.html'};
+const HUB_NAME={print:'Print',mill:'Mill',opportunities:'Opportunities'};
+/* Lifecycle order, acceptance flow first, the terminal states last. */
+const STAGE_ORDER=['proposed','awaiting_acceptance','approved','introduced','in_discussion',
+  'deal_done','invoiced','paid','expired','declined','dead'];
+const STAGE_LABEL={proposed:'PROPOSED',awaiting_acceptance:'AWAITING ACCEPTANCE',
+  approved:'APPROVED',introduced:'INTRODUCED',in_discussion:'IN DISCUSSION',
+  deal_done:'DEAL DONE',dead:'DEAD',invoiced:'INVOICED',paid:'PAID',
+  expired:'EXPIRED',declined:'DECLINED'};
+/* The same lines hub-board.js's STATUS_HELP.stage carries. Copied, not
+   loaded: every non-hub board is self-contained, and this page must never
+   pick up the hub module's intent-raising controls. */
+const STAGE_HELP={
+  proposed:'A pick the seeker made. Nobody has been asked yet; approve the picks to ask the provider',
+  awaiting_acceptance:'The provider has been asked and has not yet accepted or declined',
+  approved:'Both sides approved; the introduction email has not gone yet',
+  introduced:'The parties have been put together',
+  in_discussion:'The parties are talking',
+  deal_done:'Business agreed; commission to record',
+  dead:'Went nowhere. Kept in the database and the archive, off the working board',
+  invoiced:'Commission invoiced, payment outstanding',
+  paid:'Commission paid; closed',
+  expired:'The provider never answered in time. Re-route the seeker to another site',
+  declined:'The provider said no. Re-route the seeker to another site',
+};
+/* The dashboard's definition of live: the desk has put the parties together
+   and the introduction has not ended. */
+const LIVE_STAGES=['approved','introduced','in_discussion','deal_done','invoiced'];
+const introRef=i=>i.ref||('INTRO-'+String(i.id).padStart(4,'0'));
+const SIDE_PREFIX={offer_capacity:'H',request_capacity:'S',list_opportunity:'L',request_intro:'I'};
+/* A website enquiry's ref carries its OWN hub's letter: this page mixes hubs. */
+const reqRef=r=>`${String(r.hub||'r')[0].toUpperCase()}${SIDE_PREFIX[r.side]||'R'}-${String(r.id).padStart(4,'0')}`;
+const seekRef=r=>`REQ-${String(r.id).padStart(4,'0')}`;
+const day=v=>v?String(v).slice(0,10):'—';
+
+/* ── Data ──────────────────────────────────────────────────────────── */
+
+async function load(){
+  $('banner').innerHTML='';
+  /* No hub filter and no stage filter: the whole register. */
+  const iq=await sb.from('introductions').select('*').order('updated_at',{ascending:false});
+  if(iq.error){
+    $('banner').innerHTML=`<div class="banner">Could not read introductions: ${esc(iq.error.message)}.</div>`;
+    $('introRows').innerHTML='';return;
+  }
+  intros=iq.data||[];
+
+  /* Name lookups, one read per table, only for the ids the rows name. The
+     query shapes are hub-board.js's; a legacy introduction pairs two
+     website enquiries, a hub v2 one names a listing and a seeker request. */
+  const ids=f=>[...new Set(intros.map(i=>i[f]).filter(v=>v!=null))];
+  const reqIds=[...new Set([...ids('request_a'),...ids('request_b')])];
+  const listingIds=ids('listing_id'),seekIds=ids('seeker_request_id');
+  const none={data:[],error:null};
+  const [rq,lq,sq]=await Promise.all([
+    reqIds.length?sb.from('web_requests').select('id,hub,side,company').in('id',reqIds):none,
+    listingIds.length?sb.from('listings').select('id,org_id').in('id',listingIds):none,
+    seekIds.length?sb.from('seeker_requests').select('id,org_id').in('id',seekIds):none,
+  ]);
+  reqById={};(rq.data||[]).forEach(r=>{reqById[r.id]=r;});
+  listingById={};(lq.data||[]).forEach(l=>{listingById[l.id]=l;});
+  seekById={};(sq.data||[]).forEach(r=>{seekById[r.id]=r;});
+  const orgIds=[...new Set([
+    ...Object.values(listingById).map(l=>l.org_id),
+    ...Object.values(seekById).map(r=>r.org_id),
+    ...ids('org_a'),...ids('org_b')].filter(Boolean))];
+  orgById={};
+  const oq=orgIds.length?await sb.from('organisations').select('id,name').in('id',orgIds):none;
+  (oq.data||[]).forEach(o=>{orgById[o.id]=o.name;});
+  /* A failed lookup is said, and the ids stand in for the names. */
+  [['website enquiries',rq],['listings',lq],['seeker requests',sq],['organisations',oq]]
+    .filter(([,q])=>q.error)
+    .forEach(([what,q])=>{$('banner').innerHTML+=`<div class="banner">Could not read ${esc(what)}: ${
+      esc(q.error.message)}. Party names fall back to their ids until this read succeeds.</div>`;});
+  render();
+}
+
+/* ── Party names (hub-board.js's rule: admins see both sides) ──────── */
+
+const companyOf=id=>{const r=reqById[id];return r?`${r.company||'(no company given)'} · ${reqRef(r)}`:'request #'+id;};
+const orgName=(id,fallback)=>orgById[id]||fallback;
+function partyA(i){
+  if(i.request_a!=null)return companyOf(i.request_a);
+  if(i.listing_id!=null){const l=listingById[i.listing_id];return l?orgName(l.org_id,'(host)'):'(listing withdrawn)';}
+  if(i.org_a)return orgName(i.org_a,'org '+i.org_a);
+  return '—';
+}
+function partyB(i){
+  if(i.request_b!=null)return companyOf(i.request_b);
+  if(i.seeker_request_id!=null){const r=seekById[i.seeker_request_id];return r?`${orgName(r.org_id,'(seeker)')} · ${seekRef(r)}`:'request #'+i.seeker_request_id;}
+  if(i.org_b)return orgName(i.org_b,'org '+i.org_b);
+  return '—';
+}
+/* The date that explains the stage, when the row carries one. */
+function stageWhen(i){
+  const at=(label,v)=>v?`${label} ${day(v)}`:'';
+  switch(i.stage){
+    case 'introduced':case 'in_discussion':case 'deal_done':return at('introduced',i.introduced_at);
+    case 'declined':return at('declined',i.declined_at);
+    case 'expired':return at('expired',i.acceptance_expires_at);
+    case 'invoiced':return at('invoiced',i.invoiced_at);
+    case 'paid':return at('paid',i.paid_at);
+    case 'awaiting_acceptance':return i.acceptance_expires_at?`answer due ${day(i.acceptance_expires_at)}`:'';
+    default:return '';
+  }
+}
+
+/* ── Render ────────────────────────────────────────────────────────── */
+
+function setFilter(f){filter=f;render();}
+
+function render(){
+  const counts={};intros.forEach(i=>{counts[i.stage]=(counts[i.stage]||0)+1;});
+  const live=intros.filter(i=>LIVE_STAGES.includes(i.stage)).length;
+  $('count').textContent=intros.length
+    ?`${intros.length} across every hub · ${live} live · ${counts.dead||0} dead`:'';
+  const chips=[['all','All',intros.length],...STAGE_ORDER.map(s=>[s,STAGE_LABEL[s],counts[s]||0])];
+  $('filters').innerHTML=chips.map(([f,label,n])=>
+    `<button class="fchip" aria-pressed="${filter===f}" data-f="${esc(f)}" onclick="setFilter(this.dataset.f)">${
+      esc(label)}${n?` ${n}`:''}</button>`).join('');
+  const shown=intros.filter(i=>filter==='all'||i.stage===filter);
+  $('introRows').innerHTML=shown.length?shown.map(row).join('')
+    :`<tr><td colspan="8" style="color:var(--fg-2)">${intros.length
+      ?'Nothing at this stage.':'No introductions yet, on any hub.'}</td></tr>`;
+}
+
+function row(i){
+  const when=stageWhen(i);
+  return `<tr>
+    <td class="rref">${esc(introRef(i))}</td>
+    <td class="hub">${esc(HUB_NAME[i.hub]||i.hub)}</td>
+    <td>${esc(partyA(i))}</td>
+    <td>${esc(partyB(i))}</td>
+    <td><span class="stg stg-${esc(i.stage)}" title="${esc(STAGE_HELP[i.stage]||'')}">${esc(STAGE_LABEL[i.stage]||i.stage)}</span>${
+      when?`<br><span class="when">${esc(when)}</span>`:''}</td>
+    <td class="dt">${esc(day(i.created_at))}</td>
+    <td class="dt">${esc(day(i.updated_at))}</td>
+    <td><a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[i.hub]||'dashboard.html')}">Open ${esc(HUB_NAME[i.hub]||i.hub)} board</a></td>
+  </tr>`;
+}
+
+boot();
+</script>
+</body>
+</html>

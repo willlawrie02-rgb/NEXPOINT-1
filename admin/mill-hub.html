@@ -21,7 +21,8 @@ accent, green reserved for "go" semantics, the square logo in a translucent bar.
 STORY: hosts' listings first, then the seeker request queue beneath them; the
 operator reviews each listing, then approves, adds to or declines each seeker's
 picks, and tracks the resulting introductions to commission paid. The old
-website enquiry inbox stays, collapsed, under "Legacy requests".
+website enquiry inbox stays beneath them under "Website enquiries", opened
+whenever it holds anything; a badge key sits under the intro.
 Every button raises an intent — the engine acts, the browser only asks, and
 the provider's accept-or-decline email is sent by the worker, never here.
 FIRST VIEWPORT: brand bar, boards tabs, "Mill Hub", then the listings table
@@ -61,18 +62,25 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
   <main>
     <div class="wrap">
       <nav class="boards" aria-label="Admin boards">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="leads.html">Leads</a>
-        <a href="tasks.html">Tasks</a>
-        <a href="health.html">Health</a>
-        <a href="print-hub.html">Print Hub</a>
-        <a href="mill-hub.html" aria-current="page">Mill Hub</a>
-        <a href="opportunities.html">Opportunities</a>
-        <a href="members.html">Members</a>
-        <a href="organisations.html">Organisations</a>
-        <a href="orders.html">Orders</a>
-        <a href="campaigns.html">Campaigns</a>
-        <a href="linkedin.html">LinkedIn</a>
+        <span class="navgroup">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="leads.html">Leads</a>
+          <a href="tasks.html">Tasks</a>
+          <a href="print-hub.html">Print Hub</a>
+          <a href="mill-hub.html" aria-current="page">Mill Hub</a>
+          <a href="opportunities.html">Opportunities</a>
+        </span>
+        <span class="navgroup">
+          <a href="introductions.html">Introductions</a>
+          <a href="members.html">Accounts</a>
+          <a href="organisations.html">Organisations</a>
+          <a href="orders.html">Orders</a>
+        </span>
+        <span class="navgroup">
+          <a href="health.html">Health</a>
+          <a href="campaigns.html">Campaigns</a>
+          <a href="linkedin.html">LinkedIn</a>
+        </span>
       </nav>
 
       <div class="arrive">
@@ -86,6 +94,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           picks — no provider is asked anything until you do.
         </p>
         <div id="banner"></div>
+        <div id="legend" class="legend"></div>
 
         <div class="colhead"><h2>Listings</h2><span class="rule"></span></div>
         <div class="register">
@@ -100,7 +109,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <div class="row skeleton"><div class="bone" style="width:31%"></div><div class="bone" style="width:74%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
         </div>
 
-        <div class="colhead"><h2>Introductions register</h2><span class="rule"></span></div>
+        <div class="colhead"><h2>Introductions register</h2><a class="see-all" href="introductions.html">This hub's only · see all hubs</a><span class="rule"></span></div>
         <div class="register">
           <table>
             <thead><tr><th scope="col">Ref</th><th scope="col">Party A</th><th scope="col">Party B</th><th scope="col">Stage</th><th scope="col">Commission</th><th scope="col">Manage</th></tr></thead>
@@ -116,12 +125,12 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           </table>
         </div>
 
+        <div class="toolbar"><span class="flabel">Website enquiries</span><div id="filters" style="display:contents"></div></div>
         <details class="legacy">
-          <summary>Legacy requests</summary>
-          <p class="note">The website enquiry inbox that ran the hub before listings and seeker
-            requests. New arrivals still land here and are still worth reading; the working
-            queues above are where a decision is made.</p>
-          <div class="toolbar" id="filters"></div>
+          <summary>Website enquiries</summary>
+          <p class="note">Enquiries from the website forms. New introductions against listed sites
+            also arrive here until the request flow fully replaces it, so this section opens by
+            itself whenever it holds anything.</p>
           <div class="cols">
             <section>
               <div class="colhead"><h2 id="leftTitle"></h2><span class="n" id="leftN"></span><span class="rule"></span></div>

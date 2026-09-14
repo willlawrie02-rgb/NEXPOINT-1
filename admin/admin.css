@@ -139,6 +139,25 @@ nav.boards a:hover { color: var(--fg); }
 nav.boards a:hover::after { transform: scaleX(0.6); }
 nav.boards a[aria-current="page"] { color: var(--fg); }
 nav.boards a[aria-current="page"]::after { transform: scaleX(1); }
+/* Three groups: Queues · Registers · Ops, a hairline between each. */
+nav.boards .navgroup { display: flex; gap: 2px; }
+nav.boards .navgroup + .navgroup { margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--border); }
+
+/* ── Badge key, enquiry filter label, cross-hub link ─────────────── */
+/* renderLegend() in hub-board.js fills #legend: one row per queue the page
+   has, each badge carrying the same title it carries in the tables. */
+.legend { margin: 6px 0 14px; }
+.legend-box summary { cursor: pointer; font: 600 12.5px/1.4 var(--font-body); color: var(--fg-2); }
+.legend-box summary:hover { color: var(--fg); }
+.legend-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px;
+              padding: 8px 0 0; font-size: 12.5px; color: var(--fg-2); }
+.legend-k { font-weight: 600; color: var(--fg-1); min-width: 128px; }
+.legend-i { display: inline-flex; align-items: baseline; gap: 6px; }
+.flabel { font: 600 11px/1 var(--font-body); letter-spacing: .06em; text-transform: uppercase;
+          color: var(--fg-2); margin-right: 8px; white-space: nowrap; }
+.colhead .see-all { margin-left: 10px; font: 500 12.5px/1 var(--font-body); color: var(--np-blue);
+                    text-decoration: none; white-space: nowrap; }
+.colhead .see-all:hover { text-decoration: underline; }
 
 /* ── Page intro ─────────────────────────────────────────────────── */
 .intro { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 30px 0 6px; flex-wrap: wrap; }
@@ -373,6 +392,9 @@ nav.boards a[aria-current="page"]::after { transform: scaleX(1); }
 .stg-proposed      { background: var(--info-wash); color: var(--info-ink); }
 .stg-awaiting_acceptance { background: var(--warn-wash); color: var(--warn-ink); }
 .stg-expired       { background: var(--cold-wash); color: var(--cold-ink); }
+.stg-on            { background: var(--ok-wash);   color: var(--ok-ink); }
+.stg-paused        { background: var(--err-wash);  color: var(--err-ink); }
+.stg-removed       { background: var(--cold-wash); color: var(--cold-ink); }
 .when { color: var(--fg-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* The introductions register — same table voice as the Health jobs table. */

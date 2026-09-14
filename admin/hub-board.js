@@ -11,7 +11,8 @@
    additionally carry #hostAppRows (host applications, spec §4 — "only print
    and mill hosts pay"), #listingRows (the listing review queue) and
    #seekerCol (the seeker request queue that replaces the old right column,
-   which stays on the page under a collapsed "Legacy requests" heading):
+   which stays on the page under a "Website enquiries" disclosure, opened
+   whenever it holds anything) and #legend (the badge key renderLegend fills):
    Opportunities has none of those, so every code path below checks for the
    element before touching the DOM, and the fetches are gated on HUB.hub
    being 'print' or 'mill'.
@@ -34,6 +35,23 @@ let hostApps=[],orgById={},pendingByHostApp={};
 let listings=[],revById={},machinesByRev={},seekReqs=[];
 let pendingByListing={},pendingBySeekReq={};
 const HOSTS_HUB=()=>HUB.hub==='print'||HUB.hub==='mill';
+
+/* The one ordering every pending-intent map uses. Sort a copy failed-first
+   then by ascending id and let the last write win, so a row that carries
+   both a failed intent and a re-raised pending one shows the pending one.
+   `keyOf(intent, payload)` returns a key, an array of keys, or null to
+   skip. leads.html and organisations.html do not load this module and
+   carry the same sort inline. */
+function newestWithFailedFirst(intents,keyOf){
+  const out={};
+  (intents||[]).slice().sort((a,b)=>
+    (a.status==='failed'?0:1)-(b.status==='failed'?0:1)||a.id-b.id)
+  .forEach(i=>{
+    const keys=keyOf(i,i.payload_json||{});
+    (Array.isArray(keys)?keys:[keys]).forEach(k=>{if(k!=null)out[k]=i;});
+  });
+  return out;
+}
 
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -76,13 +94,16 @@ const STAGE_LABEL={proposed:'PROPOSED',awaiting_acceptance:'AWAITING ACCEPTANCE'
   expired:'EXPIRED',declined:'DECLINED'};
 /* A provider said no, or never answered: the desk may re-route round it. */
 const SPENT_STAGES=['declined','expired'];
+/* The ask is still open, or lapsed unanswered: the same provider may be
+   asked again with a fresh window. A declined one is re-routed, not re-asked. */
+const REISSUABLE_STAGES=['awaiting_acceptance','expired'];
 const LISTING_INTENTS=['approve-listing','decline-listing',
   'approve-listing-revision','decline-listing-revision'];
 /* All three carry `request_id`, and it means a seeker_requests row — NOT the
    web_requests id review-web-request's own request_id means. */
 const SEEKER_INTENTS=['approve-intro-request','add-provider','decline-intro-request'];
 const LISTING_BADGE={pending:'PENDING',live:'LIVE',declined:'DECLINED',hidden:'HIDDEN'};
-const SREQ_BADGE={open:'OPEN',picked:'PICKED',desk:'DESK',declined:'DECLINED',closed:'CLOSED'};
+const SREQ_BADGE={open:'OPEN',picked:'PICKED',desk:'DESK RE-ROUTE',declined:'DECLINED',closed:'CLOSED'};
 const seekRef=r=>`REQ-${String(r.id).padStart(4,'0')}`;
 const introRef=i=>i.ref||('INTRO-'+String(i.id).padStart(4,'0'));
 const SIDE_PREFIX={offer_capacity:'H',request_capacity:'S',list_opportunity:'L',request_intro:'I'};
@@ -95,6 +116,60 @@ const FILTERS=[
   {f:'approved',label:'Approved'},{f:'declined',label:'Declined'},
 ];
 const REQ_BADGE={new:'NEW',reviewing:'REVIEWING',approved:'APPROVED',declined:'DECLINED'};
+const HOST_BADGE={pending:'PENDING',approved:'APPROVED',declined:'DECLINED'};
+/* Host applications borrow the request colours: pending reads as new. */
+const hostCls=v=>v==='pending'?'new':v==='approved'?'approved':'declined';
+
+/* One plain-English line per badge value, keyed by vocabulary because the
+   same word (declined, approved, pending) means something different on each
+   queue. Every badge carries its line as a title, and renderLegend() prints
+   the key for the queues a page has. introductions.html carries a copy of
+   the stage lines: it is self-contained like every non-hub board. */
+const STATUS_HELP={
+  stage:{
+    proposed:'A pick the seeker made. Nobody has been asked yet; approve the picks to ask the provider',
+    awaiting_acceptance:'The provider has been asked and has not yet accepted or declined',
+    approved:'Both sides approved; the introduction email has not gone yet',
+    introduced:'The parties have been put together',
+    in_discussion:'The parties are talking',
+    deal_done:'Business agreed; commission to record',
+    dead:'Went nowhere. Kept in the database and the archive, off the working board',
+    invoiced:'Commission invoiced, payment outstanding',
+    paid:'Commission paid; closed',
+    expired:'The provider never answered in time. Re-route the seeker to another site',
+    declined:'The provider said no. Re-route the seeker to another site',
+  },
+  listing:{
+    pending:'A first submission waiting on your review',
+    live:'Visible to seekers on the hub',
+    declined:'Sent back with a reason; a resubmission shows up here as a pending revision',
+    hidden:'Taken off the hub',
+  },
+  seeker:{
+    open:'The seeker has searched but not yet picked; nothing for the desk yet',
+    picked:'The seeker picked sites. Approve the picks, or add a provider first',
+    desk:'The seeker told the desk the shortlist did not fit. Add a provider to re-route, or decline',
+    declined:'The desk declined the request and the seeker was told',
+    closed:'Nothing left to do on this request',
+  },
+  request:{
+    new:'Arrived from the website; nobody has looked yet',
+    reviewing:'Marked as being looked at',
+    approved:'Approved; pair it into an introduction from the card',
+    declined:'Declined, with the reason on the card',
+  },
+  host:{
+    pending:'Applied to host on this hub; billing starts only when approved',
+    approved:'Approved; billing runs at the rate entered',
+    declined:'Declined; never charged',
+  },
+};
+/* A status badge: the vocabulary's label, its plain line as the title, and
+   the .stg-* colour class (cls when a vocabulary borrows another's colours). */
+function stg(kind,value,label,cls){
+  const help=(STATUS_HELP[kind]||{})[value]||'';
+  return `<span class="stg stg-${esc(cls||value)}"${help?` title="${esc(help)}"`:''}>${esc(label)}</span>`;
+}
 
 /* ── Data ──────────────────────────────────────────────────────────── */
 
@@ -112,6 +187,10 @@ async function load(){
     if(!(HOSTS_HUB()&&$('listingRows')))return;
   }
   requests=rq.data||[];
+  /* The website enquiry inbox lives under a disclosure on print/mill; live
+     traffic still lands there, so it opens itself whenever it has rows. */
+  const legacy=document.querySelector('details.legacy');
+  if(legacy&&requests.length)legacy.open=true;
   const iq=await sb.from('introductions').select('*').eq('hub',HUB.hub)
     .order('updated_at',{ascending:false});
   if(iq.error){
@@ -135,39 +214,33 @@ async function load(){
     const orgIds=[...new Set([...hostApps.map(a=>a.org_id),...listings.map(l=>l.org_id),
       ...seekReqs.map(r=>r.org_id)].filter(Boolean))];
     if(orgIds.length){
-      const oq=await sb.from('organisations').select('id,name,domain').in('id',orgIds);
+      const oq=await sb.from('organisations').select('id,name,domain,hidden_at,removed_at,paused_reason,removed_reason').in('id',orgIds);
       (oq.data||[]).forEach(o=>{orgById[o.id]=o;});
     }
   }
 
-  // Which rows already have an intent waiting or failed? (leads.html pattern —
-  // failed first, so a re-raised pending intent wins the display.)
+  // Which rows already have an intent waiting or failed? newestWithFailedFirst()
+  // decides which intent a row shows when it has more than one.
   const {data:intents}=await sb.from('engine_intents')
     .select('id,type,payload_json,status,result_note')
     .in('status',['pending','claimed','failed'])
     .in('type',['review-web-request','create-introduction','update-introduction',
                 'approve-host','decline-host',
-                ...LISTING_INTENTS,...SEEKER_INTENTS,'reroute-introduction']);
-  pendingByReq={};pendingByIntro={};pendingByHostApp={};intentById={};
-  pendingByListing={};pendingBySeekReq={};
-  const byState=(intents||[]).slice().sort((a,b)=>
-    (a.status==='failed'?0:1)-(b.status==='failed'?0:1)||a.id-b.id);
-  byState.forEach(i=>{
-    intentById[i.id]=i;
-    const p=i.payload_json||{};
-    /* request_id means two different tables depending on the intent, so it
-       is read by type and never by name alone. */
-    if(p.request_id!=null){
-      if(SEEKER_INTENTS.includes(i.type))pendingBySeekReq[p.request_id]=i;
-      else pendingByReq[p.request_id]=i;
-    }
-    if(p.request_a!=null)pendingByReq[p.request_a]=i;
-    if(p.introduction_id!=null)pendingByIntro[p.introduction_id]=i;
-    if(p.application_id!=null)pendingByHostApp[p.application_id]=i;
-    /* add-provider and reroute name a listing too — they are not a decision
-       ON that listing, so they never grey out its review buttons. */
-    if(p.listing_id!=null&&LISTING_INTENTS.includes(i.type))pendingByListing[p.listing_id]=i;
-  });
+                ...LISTING_INTENTS,...SEEKER_INTENTS,'reroute-introduction',
+                'reissue-acceptance']);
+  intentById={};(intents||[]).forEach(i=>{intentById[i.id]=i;});
+  /* request_id means two different tables depending on the intent, so it
+     is read by type and never by name alone. */
+  pendingBySeekReq=newestWithFailedFirst(intents,(i,p)=>
+    SEEKER_INTENTS.includes(i.type)?p.request_id:null);
+  pendingByReq=newestWithFailedFirst(intents,(i,p)=>
+    [SEEKER_INTENTS.includes(i.type)?null:p.request_id,p.request_a]);
+  pendingByIntro=newestWithFailedFirst(intents,(i,p)=>p.introduction_id);
+  pendingByHostApp=newestWithFailedFirst(intents,(i,p)=>p.application_id);
+  /* add-provider and reroute name a listing too — they are not a decision
+     ON that listing, so they never grey out its review buttons. */
+  pendingByListing=newestWithFailedFirst(intents,(i,p)=>
+    LISTING_INTENTS.includes(i.type)?p.listing_id:null);
   render();
 }
 
@@ -224,6 +297,13 @@ function declineReq(id){
   raise('review-web-request',{request_id:id,status:'declined',reason},'act-'+id,'Declined');
 }
 function setStage(id,stage){raise('update-introduction',{introduction_id:id,stage},'iact-'+id,'Updated');}
+function reissueAcceptance(id){
+  /* reissue-acceptance: stage back to awaiting_acceptance with a fresh
+     14-day window, nothing else cleared (handlers._reissue_acceptance). */
+  const i=intros.find(x=>x.id===id)||{id};
+  if(!confirm(`Reissue the acceptance link for ${introRef(i)}? The provider gets a fresh 14-day window to accept or decline; nothing else on the introduction changes.`))return;
+  raise('reissue-acceptance',{introduction_id:id},'iact-'+id,'Acceptance reissued');
+}
 function recordCommission(id){
   const current=(intros.find(x=>x.id===id)||{}).commission_amount||'';
   const amount=prompt('Commission amount (numbers only, GBP):',current);
@@ -318,7 +398,7 @@ function render(){
     $('count').textContent=[
       toReview?`${toReview} listing${toReview===1?'':'s'} to review`:'',
       open?`${open} open seeker request${open===1?'':'s'}`:'',
-      requests.length?`${requests.length} legacy request${requests.length===1?'':'s'}`:'',
+      requests.length?`${requests.length} website enquir${requests.length===1?'y':'ies'}`:'',
     ].filter(Boolean).join(' · ');
   }else{
     $('count').textContent=requests.length
@@ -336,6 +416,23 @@ function render(){
   if(HOSTS_HUB()&&$('hostAppRows'))renderHostApps();
   if(HOSTS_HUB()&&$('listingRows'))renderListings();
   if(HOSTS_HUB()&&$('seekerCol'))renderSeekerQueue();
+  renderLegend();
+}
+
+/* The badge key under the page intro: one row per queue this page has,
+   every badge carrying the same title it carries in the tables. */
+function renderLegend(){
+  const el=$('legend');if(!el)return;
+  const row=(name,kind,labels,cls)=>`<div class="legend-row"><span class="legend-k">${esc(name)}</span>${
+    Object.keys(labels).map(v=>`<span class="legend-i">${stg(kind,v,labels[v],cls?cls(v):undefined)} ${
+      esc((STATUS_HELP[kind]||{})[v]||'')}</span>`).join('')}</div>`;
+  const rows=[];
+  if(HOSTS_HUB()&&$('listingRows'))rows.push(row('Listings','listing',LISTING_BADGE));
+  if(HOSTS_HUB()&&$('seekerCol'))rows.push(row('Seeker requests','seeker',SREQ_BADGE));
+  rows.push(row('Introductions','stage',STAGE_LABEL));
+  if(HOSTS_HUB()&&$('hostAppRows'))rows.push(row('Host applications','host',HOST_BADGE,hostCls));
+  rows.push(row('Website enquiries','request',REQ_BADGE));
+  el.innerHTML=`<details class="legend-box"><summary>What the badges mean</summary>${rows.join('')}</details>`;
 }
 
 function renderCol(which){
@@ -402,7 +499,7 @@ function reqCard(r,col){
     <div class="row-top">
       <span class="ref">${esc(reqRef(r))}</span>
       <span class="company">${esc(r.company||'(no company given)')}</span>
-      <span class="stg stg-${esc(r.status)}">${esc(REQ_BADGE[r.status]||r.status)}</span>
+      ${stg('request',r.status,REQ_BADGE[r.status]||r.status)}
     </div>
     <div class="meta">${meta}</div>
     ${declined}
@@ -451,7 +548,9 @@ function renderRegister(){
          these, not a dropdown. A spent one may be re-routed to another host. */
       manage=`<span style="color:var(--fg-2);font-size:12.5px">With the provider</span>`;
       if(SPENT_STAGES.includes(i.stage))manage=rerouteControl(i)
-        ||`<span style="color:var(--fg-2);font-size:12.5px">No other listing to re-route to</span>`;
+        ||`<span style="color:var(--fg-2);font-size:12.5px">No other visible listing to re-route to (hidden organisations are left out)</span>`;
+      if(REISSUABLE_STAGES.includes(i.stage))manage+=`
+        <button class="btn btn-gh btn-sm" onclick="reissueAcceptance(${i.id})">Reissue acceptance link</button>`;
     }
     const when=i.stage==='declined'&&i.declined_at?String(i.declined_at).slice(0,10)
       :i.stage==='expired'&&i.acceptance_expires_at?String(i.acceptance_expires_at).slice(0,10):'';
@@ -459,7 +558,7 @@ function renderRegister(){
       <td class="rref">${esc(introRef(i))}</td>
       <td>${esc(partyA(i))}</td>
       <td>${esc(partyB(i))}</td>
-      <td><span class="stg stg-${esc(i.stage)}">${esc(STAGE_LABEL[i.stage]||i.stage)}</span>${
+      <td>${stg('stage',i.stage,STAGE_LABEL[i.stage]||i.stage)}${
         when?`<br><span class="when">${esc(when)}</span>`:''}</td>
       <td class="money">${fmtCommission(i)}</td>
       <td><div id="iact-${i.id}" class="actions" style="margin-top:0">${manage}</div></td>
@@ -470,6 +569,20 @@ function renderRegister(){
 /* Party names. A legacy introduction pairs two web_requests; a hub v2 one
    names a listing and a seeker request instead. Admins see both sides here
    — the identity rule is about what a MEMBER sees before acceptance. */
+/* Will's ruling (2026-09-10): a company is On, Paused or Removed, moved
+   only by a person on the Organisations board. Paused keeps hidden_at as
+   its since-stamp; the worker's public search reads the same two columns
+   (_system/portal-worker/listings.js), so a LIVE listing whose host is
+   paused or removed says so here and never reaches the desk's pickers,
+   rendered by the state marker below (admin.css). */
+const orgVisible=o=>!!o&&!o.hidden_at&&!o.removed_at;
+function orgStateMarker(o){
+  if(!o||orgVisible(o))return '';
+  const state=o.removed_at?'removed':'paused';
+  const why=state==='removed'?o.removed_reason:o.paused_reason;
+  const help=`${state==='removed'?'Removed from the hub':'Paused'} by a person on the Organisations board${why?': '+why:''}. Not shown to seekers.`;
+  return ` <span class="stg stg-${esc(state)}" title="${esc(help)}">${state.toUpperCase()}</span>`;
+}
 const listingById=id=>listings.find(l=>String(l.id)===String(id))||null;
 const seekReqById=id=>seekReqs.find(r=>r.id===id)||null;
 function listingOrgName(id){
@@ -491,7 +604,8 @@ function rerouteControl(i){
   const taken=new Set(intros.filter(x=>x.seeker_request_id===i.seeker_request_id)
     .map(x=>String(x.listing_id)));
   const options=listings.filter(l=>l.status==='live'&&!taken.has(String(l.id))
-    &&shipsTo(l,req&&req.region));
+    &&shipsTo(l,req&&req.region)
+    &&orgVisible(orgById[l.org_id]));
   if(!options.length)return '';
   return `<select id="rr-${i.id}" aria-label="Re-route ${esc(introRef(i))}">
       <option value="">Re-route to…</option>
@@ -518,7 +632,7 @@ function renderHostApps(){
     const q=pendingByHostApp[a.id];
     let manage;
     if(a.status!=='pending'){
-      manage=`<span class="stg stg-${a.status==='approved'?'approved':'declined'}">${esc(a.status.toUpperCase())}</span>`
+      manage=stg('host',a.status,HOST_BADGE[a.status]||a.status.toUpperCase(),hostCls(a.status))
         +(a.decided_by?` <span style="color:var(--fg-2);font-size:12px">by ${esc(a.decided_by)}</span>`:'');
     }else if(q&&q.status==='failed'){
       manage=`<span class="status fail">Failed: ${esc(q.result_note||'')}</span>
@@ -534,7 +648,7 @@ function renderHostApps(){
     return `<tr>
       <td><strong>${esc(org.name||a.org_id||'(unknown)')}</strong>${org.domain?`<br><span style="color:var(--fg-2);font-size:12px">${esc(org.domain)}</span>`:''}</td>
       <td>${a.submitted_at?esc(String(a.submitted_at).slice(0,10)):'—'}</td>
-      <td><span class="stg stg-${a.status==='pending'?'new':a.status==='approved'?'approved':'declined'}">${esc((a.status||'').toUpperCase())}</span></td>
+      <td>${stg('host',a.status,HOST_BADGE[a.status]||(a.status||'').toUpperCase(),hostCls(a.status))}</td>
       <td>${hostAppProfile(a)}</td>
       <td><div id="happ-${a.id}" class="actions" style="margin-top:0">${manage}</div></td>
     </tr>`;
@@ -651,7 +765,8 @@ function listingRow(l){
   return `<tr>
     <td><strong>${esc((orgById[l.org_id]||{}).name||l.org_id||'(unknown)')}</strong></td>
     <td>${esc(l.hub)}</td>
-    <td><span class="stg stg-${esc(l.status)}">${esc(LISTING_BADGE[l.status]||l.status)}</span>${
+    <td>${stg('listing',l.status,LISTING_BADGE[l.status]||l.status)}${
+      l.status==='live'?orgStateMarker(orgById[l.org_id]):''}${
       pending&&l.status==='live'?'<br><span class="when">revision pending</span>':''}</td>
     <td>${esc([shown.town,shown.country].filter(Boolean).join(', ')||'—')}</td>
     <td>${esc(fmtVal(shown.ships_to))}</td>
@@ -728,13 +843,14 @@ function seekerCard(r){
         <span>${esc(cardSummary(i))}</span></label>`).join('')}</div>`
     :'';
   const runningList=running.length
-    ?`<div class="meta">${running.map(i=>`<span><span class="stg stg-${esc(i.stage)}">${
-        esc(STAGE_LABEL[i.stage]||i.stage)}</span> ${esc(introRef(i))} · ${esc(cardSummary(i))}</span>`).join('')}</div>`
+    ?`<div class="meta">${running.map(i=>`<span>${stg('stage',i.stage,STAGE_LABEL[i.stage]||i.stage)} ${
+        esc(introRef(i))} · ${esc(cardSummary(i))}</span>`).join('')}</div>`
     :'';
 
   const taken=new Set(mine.map(i=>String(i.listing_id)));
   const spare=listings.filter(l=>l.status==='live'&&!taken.has(String(l.id))
-    &&(shipsTo(l,r.region)||shipsToUnset(l)));
+    &&(shipsTo(l,r.region)||shipsToUnset(l))
+    &&orgVisible(orgById[l.org_id]));
   const adder=spare.length
     ?`<select id="addp-${r.id}" aria-label="Add a provider to ${esc(seekRef(r))}">
         <option value="">Add a provider…</option>
@@ -742,7 +858,7 @@ function seekerCard(r){
           shipsToUnset(l)?' · ships-to unset':''}</option>`).join('')}
       </select>
       <button class="btn btn-gh btn-sm" onclick="addProvider(${r.id})">Add</button>`
-    :'';
+    :`<span style="color:var(--fg-2);font-size:12.5px">No other visible listing to add (hidden organisations are left out)</span>`;
 
   let actions;
   if(q&&q.status==='failed'){
@@ -769,7 +885,7 @@ function seekerCard(r){
     <div class="row-top">
       <span class="ref">${esc(seekRef(r))}</span>
       <span class="company">${esc((orgById[r.org_id]||{}).name||'(no organisation)')}</span>
-      <span class="stg stg-${esc(r.status)}">${esc(SREQ_BADGE[r.status]||r.status)}</span>
+      ${stg('seeker',r.status,SREQ_BADGE[r.status]||r.status)}
     </div>
     <div class="meta">${[where?`<span>${esc(where)}</span>`:'',
       r.created_at?`<span>received ${esc(String(r.created_at).slice(0,10))}</span>`:'',

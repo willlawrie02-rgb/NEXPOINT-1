@@ -69,18 +69,25 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
   <main>
     <div class="wrap">
       <nav class="boards" aria-label="Admin boards">
-        <a href="dashboard.html" aria-current="page">Dashboard</a>
-        <a href="leads.html">Leads</a>
-        <a href="tasks.html">Tasks</a>
-        <a href="health.html">Health</a>
-        <a href="print-hub.html">Print Hub</a>
-        <a href="mill-hub.html">Mill Hub</a>
-        <a href="opportunities.html">Opportunities</a>
-        <a href="members.html">Members</a>
-        <a href="organisations.html">Organisations</a>
-        <a href="orders.html">Orders</a>
-        <a href="campaigns.html">Campaigns</a>
-        <a href="linkedin.html">LinkedIn</a>
+        <span class="navgroup">
+          <a href="dashboard.html" aria-current="page">Dashboard</a>
+          <a href="leads.html">Leads</a>
+          <a href="tasks.html">Tasks</a>
+          <a href="print-hub.html">Print Hub</a>
+          <a href="mill-hub.html">Mill Hub</a>
+          <a href="opportunities.html">Opportunities</a>
+        </span>
+        <span class="navgroup">
+          <a href="introductions.html">Introductions</a>
+          <a href="members.html">Accounts</a>
+          <a href="organisations.html">Organisations</a>
+          <a href="orders.html">Orders</a>
+        </span>
+        <span class="navgroup">
+          <a href="health.html">Health</a>
+          <a href="campaigns.html">Campaigns</a>
+          <a href="linkedin.html">LinkedIn</a>
+        </span>
       </nav>
 
       <div class="arrive">
@@ -189,10 +196,18 @@ async function load(){
   const oldest=reviewing.length?Math.max(...reviewing.map(r=>days(r.created_at))):null;
   $('t_rev_s').textContent=reviewing.length?`oldest ${oldest} day${oldest===1?'':'s'} in review`:'review queue clear';
 
-  const live=intros.filter(i=>i.stage!=='dead'&&i.stage!=='paid');
+  // Live means the desk has put the parties together and the introduction
+  // has not ended. An explicit set: the hub v2 stages (proposed,
+  // awaiting_acceptance, declined, expired) are not live, and a stage added
+  // later defaults to not-live, so the tile under-counts rather than
+  // over-counts until someone names it here.
+  const LIVE_STAGES=['approved','introduced','in_discussion','deal_done','invoiced'];
+  const live=intros.filter(i=>LIVE_STAGES.includes(i.stage));
   const talking=live.filter(i=>i.stage==='in_discussion').length;
+  const awaiting=intros.filter(i=>i.stage==='awaiting_acceptance').length;
   $('t_live').textContent=live.length;
-  $('t_live_s').textContent=live.length?`${talking} in active discussion`:'none in flight';
+  $('t_live_s').textContent=(live.length?`${talking} in active discussion`:'none in flight')
+    +(awaiting?` · ${awaiting} awaiting acceptance`:'');
 
   const invoiced=intros.filter(i=>i.stage==='invoiced');
   const owed=invoiced.reduce((sum,i)=>sum+(Number(i.commission_amount)||0),0);
@@ -202,12 +217,16 @@ async function load(){
 
   // Hub v2 queues. Every one is behind migration 0029, so a missing table
   // leaves its tile blank and says why rather than blanking the board.
-  const [lstQ,sreqQ,evQ,stQ]=await Promise.all([
+  const [lstQ,sreqQ,evQ,stQ,strQ,orgQ]=await Promise.all([
     sb.from('listings').select('id,hub,status,pending_revision_id'),
     sb.from('seeker_requests').select('id,hub,status'),
     sb.from('order_evidence').select('id,status,disputed_at,resolved_at'),
     sb.from('statements').select('id,status,totals'),
+    sb.from('strikes').select('org_id,opened_at,cured_at'),
+    sb.from('organisations').select('id,name,sub_status,sub_due_at,hidden_at,removed_at'),
   ]);
+  if(strQ.error||orgQ.error)
+    $('banner').innerHTML+=`<div class="banner">Could not read strikes/organisations: ${esc((strQ.error||orgQ.error).message)} (migration 0034 may not be applied yet).</div>`;
   const notYet='migration 0029 not applied yet';
   const toReview=(lstQ.data||[]).filter(l=>l.status==='pending'||l.pending_revision_id);
   $('t_lst').textContent=lstQ.error?'—':toReview.length;
@@ -230,8 +249,9 @@ async function load(){
   $('t_st_s').textContent=stQ.error?notYet
     :(issued.length?'issued, not yet invoiced':'nothing awaiting an invoice');
 
-  // Needs attention: every new request, every invoiced introduction, and
-  // the two money queues that go stale silently.
+  // Needs attention: every new request, every invoiced introduction, the
+  // two hub v2 work queues (one row per hub), and the two money queues
+  // that go stale silently.
   const rows=[];
   fresh.sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
   fresh.forEach(r=>rows.push(`<div class="row attn">
@@ -247,6 +267,59 @@ async function load(){
       <span class="sub">${i.invoiced_at?`invoiced ${esc(String(i.invoiced_at).slice(0,10))}`:''}${i.commission_amount?` · £${Number(i.commission_amount).toLocaleString('en-GB')}`:''}</span></span>
     <span class="spacer"></span>
     <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[i.hub]||'dashboard.html')}">Chase payment</a>
+  </div>`));
+  // The same listings the tile counts (new, or carrying a pending revision),
+  // and the seeker requests waiting on a match (open) or a person (desk).
+  const waitingReqs=(sreqQ.data||[]).filter(r=>r.status==='open'||r.status==='desk');
+  const hubsWithWork=[...new Set([...toReview.map(l=>l.hub),...waitingReqs.map(r=>r.hub)])].sort();
+  hubsWithWork.forEach(hub=>{
+    const lst=toReview.filter(l=>l.hub===hub);
+    if(lst.length){
+      const newOnes=lst.filter(l=>l.status==='pending').length;
+      const revised=lst.length-newOnes;
+      rows.push(`<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">storefront</span>
+    <span class="t"><strong>${lst.length} listing${lst.length===1?'':'s'}</strong> awaiting review in the ${esc(HUB_NAME[hub]||hub)}
+      <span class="sub">${newOnes} new${revised?` · ${revised} with a pending revision`:''}</span></span>
+    <span class="spacer"></span>
+    <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[hub]||'dashboard.html')}">Review listings</a>
+  </div>`);
+    }
+    const sr=waitingReqs.filter(r=>r.hub===hub);
+    if(sr.length){
+      const desk=sr.filter(r=>r.status==='desk').length;
+      rows.push(`<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">person_search</span>
+    <span class="t"><strong>${sr.length} seeker request${sr.length===1?'':'s'}</strong> waiting in the ${esc(HUB_NAME[hub]||hub)}
+      <span class="sub">${desk?`${desk} at the desk · `:''}${sr.length-desk} open, waiting on a match</span></span>
+    <span class="spacer"></span>
+    <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[hub]||'dashboard.html')}">Open the request queue</a>
+  </div>`);
+    }
+  });
+  // Will's ruling (2026-09-10): the engine never pauses a company. These
+  // two rows are where it asks instead: the strike threshold and a
+  // subscription 30 or more days overdue, for companies still On.
+  const yearAgo=Date.now()-365*86400000;
+  const openStrikes={};
+  (strQ.data||[]).forEach(s=>{
+    if(s.cured_at||!s.opened_at||new Date(s.opened_at).getTime()<yearAgo)return;
+    openStrikes[s.org_id]=(openStrikes[s.org_id]||0)+1;
+  });
+  const onHub=(orgQ.data||[]).filter(o=>!o.hidden_at&&!o.removed_at);
+  onHub.filter(o=>(openStrikes[o.id]||0)>=2).forEach(o=>rows.push(`<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">gavel</span>
+    <span class="t"><strong>${esc(o.name)}</strong> has ${openStrikes[o.id]} uncured strikes and needs a decision
+      <span class="sub">pause it, cure a strike, or leave it on: your call, the engine will not act</span></span>
+    <span class="spacer"></span>
+    <a class="btn btn-gh btn-sm" href="organisations.html">Decide on the Organisations board</a>
+  </div>`));
+  onHub.filter(o=>o.sub_status==='active'&&o.sub_due_at&&days(o.sub_due_at)>=30).forEach(o=>rows.push(`<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+    <span class="t"><strong>${esc(o.name)}</strong> is ${days(o.sub_due_at)} days overdue and needs a decision
+      <span class="sub">record the payment, pause it, or leave it on: your call, the engine will not act</span></span>
+    <span class="spacer"></span>
+    <a class="btn btn-gh btn-sm" href="organisations.html">Decide on the Organisations board</a>
   </div>`));
   if(homeless.length)rows.push(`<div class="row attn">
     <span class="material-symbols-outlined" aria-hidden="true">mark_email_unread</span>
@@ -264,7 +337,8 @@ async function load(){
   </div>`);
   $('attnN').textContent=rows.length;
   $('attn').innerHTML=rows.length?rows.join('')
-    :`<div class="empty">Nothing needs attention. New requests, unpaid invoices, homeless order
+    :`<div class="empty">Nothing needs attention. New requests, unpaid invoices, listings awaiting
+       review, seeker requests waiting on a match, companies needing a decision, homeless order
        emails and statements awaiting an invoice all appear here.</div>`;
 }
 

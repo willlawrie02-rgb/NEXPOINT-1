@@ -50,6 +50,13 @@
   .box.done { border-color: var(--ok-line); background: var(--ok-wash); }
   .box.done::after { content: "check"; font-family: 'Material Symbols Outlined';
                      font-size: 14px; color: var(--ok-ink); }
+  .box.failed { border-color: var(--err-line); background: var(--err-wash); }
+  .box.failed::after { content: "priority_high"; font-family: 'Material Symbols Outlined';
+                       font-size: 14px; color: var(--err-ink); }
+  .task .fail { color: var(--err-ink); font-style: normal; font-weight: 600; }
+  .task .btn-retry { font: inherit; font-size: 12px; font-weight: 600; color: var(--np-blue);
+                     background: none; border: 0; padding: 0; margin-left: 4px; cursor: pointer;
+                     text-decoration: underline; text-underline-offset: 2px; }
   .box.locked { border-color: var(--border); background: var(--bg-alt); }
   .box.locked::after { content: "lock"; font-family: 'Material Symbols Outlined';
                        font-size: 12px; color: #667080; }
@@ -108,18 +115,25 @@ finish review, the verdict, and DESIGN.md
   <main>
     <div class="wrap">
       <nav class="boards" aria-label="Admin boards">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="leads.html">Leads</a>
-        <a href="tasks.html" aria-current="page">Tasks</a>
-        <a href="health.html">Health</a>
-        <a href="print-hub.html">Print Hub</a>
-        <a href="mill-hub.html">Mill Hub</a>
-        <a href="opportunities.html">Opportunities</a>
-        <a href="members.html">Members</a>
-        <a href="organisations.html">Organisations</a>
-        <a href="orders.html">Orders</a>
-        <a href="campaigns.html">Campaigns</a>
-        <a href="linkedin.html">LinkedIn</a>
+        <span class="navgroup">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="leads.html">Leads</a>
+          <a href="tasks.html" aria-current="page">Tasks</a>
+          <a href="print-hub.html">Print Hub</a>
+          <a href="mill-hub.html">Mill Hub</a>
+          <a href="opportunities.html">Opportunities</a>
+        </span>
+        <span class="navgroup">
+          <a href="introductions.html">Introductions</a>
+          <a href="members.html">Accounts</a>
+          <a href="organisations.html">Organisations</a>
+          <a href="orders.html">Orders</a>
+        </span>
+        <span class="navgroup">
+          <a href="health.html">Health</a>
+          <a href="campaigns.html">Campaigns</a>
+          <a href="linkedin.html">LinkedIn</a>
+        </span>
       </nav>
 
       <div class="arrive">
@@ -151,7 +165,8 @@ const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let tasks=[],who='all',pendingKeys=new Set();
+let tasks=[],who='all',intentByKey={},intentById={};
+const keyOf=t=>(t.source||'')+'\u0001'+(t.task||'');
 
 async function boot(){
   const {data}=await sb.auth.getSession();const s=data&&data.session;
@@ -179,9 +194,18 @@ async function load(){
     return;
   }
   tasks=data||[];
+  // Every tick the engine has not finished with: waiting, claimed, or
+  // failed. A failed tick used to drop out of this query, so the checkbox
+  // quietly came back with no word on why. Failed first then ascending id,
+  // so a re-raised pending tick wins the display over the failure it
+  // replaced (the ordering every other board uses).
   const {data:intents}=await sb.from('engine_intents')
-    .select('payload_json,status').eq('type','tick-task').eq('status','pending');
-  pendingKeys=new Set((intents||[]).map(i=>((i.payload_json||{}).source||'')+'\u0001'+((i.payload_json||{}).task||'')));
+    .select('id,payload_json,status,result_note').eq('type','tick-task')
+    .in('status',['pending','claimed','failed']);
+  intentByKey={};intentById={};
+  (intents||[]).slice().sort((a,b)=>
+    (a.status==='failed'?0:1)-(b.status==='failed'?0:1)||a.id-b.id)
+  .forEach(i=>{intentById[i.id]=i;intentByKey[keyOf(i.payload_json||{})]=i;});
   render();
 }
 
@@ -198,11 +222,20 @@ async function tick(source,task){
   load();
 }
 function showBanner(msg){const b=$('banner');b.textContent=msg;b.style.display='block';}
+function retry(intentId){
+  // Re-raise by id: the failed intent's own payload goes back on the queue
+  // as a fresh pending row (the organisations board's retry pattern).
+  const i=intentById[intentId];
+  if(!i)return;
+  const p=i.payload_json||{};
+  tick(p.source,p.task);
+}
 
 function render(){
   const owners=[...new Set(tasks.map(t=>t.owner))].sort();
   const shown=tasks.filter(t=>who==='all'||t.owner===who);
-  $('count').textContent=tasks.length?`${tasks.length} open · ${owners.map(o=>`${o} ${tasks.filter(t=>t.owner===o).length}`).join(' · ')}`:'';
+  const failedN=tasks.filter(t=>{const q=intentByKey[keyOf(t)];return q&&q.status==='failed';}).length;
+  $('count').textContent=tasks.length?`${tasks.length} open · ${owners.map(o=>`${o} ${tasks.filter(t=>t.owner===o).length}`).join(' · ')}${failedN?` · ${failedN} tick${failedN===1?'':'s'} failed`:''}`:'';
   $('owners').innerHTML=['all',...owners].map(o=>
     `<button class="owner-btn" aria-pressed="${who===o}" data-owner="${esc(o)}" onclick="who=this.dataset.owner;render()">${o==='all'?'Everyone':esc(o)}</button>`).join('');
 
@@ -224,14 +257,21 @@ function render(){
       <h2>${esc(company)} <span class="pill">${byCompany[company].length}</span></h2>
       ${byCompany[company].map(t=>{
         const inEmail=/\/emails\//.test(t.source||'');
-        const queued=pendingKeys.has((t.source||'')+'\u0001'+(t.task||''));
-        return `<div class="task ${queued?'queued':''}">
+        const q=intentByKey[keyOf(t)];
+        const failed=!!q&&q.status==='failed';
+        const queued=!!q&&!failed;
+        const why=failed?(q.result_note||'no reason recorded'):'';
+        return `<div class="task ${queued?'queued':''}${failed?' failed':''}">
         ${inEmail
           ?`<span class="box locked" title="Filed email — verbatim received material, never edited by the engine"></span>`
           :queued
             ?`<span class="box done" title="Tick queued — the hourly sync will commit it"></span>`
-            :`<button class="box btn-tick" aria-label="Tick: ${esc(t.task)}" onclick="tick(this.dataset.s,this.dataset.t)" data-s="${esc(t.source)}" data-t="${esc(t.task)}"></button>`}
-        <span class="t">${esc(t.task)}<span class="src">${esc(t.owner)} · ${esc(t.source)}${inEmail?' · <em>untickable: filed email</em>':''}${queued?' · <em>queued</em>':''}</span></span>
+            :failed
+              ?`<span class="box failed" title="Tick failed: ${esc(why)}"></span>`
+              :`<button class="box btn-tick" aria-label="Tick: ${esc(t.task)}" onclick="tick(this.dataset.s,this.dataset.t)" data-s="${esc(t.source)}" data-t="${esc(t.task)}"></button>`}
+        <span class="t">${esc(t.task)}<span class="src">${esc(t.owner)} · ${esc(t.source)}${inEmail?' · <em>untickable: filed email</em>':''}${queued?' · <em>queued</em>':''}${failed
+          ?` · <em class="fail" title="${esc(why)}">tick failed: ${esc(why)}</em><button class="btn-retry" onclick="retry(this.dataset.id)" data-id="${esc(q.id)}">Try again</button>`
+          :''}</span></span>
       </div>`;}).join('')}
     </div>`).join('');
 }
