@@ -97,11 +97,22 @@
       if (d.ok) { A.user = normalise(d.member); document.dispatchEvent(new CustomEvent('npaccount:change')); renderChip(); }
       return d;
     },
+    /* Honest sign-out (audit plan 008): the worker's answer is read, and a
+       failure is said in the chip rather than hidden behind a signed-out
+       look that the next page load undoes. On success every held action and
+       the find-form draft go with the session, so nothing typed by this
+       person is offered to the next one at the same machine. */
     async signOut() {
-      await call('/auth/logout', { method: 'POST' }).catch(() => {});
+      const d = await call('/auth/logout', { method: 'POST' });
+      if (!d || !d.ok) {
+        renderChip('Could not sign out. Check your connection and try again.');
+        return d || { error: 'network' };
+      }
+      clearAllHeld();
       A.user = null;
       document.dispatchEvent(new CustomEvent('npaccount:change'));
       renderChip();
+      return d;
     },
     resendConfirmation(email) { return postJson('/auth/resend-confirmation', { email: email }); },
     /* Audit plan 006: the worker answers every address the same way, so the
@@ -116,24 +127,53 @@
      localStorage (not sessionStorage) so it survives that new tab on the
      same origin, and stamped with a time so a very stale action is never
      resurrected. Shape: {kind, hub, payload, saved_at}. */
-  const NPPending = {
-    save(p) {
-      try {
-        localStorage.setItem(PENDING_KEY, JSON.stringify(Object.assign({}, p, { saved_at: Date.now() })));
-      } catch (e) {}
-    },
-    load() {
-      let v;
-      try { v = JSON.parse(localStorage.getItem(PENDING_KEY)); } catch (e) { return null; }
-      if (!v) return null;
-      if (!v.saved_at || (Date.now() - v.saved_at) > PENDING_MAX_AGE_MS) { NPPending.clear(); return null; }
-      return v;
-    },
-    clear() {
-      try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
-    },
-  };
+  /* One store per kind of held action (audit plan 008): the desk request,
+     the find request and the listing used to share one slot and silently
+     overwrote each other, so a host who filled the whole listing form and
+     then asked the desk something lost the listing with no message. Each
+     store has the same save/load/clear shape and the same 24h limit. A save
+     made while signed in is stamped with that account's email, so a hold
+     is never offered to, or filed by, a different account on the same
+     machine (portal.js and replayPending check the stamp; sign-out clears
+     every store). */
+  function pendingStore(key) {
+    const store = {
+      save(p) {
+        const stamp = A.user && A.user.email ? { member_email: A.user.email } : {};
+        try {
+          localStorage.setItem(key, JSON.stringify(Object.assign({}, p, { saved_at: Date.now() }, stamp)));
+        } catch (e) {}
+      },
+      load() {
+        let v;
+        try { v = JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
+        if (!v) return null;
+        if (!v.saved_at || (Date.now() - v.saved_at) > PENDING_MAX_AGE_MS) { store.clear(); return null; }
+        return v;
+      },
+      clear() {
+        try { localStorage.removeItem(key); } catch (e) {}
+      },
+    };
+    return store;
+  }
+  const NPPending = pendingStore(PENDING_KEY);                 /* the desk request */
+  const NPPendingFind = pendingStore('np_pending_find');       /* find.js's held ask */
+  const NPPendingListing = pendingStore('np_pending_listing'); /* listing-form.js's held listing */
   window.NPPending = NPPending;
+  window.NPPendingFind = NPPendingFind;
+  window.NPPendingListing = NPPendingListing;
+  const FIND_DRAFT_KEY = 'np_find_draft';                      /* find.js's form draft, cleared on sign-out */
+  function clearAllHeld() {
+    NPPending.clear(); NPPendingFind.clear(); NPPendingListing.clear();
+    try { localStorage.removeItem(FIND_DRAFT_KEY); } catch (e) {}
+  }
+  /* A hold stamped with a different account's email is not this person's
+     to see or send: clear it rather than offer it. */
+  function heldByAnotherAccount(p) {
+    return !!(p && p.member_email && A.user && A.user.email && p.member_email !== A.user.email);
+  }
+  A.heldByAnotherAccount = heldByAnotherAccount;
 
   function setPending(p) { NPPending.save(p); }
   function getPending() { return NPPending.load(); }
@@ -173,21 +213,28 @@
   A.replayPending = async function () {
     const p = getPending();
     if (!p || p.kind !== 'request' || p.search) return { error: 'no_pending' };
+    /* Another account's hold is cleared, never filed under this one. */
+    if (heldByAnotherAccount(p)) { clearPending(); return { error: 'no_pending' }; }
     const d = await A.submitRequest(actionOf(p));
     if (d && d.ok) clearPending();
     return d;
   };
 
   /* ── the header chip ─────────────────────────────────────────────── */
-  function renderChip() {
+  /* `failure`, when given, is one line shown beside the chip: the only
+     caller is a sign-out the worker refused or the network dropped. */
+  function renderChip(failure) {
     const slot = document.querySelector('[data-np-account-slot]');
     if (!slot) return;
     if (A.user) {
       const warn = A.confirmed() ? ''
         : '<button type="button" class="notice-warn np-chip__warn">Confirm your email</button> ';
+      const fail = failure
+        ? ' <span class="np-chip__fail" role="alert" style="color:#E5484D;font-size:13px">' + escapeText(failure) + '</span>'
+        : '';
       slot.innerHTML = '<span class="np-chip">Signed in · ' + escapeText(A.user.name || A.user.email) + ' ' +
         warn + '<a class="np-chip__link" href="' + ACCOUNT_URL + '">Your account</a> ' +
-        '<button type="button" class="np-chip__out">Sign out</button></span>';
+        '<button type="button" class="np-chip__out">Sign out</button>' + fail + '</span>';
       slot.querySelector('.np-chip__out').addEventListener('click', () => A.signOut());
       const w = slot.querySelector('.np-chip__warn');
       if (w) w.addEventListener('click', () => confirmGateCard());

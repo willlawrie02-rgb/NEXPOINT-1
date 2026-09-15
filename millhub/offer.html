@@ -164,12 +164,14 @@ the database, is the only money-bearing surface.
     <div id="signContent">
       <h2>Welcome back</h2>
       <p class="body" style="margin-bottom:4px">Sign in to see the board matched to your profile.</p>
+      <form onsubmit="event.preventDefault();signSubmit()">
       <div class="form-grid" style="grid-template-columns:1fr;margin-top:24px">
-        <div class="field"><label for="sEmail">Email</label><input id="sEmail" type="email" placeholder="you@company.com"></div>
-        <div class="field"><label for="sPass">Password</label><input id="sPass" type="password" placeholder="Your password"></div>
+        <div class="field"><label for="sEmail">Email</label><input id="sEmail" name="email" type="email" autocomplete="username" placeholder="you@company.com"></div>
+        <div class="field"><label for="sPass">Password</label><input id="sPass" name="current-password" type="password" autocomplete="current-password" placeholder="Your password"></div>
         <p class="privacy"><a href="#" onclick="event.preventDefault();resetRequest()">Forgotten your password?</a></p>
       </div>
-      <div class="modal-actions"><button class="btn btn-primary" onclick="signSubmit()">Sign in</button></div>
+      <div class="modal-actions"><button class="btn btn-primary" type="submit">Sign in</button></div>
+      </form>
       <p class="np-sign-error" style="display:none;color:#E5484D;font:500 13px/1.4 var(--font-body);margin-top:10px"></p>
       <div class="privacy">New here? <a href="#" onclick="event.preventDefault();closeAll();window.NPAccount&&NPAccount.openQuestionnaire({})" style="color:var(--blue);font-weight:600">Create your hub account</a>. Two minutes, in confidence.</div>
     </div>
