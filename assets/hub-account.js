@@ -104,6 +104,9 @@
       renderChip();
     },
     resendConfirmation(email) { return postJson('/auth/resend-confirmation', { email: email }); },
+    /* Audit plan 006: the worker answers every address the same way, so the
+       caller must show one message whatever comes back. */
+    resetRequest(email) { return postJson('/auth/reset-request', { email: email }); },
   };
 
   /* ── the action someone started before they had an account ──────────

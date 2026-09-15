@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Set a new password · The NexPoint Global Hub</title>
+<link rel="icon" href="../assets/nexpoint-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--canvas:#F5F7FA;--ink:#0E1626;--muted:#5A6B84;--blue:#005CC8;--blue-hover:#0066DC;--green:#8BC53F;--border:#E3E8EF;--red:#B3261E}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--canvas);color:var(--ink);font:400 16px/1.6 'Inter',system-ui,sans-serif;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{max-width:460px;width:100%;text-align:center}
+  .mark img{height:64px;width:64px;display:block;margin:0 auto}
+  .rule{width:44px;height:3px;background:var(--green);border-radius:9999px;margin:22px auto}
+  h1{font:700 clamp(22px,4vw,28px)/1.25 'Montserrat',sans-serif;letter-spacing:-.02em;margin:0 0 14px}
+  p{color:var(--muted)}
+  p+p{margin-top:12px}
+  .actions{display:flex;gap:12px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+  button,.btn{font:600 14px/1 'Inter',sans-serif;padding:13px 22px;border-radius:4px;border:none;cursor:pointer;display:inline-flex;align-items:center;text-decoration:none}
+  .yes{background:var(--blue);color:#fff}
+  .yes:hover{background:var(--blue-hover)}
+  .yes[disabled]{opacity:.6;cursor:default}
+  :is(a,button,input):focus-visible{outline:2px solid #3D8EEB;outline-offset:3px}
+  .panel{margin-top:26px;padding:22px;background:#fff;border:1px solid var(--border);border-radius:8px;text-align:left}
+  .panel .actions{justify-content:flex-start;margin-top:18px}
+  .panel .field+.field{margin-top:14px}
+  label{display:block;font:600 12px/1 'Inter',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  input{width:100%;background:#fff;border:1px solid rgba(14,22,38,.18);border-radius:4px;color:var(--ink);
+        font:400 14.5px/1.4 'Inter',sans-serif;padding:12px 14px;outline:none}
+  input:focus{border-color:var(--blue)}
+  .err{display:none;margin-top:12px;color:var(--red);font-size:14px}
+  .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
+  .foot a{color:var(--blue)}
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="mark"><img src="../assets/nexpoint-logo.png" alt="NexPoint"></div>
+    <div class="rule"></div>
+    <div id="resetBody">
+      <h1>One moment…</h1>
+      <p>Checking your link.</p>
+    </div>
+    <div class="foot">NexPoint, the commercial bridge for Orthotics &amp; Prosthetics worldwide.<br>
+      Stuck? Email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</div>
+  </main>
+
+<script>
+/* Password-reset landing (audit plan 006). The link in the reset email
+   carries a one-time recovery token; this page asks for the new password
+   and posts both to the worker, which verifies the token with GoTrue, sets
+   the password on that verified session and returns the session cookie, so
+   the visitor leaves here signed in.
+
+   Standalone on purpose, like confirm.html: someone arriving from an email
+   client may have no session and no portal.css cached, so the page carries
+   its own styles and one job. Every outcome of a fresh-link request reads
+   the same on screen, matching the worker, which answers every address the
+   same way so nobody can use it to ask which addresses hold accounts. */
+const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const API = local ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
+const ACCOUNT_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
+  ? 'https://nexpoint.co.uk/hub/account/' : '/hub/account/';
+const MIN_LENGTH = 8;
+
+function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+const body = () => document.getElementById('resetBody');
+function render(html){ body().innerHTML = html; }
+function say(title, line){ render(`<h1>${escapeHtml(title)}</h1><p>${escapeHtml(line)}</p>`); }
+function actionLink(label, href){
+  return `<div class="actions"><a class="btn yes" href="${escapeHtml(href)}">${escapeHtml(label)}</a></div>`;
+}
+async function postJson(path, payload){
+  const r = await fetch(API + path, {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const d = await r.json().catch(() => ({}));
+  return { r, d };
+}
+
+/* ── the states ──────────────────────────────────────────────────── */
+
+function renderForm(token){
+  render(`
+    <h1>Set a new password.</h1>
+    <p>Choose a new password for your hub account. At least ${MIN_LENGTH} characters.</p>
+    <div class="panel">
+      <div class="field">
+        <label for="pass1">New password</label>
+        <input id="pass1" type="password" autocomplete="new-password" minlength="${MIN_LENGTH}">
+      </div>
+      <div class="field">
+        <label for="pass2">Repeat it</label>
+        <input id="pass2" type="password" autocomplete="new-password" minlength="${MIN_LENGTH}">
+      </div>
+      <p class="err" id="formErr"></p>
+      <div class="actions"><button class="yes" type="button" id="setBtn">Set password and sign in</button></div>
+    </div>`);
+  const submit = () => setPassword(token);
+  document.getElementById('setBtn').addEventListener('click', submit);
+  document.getElementById('pass2').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  document.getElementById('pass1').focus();
+}
+
+function showError(text){
+  const el = document.getElementById('formErr');
+  if (!el) return;
+  el.textContent = text;
+  el.style.display = 'block';
+}
+
+async function setPassword(token){
+  const p1 = document.getElementById('pass1').value;
+  const p2 = document.getElementById('pass2').value;
+  const btn = document.getElementById('setBtn');
+  if (p1.length < MIN_LENGTH){ showError(`Use at least ${MIN_LENGTH} characters.`); return; }
+  if (p1.length > 72){ showError('Use 72 characters or fewer.'); return; }
+  if (p1 !== p2){ showError('The two passwords do not match.'); return; }
+  btn.disabled = true; btn.textContent = 'Setting…';
+  let out;
+  try {
+    out = await postJson('/auth/reset-confirm', { token_hash: token, password: p1 });
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Set password and sign in';
+    showError('That did not send. Check your connection and try again.');
+    return;
+  }
+  const { r, d } = out;
+  if (r.ok && d && d.ok){ renderDone(); return; }
+  if (d && d.error === 'password_too_short'){
+    btn.disabled = false; btn.textContent = 'Set password and sign in';
+    showError(`Use at least ${MIN_LENGTH} characters.`);
+    return;
+  }
+  if (d && d.error === 'reset_invalid'){ renderExpired(); return; }
+  btn.disabled = false; btn.textContent = 'Set password and sign in';
+  showError('That did not go through. Try again, or email hello@nexpoint.co.uk.');
+}
+
+function renderDone(){
+  render(`<h1>Your password is set.</h1><p>You are signed in on this device. Use the new password next time.</p>`
+    + actionLink('Go to your account', ACCOUNT_URL));
+}
+
+function renderExpired(){
+  render(`
+    <h1>That link has expired.</h1>
+    <p>Reset links last a short while only, and each one can be used once. Put your email in below and we will send a fresh one.</p>
+    <div class="panel">
+      <label for="againEmail">Email</label>
+      <input id="againEmail" type="email" placeholder="you@company.com" autocomplete="email">
+      <div class="actions"><button class="yes" type="button" id="againBtn">Send a new link</button></div>
+    </div>`);
+  document.getElementById('againBtn').addEventListener('click', sendAgain);
+  document.getElementById('againEmail').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendAgain(); });
+}
+
+async function sendAgain(){
+  const input = document.getElementById('againEmail');
+  const btn = document.getElementById('againBtn');
+  const email = (input.value || '').trim();
+  if (!email){ input.focus(); return; }
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await postJson('/auth/reset-request', { email });
+  } catch (e) { /* the worker answers every address the same way; so does this */ }
+  render(`<h1>Check your inbox.</h1><p>If that address holds an account, a reset link is on its way to it.</p>`);
+}
+
+/* ── boot ────────────────────────────────────────────────────────── */
+(function boot(){
+  const token = new URLSearchParams(location.search).get('t');
+  if (!token){
+    say('Link incomplete.', 'This link is missing information. Use the link from your email, or email hello@nexpoint.co.uk.');
+    return;
+  }
+  renderForm(token);
+})();
+</script>
+</body>
+</html>
