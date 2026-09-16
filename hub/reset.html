@@ -66,6 +66,10 @@ const API = local ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
 const ACCOUNT_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
   ? 'https://nexpoint.co.uk/hub/account/' : '/hub/account/';
 const MIN_LENGTH = 8;
+/* Set once the worker has answered past verifying the link. From then on the
+   device is signed in on that link's session and further attempts go up on
+   the session alone: the link is spent, but no fresh one is needed. */
+let linkUsed = false;
 
 function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
@@ -123,34 +127,30 @@ async function setPassword(token){
   if (p1.length > 72){ showError('Use 72 characters or fewer.'); return; }
   if (p1 !== p2){ showError('The two passwords do not match.'); return; }
   btn.disabled = true; btn.textContent = 'Setting…';
+  const back = () => { btn.disabled = false; btn.textContent = 'Set password and sign in'; };
   let out;
   try {
-    out = await postJson('/auth/reset-confirm', { token_hash: token, password: p1 });
+    out = await postJson('/auth/reset-confirm', linkUsed ? { password: p1 } : { token_hash: token, password: p1 });
   } catch (e) {
-    btn.disabled = false; btn.textContent = 'Set password and sign in';
+    back();
     showError('That did not send. Check your connection and try again.');
     return;
   }
   const { r, d } = out;
   if (r.ok && d && d.ok){ renderDone(); return; }
-  if (d && d.error === 'password_too_short'){
-    btn.disabled = false; btn.textContent = 'Set password and sign in';
-    showError(`Use at least ${MIN_LENGTH} characters.`);
-    return;
-  }
+  if (d && d.error === 'password_too_short'){ back(); showError(`Use at least ${MIN_LENGTH} characters.`); return; }
   if (d && d.error === 'reset_invalid'){ renderExpired(); return; }
-  /* Past this point the link has been verified and spent, whatever went
-     wrong after it: a recovery token is cleared the moment it is used. So
-     the form cannot be retried; the reason and a fresh link are the answer. */
-  if (d && d.error === 'same_password'){
-    renderExpired('That is the password already on this account, so nothing changed. Choose a different one next time.');
+  back();
+  if (!d || !d.error){
+    /* No answer from the worker itself (a gateway page, say): the link may
+       well be untouched, so the next attempt presents it again. */
+    showError('That did not go through. Try again, or email hello@nexpoint.co.uk.');
     return;
   }
-  if (d && d.error === 'weak_password'){
-    renderExpired('That password does not meet the rules for hub passwords.' + (d.detail ? ' ' + d.detail : ''));
-    return;
-  }
-  renderExpired('Something went wrong on our side while setting it, so nothing changed. If it happens again, email hello@nexpoint.co.uk.');
+  linkUsed = true;
+  if (d.error === 'same_password'){ showError('That is the password already on this account. Choose a different one.'); return; }
+  if (d.error === 'weak_password'){ showError('That password does not meet the rules for hub passwords.' + (d.detail ? ' ' + d.detail : '')); return; }
+  showError('That did not go through. Try again, or email hello@nexpoint.co.uk.');
 }
 
 function renderDone(){
@@ -158,13 +158,10 @@ function renderDone(){
     + actionLink('Go to your account', ACCOUNT_URL));
 }
 
-function renderExpired(reason){
+function renderExpired(){
   render(`
-    <h1>${reason ? 'Nothing changed.' : 'That link has expired.'}</h1>
-    ${reason ? `<p>${escapeHtml(reason)}</p>` : ''}
-    <p>${reason
-      ? 'Each reset link can be used once, so this one is now spent. Put your email in below and we will send a fresh one.'
-      : 'Reset links last a short while only, and each one can be used once. Put your email in below and we will send a fresh one.'}</p>
+    <h1>That link has expired.</h1>
+    <p>Reset links last a short while only, and each one can be used once. Put your email in below and we will send a fresh one.</p>
     <div class="panel">
       <label for="againEmail">Email</label>
       <input id="againEmail" type="email" placeholder="you@company.com" autocomplete="email">
