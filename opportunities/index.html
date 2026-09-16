@@ -1612,20 +1612,41 @@ async function submitCapture(form){
     goals: profile.goals||[], pressing: profile.pressing||[], timeline: profile.timeline||'',
     direction: profile.direction||'', product_types: profile.productTypes||[], products: productSummary(), describe: profile.describe||''
   };
+  // Honest capture (audit plan 009): the worker's answer decides what the visitor sees. Before
+  // this, a failed or refused post still showed "Received" and the request was lost silently.
+  const btn=form.querySelector('button[type="submit"]');
+  const err=form.querySelector('.form-err');
+  if(btn) btn.disabled=true;
+  if(err) err.style.display='none';
+  let ok=false;
   if(CAPTURE_ENDPOINT){
-    try{ await fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); }
-    catch(e){ /* network hiccup → still confirm to the member; lead can be recovered */ }
+    try{
+      const r=await fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const d=await r.json().catch(()=>({}));
+      ok=r.ok && d.ok!==false;
+    }catch(e){ ok=false; }
   }
-  showSuccess();
+  if(ok){ showSuccess(); return; }
+  if(btn) btn.disabled=false;
+  if(err){
+    err.innerHTML='That did not send. Check your connection and try again, or email <a href="mailto:hello@nexpoint.co.uk" style="color:var(--blue-bright)">hello@nexpoint.co.uk</a> and we will pick it up.';
+    err.style.display='block';
+  }
 }
 function captureMembership(){
   if(!CAPTURE_ENDPOINT) return;                              // no-op until the worker URL is set
-  var payload={kind:'membership', name:profile.name||'', email:profile.email||'', company:profile.company||'',
+  var payload={kind:'account', name:profile.name||'', email:profile.email||'', company:profile.company||'',
     type:profile.type||'', region:profile.region||'', volume:profile.volume||'',
     goals:profile.goals||[], pressing:profile.pressing||[], timeline:profile.timeline||'',
     direction:profile.direction||'', product_types:profile.productTypes||[], products:productSummary(), describe:profile.describe||''};
-  try{ fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true}); }
-  catch(e){ /* fire and forget, completing the desk must never block on the network */ }
+  // Deliberately non-blocking (keepalive, no await): completing the desk never waits on the
+  // network. A failure is at least said in the console (audit plan 009).
+  try{
+    fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true})
+      .then(function(r){ if(!r.ok) console.warn('NexPoint: account capture refused, status '+r.status); })
+      .catch(function(e){ console.warn('NexPoint: account capture did not send', e); });
+  }
+  catch(e){ console.warn('NexPoint: account capture did not send', e); }
 }
 function openForm(subject, ref, mode){
   if(mode!=='post' && window.NPAccount && typeof NPAccount.gate === 'function'){
@@ -1658,6 +1679,7 @@ function openForm(subject, ref, mode){
       <input type="text" name="company_url" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
       <div class="form-grid"><div class="field full"><label>${fieldLabel}</label><textarea name="fit" required placeholder="${placeholder}"></textarea></div></div>
       <div class="privacy">${shield}<span>${privacyLine}</span></div>
+      <div class="form-err" role="alert" style="font-size:12.5px;color:#ff6b6b;display:none;margin-top:8px"></div>
       <div class="modal-actions"><button class="btn btn-primary" type="submit">${submitLabel}</button></div>
     </form>`;
   closeAll();document.getElementById('formOverlay').classList.add('open');document.body.style.overflow='hidden';
