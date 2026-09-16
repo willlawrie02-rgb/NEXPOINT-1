@@ -1959,14 +1959,8 @@ function unlock(noScroll){
   document.getElementById('wall').style.display='none';
   document.getElementById('filters').style.display='flex';
   grid.classList.remove('preview-blur');
-  // header reflects the signed-in state: name/status on the left link, sign-out as the button
-  const navSi=document.getElementById('navSignIn');
-  navSi.textContent=`Signed in · ${(profile.name||'').split(' ')[0]||'You'}`;
-  navSi.onclick=(e)=>{e.preventDefault();document.getElementById('briefs').scrollIntoView({behavior:'smooth'});};
-  const navAcc=document.getElementById('navAccess');
-  navAcc.textContent='Sign out';
-  navAcc.className='btn btn-outline';
-  navAcc.onclick=signOut;
+  // The header is not rewritten here: the hub account chip in [data-np-account-slot] is the one
+  // signed-in header, as on every other hub page (audit plan 009).
   const strip=document.getElementById('memberStrip');
   strip.style.display='flex';
   const subParts=[profile.type,profile.region,profile.volume].filter(Boolean);
@@ -2116,6 +2110,12 @@ function syncMemberFromAccount(){
   unlock(true);
 }
 document.addEventListener('npaccount:change',syncMemberFromAccount);
+/* Once hub-account.js has rendered the slot it carries the right control for either state:
+   the chip when signed in, its own Sign in and Create your hub account when signed out. The
+   page's #navAccess button then stands down, so the header never shows two Create buttons
+   (audit plan 009). Until the module answers, and if it never loads, #navAccess stays. */
+function hideNavAccessOnceSlotIsLive(){ const b=document.getElementById('navAccess'); if(b && window.NPAccount) b.style.display='none'; }
+document.addEventListener('npaccount:change',hideNavAccessOnceSlotIsLive);
 syncMemberFromAccount();   // covers the case where NPAccount finished its /auth/me check before this listener was attached
 </script>
 </body>
