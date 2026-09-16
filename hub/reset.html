@@ -139,8 +139,18 @@ async function setPassword(token){
     return;
   }
   if (d && d.error === 'reset_invalid'){ renderExpired(); return; }
-  btn.disabled = false; btn.textContent = 'Set password and sign in';
-  showError('That did not go through. Try again, or email hello@nexpoint.co.uk.');
+  /* Past this point the link has been verified and spent, whatever went
+     wrong after it: a recovery token is cleared the moment it is used. So
+     the form cannot be retried; the reason and a fresh link are the answer. */
+  if (d && d.error === 'same_password'){
+    renderExpired('That is the password already on this account, so nothing changed. Choose a different one next time.');
+    return;
+  }
+  if (d && d.error === 'weak_password'){
+    renderExpired('That password does not meet the rules for hub passwords.' + (d.detail ? ' ' + d.detail : ''));
+    return;
+  }
+  renderExpired('Something went wrong on our side while setting it, so nothing changed. If it happens again, email hello@nexpoint.co.uk.');
 }
 
 function renderDone(){
@@ -148,10 +158,13 @@ function renderDone(){
     + actionLink('Go to your account', ACCOUNT_URL));
 }
 
-function renderExpired(){
+function renderExpired(reason){
   render(`
-    <h1>That link has expired.</h1>
-    <p>Reset links last a short while only, and each one can be used once. Put your email in below and we will send a fresh one.</p>
+    <h1>${reason ? 'Nothing changed.' : 'That link has expired.'}</h1>
+    ${reason ? `<p>${escapeHtml(reason)}</p>` : ''}
+    <p>${reason
+      ? 'Each reset link can be used once, so this one is now spent. Put your email in below and we will send a fresh one.'
+      : 'Reset links last a short while only, and each one can be used once. Put your email in below and we will send a fresh one.'}</p>
     <div class="panel">
       <label for="againEmail">Email</label>
       <input id="againEmail" type="email" placeholder="you@company.com" autocomplete="email">
