@@ -2077,21 +2077,41 @@ async function doSignIn(form){
   if(error){e.style.color='#ff6b6b';e.textContent=error.message;e.style.display='block';return;}
   closeAll(); // onAuthStateChange → onSignedIn unlocks
 }
+/* Password reset goes through the hub account (audit plans 006 and 009). The worker answers
+   every address the same way, so one message is shown whatever comes back, and the link it
+   sends opens the hub's set-password page. The legacy sb.auth.resetPasswordForEmail is gone:
+   it had no set-password screen to land on. */
 async function doReset(link){
-  const email=link.closest('form').querySelector('input[name=email]').value;
+  const email=(link.closest('form').querySelector('input[name=email]').value||'').trim();
   const e=document.getElementById('siErr');
   if(!email){e.style.color='#ff6b6b';e.textContent='Enter your email above first.';e.style.display='block';return;}
-  await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
-  e.style.color='var(--green)';e.textContent='Reset link sent, check your email.';e.style.display='block';
+  try{
+    if(window.NPAccount && typeof NPAccount.resetRequest === 'function'){ await NPAccount.resetRequest(email); }
+    else { await fetch('https://api.nexpoint.co.uk/auth/reset-request',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})}); }
+  }catch(err){ /* the message below is the same for every outcome */ }
+  document.getElementById('formContent').innerHTML=`
+    <div class="success">
+      <div class="ok">✓</div>
+      <h2 style="color:#fff;font-size:24px">Check your inbox.</h2>
+      <p>If that address holds an account, a reset link is on its way. It lasts a short while and works once.</p>
+      <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Close</button></div>
+    </div>`;
 }
+/* Sign out of BOTH systems, always (audit plan 009): the hub account and the legacy Supabase
+   session this origin may still hold. Before this, NPAccount.signOut() left the legacy session
+   in localStorage and the reload unlocked the board straight back. */
+let relocking=false;
 async function signOut(){
+  relocking=true;   // the relock in syncMemberFromAccount stands down: this function finishes the job
   if(window.NPAccount && typeof NPAccount.signOut === 'function'){ await NPAccount.signOut(); }
-  else { await sb.auth.signOut(); }
+  try{ await sb.auth.signOut(); }catch(e){}
   location.reload();
 }
 
-sb.auth.onAuthStateChange((_e,session)=>{ if(session) onSignedIn(session); });
-sb.auth.getSession().then(({data})=>{ if(data && data.session) onSignedIn(data.session); });
+/* The legacy session unlocks the board only when no hub account is signed in: when the hub
+   account is present it is the sole authority (audit plan 009). */
+sb.auth.onAuthStateChange((_e,session)=>{ if(session && !(window.NPAccount && NPAccount.user)) onSignedIn(session); });
+sb.auth.getSession().then(({data})=>{ if(data && data.session && !(window.NPAccount && NPAccount.user)) onSignedIn(data.session); });
 
 /* ===== NPAccount — the one hub account, unifying the gate ===== */
 function accountProfile(u){
@@ -2101,8 +2121,17 @@ function accountProfile(u){
     type:'', volume:'', goals:[], pressing:[], timeline:''
   };
 }
+let hubUserSeen=false;
 function syncMemberFromAccount(){
-  if(!(window.NPAccount && NPAccount.user)) return;    // signed out of the hub account — a legacy local session (if any) keeps ownership; never auto-relock
+  if(!window.NPAccount) return;
+  if(!NPAccount.user){
+    // The hub account has just signed out here (the header chip's Sign out): clear the legacy
+    // session too and reload, so the board locks instead of the old session unlocking it again
+    // (audit plan 009). A page that never saw a hub user leaves any legacy session alone.
+    if(hubUserSeen && !relocking){ hubUserSeen=false; relocking=true; sb.auth.signOut().catch(()=>{}).then(()=>location.reload()); }
+    return;
+  }
+  hubUserSeen=true;
   if(member){ Object.assign(profile,accountProfile(NPAccount.user)); return; }  // already unlocked — just refresh identity fields
   inSignup=false;
   profile=accountProfile(NPAccount.user);
