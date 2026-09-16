@@ -1689,7 +1689,7 @@ function showSuccess(){
   document.getElementById('formContent').innerHTML=`
     <div class="success">
       <div class="ok">✓</div>
-      <h2 style="color:#fff;font-size:24px">Received, in confidence.</h2>
+      <h2 style="font-size:24px">Received, in confidence.</h2>
       <p>A NexPoint partner will review the fit personally and come back to you within two working days, with an introduction, or an honest reason why not and what we'll look for instead.</p>
       <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the board</button></div>
     </div>`;
@@ -2081,7 +2081,7 @@ async function doSignIn(form){
       document.getElementById('formContent').innerHTML=`
         <div class="success">
           <div class="ok">✓</div>
-          <h2 style="color:#fff;font-size:24px">Welcome back, ${escHtml((NPAccount.user&&(NPAccount.user.name||NPAccount.user.email))||'')}.</h2>
+          <h2 style="font-size:24px">Welcome back, ${escHtml((NPAccount.user&&(NPAccount.user.name||NPAccount.user.email))||'')}.</h2>
           <p>You're signed in across every hub. Requests you make now arrive with your profile attached.</p>
           <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the board</button></div>
         </div>`;
@@ -2101,8 +2101,8 @@ async function doSignIn(form){
 }
 /* Password reset goes through the hub account (audit plans 006 and 009). The worker answers
    every address the same way, so one message is shown whatever comes back, and the link it
-   sends opens the hub's set-password page. The legacy sb.auth.resetPasswordForEmail is gone:
-   it had no set-password screen to land on. */
+   sends opens the hub's set-password page. The legacy Supabase reset call is gone: it
+   had no set-password screen to land on. */
 async function doReset(link){
   const email=(link.closest('form').querySelector('input[name=email]').value||'').trim();
   const e=document.getElementById('siErr');
@@ -2114,7 +2114,7 @@ async function doReset(link){
   document.getElementById('formContent').innerHTML=`
     <div class="success">
       <div class="ok">✓</div>
-      <h2 style="color:#fff;font-size:24px">Check your inbox.</h2>
+      <h2 style="font-size:24px">Check your inbox.</h2>
       <p>If that address holds an account, a reset link is on its way. It lasts a short while and works once.</p>
       <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Close</button></div>
     </div>`;
