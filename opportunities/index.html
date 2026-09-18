@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NexPoint Global Opportunities Hub</title>
+<meta name="robots" content="noindex">
+<style>body[data-np-wall]:not([data-np-open]){visibility:hidden}</style>
+<script>
+  /* The wall (one-door register): if the account module never answers, this
+     page must not stay blank. Ten seconds, then the door. */
+  setTimeout(function () {
+    var apex = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
+    if (!document.body || !document.body.hasAttribute('data-np-open'))
+      location.replace(apex + '/hub/?signin=1&return=' + encodeURIComponent(location.href));
+  }, 10000);
+</script>
 <link rel="icon" href="assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -432,7 +443,7 @@
 <script type="text/javascript" src="https://www.365-syndicate.com/js/818863.js"></script>
 <noscript><img src="https://www.365-syndicate.com/818863.png" style="display:none;" alt="" /></noscript>
 </head>
-<body>
+<body data-np-wall>
 
 <div class="scroll-progress" aria-hidden="true"></div>
 

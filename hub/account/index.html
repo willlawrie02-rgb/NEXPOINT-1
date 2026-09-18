@@ -66,8 +66,16 @@
   .acct-loading{color:var(--on-surface-var);font-size:14px;padding:40px 0;text-align:center}
   @media(max-width:560px){.acct-row{flex-direction:column;align-items:flex-start}.acct-row__actions{width:100%}}
 </style>
+<script>
+  /* The wall (one-door register): if the account module never answers, this
+     page must not stay blank. Ten seconds, then the door. */
+  setTimeout(function () {
+    if (!document.body || !document.body.hasAttribute('data-np-open'))
+      location.replace('/hub/?signin=1&return=' + encodeURIComponent(location.href));
+  }, 10000);
+</script>
 </head>
-<body>
+<body data-np-wall>
 <!--
 2026-09-07 - the dashboard is a shell. Every section below is filled by
 hub/assets/dashboard.js from one GET /account/summary, so a key the worker has
