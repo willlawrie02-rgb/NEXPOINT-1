@@ -58,11 +58,27 @@
   .wordmark{display:inline-flex;align-items:center;line-height:0}
   .wordmark img{height:52px;width:auto;display:block}
   .nav-links{display:flex;gap:28px;align-items:center}
-  .nav-links a{font:600 12px/1 var(--font-body);letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.55);transition:color var(--dur) var(--ease);white-space:nowrap}
+  .nav-links a{font:600 12px/1 var(--font-body);letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.55);transition:color var(--dur) var(--ease);white-space:nowrap;padding:6px 0;border-bottom:2px solid transparent}
   .nav-links a:hover{color:#fff}
-  @media(max-width:1080px) and (min-width:901px){.wordmark img{height:46px}.nav-links{gap:18px}.nav-links a{font-size:11.5px;letter-spacing:.03em}#navAccess{padding:11px 16px}}
+  .nav-links a[aria-current="page"]{color:#fff;border-bottom-color:var(--blue-bright)}
+  /* the hub account slot and the chip hub-account.js renders into it: ported from
+     hub/assets/portal.css and colour-adjusted to this page's dark header (audit plan 009) */
+  [data-np-account-slot]{display:inline-flex;align-items:center;gap:28px}
+  .np-chip{display:inline-flex;align-items:center;flex-wrap:wrap;gap:10px;font:600 12px/1 var(--font-body);color:rgba(255,255,255,.75);letter-spacing:.02em}
+  .np-chip__out,.np-chip__link{background:none;border:none;border-bottom:0;color:var(--blue-bright);font:600 12px/1 var(--font-body);cursor:pointer;padding:4px 0;text-transform:uppercase;letter-spacing:.05em}
+  .np-chip__out:hover,.np-chip__link:hover{color:#fff}
+  .notice-warn{display:inline-flex;align-items:center;gap:8px;font:600 12px/1.4 var(--font-body);color:#F5C26B;background:rgba(245,166,35,.14);border:1px solid rgba(245,166,35,.38);border-radius:9999px;padding:7px 13px;cursor:pointer}
+  .notice-warn:hover{background:rgba(245,166,35,.22)}
+  @media(max-width:1080px) and (min-width:901px){.wordmark img{height:46px}.nav-links{gap:18px}[data-np-account-slot]{gap:18px}.nav-links a{font-size:11.5px;letter-spacing:.03em}#navAccess,[data-np-account-slot] .btn{padding:11px 16px}}
   @media(max-width:900px){.nav-links a.hide-m{display:none}}
-  @media(max-width:600px){.nav{height:62px}.nav-links{gap:12px}#navAccess{padding:10px 14px;font-size:13px}}
+  @media(max-width:600px){.nav{height:62px}.nav-links{gap:12px}[data-np-account-slot]{gap:12px}#navAccess,[data-np-account-slot] .btn{padding:10px 14px;font-size:13px}}
+  /* mobile hub switcher: hubs stay one tap away below 900px (ported from hub/assets/portal.css) */
+  .hub-switch{display:none}
+  @media(max-width:900px){
+    .hub-switch{display:flex;gap:8px;overflow-x:auto;padding:10px var(--side-pad);background:rgba(18,18,18,.92);border-bottom:1px solid var(--border-soft);-webkit-overflow-scrolling:touch}
+    .hub-switch a{flex:0 0 auto;font:600 12px/1 var(--font-body);letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.18);border-radius:9999px;padding:9px 15px;white-space:nowrap}
+    .hub-switch a[aria-current="page"]{background:rgba(61,142,235,.14);border-color:var(--blue-bright);color:#fff}
+  }
   /* breadcrumb trail back to the Global Hub — same pattern as the print/mill doors */
   .crumbs{display:flex;align-items:center;gap:8px;font:500 12.5px/1 var(--font-body);color:var(--on-surface-var);padding:18px 0 0}
   .crumbs a{color:var(--on-surface-var);text-decoration:none}
@@ -347,6 +363,14 @@
   html[data-theme="light"] header{background:rgba(255,255,255,.82);border-bottom-color:rgba(14,22,38,.09)}
   html[data-theme="light"] .nav-links a{color:rgba(14,22,38,.6)}
   html[data-theme="light"] .nav-links a:hover{color:#0E1626}
+  html[data-theme="light"] .nav-links a[aria-current="page"]{color:var(--blue);border-bottom-color:var(--blue)}
+  html[data-theme="light"] .np-chip{color:rgba(14,22,38,.7)}
+  html[data-theme="light"] .np-chip__out,html[data-theme="light"] .np-chip__link{color:var(--blue)}
+  html[data-theme="light"] .np-chip__out:hover,html[data-theme="light"] .np-chip__link:hover{color:var(--blue-hover)}
+  html[data-theme="light"] .notice-warn{color:#8A5300}
+  html[data-theme="light"] .hub-switch{background:rgba(255,255,255,.92)}
+  html[data-theme="light"] .hub-switch a{color:rgba(14,22,38,.72);border-color:rgba(14,22,38,.18)}
+  html[data-theme="light"] .hub-switch a[aria-current="page"]{background:rgba(0,92,200,.10);border-color:var(--blue);color:var(--blue)}
 
   /* buttons with white text/border */
   html[data-theme="light"] .btn-ghost{color:#0E1626}
@@ -415,15 +439,23 @@
 <header>
   <div class="container nav">
     <a href="https://nexpoint.co.uk/" class="wordmark" aria-label="NexPoint home"><img src="assets/nexpoint-logo.png" alt="NexPoint"></a>
-    <nav class="nav-links">
-      <a href="#briefs" class="hide-m">Opportunities</a>
-      <a href="#how" class="hide-m">How It Works</a>
+    <nav class="nav-links" aria-label="Global Hub">
+      <a href="https://printhub.nexpoint.co.uk/" class="hide-m">Print Hub</a>
+      <a href="https://millhub.nexpoint.co.uk/" class="hide-m">Mill Hub</a>
+      <a href="https://nexpoint.co.uk/hub/" class="hide-m">Global Hub</a>
+      <a href="#briefs" class="hide-m" aria-current="page">Opportunities</a>
       <a href="#post" class="hide-m">Post an opportunity</a>
-      <a href="#" id="navSignIn" onclick="event.preventDefault();openSignIn()">Sign in</a>
+      <span data-np-account-slot><a href="#" id="navSignIn" onclick="event.preventDefault();openSignIn()">Sign in</a></span>
       <button class="btn btn-primary" id="navAccess" onclick="openGate()">Create your hub account</button>
     </nav>
   </div>
 </header>
+<nav class="hub-switch" aria-label="Hubs">
+  <a href="https://nexpoint.co.uk/hub/">Global Hub home</a>
+  <a href="https://printhub.nexpoint.co.uk/">Print Hub</a>
+  <a href="https://millhub.nexpoint.co.uk/">Mill Hub</a>
+  <a href="#briefs" aria-current="page">Opportunities</a>
+</nav>
 
 <div class="container">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="https://nexpoint.co.uk/hub/">Global Hub</a><span class="sep">/</span><b>Global Opportunities Hub</b></nav>
@@ -1580,20 +1612,41 @@ async function submitCapture(form){
     goals: profile.goals||[], pressing: profile.pressing||[], timeline: profile.timeline||'',
     direction: profile.direction||'', product_types: profile.productTypes||[], products: productSummary(), describe: profile.describe||''
   };
+  // Honest capture (audit plan 009): the worker's answer decides what the visitor sees. Before
+  // this, a failed or refused post still showed "Received" and the request was lost silently.
+  const btn=form.querySelector('button[type="submit"]');
+  const err=form.querySelector('.form-err');
+  if(btn) btn.disabled=true;
+  if(err) err.style.display='none';
+  let ok=false;
   if(CAPTURE_ENDPOINT){
-    try{ await fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); }
-    catch(e){ /* network hiccup → still confirm to the member; lead can be recovered */ }
+    try{
+      const r=await fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const d=await r.json().catch(()=>({}));
+      ok=r.ok && d.ok!==false;
+    }catch(e){ ok=false; }
   }
-  showSuccess();
+  if(ok){ showSuccess(); return; }
+  if(btn) btn.disabled=false;
+  if(err){
+    err.innerHTML='That did not send. Check your connection and try again, or email <a href="mailto:hello@nexpoint.co.uk" style="color:var(--blue-bright)">hello@nexpoint.co.uk</a> and we will pick it up.';
+    err.style.display='block';
+  }
 }
 function captureMembership(){
   if(!CAPTURE_ENDPOINT) return;                              // no-op until the worker URL is set
-  var payload={kind:'membership', name:profile.name||'', email:profile.email||'', company:profile.company||'',
+  var payload={kind:'account', name:profile.name||'', email:profile.email||'', company:profile.company||'',
     type:profile.type||'', region:profile.region||'', volume:profile.volume||'',
     goals:profile.goals||[], pressing:profile.pressing||[], timeline:profile.timeline||'',
     direction:profile.direction||'', product_types:profile.productTypes||[], products:productSummary(), describe:profile.describe||''};
-  try{ fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true}); }
-  catch(e){ /* fire and forget, completing the desk must never block on the network */ }
+  // Deliberately non-blocking (keepalive, no await): completing the desk never waits on the
+  // network. A failure is at least said in the console (audit plan 009).
+  try{
+    fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true})
+      .then(function(r){ if(!r.ok) console.warn('NexPoint: account capture refused, status '+r.status); })
+      .catch(function(e){ console.warn('NexPoint: account capture did not send', e); });
+  }
+  catch(e){ console.warn('NexPoint: account capture did not send', e); }
 }
 function openForm(subject, ref, mode){
   if(mode!=='post' && window.NPAccount && typeof NPAccount.gate === 'function'){
@@ -1626,6 +1679,7 @@ function openForm(subject, ref, mode){
       <input type="text" name="company_url" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
       <div class="form-grid"><div class="field full"><label>${fieldLabel}</label><textarea name="fit" required placeholder="${placeholder}"></textarea></div></div>
       <div class="privacy">${shield}<span>${privacyLine}</span></div>
+      <div class="form-err" role="alert" style="font-size:12.5px;color:#ff6b6b;display:none;margin-top:8px"></div>
       <div class="modal-actions"><button class="btn btn-primary" type="submit">${submitLabel}</button></div>
     </form>`;
   closeAll();document.getElementById('formOverlay').classList.add('open');document.body.style.overflow='hidden';
@@ -1635,7 +1689,7 @@ function showSuccess(){
   document.getElementById('formContent').innerHTML=`
     <div class="success">
       <div class="ok">✓</div>
-      <h2 style="color:#fff;font-size:24px">Received, in confidence.</h2>
+      <h2 style="font-size:24px">Received, in confidence.</h2>
       <p>A NexPoint partner will review the fit personally and come back to you within two working days, with an introduction, or an honest reason why not and what we'll look for instead.</p>
       <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the board</button></div>
     </div>`;
@@ -1927,14 +1981,8 @@ function unlock(noScroll){
   document.getElementById('wall').style.display='none';
   document.getElementById('filters').style.display='flex';
   grid.classList.remove('preview-blur');
-  // header reflects the signed-in state: name/status on the left link, sign-out as the button
-  const navSi=document.getElementById('navSignIn');
-  navSi.textContent=`Signed in · ${(profile.name||'').split(' ')[0]||'You'}`;
-  navSi.onclick=(e)=>{e.preventDefault();document.getElementById('briefs').scrollIntoView({behavior:'smooth'});};
-  const navAcc=document.getElementById('navAccess');
-  navAcc.textContent='Sign out';
-  navAcc.className='btn btn-outline';
-  navAcc.onclick=signOut;
+  // The header is not rewritten here: the hub account chip in [data-np-account-slot] is the one
+  // signed-in header, as on every other hub page (audit plan 009).
   const strip=document.getElementById('memberStrip');
   strip.style.display='flex';
   const subParts=[profile.type,profile.region,profile.volume].filter(Boolean);
@@ -2033,7 +2081,7 @@ async function doSignIn(form){
       document.getElementById('formContent').innerHTML=`
         <div class="success">
           <div class="ok">✓</div>
-          <h2 style="color:#fff;font-size:24px">Welcome back, ${escHtml((NPAccount.user&&(NPAccount.user.name||NPAccount.user.email))||'')}.</h2>
+          <h2 style="font-size:24px">Welcome back, ${escHtml((NPAccount.user&&(NPAccount.user.name||NPAccount.user.email))||'')}.</h2>
           <p>You're signed in across every hub. Requests you make now arrive with your profile attached.</p>
           <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the board</button></div>
         </div>`;
@@ -2051,21 +2099,41 @@ async function doSignIn(form){
   if(error){e.style.color='#ff6b6b';e.textContent=error.message;e.style.display='block';return;}
   closeAll(); // onAuthStateChange → onSignedIn unlocks
 }
+/* Password reset goes through the hub account (audit plans 006 and 009). The worker answers
+   every address the same way, so one message is shown whatever comes back, and the link it
+   sends opens the hub's set-password page. The legacy Supabase reset call is gone: it
+   had no set-password screen to land on. */
 async function doReset(link){
-  const email=link.closest('form').querySelector('input[name=email]').value;
+  const email=(link.closest('form').querySelector('input[name=email]').value||'').trim();
   const e=document.getElementById('siErr');
   if(!email){e.style.color='#ff6b6b';e.textContent='Enter your email above first.';e.style.display='block';return;}
-  await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
-  e.style.color='var(--green)';e.textContent='Reset link sent, check your email.';e.style.display='block';
+  try{
+    if(window.NPAccount && typeof NPAccount.resetRequest === 'function'){ await NPAccount.resetRequest(email); }
+    else { await fetch('https://api.nexpoint.co.uk/auth/reset-request',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})}); }
+  }catch(err){ /* the message below is the same for every outcome */ }
+  document.getElementById('formContent').innerHTML=`
+    <div class="success">
+      <div class="ok">✓</div>
+      <h2 style="font-size:24px">Check your inbox.</h2>
+      <p>If that address holds an account, a reset link is on its way. It lasts a short while and works once.</p>
+      <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Close</button></div>
+    </div>`;
 }
+/* Sign out of BOTH systems, always (audit plan 009): the hub account and the legacy Supabase
+   session this origin may still hold. Before this, NPAccount.signOut() left the legacy session
+   in localStorage and the reload unlocked the board straight back. */
+let relocking=false;
 async function signOut(){
+  relocking=true;   // the relock in syncMemberFromAccount stands down: this function finishes the job
   if(window.NPAccount && typeof NPAccount.signOut === 'function'){ await NPAccount.signOut(); }
-  else { await sb.auth.signOut(); }
+  try{ await sb.auth.signOut(); }catch(e){}
   location.reload();
 }
 
-sb.auth.onAuthStateChange((_e,session)=>{ if(session) onSignedIn(session); });
-sb.auth.getSession().then(({data})=>{ if(data && data.session) onSignedIn(data.session); });
+/* The legacy session unlocks the board only when no hub account is signed in: when the hub
+   account is present it is the sole authority (audit plan 009). */
+sb.auth.onAuthStateChange((_e,session)=>{ if(session && !(window.NPAccount && NPAccount.user)) onSignedIn(session); });
+sb.auth.getSession().then(({data})=>{ if(data && data.session && !(window.NPAccount && NPAccount.user)) onSignedIn(data.session); });
 
 /* ===== NPAccount — the one hub account, unifying the gate ===== */
 function accountProfile(u){
@@ -2075,8 +2143,17 @@ function accountProfile(u){
     type:'', volume:'', goals:[], pressing:[], timeline:''
   };
 }
+let hubUserSeen=false;
 function syncMemberFromAccount(){
-  if(!(window.NPAccount && NPAccount.user)) return;    // signed out of the hub account — a legacy local session (if any) keeps ownership; never auto-relock
+  if(!window.NPAccount) return;
+  if(!NPAccount.user){
+    // The hub account has just signed out here (the header chip's Sign out): clear the legacy
+    // session too and reload, so the board locks instead of the old session unlocking it again
+    // (audit plan 009). A page that never saw a hub user leaves any legacy session alone.
+    if(hubUserSeen && !relocking){ hubUserSeen=false; relocking=true; sb.auth.signOut().catch(()=>{}).then(()=>location.reload()); }
+    return;
+  }
+  hubUserSeen=true;
   if(member){ Object.assign(profile,accountProfile(NPAccount.user)); return; }  // already unlocked — just refresh identity fields
   inSignup=false;
   profile=accountProfile(NPAccount.user);
@@ -2084,6 +2161,12 @@ function syncMemberFromAccount(){
   unlock(true);
 }
 document.addEventListener('npaccount:change',syncMemberFromAccount);
+/* Once hub-account.js has rendered the slot it carries the right control for either state:
+   the chip when signed in, its own Sign in and Create your hub account when signed out. The
+   page's #navAccess button then stands down, so the header never shows two Create buttons
+   (audit plan 009). Until the module answers, and if it never loads, #navAccess stays. */
+function hideNavAccessOnceSlotIsLive(){ const b=document.getElementById('navAccess'); if(b && window.NPAccount) b.style.display='none'; }
+document.addEventListener('npaccount:change',hideNavAccessOnceSlotIsLive);
 syncMemberFromAccount();   // covers the case where NPAccount finished its /auth/me check before this listener was attached
 </script>
 </body>
