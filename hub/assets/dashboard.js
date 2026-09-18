@@ -139,14 +139,7 @@
     });
     if (s.founding) badges.push('<span class="acct-badge is-founding">Founding partner</span>');
 
-    var unconfirmed = d.email_confirmed === false ||
-      !!(window.NPAccount && NPAccount.user && NPAccount.confirmed && !NPAccount.confirmed());
     var html =
-      '<div id="confirmBanner" class="notice-warn notice-warn--block"' + (unconfirmed ? '' : ' hidden') + '>' +
-        '<span>Confirm your email before you can act on your account. We sent a link to <strong>' +
-          esc((window.NPAccount && NPAccount.user && NPAccount.user.email) || 'your inbox') + '</strong>.</span>' +
-        '<button class="btn btn-outline acct-btn-sm" type="button" data-act="resend-confirm">Resend the email</button>' +
-      '</div>' +
       '<h2>' + esc(s.name) + '</h2>' +
       '<p class="hint">Site account' + (where ? ' · ' + esc(where) : '') + '</p>' +
       (badges.length ? '<div class="acct-badges">' + badges.join('') + '</div>' : '') +
@@ -739,13 +732,6 @@
     return function () { btn.disabled = false; btn.textContent = orig; };
   }
 
-  function resendConfirm(btn) {
-    var done = busy(btn, 'Sending…');
-    var email = (window.NPAccount && NPAccount.user && NPAccount.user.email) || '';
-    var p = (window.NPAccount && NPAccount.resendConfirmation) ? NPAccount.resendConfirmation(email) : Promise.resolve({});
-    p.then(function () { done(); btn.textContent = 'Sent, check your inbox'; btn.disabled = true; });
-  }
-
   function submitDeclaration(btn) {
     var period = btn.getAttribute('data-period') || '';
     var hub = btn.getAttribute('data-hub') || '';
@@ -835,7 +821,6 @@
     if (act === 'signin') { if (window.openSignIn) openSignIn(); return; }
     if (act === 'join') { if (window.NPAccount) NPAccount.openQuestionnaire({}); return; }
     if (act === 'education') { if (window.openEducationList) openEducationList(); return; }
-    if (act === 'resend-confirm') { resendConfirm(btn); return; }
     if (act === 'line-query') {
       var box = el('lineNote-' + btn.getAttribute('data-line'));
       if (box) box.hidden = !box.hidden;

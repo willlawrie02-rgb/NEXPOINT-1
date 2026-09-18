@@ -154,34 +154,6 @@
     });
   }
 
-  function renderUnconfirmed() {
-    const email = (window.NPAccount && NPAccount.user && NPAccount.user.email) || '';
-    body().innerHTML =
-      '<p class="body">Confirm your email first. We sent a link to <strong>' + esc(email) + '</strong>. ' +
-      'Open it and you can list your site straight away.</p>' +
-      '<div class="modal-actions">' +
-      '<button class="btn btn-primary" type="button" data-l-recheck>I have confirmed, refresh</button>' +
-      '<button class="btn btn-outline" type="button" data-l-resend>Resend the email</button>' +
-      '</div>' +
-      '<p class="np-sign-error" data-l-msg style="display:none"></p>';
-    body().querySelector('[data-l-recheck]').addEventListener('click', async (e) => {
-      const btn = e.target; const orig = btn.textContent;
-      btn.disabled = true; btn.textContent = 'Checking…';
-      if (window.NPAccount) await NPAccount.refresh();
-      if (window.NPAccount && NPAccount.confirmed()) { load(); return; }
-      btn.disabled = false; btn.textContent = orig;
-      const msg = body().querySelector('[data-l-msg]');
-      if (msg) { msg.style.display = 'block'; msg.textContent = 'Not confirmed yet. Open the link in the email, then try again.'; }
-    });
-    body().querySelector('[data-l-resend]').addEventListener('click', async (e) => {
-      const btn = e.target;
-      if (btn.disabled) return;
-      btn.disabled = true; btn.textContent = 'Sending…';
-      if (window.NPAccount) await NPAccount.resendConfirmation(email);
-      btn.textContent = 'Sent, check your inbox';
-    });
-  }
-
   function renderLoadFailed() {
     body().innerHTML =
       '<p class="body">We could not load your listing just now. Refresh the page and try again, or email ' +
@@ -830,47 +802,25 @@
     const A = window.NPAccount;
     if (!A) { showError(submitErrorText({ error: 'network' })); return; }
 
-    /* Signed out or unconfirmed, the listing is held so the account flow can
-       come back to it rather than losing everything the host just typed. */
-    if ((!A.user || !A.confirmed()) && window.NPPendingListing) {
-      NPPendingListing.save({ kind: 'listing', hub: HUB, payload: built.payload });
-    }
+    /* A lapsed session signs in over the page and then sends (Q5). */
     const btn = el('listingSubmit');
     const orig = btn ? btn.textContent : '';
-    A.requireConfirmed(() => send(built.payload, btn, orig, false));
+    A.requireConfirmed(() => send(built.payload, btn, orig));
   }
 
   /* The POST and what each answer means. It sends the payload it was handed,
      never a re-read of the form: a refresh mid-flight can rebuild the panel,
-     and the host's typing must not depend on what is still on screen. The
-     unconfirmed retry happens once, so a worker that refuses while /auth/me
-     still says confirmed ends in a sentence rather than a loop. */
-  async function send(payload, btn, orig, retried) {
-    const A = window.NPAccount;
+     and the host's typing must not depend on what is still on screen. */
+  async function send(payload, btn, orig) {
     if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
     submitting = true;
     const d = await submitPayload(payload);
     submitting = false;
     if (d && d.ok) {
-      if (window.NPPendingListing) NPPendingListing.clear();
       renderSuccess();
       return;
     }
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = orig; }
-    if (d && d.error === 'email_unconfirmed') {
-      if (window.NPPendingListing) NPPendingListing.save({ kind: 'listing', hub: HUB, payload: payload });
-      if (retried) {
-        showError('We still need the link in your email clicked before this can be sent. ' +
-          'Open it, then come back and send again.');
-        return;
-      }
-      submitting = true;                 /* the refresh below fires npaccount:change */
-      await A.refresh();
-      submitting = false;
-      loadDeferred = false;              /* the form on screen is still the right one */
-      A.requireConfirmed(() => send(payload, el('listingSubmit'), orig, true));
-      return;
-    }
     /* The reason comes first, and it survives the re-render. A refusal that
        lands while an account change is in flight used to be swallowed by
        the reload the change had queued: the panel came back with nothing on
@@ -880,12 +830,9 @@
     if (loadDeferred) { loadDeferred = false; carryError(message); load(); }
   }
 
-  /* The one place a listing is posted. The replay card in portal.js sends a
-     held listing through here too, so there is a single submission path. */
+  /* The one place a listing is posted. */
   async function submitPayload(payload) {
-    const d = await postJson('/listings', payload);
-    if (d && d.ok && window.NPPendingListing) NPPendingListing.clear();
-    return d;
+    return postJson('/listings', payload);
   }
 
   /* ══════════════ the legacy host application ══════════════
@@ -1028,7 +975,6 @@
     if (!window.NPAccount) { renderSignedOut(); return; }
     await NPAccount.ready;
     if (!NPAccount.user) { renderSignedOut(); return; }
-    if (!NPAccount.confirmed()) { renderUnconfirmed(); return; }
 
     const [d, v] = await Promise.all([
       api('/listings/mine?hub=' + encodeURIComponent(HUB)),
