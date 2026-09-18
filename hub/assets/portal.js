@@ -324,13 +324,14 @@ function isLand(lat, lon){
    The anonymous fallback below has no structured payload of its own, so it
    is only carried on the account path. */
 function openIntro(ref, heading, payload){
-  if (window.NPAccount && typeof NPAccount.gate === 'function'){
+  if (window.NPAccount && NPAccount.user && typeof NPAccount.gate === 'function'){
     NPAccount.gate({ hub: hubOfPage(), side: ref ? 'request_intro' : 'request_capacity',
       brief_ref: ref || '', heading: heading || 'Ask us to introduce you',
       payload: payload || {} });
     return;
   }
-  /* fallback: original anonymous desk form, unchanged below */
+  /* A stranger on the door (one-door register, Q8): the plain desk form,
+     filed as a website enquiry. Every walled page has an account here. */
   const l = loadLoc();
   const where = locLabel(l);
   const c = document.getElementById('introContent');
@@ -430,6 +431,11 @@ async function signSubmit(){
     if (submit && submit.isConnected) submit.disabled = false;
   }
   if (d.ok){
+    /* Back to the page the door was reached from (Q4), or on with the
+       action a lapsed session interrupted (Q5), or the plain welcome. */
+    const back = NPAccount.doorReturn && NPAccount.doorReturn();
+    if (back){ location.href = back; return; }
+    if (NPAccount.afterSignIn){ const go = NPAccount.afterSignIn; NPAccount.afterSignIn = null; closeAll(); go(); return; }
     document.getElementById('signContent').innerHTML = `
       <div class="success">
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
@@ -518,6 +524,16 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); 
   });
   if (window.NPAccount && NPAccount.ready && NPAccount.ready.then) NPAccount.ready.then(run, run);
   else run();
+})();
+
+/* The door (one-door register, Q4): a walled page sends a stranger here with
+   ?signin=1 and its own address in ?return=. Open the box once the account
+   has settled, unless it turns out they are signed in after all. */
+(function openDoorSignIn(){
+  if (new URLSearchParams(location.search).get('signin') !== '1') return;
+  const go = () => { if (!(window.NPAccount && NPAccount.user) && document.getElementById('signOverlay')) openSignIn(); };
+  if (window.NPAccount && NPAccount.ready && NPAccount.ready.then) NPAccount.ready.then(go, go);
+  else go();
 })();
 
 /* ═══════════ hero globe (landing only): dotted Earth with live connection arcs ═══════════ */
@@ -777,164 +793,6 @@ function fireEnterGroup(el){
   }
 })();
 
-/* ═══════════ pending replay ═══════════
-   A pending action lives in NPPending, on localStorage, on whichever origin
-   the visitor started on (see hub-account.js). The confirm page cannot see
-   it - it usually lives on a different host - so it only sends the visitor
-   back here; this is the one place that can actually offer to send it,
-   because this is the page it was saved from. Every hub page loads
-   portal.js, so every hub page gets the offer. `kind:'request'` goes through
-   the same submitRequest() path the desk forms already use; `kind:'listing'`
-   goes back through the offer page's own module, which is why that kind is
-   only offered on a page that has NPListing loaded.
-
-   Two different things are held under `kind:'request'`: a desk request from
-   the questionnaire, which carries a `payload`, and a seeker's find request,
-   which carries the `search` it was built from and the sites picked. They
-   post to different routes, so `kindFor()` tells them apart by that field
-   rather than by inventing a second word for "request". */
-const PENDING_KINDS = {
-  request: {
-    line: 'You started a request before confirming your email. Send it now?',
-    send: 'Send it',
-    done: '<strong>Received, in confidence.</strong> Chris or Will reads every request personally. Expect to hear within two working days.',
-    already: '<strong>Already sent.</strong> Chris or Will reads every request personally. Expect to hear within two working days.',
-    ready: () => !!(window.NPAccount && NPAccount.replayPending),
-    submit: () => NPAccount.replayPending(),
-  },
-  listing: {
-    line: 'You filled in your listing before confirming your email. Send it for review now?',
-    send: 'Send it for review',
-    done: '<strong>Received.</strong> Nothing is listed until we have checked it; you will get an email when it is live.',
-    already: '<strong>Already sent.</strong> Nothing is listed until we have checked it; you will get an email when it is live.',
-    ready: () => !!(window.NPListing && NPListing.submitPayload),
-    alreadyError: 'listing_locked_pending',
-    submit: (p) => NPListing.submitPayload(p.payload).then(d => {
-      if (d && d.ok && window.NPListing.reload) NPListing.reload();
-      return d;
-    }),
-  },
-  /* Getters, not strings: the Mill Hub calls a provider a cell where the
-     Print Hub calls it a site, and the card is only built once the page
-     (and so the hub) is known. */
-  find_request: {
-    get line(){ return 'You picked ' + pendingSiteNoun() + ' before confirming your email. Send the request now?'; },
-    send: 'Send it',
-    /* No `done`: NPFind.submitPending paints the page's own success card on
-       the way back, and a second Received under the header would be the same
-       news twice. A card with no `done` simply clears itself. */
-    done: null,
-    get already(){ return '<strong>Already sent.</strong> ' + pendingSentLine(); },
-    ready: () => !!(window.NPFind && NPFind.submitPending),
-    alreadyError: 'picks_already_made',
-    submit: (p) => NPFind.submitPending(p),
-    /* The find module already writes one sentence per worker refusal; the
-       card says the same thing rather than flattening eight answers into
-       "that did not send". */
-    errorText: (d) => (window.NPFind && NPFind.errorText) ? NPFind.errorText(d) : '',
-  },
-};
-
-function pendingSiteNoun(){
-  const c = hubConfig();
-  return ((c && c.siteNoun) || 'site') + 's';
-}
-function pendingSentLine(){
-  return 'We check every request personally and put it to the ' + pendingSiteNoun() +
-    ' you picked. You can follow it on your account.';
-}
-
-/* `pending.kind` is a string off localStorage, so it can be anything at all,
-   including "constructor" or "__proto__" - and a plain object lookup would
-   hand one of those back a function or Object.prototype and throw on the
-   `.ready()` below, killing the replay check for a pending that is perfectly
-   good. Own keys only. */
-function kindFor(pending){
-  if (pending.kind === 'request' && pending.search) return PENDING_KINDS.find_request;
-  return Object.prototype.hasOwnProperty.call(PENDING_KINDS, pending.kind)
-    ? PENDING_KINDS[pending.kind] : null;
-}
-
-/* The three held-action stores (audit plan 008), in the order a page offers
-   them: the find request, then a held listing, then a desk request. The
-   first present one that this page can replay gets the card. A hold
-   stamped with another account's email is cleared, never offered. */
-function pendingStores(){
-  return [window.NPPendingFind, window.NPPendingListing, window.NPPending].filter(Boolean);
-}
-function checkPendingReplay(){
-  if (!window.NPAccount || !window.NPPending) return;
-  if (!NPAccount.user || !NPAccount.confirmed()) return;
-  for (const store of pendingStores()){
-    const p = store.load();
-    if (!p) continue;
-    if (NPAccount.heldByAnotherAccount && NPAccount.heldByAnotherAccount(p)){ store.clear(); continue; }
-    const kind = kindFor(p);
-    if (!kind || !kind.ready()) continue;
-    if (p.hub && p.hub !== hubOfPage()) continue;
-    renderPendingCard(p, kind, store);
-    return;
-  }
-}
-
-function renderPendingCard(pending, kind, store){
-  store = store || window.NPPending;
-  if (document.getElementById('npPendingCard')) return;
-  const wrap = document.createElement('div');
-  wrap.className = 'container';
-  wrap.style.marginTop = '16px';
-  wrap.innerHTML =
-    '<div class="notice-warn notice-warn--block" id="npPendingCard">' +
-      '<span>' + escapeHtml(kind.line) + '</span>' +
-      '<button class="btn btn-primary" type="button" data-np-pending-send>' + escapeHtml(kind.send) + '</button>' +
-      '<button class="btn btn-outline" type="button" data-np-pending-skip>Not now</button>' +
-    '</div>';
-  const header = document.querySelector('header');
-  if (header && header.parentNode) header.parentNode.insertBefore(wrap, header.nextSibling);
-  else document.body.insertBefore(wrap, document.body.firstChild);
-
-  const card = wrap.querySelector('#npPendingCard');
-  card.querySelector('[data-np-pending-send]').addEventListener('click', async (e) => {
-    const btn = e.target;
-    btn.disabled = true; btn.textContent = 'Sending…';
-    const d = await kind.submit(pending);
-    if (d && d.ok){
-      store.clear();
-      /* The page said it itself: get out of the way rather than say it again. */
-      if (!kind.done){ wrap.remove(); return; }
-      card.innerHTML = '<span>' + kind.done + '</span>';
-      return;
-    }
-    if (d && (d.error === 'no_pending' || (kind.alreadyError && d.error === kind.alreadyError))){
-      /* Already sent elsewhere (e.g. the modal completed the send while this
-         card sat on screen from before it opened) - not a failure. */
-      card.innerHTML = '<span>' + kind.already + '</span>';
-      return;
-    }
-    /* The module dropped the held action while handling this: it has taken
-       the seeker on somewhere else in the page (stale terms wanting a fresh
-       tick), so the card no longer stands for anything. */
-    if (!store.load()){ wrap.remove(); return; }
-    btn.disabled = false; btn.textContent = kind.send;
-    let err = card.querySelector('.pending-error');
-    if (!err){
-      err = document.createElement('span');
-      err.className = 'pending-error';
-      err.style.cssText = 'color:#E5484D;font-size:13px';
-      card.appendChild(err);
-    }
-    err.textContent = (kind.errorText && kind.errorText(d)) ||
-      'That did not send. Try again, or email hello@nexpoint.co.uk.';
-  });
-  card.querySelector('[data-np-pending-skip]').addEventListener('click', () => {
-    store.clear();
-    wrap.remove();
-  });
-}
-
-if (window.NPAccount) NPAccount.ready.then(checkPendingReplay);
-document.addEventListener('npaccount:change', checkPendingReplay);
-
 /* ═══════════ boot ═══════════
    The loader in each page fires np:modules once its whole chain has loaded and
    the document is ready, so a page module is always started after both it and
@@ -944,9 +802,6 @@ function bootPageModules(){
   if (window.NPListing) NPListing.init();
   if (window.NPDashboard) NPDashboard.init();
   if (window.NPAccept) NPAccept.init();
-  /* the page's own module may be what a held action replays through, and it
-     only exists now, so the offer is re-checked once the modules are up */
-  checkPendingReplay();
 }
 document.addEventListener('np:modules', bootPageModules, { once: true });
 
