@@ -105,6 +105,12 @@
           ref + '; they have yours.'
         : 'Recorded. The seeker\'s details are on their way to you by email; they have yours.'],
       fallback: 'If nothing reaches you, email ' + HELLO + ' and we will send it again.',
+      /* Only this card, the one a fresh Accept ends on (audit plan 015). It is
+         a plain link and nothing more: the page still calls no session route
+         and still knows nothing about the seeker, which is the property the
+         note at the top of this file records. The account page does its own
+         asking for a sign-in. Every card before the answer stays link-free. */
+      account: true,
     }),
     declined: () => ({
       heading: 'Declined',
@@ -158,6 +164,9 @@
     bodyEl().innerHTML =
       '<h2>' + esc(card.heading) + '</h2>' +
       card.lines.map((l) => '<p class="acc-line">' + esc(l) + '</p>').join('') +
+      (card.account
+        ? '<p class="acc-line"><a href="https://nexpoint.co.uk/hub/account/">Manage this introduction from your account</a></p>'
+        : '') +
       '<p class="acc-fallback">' + withMailto(card.fallback) + '</p>';
   }
 

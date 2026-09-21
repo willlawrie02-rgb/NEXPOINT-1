@@ -462,6 +462,7 @@
   </div>
 </header>
 <nav class="hub-switch" aria-label="Hubs">
+  <a href="https://nexpoint.co.uk/hub/account/" data-np-switch-account hidden>Your account</a>
   <a href="https://nexpoint.co.uk/hub/">Global Hub home</a>
   <a href="https://printhub.nexpoint.co.uk/">Print Hub</a>
   <a href="https://millhub.nexpoint.co.uk/">Mill Hub</a>
@@ -1498,7 +1499,7 @@ async function doSignIn(form){
           <div class="ok">✓</div>
           <h2 style="font-size:24px">Welcome back, ${escHtml((NPAccount.user&&(NPAccount.user.name||NPAccount.user.email))||'')}.</h2>
           <p>You're signed in across every hub. Requests you make now arrive with your profile attached.</p>
-          <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the board</button></div>
+          <div class="modal-actions" style="justify-content:center;flex-wrap:wrap"><a class="btn btn-primary" href="https://nexpoint.co.uk/hub/account/">Go to your account</a><button class="btn btn-outline" onclick="closeAll()">Back to the board</button></div>
         </div>`;
       return;
     }

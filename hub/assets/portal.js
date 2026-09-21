@@ -446,7 +446,7 @@ async function signSubmit(){
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>Welcome back, ${escapeHtml((NPAccount.user && (NPAccount.user.name || NPAccount.user.email)) || '')}.</h2>
         <p>You're signed in across every hub. Requests you make now arrive with your profile attached.</p>
-        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
+        <div class="modal-actions" style="justify-content:center;flex-wrap:wrap"><a class="btn btn-primary" href="https://nexpoint.co.uk/hub/account/">Go to your account</a><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
       </div>`;
   } else if (err){
     /* too_many_attempts (audit plan 010): the worker stops trying an address
