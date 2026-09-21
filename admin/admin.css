@@ -58,8 +58,8 @@
   --font-display: 'Montserrat', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
 
-  --radius: 10px;
-  --radius-sm: 7px;
+  --radius: 8px;
+  --radius-sm: 4px;
   --shadow-rest: 0 1px 2px rgba(14, 22, 38, 0.04), 0 6px 20px rgba(14, 22, 38, 0.05);
   --shadow-lift: 0 2px 4px rgba(14, 22, 38, 0.05), 0 14px 34px rgba(14, 22, 38, 0.09);
   --shadow-modal: 0 8px 16px rgba(14, 22, 38, 0.08), 0 32px 80px rgba(14, 22, 38, 0.18);
@@ -82,6 +82,8 @@ body {
   min-height: 100vh;
 }
 a { color: var(--np-blue); }
+input, select, textarea { accent-color: var(--np-blue); }
+table { font-variant-numeric: tabular-nums; }
 ::selection { background: rgba(0, 92, 200, 0.18); color: var(--fg); }
 
 .material-symbols-outlined {
@@ -97,7 +99,7 @@ a { color: var(--np-blue); }
 ::view-transition-old(root) { animation-duration: 160ms; }
 ::view-transition-new(root) { animation-duration: 160ms; }
 
-.wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 
 /* ── Header ─────────────────────────────────────────────────────── */
 .topbar {
@@ -160,10 +162,10 @@ nav.boards .navgroup + .navgroup { margin-left: 10px; padding-left: 10px; border
 .colhead .see-all:hover { text-decoration: underline; }
 
 /* ── Page intro ─────────────────────────────────────────────────── */
-.intro { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 30px 0 6px; flex-wrap: wrap; }
-.intro h1 { font: 700 21px/1.25 var(--font-display); color: var(--fg); letter-spacing: -0.01em; }
+.intro { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 34px 0 8px; flex-wrap: wrap; }
+.intro h1 { font: 700 26px/1.2 var(--font-display); color: var(--fg); letter-spacing: -0.02em; }
 .count { font-size: 13px; color: var(--fg-2); font-variant-numeric: tabular-nums; }
-.note { font-size: 13.5px; color: var(--fg-2); margin: 2px 0 22px; max-width: 72ch; }
+.note { font-size: 14px; line-height: 1.6; color: var(--fg-2); margin: 2px 0 26px; max-width: 76ch; }
 
 /* Content region loads into the task — one quiet arrival, no parade. */
 .arrive { animation: arrive 200ms var(--ease) both; }
@@ -175,13 +177,13 @@ nav.boards .navgroup + .navgroup { margin-left: 10px; padding-left: 10px; border
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-rest);
-  padding: 18px 20px;
+  padding: 20px 22px;
   margin-bottom: 12px;
-  transition: box-shadow var(--t-med) var(--ease), border-color var(--t-med) var(--ease), transform var(--t-med) var(--ease);
+  transition: border-color var(--t-med) var(--ease);
 }
-.row:hover { border-color: #D3D9E2; box-shadow: var(--shadow-lift); transform: translateY(-1px); }
+.row:hover { border-color: #CBD3DE; }
 .row-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-.company, .row h3 { font: 600 16px/1.3 var(--font-display); color: var(--fg); letter-spacing: -0.005em; }
+.company, .row h3 { font: 600 16.5px/1.3 var(--font-display); color: var(--fg); letter-spacing: -0.01em; }
 .why { color: var(--fg-1); font-size: 14.5px; max-width: 78ch; }
 .meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12.5px; color: var(--fg-2); }
 .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
@@ -207,8 +209,8 @@ nav.boards .navgroup + .navgroup { margin-left: 10px; padding-left: 10px; border
 .chip-judge    { background: var(--info-wash); color: var(--info-ink); }
 .chip-unjudged { background: var(--warn-wash); color: var(--warn-ink); }
 .badge {
-  font: 700 10.5px/1 var(--font-body); letter-spacing: 0.06em;
-  padding: 4px 8px; border-radius: 5px;
+  font: 700 11px/1 var(--font-body); letter-spacing: 0.06em;
+  padding: 5px 8px; border-radius: var(--radius-sm);
 }
 .badge.published { background: var(--ok-wash);   color: var(--ok-ink); }
 .badge.draft     { background: var(--bg-alt);    color: var(--fg-2); }
@@ -219,16 +221,17 @@ nav.boards .navgroup + .navgroup { margin-left: 10px; padding-left: 10px; border
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   white-space: nowrap;
   font: 600 13.5px/1 var(--font-body);
-  padding: 10px 16px; border-radius: 8px;
+  padding: 10px 16px; border-radius: var(--radius-sm);
   border: 1px solid transparent; cursor: pointer;
   transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
               border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease),
               transform var(--t-fast) var(--ease);
 }
+a.btn { text-decoration: none; }
 .btn:active { transform: scale(0.98); }
 .btn:focus-visible { outline: none; box-shadow: var(--ring); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-.btn-sm { padding: 7px 12px; font-size: 12.5px; border-radius: 7px; }
+.btn-sm { padding: 8px 12px; font-size: 12.5px; }
 
 .btn-pri { background: var(--np-blue); color: #fff; }
 .btn-pri:hover { background: var(--np-blue-hover); }
@@ -255,9 +258,13 @@ nav.boards .navgroup + .navgroup { margin-left: 10px; padding-left: 10px; border
   border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13.5px; margin-bottom: 16px;
 }
 .empty {
-  background: var(--surface); border: 1px dashed var(--border);
-  border-radius: var(--radius); padding: 36px 24px; text-align: center;
-  color: var(--fg-2); font-size: 14px;
+  background: rgba(14, 22, 38, 0.02); border: 1px solid var(--border-soft);
+  border-radius: var(--radius); padding: 32px 24px; text-align: center;
+  color: var(--fg-2); font-size: 14px; line-height: 1.6;
+}
+.empty::before {
+  content: "inbox"; display: block; margin: 0 auto 10px;
+  font: 400 26px/1 'Material Symbols Outlined'; color: rgba(14, 22, 38, 0.32);
 }
 
 /* Skeleton loading — shape of the content, not a spinner. */
@@ -281,7 +288,7 @@ nav.boards .navgroup + .navgroup { margin-left: 10px; padding-left: 10px; border
 }
 .door input {
   width: 100%; background: var(--surface);
-  border: 1px solid var(--border); border-radius: 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
   color: var(--fg); font: 400 15px/1.4 var(--font-body);
   padding: 12px 14px; margin-bottom: 12px; outline: none;
   transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
@@ -297,7 +304,7 @@ nav.boards .navgroup + .navgroup { margin-left: 10px; padding-left: 10px; border
 .field .opt { color: var(--fg-2); font-weight: 400; }
 .field input, .field select, .field textarea {
   width: 100%; background: var(--surface);
-  border: 1px solid var(--border); border-radius: 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
   color: var(--fg); font: 400 14px/1.45 var(--font-body);
   padding: 10px 12px; outline: none;
   transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
@@ -318,7 +325,7 @@ nav.boards .navgroup + .navgroup { margin-left: 10px; padding-left: 10px; border
 .modal {
   max-width: 760px; margin: 0 auto;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; box-shadow: var(--shadow-modal); padding: 28px;
+  border-radius: 12px; box-shadow: var(--shadow-modal); padding: 28px;
 }
 .overlay.open .modal { animation: modal-in 220ms var(--ease); }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(0.985); } }
@@ -350,16 +357,13 @@ nav.boards .navgroup + .navgroup { margin-left: 10px; padding-left: 10px; border
               font-variant-numeric: tabular-nums; }
 .colhead .rule { flex: 1; height: 1px; background: var(--border); }
 
-/* Request cards — a .row with a status-edged left border. */
-.req { border-left: 3px solid var(--border); }
-.req.s-new       { border-left-color: var(--np-blue); }
-.req.s-reviewing { border-left-color: var(--warn-ink); }
-.req.s-approved  { border-left-color: var(--np-green); }
-.req.s-declined  { border-left-color: var(--cold-ink); }
+/* Request cards — a .row. The status badge carries the state; a settled card
+   steps back so the undecided ones lead the column. */
+.req.s-approved, .req.s-declined { background: #FBFCFD; box-shadow: none; }
 .ref {
   font: 600 11.5px/1 var(--font-body); letter-spacing: 0.05em;
   color: var(--fg-2); background: var(--bg-alt);
-  padding: 4px 8px; border-radius: 5px; font-variant-numeric: tabular-nums;
+  padding: 5px 8px; border-radius: var(--radius-sm); font-variant-numeric: tabular-nums;
 }
 .req details.pl { font-size: 12.5px; color: var(--fg-2); margin-top: 10px; }
 .req details.pl summary { cursor: pointer; list-style: none; display: inline-flex;
@@ -369,8 +373,8 @@ nav.boards .navgroup + .navgroup { margin-left: 10px; padding-left: 10px; border
 .req details.pl p { margin-top: 7px; padding-left: 20px; max-width: 78ch; }
 
 /* Status badges for requests and introduction stages — ink-on-wash. */
-.stg { display: inline-block; font: 700 10.5px/1 var(--font-body); letter-spacing: 0.06em;
-       padding: 4px 8px; border-radius: 5px; white-space: nowrap; }
+.stg { display: inline-block; font: 700 11px/1 var(--font-body); letter-spacing: 0.06em;
+       padding: 5px 8px; border-radius: var(--radius-sm); white-space: nowrap; }
 .stg-new           { background: var(--info-wash); color: var(--info-ink); }
 .stg-reviewing     { background: var(--warn-wash); color: var(--warn-ink); }
 .stg-approved      { background: var(--ok-wash);   color: var(--ok-ink); }
@@ -400,12 +404,13 @@ nav.boards .navgroup + .navgroup { margin-left: 10px; padding-left: 10px; border
 /* The introductions register — same table voice as the Health jobs table. */
 .register { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
             box-shadow: var(--shadow-rest); overflow-x: auto; margin-bottom: 22px; }
-.register table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.register th { text-align: left; font: 600 11.5px/1 var(--font-body); letter-spacing: 0.05em;
-               text-transform: uppercase; color: var(--fg-2); padding: 14px 18px 12px;
-               border-bottom: 1px solid var(--border); }
-.register td { padding: 12px 18px; border-bottom: 1px solid var(--border-faint); color: var(--fg-1);
+.register table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.register th { text-align: left; font: 600 11.5px/1 var(--font-body); letter-spacing: 0.06em;
+               text-transform: uppercase; color: var(--fg-2); padding: 14px 18px 13px;
+               background: #FAFBFD; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.register td { padding: 15px 18px; border-bottom: 1px solid var(--border-faint); color: var(--fg-1);
                vertical-align: middle; }
+.register td:first-child { min-width: 176px; }
 .register tbody tr:last-child td { border-bottom: none; }
 .register tbody tr { transition: background var(--t-fast) var(--ease); }
 .register tbody tr:hover { background: #FAFBFD; }
@@ -464,13 +469,84 @@ details.legacy > summary:hover { color: var(--fg); }
 }
 
 /* Dashboard stat tiles — the Health meter card's shape, reused. */
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 26px; }
 .tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-        box-shadow: var(--shadow-rest); padding: 16px 18px; }
-.tile .k { font: 600 12px/1 var(--font-body); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-2); }
-.tile .v { font: 700 22px/1.2 var(--font-display); color: var(--fg); margin: 8px 0 4px;
+        box-shadow: var(--shadow-rest); padding: 18px 20px; }
+.tile .k { font: 600 11.5px/1.3 var(--font-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-2); }
+.tile .v { font: 700 30px/1.1 var(--font-display); letter-spacing: -0.02em; color: var(--fg); margin: 10px 0 6px;
            font-variant-numeric: tabular-nums; }
-.tile .s { font-size: 12.5px; color: var(--fg-2); }
+.tile .s { font-size: 13px; line-height: 1.45; color: var(--fg-2); }
+
+/* ── App shell (wide screens) ────────────────────────────────────
+   Thirteen boards do not fit one strip of tabs, and a 1060px column leaves a
+   register's nine columns no room. From 1280px the same nav becomes a rail
+   down the left, in its three groups, and the work takes the width. Below
+   that the tab strip above is unchanged. Markup untouched: the group labels
+   and icons are drawn here, keyed on each link's href. */
+@media (min-width: 1280px) {
+  .topbar .wrap { max-width: none; padding: 0 28px; }
+  #admin main { padding-left: 220px; }
+  #admin main > .wrap { max-width: 1320px; margin: 0; padding: 0 32px 72px; }
+  .register th, .register td { padding-left: 14px; padding-right: 14px; }
+
+  nav.boards {
+    position: fixed; top: 65px; left: 0; bottom: 0; width: 220px; z-index: 30;
+    flex-direction: column; gap: 0; margin: 0; padding: 20px 12px 28px;
+    background: var(--surface); border-bottom: none; border-right: 1px solid var(--border-soft);
+    overflow-y: auto;
+  }
+  nav.boards .navgroup { flex-direction: column; gap: 2px; }
+  nav.boards .navgroup + .navgroup { margin: 16px 0 0; padding: 16px 0 0; border-left: none; border-top: 1px solid var(--border-faint); }
+  nav.boards .navgroup::before {
+    content: "Queues"; padding: 0 10px 8px;
+    font: 600 11px/1 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-2);
+  }
+  nav.boards .navgroup:nth-of-type(2)::before { content: "Registers"; }
+  nav.boards .navgroup:nth-of-type(3)::before { content: "Ops"; }
+
+  nav.boards a {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 10px; border-radius: 6px;
+    font: 500 14px/1.2 var(--font-body);
+    transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+  }
+  nav.boards a::after { display: none; }
+  nav.boards a::before {
+    content: "circle"; flex: none;
+    font: 400 20px/1 'Material Symbols Outlined'; color: var(--fg-2);
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+    transition: color var(--t-fast) var(--ease);
+  }
+  nav.boards a:hover { background: var(--bg); }
+  nav.boards a:focus-visible { outline: none; box-shadow: var(--ring); }
+  nav.boards a[aria-current="page"] { background: var(--info-wash); color: var(--info-ink); font-weight: 600; }
+  nav.boards a[aria-current="page"]::before { color: var(--np-blue); }
+
+  nav.boards a[href="dashboard.html"]::before     { content: "space_dashboard"; }
+  nav.boards a[href="leads.html"]::before         { content: "person_search"; }
+  nav.boards a[href="tasks.html"]::before         { content: "checklist"; }
+  nav.boards a[href="print-hub.html"]::before     { content: "print"; }
+  nav.boards a[href="mill-hub.html"]::before      { content: "precision_manufacturing"; }
+  nav.boards a[href="opportunities.html"]::before { content: "explore"; }
+  nav.boards a[href="introductions.html"]::before { content: "handshake"; }
+  nav.boards a[href="members.html"]::before       { content: "group"; }
+  nav.boards a[href="organisations.html"]::before { content: "apartment"; }
+  nav.boards a[href="orders.html"]::before        { content: "receipt_long"; }
+  nav.boards a[href="health.html"]::before        { content: "monitor_heart"; }
+  nav.boards a[href="campaigns.html"]::before     { content: "campaign"; }
+  nav.boards a[href="linkedin.html"]::before      { content: "post_add"; }
+
+  .intro { margin-top: 36px; }
+}
+
+/* Below the rail's width the boards stay a strip of tabs. Thirteen of them are
+   wider than the column, so the strip scrolls sideways rather than pushing
+   the page wide, and a two-word board keeps to one line. */
+@media (max-width: 1279px) {
+  nav.boards { overflow-x: auto; scrollbar-width: none; }
+  nav.boards::-webkit-scrollbar { display: none; }
+  nav.boards a { white-space: nowrap; }
+}
 
 /* ── Responsive ─────────────────────────────────────────────────── */
 @media (max-width: 720px) {
