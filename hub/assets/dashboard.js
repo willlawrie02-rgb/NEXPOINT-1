@@ -730,15 +730,42 @@
         '</div>' +
       '</div>');
   }
-  function showError() {
+  /* The page with nothing on it but one notice. */
+  function showNotice(html) {
     if (el('acctLoading')) el('acctLoading').hidden = true;
     if (el('signInPrompt')) el('signInPrompt').hidden = true;
     SECTIONS.forEach(hide);
     clearChrome();
     var e = el('acctError');
     if (!e) return;
-    e.innerHTML = 'That did not load. Check your connection and try again, or email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.';
+    e.innerHTML = html;
     e.hidden = false;
+  }
+  var HELLO = '<a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>';
+  function showError() {
+    showNotice('That did not load. Check your connection and try again, or email ' + HELLO + '.');
+  }
+  /* A removed organisation's people can still sign in, and the worker refuses
+     them everything else. That is not a fault in their connection, so it does
+     not say so. */
+  function showRemoved() {
+    showNotice('This account has been removed from the hub, so there is nothing to show here. Nothing has been deleted. If you were not expecting this, email ' + HELLO + ' and we will look at it with you.');
+  }
+
+  /* Why the worker would not hand over the summary. It refuses in its own
+     words ("sign in required" on a 401, "email_unconfirmed" or
+     "account_removed" on a 403) and NP.api passes those through with
+     http_status beside them; only a refusal with no error word arrives as
+     http_401 or http_403. This page once looked for those two alone, so a
+     lapsed sign-in and a removed account both read as a dropped connection
+     (21 September 2026). */
+  function refusalOf(d) {
+    if (!d) return '';
+    if (d.error === 'account_removed') return 'removed';
+    if (d.http_status === 401 || d.http_status === 403 ||
+        d.error === 'http_401' || d.error === 'http_403' ||
+        d.error === 'sign in required' || d.error === 'email_unconfirmed') return 'signed-out';
+    return '';
   }
 
   function render(d) {
@@ -777,8 +804,10 @@
     api('/account/summary').then(function (d) {
       if (mine !== seq) return;
       if (!d || d.error) {
-        if (d && (d.error === 'http_401' || d.error === 'http_403')) { showSignedOut(); return; }
-        showError();
+        var refusal = refusalOf(d);
+        if (refusal === 'removed') showRemoved();
+        else if (refusal === 'signed-out') showSignedOut();
+        else showError();
         return;
       }
       if (d.signed_in === false) { showSignedOut(); return; }
