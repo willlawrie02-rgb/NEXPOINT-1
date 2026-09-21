@@ -223,8 +223,11 @@
 
       '</div>' +
       '<p class="np-sign-error" id="findErr" style="display:none"></p>' +
-      '<p class="np-hint" id="findGateHint">Seeing the shortlist needs a confirmed hub account. ' +
-      'Nothing goes to any ' + esc(siteNoun()) + ' until you ask for the introductions.</p>' +
+      /* The hint used to open "Seeing the shortlist needs a confirmed hub
+         account". Since the one-door register nobody reaches this form without
+         one, so only the half that still tells them something is left. */
+      '<p class="np-hint" id="findGateHint">Nothing goes to any ' + esc(siteNoun()) +
+      ' until you ask for the introductions.</p>' +
       '<div class="modal-actions"><button class="btn btn-primary" type="submit" id="findSubmit">' +
       'Show the ' + esc(siteNounPlural()) + ' that fit</button></div>' +
       '</form>';

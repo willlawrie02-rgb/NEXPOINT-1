@@ -40,6 +40,12 @@ img,svg{max-width:100%}
 .btn-ghost:hover{color:var(--blue)}
 .btn-outline{background:transparent;border:1px solid rgba(14,22,38,.2);color:#0E1626}
 .btn-outline:hover{border-color:rgba(14,22,38,.4);background:rgba(14,22,38,.03)}
+/* A disabled button has to look it (audit plan 015). The register form holds
+   its submit until the human check and the terms box are both done, and a
+   button that stayed full blue through that read as broken: it could be
+   pressed and nothing happened. After the variants, so it outranks them. */
+.btn:disabled,.btn[disabled]{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none}
+.btn-primary:disabled:hover,.btn-primary[disabled]:hover{background:var(--blue);box-shadow:none}
 :is(a,button):focus-visible{outline:2px solid var(--blue-bright);outline-offset:3px}
 
 /* header */
@@ -466,6 +472,18 @@ a.hub-line:hover .go svg{transform:translateX(4px)}
 .np-chip{display:inline-flex;align-items:center;gap:10px;font:600 12px/1 var(--font-body);color:var(--on-surface-var);letter-spacing:.02em}
 .np-chip__out,.np-chip__link{background:none;border:none;color:var(--blue);font:600 12px/1 var(--font-body);cursor:pointer;padding:4px 0;text-transform:uppercase;letter-spacing:.05em}
 .np-chip__link:hover{color:var(--blue-hover)}
+/* "Your account" is a destination, not a footnote (audit plan 015): drawn as
+   an outline button. Two classes deep so it outranks `.nav-links a`, which
+   would otherwise take its padding and give it the nav's underline. */
+.np-chip .np-chip__account{display:inline-flex;align-items:center;border:1px solid var(--blue);border-radius:var(--radius);padding:8px 13px;color:var(--blue);background:transparent;transition:background var(--dur) var(--ease)}
+.np-chip .np-chip__account:hover{background:rgba(0,92,200,.08);color:var(--blue)}
+.np-chip .np-chip__account[aria-current="page"]{background:rgba(0,92,200,.10)}
+/* On a phone the header has no room for it (the name and Sign out wrapped
+   onto two lines beside it), and it is not needed there: every page that has
+   this chip also has the hub-switch pill bar, shown from 900px down, which
+   carries "Your account" as a pill. Sign out never wraps. */
+.np-chip__out{white-space:nowrap}
+@media(max-width:600px){.np-chip .np-chip__account{display:none}}
 
 .np-steps{display:flex;gap:8px;margin-bottom:22px}
 .np-step-dot{width:26px;height:3px;border-radius:9999px;background:var(--border-card)}
@@ -590,3 +608,8 @@ button.notice-warn:hover,a.notice-warn:hover{background:rgba(245,166,35,.22)}
 body[data-np-wall]:not([data-np-open]){visibility:hidden}
 /* The door's stranger-only lines hide once someone is signed in. */
 body[data-np-signed-in] .np-stranger{display:none}
+/* And their counterpart (audit plan 015): a line only an account holder sees,
+   so the door stops inviting a signed-in visitor to sign in and points them
+   at their account instead. */
+.np-holder{display:none}
+body[data-np-signed-in] .np-holder{display:block}

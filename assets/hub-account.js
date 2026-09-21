@@ -173,7 +173,20 @@
   /* ── the header chip ─────────────────────────────────────────────── */
   /* `failure`, when given, is one line shown beside the chip: the only
      caller is a sign-out the worker refused or the network dropped. */
+  /* "Your account" as a destination (audit plan 015). The chip's link was the
+     only way to the account page on the whole estate, a small text link, and
+     on a phone the chip is the first thing the header squeezes. Two changes
+     share this function because both follow the same fact, A.user: the chip's
+     link is drawn as a button (np-chip__account, styled in portal.css; a page
+     with its own styles, the Opportunities board, keeps the plain link look),
+     and every page's hub-switch pill bar carries a "Your account" pill that
+     is in the markup hidden and shown only to a signed-in visitor. */
+  function syncAccountPills() {
+    document.querySelectorAll('[data-np-switch-account]').forEach((a) => { a.hidden = !A.user; });
+  }
+  const onAccountPage = /^\/hub\/account(\/|$)/.test(location.pathname);
   function renderChip(failure) {
+    syncAccountPills();
     const slot = document.querySelector('[data-np-account-slot]');
     if (!slot) return;
     if (A.user) {
@@ -181,7 +194,8 @@
         ? ' <span class="np-chip__fail" role="alert" style="color:#E5484D;font-size:13px">' + escapeText(failure) + '</span>'
         : '';
       slot.innerHTML = '<span class="np-chip">Signed in · ' + escapeText(A.user.name || A.user.email) + ' ' +
-        '<a class="np-chip__link" href="' + ACCOUNT_URL + '">Your account</a> ' +
+        '<a class="np-chip__link np-chip__account" href="' + ACCOUNT_URL + '"' +
+        (onAccountPage ? ' aria-current="page"' : '') + '>Your account</a> ' +
         '<button type="button" class="np-chip__out">Sign out</button>' + fail + '</span>';
       slot.querySelector('.np-chip__out').addEventListener('click', () => A.signOut());
     } else {
