@@ -18,7 +18,6 @@
     print: 'https://printhub.nexpoint.co.uk/offer.html',
     mill: 'https://millhub.nexpoint.co.uk/offer.html',
   };
-  var BRIEFS_URL = '/opportunities/briefs.json';
   var OPPORTUNITIES_URL = '/opportunities/';
 
   /* What a hub says about the board. */
@@ -556,12 +555,15 @@
     });
   }
 
+  /* The board's cards come from the worker, signed-in only (one-door
+     register, Q13): the public briefs file this used to read is gone. A
+     refusal or a dropped connection reads as "no cards", so the cross-sell
+     simply does not show. */
   var briefsCache = null;
   function loadBriefs() {
     if (briefsCache) return briefsCache;
-    briefsCache = fetch(BRIEFS_URL, { credentials: 'same-origin' })
-      .then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (j) { return Array.isArray(j) ? j : []; })
+    briefsCache = api('/opportunities/briefs')
+      .then(function (d) { return (d && Array.isArray(d.briefs)) ? d.briefs : []; })
       .catch(function () { return []; });
     return briefsCache;
   }
