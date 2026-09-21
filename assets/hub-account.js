@@ -144,6 +144,18 @@
   A.doorReturn = doorReturn;
   A.enforceDoor = enforceDoor;
 
+  /* The worker has just refused this page's session (a 401 mid-visit: the
+     sign-in lapsed, or they signed out in another tab), so A.user is stale.
+     Forget it without going to the door: the page stays as typed, the chip
+     tells the truth, and requireConfirmed() then opens the sign-in box over
+     the form (one-door register, Q5). No npaccount:change is sent, because
+     page modules re-render on it and the point is to keep what was typed. */
+  A.sessionLapsed = function () {
+    if (!A.user) return;
+    A.user = null;
+    renderChip();
+  };
+
   /* The one place a desk request is posted, so there is a single request
      shape to keep true. */
   A.submitRequest = function (action) {

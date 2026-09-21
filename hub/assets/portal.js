@@ -131,6 +131,11 @@ async function npApi(path, opts){
   } catch (e) { return { error: 'network' }; }
   const d = await r.json().catch(() => ({}));
   if (r.ok) return d;
+  /* A 401 on a page that believes it is signed in: the session lapsed
+     mid-visit. Tell the account module, so the next requireConfirmed() opens
+     the sign-in box over the page instead of retrying into the same refusal
+     (one-door register, Q5). */
+  if (r.status === 401 && window.NPAccount && NPAccount.user && NPAccount.sessionLapsed) NPAccount.sessionLapsed();
   return (d && d.error)
     ? Object.assign({ http_status: r.status }, d)
     : { error: 'http_' + r.status, http_status: r.status };
