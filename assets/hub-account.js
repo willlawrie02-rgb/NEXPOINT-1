@@ -3,12 +3,12 @@
    Progressive enhancement: if this file fails to load, every form falls back
    to its original anonymous behaviour.
 
-   One account per site, and an account cannot act until the email behind it
-   has been clicked through. Registration no longer signs anyone in: it sends
-   a confirmation link and says so. Everything that acts therefore goes past
-   one of two gates - A.gate() for the desk forms, A.requireConfirmed() for a
-   page that runs its own submit - so an unconfirmed account meets the same
-   card wherever it tries to act, and never a bare refusal from the worker. */
+   One account per site, and an account exists only once the email behind it
+   has been clicked through (one-door register, 2026-09-17). Registration
+   sends a confirmation link and signs nobody in; until the click the site
+   treats the person as a stranger. Every hub page except the door carries
+   data-np-wall and is for signed-in accounts only: enforceDoor() below sends
+   a stranger to the door and back. Nothing is held for later. */
 (function () {
   'use strict';
   const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
@@ -18,16 +18,6 @@
      to reach it. Same-origin pages keep a relative link. */
   const ACCOUNT_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
     ? 'https://nexpoint.co.uk/hub/account/' : '/hub/account/';
-
-  const PENDING_KEY = 'np_pending';
-  const PENDING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-
-  /* The current page, without the hash: what a registration started here
-     hands the worker so the confirmation link can bring the visitor back to
-     it, rather than only to the account page. */
-  function currentReturnTo() {
-    return location.origin + location.pathname + location.search;
-  }
 
   async function call(path, opts) {
     let r;
@@ -81,7 +71,6 @@
     TURNSTILE_SITE_KEY: '',
     user: null,
     ready: null,
-    confirmed() { return !!(A.user && A.user.email_confirmed); },
     async refresh() {
       try {
         const d = await call('/auth/me', { method: 'GET' });
@@ -90,28 +79,28 @@
       } catch (e) { A.user = null; }
       document.dispatchEvent(new CustomEvent('npaccount:change'));
       renderChip();
+      whenDom(enforceDoor);
       return A.user;
     },
     async signIn(email, password) {
       const d = await postJson('/auth/login', { email, password });
-      if (d.ok) { A.user = normalise(d.member); document.dispatchEvent(new CustomEvent('npaccount:change')); renderChip(); }
+      if (d.ok) { A.user = normalise(d.member); document.dispatchEvent(new CustomEvent('npaccount:change')); renderChip(); whenDom(enforceDoor); }
       return d;
     },
     /* Honest sign-out (audit plan 008): the worker's answer is read, and a
        failure is said in the chip rather than hidden behind a signed-out
-       look that the next page load undoes. On success every held action and
-       the find-form draft go with the session, so nothing typed by this
-       person is offered to the next one at the same machine. */
+       look that the next page load undoes. On a walled page the door then
+       takes over: nothing is left on screen for the next person. */
     async signOut() {
       const d = await call('/auth/logout', { method: 'POST' });
       if (!d || !d.ok) {
         renderChip('Could not sign out. Check your connection and try again.');
         return d || { error: 'network' };
       }
-      clearAllHeld();
       A.user = null;
       document.dispatchEvent(new CustomEvent('npaccount:change'));
       renderChip();
+      enforceDoor();
       return d;
     },
     resendConfirmation(email) { return postJson('/auth/resend-confirmation', { email: email }); },
@@ -120,82 +109,55 @@
     resetRequest(email) { return postJson('/auth/reset-request', { email: email }); },
   };
 
-  /* ── the action someone started before they had an account ──────────
-     A confirmation link is opened from an email client, almost always in a
-     fresh tab - and often on a different host, since the confirm page lives
-     on the apex while the questionnaire can open from a subdomain. Held in
-     localStorage (not sessionStorage) so it survives that new tab on the
-     same origin, and stamped with a time so a very stale action is never
-     resurrected. Shape: {kind, hub, payload, saved_at}. */
-  /* One store per kind of held action (audit plan 008): the desk request,
-     the find request and the listing used to share one slot and silently
-     overwrote each other, so a host who filled the whole listing form and
-     then asked the desk something lost the listing with no message. Each
-     store has the same save/load/clear shape and the same 24h limit. A save
-     made while signed in is stamped with that account's email, so a hold
-     is never offered to, or filed by, a different account on the same
-     machine (portal.js and replayPending check the stamp; sign-out clears
-     every store). */
-  function pendingStore(key) {
-    const store = {
-      save(p) {
-        const stamp = A.user && A.user.email ? { member_email: A.user.email } : {};
-        try {
-          localStorage.setItem(key, JSON.stringify(Object.assign({}, p, { saved_at: Date.now() }, stamp)));
-        } catch (e) {}
-      },
-      load() {
-        let v;
-        try { v = JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
-        if (!v) return null;
-        if (!v.saved_at || (Date.now() - v.saved_at) > PENDING_MAX_AGE_MS) { store.clear(); return null; }
-        return v;
-      },
-      clear() {
-        try { localStorage.removeItem(key); } catch (e) {}
-      },
-    };
-    return store;
+  /* ── the door (one-door register, 2026-09-17) ───────────────────────
+     Every hub page except the door itself, the link landings and the legal
+     pages declares data-np-wall on <body>. Such a page is for signed-in
+     accounts only: until /auth/me has answered it stays hidden (portal.css,
+     or an inline rule on a page without it), a signed-in visitor gets
+     data-np-open, and a stranger is sent to the door with the sign-in box
+     open and this page's address to come back to. */
+  const DOOR_URL = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk/hub/' : '/hub/';
+  function safeReturn(raw) {
+    if (!raw) return null;
+    let u;
+    try { u = new URL(raw, location.href); } catch (e) { return null; }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    const h = u.hostname;
+    const ok = h === 'nexpoint.co.uk' || h.endsWith('.nexpoint.co.uk') || h === 'localhost' || h === '127.0.0.1';
+    return ok ? u.href : null;
   }
-  const NPPending = pendingStore(PENDING_KEY);                 /* the desk request */
-  const NPPendingFind = pendingStore('np_pending_find');       /* find.js's held ask */
-  const NPPendingListing = pendingStore('np_pending_listing'); /* listing-form.js's held listing */
-  window.NPPending = NPPending;
-  window.NPPendingFind = NPPendingFind;
-  window.NPPendingListing = NPPendingListing;
-  const FIND_DRAFT_KEY = 'np_find_draft';                      /* find.js's form draft, cleared on sign-out */
-  function clearAllHeld() {
-    NPPending.clear(); NPPendingFind.clear(); NPPendingListing.clear();
-    try { localStorage.removeItem(FIND_DRAFT_KEY); } catch (e) {}
+  function doorReturn() { return safeReturn(new URLSearchParams(location.search).get('return')); }
+  function whenDom(fn) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
+    else fn();
   }
-  /* A hold stamped with a different account's email is not this person's
-     to see or send: clear it rather than offer it. */
-  function heldByAnotherAccount(p) {
-    return !!(p && p.member_email && A.user && A.user.email && p.member_email !== A.user.email);
+  function enforceDoor() {
+    const b = document.body;
+    if (!b) return;
+    b.toggleAttribute('data-np-signed-in', !!A.user);
+    if (!b.hasAttribute('data-np-wall')) return;
+    if (A.user) { b.setAttribute('data-np-open', ''); return; }
+    location.replace(DOOR_URL + '?signin=1&return=' + encodeURIComponent(location.href));
   }
-  A.heldByAnotherAccount = heldByAnotherAccount;
+  A.doorUrl = DOOR_URL;
+  A.safeReturn = safeReturn;
+  A.doorReturn = doorReturn;
+  A.enforceDoor = enforceDoor;
 
-  function setPending(p) { NPPending.save(p); }
-  function getPending() { return NPPending.load(); }
-  function clearPending() { NPPending.clear(); }
-  A.setPending = setPending;
-  A.pending = getPending;
-  A.clearPending = clearPending;
+  /* The worker has just refused this page's session (a 401 mid-visit: the
+     sign-in lapsed, or they signed out in another tab), so A.user is stale.
+     Forget it without going to the door: the page stays as typed, the chip
+     tells the truth, and requireConfirmed() then opens the sign-in box over
+     the form (one-door register, Q5). No npaccount:change is sent, because
+     page modules re-render on it and the point is to keep what was typed. */
+  A.sessionLapsed = function () {
+    if (!A.user) return;
+    A.user = null;
+    renderChip();
+  };
 
-  function pendingOf(action) {
-    return { kind: 'request', hub: action.hub,
-      payload: { side: action.side, brief_ref: action.brief_ref || '',
-        heading: action.heading || '', payload: action.payload || {} } };
-  }
-  function actionOf(pending) {
-    const q = (pending && pending.payload) || {};
-    return { hub: pending.hub, side: q.side, brief_ref: q.brief_ref || '',
-      heading: q.heading || '', payload: q.payload || {} };
-  }
-
-  /* The one place a desk request is posted. gate() uses it, and so does the
-     confirm page when it finishes an action someone started before they had
-     an account, so there is a single request shape to keep true. */
+  /* The one place a desk request is posted, so there is a single request
+     shape to keep true. */
   A.submitRequest = function (action) {
     const u = A.user || {};
     return postJson('/requests', {
@@ -206,20 +168,6 @@
     });
   };
 
-  /* Finishes a stored desk request now that the account can act. The find
-     page holds its own kind of request - one carrying the search it was
-     built from and the sites picked - and replays it through NPFind, so a
-     pending with a `search` on it is not this path's to send. */
-  A.replayPending = async function () {
-    const p = getPending();
-    if (!p || p.kind !== 'request' || p.search) return { error: 'no_pending' };
-    /* Another account's hold is cleared, never filed under this one. */
-    if (heldByAnotherAccount(p)) { clearPending(); return { error: 'no_pending' }; }
-    const d = await A.submitRequest(actionOf(p));
-    if (d && d.ok) clearPending();
-    return d;
-  };
-
   /* ── the header chip ─────────────────────────────────────────────── */
   /* `failure`, when given, is one line shown beside the chip: the only
      caller is a sign-out the worker refused or the network dropped. */
@@ -227,17 +175,13 @@
     const slot = document.querySelector('[data-np-account-slot]');
     if (!slot) return;
     if (A.user) {
-      const warn = A.confirmed() ? ''
-        : '<button type="button" class="notice-warn np-chip__warn">Confirm your email</button> ';
       const fail = failure
         ? ' <span class="np-chip__fail" role="alert" style="color:#E5484D;font-size:13px">' + escapeText(failure) + '</span>'
         : '';
       slot.innerHTML = '<span class="np-chip">Signed in · ' + escapeText(A.user.name || A.user.email) + ' ' +
-        warn + '<a class="np-chip__link" href="' + ACCOUNT_URL + '">Your account</a> ' +
+        '<a class="np-chip__link" href="' + ACCOUNT_URL + '">Your account</a> ' +
         '<button type="button" class="np-chip__out">Sign out</button>' + fail + '</span>';
       slot.querySelector('.np-chip__out').addEventListener('click', () => A.signOut());
-      const w = slot.querySelector('.np-chip__warn');
-      if (w) w.addEventListener('click', () => confirmGateCard());
     } else {
       slot.innerHTML = '<a href="#" data-np-signin>Sign in</a> ' +
         '<button class="btn btn-primary" data-np-join>Create your hub account</button>';
@@ -368,7 +312,7 @@
       [1, 2].map((i) => '<span class="np-step-dot' + (i <= n ? ' is-on' : '') + '"></span>').join('') + '</div>';
   }
 
-  function step1(pending) {
+  function step1() {
     content().innerHTML = stepDots(1) + `
       <h2>Introduce yourself once.</h2>
       <p class="body">Two minutes, in confidence. One of us reads every profile personally.</p>
@@ -384,12 +328,12 @@
     content().querySelector('form').addEventListener('submit', (e) => {
       e.preventDefault();
       draft.name = qv('qName'); draft.company = qv('qCompany'); draft.email = qv('qEmail'); draft.password = qv('qPass');
-      step2(pending);
+      step2();
     });
     show();
   }
 
-  function step2(pending) {
+  function step2() {
     const l = savedLoc();
     const tsKey = turnstileSiteKey();
     content().innerHTML = stepDots(2) + `
@@ -411,7 +355,7 @@
           <button class="btn btn-primary" type="submit" disabled>Create my hub account</button>
         </div>
       </form>`;
-    content().querySelector('[data-np-back]').addEventListener('click', () => step1(pending));
+    content().querySelector('[data-np-back]').addEventListener('click', () => step1());
     renderTermsBlock();
     if (tsKey) renderTurnstile(tsKey);
     content().querySelector('form').addEventListener('submit', async (e) => {
@@ -430,38 +374,21 @@
         region: draft.region, country: draft.country, town: draft.town,
         interests: [], notes: '', terms_version_id: draft.terms_version_id,
         company_url: e.target.querySelector('[name="company_url"]').value };
-      /* Only present when the questionnaire opened from an action (A.gate()):
-         the worker validates it and appends it to the confirmation link, so
-         the link can bring the visitor back to the page the pending action
-         lives on. */
+      /* Where the confirmation link should bring them back to (see
+         openQuestionnaire): the worker validates it and appends it to the
+         link. */
       if (draft.return_to) body.return_to = draft.return_to;
-      /* Two pending shapes, two mechanisms, and never both for one action.
-         A desk request - the shape this gate builds, with a side and a
-         brief_ref - travels WITH the registration: the worker validates it,
-         stashes it on the unconfirmed profile and files it the moment the
-         link is clicked. That is the only mechanism it can have, because the
-         Opportunities board loads this module without portal.js, so nothing
-         there could ever replay one held on the device.
-         A listing or a find request is the other way round: held in
-         NPPending by the page that built it and replayed there by portal.js.
-         Those paths reach the questionnaire through requireConfirmed(),
-         which opens it with no `pending` at all, so they never reach this
-         line and are never filed twice. */
-      if (pending) {
-        body.pending_request = { hub: pending.hub, side: pending.side,
-          brief_ref: pending.brief_ref || '', payload: pending.payload || {} };
-      }
       /* Only present when a site key is set and the widget has actually
          handed back a token: with no key the body is exactly what it was
          before Turnstile existed. */
       if (turnstileToken) body.turnstile_token = turnstileToken;
       const d = await postJson('/auth/register', body);
       if (d.ok) {
-        /* No cookie comes back: the account exists but cannot act until the
-           link in the email is clicked, so nothing here signs anyone in. */
+        /* No cookie comes back: there is no account until the link in the
+           email is clicked, so nothing here signs anyone in. */
         const email = draft.email;
         delete draft.password;
-        confirmSentCard(email, !!pending);
+        confirmSentCard(email);
       } else {
         btn.textContent = orig;
         const err = e.target.querySelector('.np-sign-error');
@@ -519,14 +446,14 @@
     content().querySelector('[data-np-done]').addEventListener('click', hide);
   }
 
-  /* Registration is finished by the person, not by us: the account is real but
-     asleep until the link is clicked. */
-  function confirmSentCard(email, hasPending) {
+  /* Registration is finished by the person, not by us: there is no account
+     until the link is clicked. */
+  function confirmSentCard(email) {
     content().innerHTML = `
       <div class="success">
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>Check your inbox…</h2>
-        <p>We have sent a confirmation link to <strong>${esc(email)}</strong>. Open it and your account is ready${hasPending ? '. The link brings you back to where you were, so you can send your request from there' : ''}. It is how we keep every introduction tied to a real inbox.</p>
+        <p>We have sent a confirmation link to <strong>${esc(email)}</strong>. Open it and your account is ready. It is how we keep every introduction tied to a real inbox.</p>
         <p class="np-sign-error" style="display:none"></p>
         <div class="modal-actions" style="justify-content:center">
           <button class="btn btn-outline" type="button" data-np-resend>Resend the email</button>
@@ -535,31 +462,6 @@
       </div>`;
     content().querySelector('[data-np-done]').addEventListener('click', hide);
     wireResend(content().querySelector('[data-np-resend]'), email);
-  }
-
-  /* Signed in, not confirmed, and trying to act. Same card wherever it happens. */
-  function confirmGateCard(after) {
-    const email = (A.user && A.user.email) || '';
-    content().innerHTML = `
-      <h2>Confirm your email first.</h2>
-      <p class="body">We sent a link to <strong>${esc(email)}</strong>. Open it and you can carry straight on. It is how we keep every introduction tied to a real inbox.</p>
-      <p class="np-sign-error" style="display:none"></p>
-      <div class="modal-actions">
-        <button class="btn btn-primary" type="button" data-np-recheck>I have confirmed, refresh</button>
-        <button class="btn btn-outline" type="button" data-np-resend>Resend the email</button>
-      </div>`;
-    show();
-    wireResend(content().querySelector('[data-np-resend]'), email);
-    content().querySelector('[data-np-recheck]').addEventListener('click', async (e) => {
-      const btn = e.target;
-      const orig = btn.textContent;
-      btn.disabled = true; btn.textContent = 'Checking…';
-      await A.refresh();
-      if (A.confirmed()) { if (after) after(); else hide(); return; }
-      btn.disabled = false; btn.textContent = orig;
-      const err = content().querySelector('.np-sign-error');
-      if (err) { err.style.display = 'block'; err.textContent = 'Not confirmed yet. Open the link in the email, then try again.'; }
-    });
   }
 
   /* The worker answers a resend the same way whatever the email, so the button
@@ -580,15 +482,17 @@
 
   A.openQuestionnaire = function (opts) {
     opts = opts || {};
-    draft.return_to = opts.return_to || null;
+    /* Where to bring them back to once the link in the email is clicked:
+       the page that asked (a walled page whose session lapsed), or the page
+       the door was reached from (its ?return=), or nowhere in particular. */
+    draft.return_to = opts.return_to || doorReturn() || null;
     loadPlatformTerms();
-    step1(opts.pending || null);
+    step1();
   };
 
   /* ── the act gate ────────────────────────────────────────── */
   A.gate = function (action) {
-    if (!A.user) { A.openQuestionnaire({ pending: action, return_to: currentReturnTo() }); return; }
-    if (!A.confirmed()) { setPending(pendingOf(action)); confirmGateCard(() => A.gate(action)); return; }
+    if (!A.user) { A.afterSignIn = () => A.gate(action); if (typeof openSignIn === 'function') openSignIn(); return; }
     const u = A.user;
     content().innerHTML = `
       ${action.brief_ref ? `<span class="ref">${esc(action.brief_ref)}</span>` : ''}
@@ -610,17 +514,7 @@
       const sent = Object.assign({}, action, { payload: payload });
       const d = await A.submitRequest(sent);
       if (d.ok) {
-        clearPending();
-        const pc = document.getElementById('npPendingCard');
-        if (pc && pc.parentNode) pc.parentNode.remove();
         successCard('Chris or Will reads every request personally. Expect to hear within two working days.');
-        return;
-      }
-      if (d.error === 'email_unconfirmed') {
-        /* the session outlived the confirmation state we had cached */
-        setPending(pendingOf(sent));
-        await A.refresh();
-        confirmGateCard(() => A.gate(action));
         return;
       }
       btn.disabled = false; btn.textContent = action.heading || 'Request the introduction';
@@ -631,13 +525,15 @@
     });
   };
 
-  /* For a page that runs its own submit: reach cb only with an account that can
-     act, and put up the right card when it cannot. `pending` is what to hold
-     for someone who has to go and register first. */
-  A.requireConfirmed = function (cb, pending) {
-    if (pending) setPending(pending);
-    if (!A.user) { A.openQuestionnaire({ return_to: currentReturnTo() }); return; }
-    if (!A.confirmed()) { confirmGateCard(() => A.requireConfirmed(cb)); return; }
+  /* For a page that runs its own submit: reach cb with a signed-in account.
+     On a walled page the account is there by construction; the one way to
+     land here without one is a sign-in that lapsed mid-visit, and then the
+     sign-in box opens over the page and the form underneath keeps what was
+     typed (one-door register, Q5). portal.js runs afterSignIn once the box
+     has done its job. */
+  A.afterSignIn = null;
+  A.requireConfirmed = function (cb) {
+    if (!A.user) { A.afterSignIn = cb; if (typeof openSignIn === 'function') openSignIn(); return; }
     cb();
   };
 

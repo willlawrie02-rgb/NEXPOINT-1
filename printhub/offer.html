@@ -29,9 +29,16 @@
       window.NP_QUEUE.push({ name: name, args: [].slice.call(arguments) });
     };
   });
+
+  /* The wall (one-door register): if the account module never answers, this
+     page must not stay blank. Ten seconds, then the door. */
+  setTimeout(function () {
+    if (!document.body || !document.body.hasAttribute('data-np-open'))
+      location.replace((window.NP_APEX || '') + '/hub/?signin=1&return=' + encodeURIComponent(location.href));
+  }, 10000);
 </script>
 </head>
-<body data-hub="print">
+<body data-hub="print" data-np-wall>
 <!--
 v3 · 2026-08-15, the provider's own page. Chris: "You're on a different thread,
 which is about your printer. I don't want to treat you like someone looking, I want

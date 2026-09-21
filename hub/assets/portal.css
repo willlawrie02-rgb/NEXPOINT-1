@@ -584,3 +584,9 @@ button.notice-warn:hover,a.notice-warn:hover{background:rgba(245,166,35,.22)}
 @media(max-width:560px){.lread{grid-template-columns:1fr;gap:0}.lread dd{margin-bottom:10px}}
 .lmach{border:1px solid var(--border-card);border-radius:var(--radius-lg);background:var(--surface);padding:13px 15px;margin-bottom:10px;font-size:13.5px;line-height:20px;color:var(--on-surface-var);overflow-wrap:anywhere}
 .lmach b{color:#0E1626}
+
+/* The wall (one-door register, 2026-09-17): a walled page is hidden until the
+   account module has answered; a stranger is redirected before it shows. */
+body[data-np-wall]:not([data-np-open]){visibility:hidden}
+/* The door's stranger-only lines hide once someone is signed in. */
+body[data-np-signed-in] .np-stranger{display:none}

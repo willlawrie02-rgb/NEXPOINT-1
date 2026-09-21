@@ -116,46 +116,9 @@
   let introTerms = null;       /* {id, version, body_md} for layer=introduction */
   let requestId = null;        /* set by the first call, reused by a retry */
   let filedSpec = null;        /* the ask `requestId` belongs to (by identity) */
-  let heldSpec = null;         /* the ask this page's own held pending was written for */
-  let heldSavedAt = 0;         /* that pending's `saved_at`: its only identity */
   let searching = false;
   let sending = false;
   let step3Shell = null;       /* step 3's panel before a success card replaced it */
-  let restored = null;         /* the held ask this render is putting back */
-
-  /* ── the ask, held across the account gate ─────────────────────────────
-     The worker only shows a shortlist to a confirmed account, so a seeker
-     who is signed out is sent off to register in the middle of step 1 and
-     comes back through an email link to a fresh load of this page. What
-     they typed is held here so the form they come back to is the form they
-     left. Its own key, not NPPendingFind: that is a single slot and it holds
-     requests, and a held ask must not be able to push a held request out of
-     it. The same 24 hours, for the same reason. */
-  const DRAFT_KEY = 'np_find_draft';
-  const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-
-  function saveDraft(theSpec) {
-    if (!theSpec) return;
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({
-        hub: HUB, spec: theSpec, saved_at: Date.now(),
-        /* What the spec cannot carry back: the notes before the volume
-           sentence was appended to them, and which of the two "when do you
-           need it" answers was open when both of them are empty. */
-        form: { notes: val('fNotes'), lead_mode: groupValue('fLeadMode', 'fLeadMode') || 'max_lead' },
-      }));
-    } catch (e) {}
-  }
-  function loadDraft() {
-    let v;
-    try { v = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch (e) { return null; }
-    if (!v || !v.spec || v.hub !== HUB) return null;
-    if (!v.saved_at || (Date.now() - v.saved_at) > DRAFT_MAX_AGE_MS) { clearDraft(); return null; }
-    return v;
-  }
-  function clearDraft() {
-    try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
-  }
 
   const el = (id) => document.getElementById(id);
   const mount = () => el('findMount');
@@ -202,15 +165,8 @@
     if (!box) return;
     const services = (vocab && vocab.services) || [];
     const place = prefilledPlace();
-    /* The ask held before the account gate opened, if there is one: every
-       field below reads from it first and from the account second. */
-    const back = restored ? restored.spec : null;
-    const backForm = (restored && restored.form) || {};
-    const recurring = !!(back && back.cadence === 'recurring');
-    const byDate = back ? backForm.lead_mode === 'needed_by' : false;
-    const town = back ? back.town : place.town;
-    const country = back ? back.country : place.country;
-    const num = (v) => (v == null || v === '' ? '' : String(v));
+    const town = place.town;
+    const country = place.country;
 
     box.innerHTML =
       '<form id="findForm" novalidate>' +
@@ -225,34 +181,30 @@
         '<input id="fProcess" placeholder="Type and press Enter"></div>' +
 
         '<div class="field"><label for="fQuantity" id="fQuantityLabel">' +
-        (recurring ? 'How many per month' : 'How many') + '</label>' +
-        '<input id="fQuantity" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 200"' +
-        (back ? ' value="' + esc(num(back.quantity)) + '"' : '') + '></div>' +
+        'How many</label>' +
+        '<input id="fQuantity" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 200"></div>' +
 
         '<div class="field"><label for="fQuantityUnit">Counted in</label>' +
         '<select id="fQuantityUnit"><option value="pairs">Pairs</option>' +
-        '<option value="units"' + (back && back.quantity_unit === 'units' ? ' selected' : '') +
-        '>Units</option></select></div>' +
+        '<option value="units">Units</option></select></div>' +
 
         '<div class="field full"><label id="fCadenceLabel">Is this a one off?</label>' +
         '<div class="lgroup" id="fCadence" role="radiogroup" aria-labelledby="fCadenceLabel">' +
-        pickChip('fCadence', 'one_off', 'One off', !recurring, 'radio') +
-        pickChip('fCadence', 'recurring', 'Recurring', recurring, 'radio') +
+        pickChip('fCadence', 'one_off', 'One off', true, 'radio') +
+        pickChip('fCadence', 'recurring', 'Recurring', false, 'radio') +
         '</div></div>' +
 
         '<div class="field full"><label id="fLeadModeLabel">When do you need it?</label>' +
         '<div class="lgroup" id="fLeadMode" role="radiogroup" aria-labelledby="fLeadModeLabel">' +
-        pickChip('fLeadMode', 'max_lead', 'Within a lead time', !byDate, 'radio') +
-        pickChip('fLeadMode', 'needed_by', 'By a date', byDate, 'radio') +
+        pickChip('fLeadMode', 'max_lead', 'Within a lead time', true, 'radio') +
+        pickChip('fLeadMode', 'needed_by', 'By a date', false, 'radio') +
         '</div></div>' +
 
         '<div class="field" id="fMaxLeadField"><label for="fMaxLead">Lead time (days)</label>' +
-        '<input id="fMaxLead" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 21"' +
-        (back ? ' value="' + esc(num(back.max_lead_time_days)) + '"' : '') + '></div>' +
+        '<input id="fMaxLead" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 21"></div>' +
 
         '<div class="field" id="fNeededByField" hidden><label for="fNeededBy">Needed by</label>' +
-        '<input id="fNeededBy" type="date"' +
-        (back && back.needed_by ? ' value="' + esc(back.needed_by) + '"' : '') + '></div>' +
+        '<input id="fNeededBy" type="date"></div>' +
 
         '<div class="field"><label for="fTown">Town or city</label>' +
         '<input id="fTown" value="' + esc(town) + '" placeholder="Where the work lands"></div>' +
@@ -262,13 +214,12 @@
 
         '<div class="field full"><label id="fServicesLabel">Services you also want (optional)</label>' +
         '<div class="lgroup" id="fServices" role="group" aria-labelledby="fServicesLabel">' +
-        services.map((s) => pickChip('service', s.term, s.label,
-          !!(back && (back.services || []).indexOf(s.term) !== -1), 'checkbox')).join('') +
+        services.map((s) => pickChip('service', s.term, s.label, false, 'checkbox')).join('') +
         '</div></div>' +
 
         '<div class="field full"><label for="fNotes">Anything else we should know? (optional)</label>' +
         '<textarea id="fNotes" placeholder="Tolerances, finishing, the deadline behind the deadline">' +
-        esc(backForm.notes || '') + '</textarea></div>' +
+        '</textarea></div>' +
 
       '</div>' +
       '<p class="np-sign-error" id="findErr" style="display:none"></p>' +
@@ -280,21 +231,15 @@
 
     TA.fMaterial = window.NPTypeahead ? NPTypeahead.attach(el('fMaterial'), {
       options: (vocab && vocab.materials) || [], multi: true, allowFree: true,
-      value: (back && back.materials && back.materials.length) ? back.materials : null,
     }) : null;
     TA.fProcess = window.NPTypeahead ? NPTypeahead.attach(el('fProcess'), {
       options: (vocab && vocab.processes) || [], allowFree: true,
-      value: (back && back.process) ? back.process : null,
     }) : null;
     TA.fCountry = window.NPTypeahead ? NPTypeahead.attach(el('fCountry'), {
       options: countryOptions(), allowFree: true,
       value: country ? [{ term: country, label: country }] : null,
     }) : null;
     if (!TA.fCountry && el('fCountry')) el('fCountry').value = country;
-
-    /* Put back once. If the retry is refused again the gate holds it afresh,
-       so the key is never left standing for a form nobody is looking at. */
-    if (restored) { restored = null; clearDraft(); }
 
     wireGroup('fCadence', 'fCadence');
     wireGroup('fLeadMode', 'fLeadMode');
@@ -368,7 +313,7 @@
   /* The ask, read off the form once. It is wider than the worker's request
      body on purpose: `materials` and `quantity_unit` have no
      column of their own there, so they stay on this object (which drives
-     the notes sentence and the held pending) and are dropped by bodyFor
+     the notes sentence) and are dropped by bodyFor
      before anything is posted. Nothing the seeker typed is lost: what has
      no column reaches the desk as a plain sentence on the notes. */
   function buildSpec() {
@@ -470,23 +415,14 @@
     searching = false;
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = orig; }
 
-    if (d && (d.error === 'sign in required' || d.error === 'email_unconfirmed' ||
-              d.http_status === 401)) {
-      /* The shortlist is only shown to an account that could act on it. */
-      if (retried || !window.NPAccount) {
-        showFindError('Confirm your email and we will show you the ' + siteNounPlural() + ' that fit.');
-        return;
-      }
-      /* Registering means leaving for an email client and coming back to a
-         fresh load of this page, so the ask is held before the gate opens. */
-      saveDraft(spec);
+    if (d && (d.error === 'sign in required' || d.error === 'email_unconfirmed' || d.http_status === 401)) {
+      /* The session lapsed mid-visit: sign in over the page, the ask stays
+         as typed, then the same search runs again (one-door register, Q5). */
+      if (retried || !window.NPAccount) { showFindError('Sign in and run the search again.'); return; }
       NPAccount.requireConfirmed(() => runSearch(true));
       return;
     }
     if (!d || d.error) { showFindError(searchErrorText(d)); return; }
-
-    /* The ask is on screen and answered: nothing left to put back. */
-    clearDraft();
 
     /* Chris, on being asked for his country a second time. The next hub
        page reads this back through NP.loadLoc(), which is where step 1's
@@ -641,16 +577,6 @@
       '</label></div>';
   }
 
-  /* The ticks follow `picks`, rather than the other way round: a restored
-     set of picks has to reach the boxes that are on screen now. */
-  function syncPickBoxes() {
-    const grid = el('capGrid');
-    if (!grid) return;
-    grid.querySelectorAll('input[data-pick]').forEach((box) => {
-      box.checked = picks.indexOf(box.getAttribute('data-pick')) !== -1;
-    });
-  }
-
   function onPickChange(e) {
     const id = e.target.getAttribute('data-pick');
     if (e.target.checked) {
@@ -797,10 +723,7 @@
     const A = window.NPAccount;
     if (!A) { showRequestError(requestErrorText({ error: 'network' })); return; }
 
-    /* Signed out or unconfirmed, the whole request is held so the account
-       flow can finish it rather than losing everything the seeker chose.
-       portal.js offers the replay when they come back confirmed. */
-    if (!A.user || !A.confirmed()) holdPending(spec, picks, introTerms.id);
+    /* A lapsed session signs in over the page and then sends (Q5). */
     A.requireConfirmed(() => send(spec, picks.slice(), introTerms.id, false));
   }
 
@@ -820,13 +743,6 @@
     if (d && d.ok) { renderSuccess(); return d; }
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = orig; }
 
-    if (d && d.error === 'email_unconfirmed' && !retried && window.NPAccount) {
-      /* the session outlived the confirmation state we had cached */
-      holdPending(theSpec, thePicks, termsVersionId);
-      await NPAccount.refresh();
-      NPAccount.requireConfirmed(() => send(theSpec, thePicks, termsVersionId, true));
-      return d;
-    }
     if (d && d.error === 'stale_terms') {
       /* The version ticked is no longer the current one: fetch the new text
          and ask for the tick again rather than sending on a stale consent. */
@@ -840,69 +756,15 @@
     return d;
   }
 
-  /* The one writer of the held action. `requestId` only survives while this
-     page does, so when the ask is already filed the held copy carries its id
-     too: that is what stops a replay in the next tab from filing it again.
-     The store round-trips through JSON, so what comes back out of it is never
-     the object that went in: the `saved_at` the store stamps on this write,
-     re-read here, is the only handle this page has on its own hold, and
-     `heldSpec` says which in-memory ask that hold was written for. */
-  function holdPending(theSpec, thePicks, termsVersionId) {
-    if (!window.NPPendingFind) return;
-    const held = { kind: 'request', hub: HUB, search: theSpec,
-      picks: thePicks.slice(), terms_version_id: termsVersionId };
-    if (requestId && filedSpec === theSpec) held.request_id = requestId;
-    NPPendingFind.save(held);
-    const written = NPPendingFind.load();
-    heldSpec = written ? theSpec : null;
-    heldSavedAt = written ? written.saved_at : 0;
-  }
-
-  /* This page no longer has a hold of its own, so the stamp it was tracking
-     must never be matched again. */
-  function forgetHeldIdentity() { heldSpec = null; heldSavedAt = 0; }
-
-  /* The moment POST /seeker-requests returns during a replay, the ask exists
-     on the worker whatever happens to the picks call after it. `savedAt` is
-     the identity of the pending being merged into - submitPending's own
-     `p.saved_at` on the replay path, or the currently-held pending's own
-     `saved_at` on the in-page path below - and the store is re-read fresh
-     here regardless: the id is merged in only if what is sitting there right
-     now is still that same pending. A different ask held in the meantime, or
-     the same slot already moved on, is left exactly as it is. Saving
-     re-stamps the hold's clock, which is right: it now holds a real request
-     that still needs its picks attached. */
-  function rememberFiledRequest(id, savedAt) {
-    if (!window.NPPendingFind || !savedAt) return;
-    const held = NPPendingFind.load();
-    if (!held || !held.search || held.saved_at !== savedAt || held.request_id === id) return;
-    NPPendingFind.save(Object.assign({}, held, { request_id: id }));
-  }
-
   /* The request is filed once per ask. A retry after a failed picks call
      hands back the same ask object, so it attaches to the request already
-     filed instead of filing a second one; a different ask files its own.
-     `replaySavedAt` is only ever supplied by submitPending, which already
-     knows which held pending it is replaying. The in-page send() path passes
-     nothing - but it can still be filing the very ask that an
-     email_unconfirmed refusal left held earlier (holdPending() ran, then the
-     same-page recheck confirmed and this call went on to file for real:
-     Task 12 addendum), so a freshly filed request here merges its id into the
-     pending this page itself wrote for this same ask, identified by the
-     `saved_at` captured at that write. An unrelated ask sitting held from
-     before was written for a different spec, so it is left exactly as it
-     was, and so is a hold this page never wrote. */
-  async function sendRequestAndPicks(theSpec, thePicks, termsVersionId, replaySavedAt) {
+     filed instead of filing a second one; a different ask files its own. */
+  async function sendRequestAndPicks(theSpec, thePicks, termsVersionId) {
     if (!requestId || filedSpec !== theSpec) {
       const filed = await postJson('/seeker-requests', bodyFor(theSpec));
       if (!filed || !filed.ok || !filed.request_id) return filed || { error: 'network' };
       requestId = filed.request_id;
       filedSpec = theSpec;
-      if (replaySavedAt) {
-        rememberFiledRequest(requestId, replaySavedAt);
-      } else if (heldSpec === theSpec && heldSavedAt) {
-        rememberFiledRequest(requestId, heldSavedAt);
-      }
     }
     return postJson('/seeker-requests/picks', {
       request_id: requestId, listing_ids: thePicks, terms_version_id: termsVersionId,
@@ -913,8 +775,7 @@
      /seeker-requests reads exactly these eleven names; `materials` and
      `quantity_unit` have no column and no reader there, so
      sending them would be a contract the worker never agreed to. They stay
-     on the internal `spec` (which the held pending keeps whole) and reach
-     the desk as a sentence on the notes. */
+     on the internal `spec` and reach the desk as a sentence on the notes. */
   function bodyFor(s) {
     return {
       hub: s.hub, material: s.material, process: s.process,
@@ -955,10 +816,7 @@
     if (e === 'organisation required') {
       return 'Your account is not attached to a company yet. Email hello@nexpoint.co.uk and we will sort it out.';
     }
-    if (e === 'sign in required') return 'Sign in and send this again.';
-    if (e === 'email_unconfirmed') {
-      return 'We still need the link in your email clicked before this can be sent. Open it, then send again.';
-    }
+    if (e === 'sign in required' || e === 'email_unconfirmed') return 'Sign in and send this again.';
     if (e === 'http_404' || e === 'not found') {
       return 'Requests are not switched on here just yet. Tell the desk what you need and we will route it by hand.';
     }
@@ -969,8 +827,6 @@
   }
 
   function renderSuccess() {
-    if (window.NPPendingFind) NPPendingFind.clear();
-    forgetHeldIdentity();
     const box = el('step3Body');
     if (!box) return;
     box.innerHTML =
@@ -988,58 +844,6 @@
   }
 
   const TERMS_MOVED = 'The introduction terms have been updated. Read them again and tick to accept.';
-
-  /* What portal.js's replay card sends when a seeker comes back confirmed.
-     It restores what was held, so a success also puts the page into the
-     state the seeker would have reached had they never been stopped. */
-  async function submitPending(p) {
-    if (!p || !p.search || !Array.isArray(p.picks) || !p.picks.length || !p.terms_version_id) {
-      return { error: 'no_pending' };
-    }
-    spec = p.search;
-    picks = p.picks.slice();
-    /* An earlier attempt may already have filed the ask and failed on the
-       picks. The held copy carries that id, so this replay attaches picks
-       to the request that exists instead of filing a second one. */
-    if (p.request_id) { requestId = p.request_id; filedSpec = spec; }
-    const d = await sendRequestAndPicks(spec, picks, p.terms_version_id, p.saved_at);
-    if (d && d.ok) { reveal('step3'); renderSuccess(); return d; }
-    if (d && d.error === 'stale_terms') {
-      /* The terms moved while the request sat held. The consent is stale;
-         the request is not. The hold goes, because a card cannot ask for a
-         tick, and the filed id stays in this module so nothing files twice.
-         The seeker lands back on step 3 with the new text to read. */
-      if (window.NPPendingFind) NPPendingFind.clear();
-      forgetHeldIdentity();
-      await restoreForNewTerms(p.picks.slice());
-    }
-    return d;
-  }
-
-  /* Puts the page back where the held request left off: the shortlist re-run
-     from the same ask, the picks that are still on it ticked again, step 3
-     open on freshly fetched terms. `spec` is the same object throughout, so
-     the request already filed still belongs to it. */
-  async function restoreForNewTerms(held) {
-    await runSearch(false);
-    picks = held.filter((id) => matches.some((c) => String(c.listing_id) === id))
-      .slice(0, MAX_PICKS);
-    syncPickBoxes();
-    updatePickState();
-    if (picks.length) {
-      onContinue();
-      showRequestError(TERMS_MOVED);
-      return;
-    }
-    /* Nothing held is on the shortlist any more, so there is nothing to
-       open step 3 on; the message belongs on the list they pick from. */
-    const hint = el('pickHint');
-    if (hint) {
-      hint.hidden = false;
-      hint.textContent = 'The introduction terms have been updated, and your shortlist has moved on. ' +
-        'Pick again and tick the new terms.';
-    }
-  }
 
   /* ══════════════ steps, on and off ══════════════ */
 
@@ -1067,12 +871,10 @@
       window.NPAccount ? NPAccount.ready.catch(() => null) : Promise.resolve(null),
     ]);
     vocab = v;
-    /* Read before the render, because the render is what puts it back. */
-    restored = loadDraft();
     renderForm();
     syncConditionalFields();
   }
 
-  window.NPFind = { init: init, submitPending: submitPending, errorText: requestErrorText };
+  window.NPFind = { init: init, errorText: requestErrorText };
 })();
 
