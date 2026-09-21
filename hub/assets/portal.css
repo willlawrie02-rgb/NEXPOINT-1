@@ -553,13 +553,24 @@ a.hub-line:hover .go svg{transform:translateX(4px)}
 .pickbar__dot{color:var(--outline);font-weight:400}
 
 /* where an introduction has got to */
-.status-chain{list-style:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 0;margin:12px 0 0;padding:0}
-.status-chain li{display:inline-flex;align-items:center;font:600 11px/1.3 var(--font-body);letter-spacing:.05em;text-transform:uppercase;color:rgba(14,22,38,.38)}
-.status-chain li::after{content:"";width:18px;height:1px;background:var(--border-card);margin:0 10px;flex-shrink:0}
+.status-chain{list-style:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:18px 0 2px;padding:0;width:100%}
+.status-chain li{position:relative;display:flex;flex-direction:column;gap:9px;padding-right:12px;font:600 11px/1.35 var(--font-body);letter-spacing:.04em;text-transform:uppercase;color:rgba(14,22,38,.62)}
+.status-chain li::before{content:"";position:relative;z-index:1;width:13px;height:13px;border-radius:50%;border:2px solid rgba(14,22,38,.22);background:var(--surface)}
+.status-chain li::after{content:"";position:absolute;top:5.5px;left:13px;right:0;height:2px;background:rgba(14,22,38,.10)}
 .status-chain li:last-child::after{display:none}
-.status-chain li.is-done{color:var(--green-deep)}
+.status-chain li.is-done{color:var(--on-surface)}
+.status-chain li.is-done::before{background:var(--green);border-color:var(--green)}
+.status-chain li.is-done::after{background:var(--green)}
 .status-chain li.is-now{color:var(--blue)}
-.status-chain li.is-stop{color:#E5484D}
+.status-chain li.is-now::before{border-color:var(--blue);box-shadow:0 0 0 4px rgba(0,92,200,.14)}
+.status-chain li.is-stop{color:#C2363B}
+.status-chain li.is-stop::before{background:#E5484D;border-color:#E5484D}
+@media(max-width:640px){
+  .status-chain{grid-template-columns:1fr}
+  .status-chain li{flex-direction:row;align-items:center;gap:12px;padding:0 0 14px}
+  .status-chain li:last-child{padding-bottom:0}
+  .status-chain li::after{top:13px;bottom:0;left:5.5px;right:auto;width:2px;height:auto}
+}
 
 /* the host's declaration of what an introduction actually turned into */
 .decl-table{width:100%;border-collapse:collapse;font-size:13.5px}
