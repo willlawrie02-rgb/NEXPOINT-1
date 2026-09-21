@@ -1505,6 +1505,8 @@ async function doSignIn(form){
     e.style.color='#ff6b6b';
     e.textContent = d.error==='network'
       ? "That did not send. Check your connection and try again."
+      : d.error==='too_many_attempts'
+      ? "Too many attempts on this address. Wait ten minutes, or use \"Forgot password?\" below."
       : "That email and password don't match an account. Check them, or create a hub account below.";
     e.style.display='block';
     return;

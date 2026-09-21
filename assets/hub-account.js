@@ -58,17 +58,19 @@
   const A = {
     api: API,
     accountUrl: ACCOUNT_URL,
-    /* Turnstile on the register form (Will, 2026-09-07 23:15): empty until Will
-       creates the widget in Cloudflare and sets it here. Deploy order matters:
-       set the site key here on the website FIRST, then set the matching worker
+    /* Turnstile on the register form (Will, 2026-09-07 23:15). Set 2026-09-21
+       (audit plan 010): Will created the widget "NexPoint hub register" in
+       Cloudflare, and this is its site key, which is public by design (it is
+       in every page that renders the widget). Deploy order matters: the site
+       key goes live here on the website FIRST, then the matching worker
        secret second, or the worker will start rejecting registrations the form
        is not yet sending a token for. It lives on this module, not on NP,
        because this module owns the register form and is loaded on every page
        that opens it, including the Opportunities board, which never loads
-       portal.js. Empty means the questionnaire renders nothing extra and the
-       register body is unchanged, so the live site keeps working either side
-       of that gap. */
-    TURNSTILE_SITE_KEY: '',
+       portal.js. Emptying it again switches the widget off: the questionnaire
+       renders nothing extra and the register body carries no token, so remove
+       the worker's TURNSTILE_SECRET before ever doing that. */
+    TURNSTILE_SITE_KEY: '0x4AAAAAAE-v1pLLNA7WlqfZ',
     user: null,
     ready: null,
     async refresh() {

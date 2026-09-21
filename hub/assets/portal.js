@@ -449,9 +449,15 @@ async function signSubmit(){
         <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
       </div>`;
   } else if (err){
+    /* too_many_attempts (audit plan 010): the worker stops trying an address
+       after eight wrong passwords in ten minutes. Saying "don't match" here
+       would send someone with the right password round in circles, so the
+       wait and the way out are both named. */
     err.style.display = 'block';
     err.textContent = d.error === 'network'
       ? 'That did not send. Check your connection and try again.'
+      : d.error === 'too_many_attempts'
+      ? 'Too many attempts on this address. Wait ten minutes, or use "Forgotten your password?" below.'
       : 'That email and password don\'t match an account. Check them, or create your hub account below.';
   }
 }
