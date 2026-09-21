@@ -67,6 +67,15 @@
     try { return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
     catch (e) { return String(iso); }
   }
+  /* A declaration period arrives as 2026-08. People read it as August 2026; the
+     raw value stays in data-period, the element ids and what is posted. */
+  function fmtPeriod(p) {
+    var m = /^(\d{4})-(\d{2})$/.exec(String(p || ''));
+    if (!m) return String(p || '');
+    var d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 1));
+    try { return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }); }
+    catch (e) { return String(p); }
+  }
   /* Money on this page is only ever the account's own number: what it declared,
      or what it has been invoiced. Nothing here prices the network. */
   function money(amount, currency) {
@@ -90,7 +99,25 @@
     node.innerHTML = '';
     node.hidden = true;
   }
-  function empty(text) { return '<div class="acct-empty">' + esc(text) + '</div>'; }
+  function icon(name) { return '<span class="material-symbols-outlined acct-ico" aria-hidden="true">' + name + '</span>'; }
+  function empty(text, ico) { return '<div class="acct-empty">' + icon(ico || 'inbox') + '<span>' + esc(text) + '</span></div>'; }
+  /* A section's heading: one icon, the title, and the line under it. */
+  function head(ico, title, hint) {
+    return '<div class="acct-h">' + icon(ico) + '<h2>' + esc(title) + '</h2></div>' +
+      (hint ? '<p class="hint">' + esc(hint) + '</p>' : '');
+  }
+  function hubPill(h) { return h ? '<span class="acct-hub">' + esc(hubLabel(h)) + '</span>' : ''; }
+  /* A reference and the hub it belongs to, as every card and row titles itself. */
+  function refLine(ref, hub, fallback) {
+    var r = ref ? '<span class="acct-ref">' + esc(ref) + '</span>' : '';
+    return (r + hubPill(hub)) || esc(fallback || '');
+  }
+  /* Plain rows that belong together share one surface, ruled off by hairlines. */
+  function group(rows) { return '<div class="acct-list">' + rows + '</div>'; }
+  function initials(name) {
+    var w = String(name || '').replace(/[^A-Za-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+    return ((w[0] || '').charAt(0) + (w[1] || '').charAt(0)).toUpperCase() || 'N';
+  }
   function say(node, text, bad) {
     if (!node) return;
     node.textContent = text;
@@ -139,8 +166,11 @@
     if (s.founding) badges.push('<span class="acct-badge is-founding">Founding partner</span>');
 
     var html =
-      '<h2>' + esc(s.name) + '</h2>' +
-      '<p class="hint">Site account' + (where ? ' · ' + esc(where) : '') + '</p>' +
+      '<div class="acct-id">' +
+        '<span class="acct-mono" aria-hidden="true">' + esc(initials(s.name)) + '</span>' +
+        '<div class="acct-id__text"><h2>' + esc(s.name) + '</h2>' +
+        '<p class="hint">Site account' + (where ? ' · ' + esc(where) : '') + '</p></div>' +
+      '</div>' +
       (badges.length ? '<div class="acct-badges">' + badges.join('') + '</div>' : '') +
       (s.hidden ? '<div class="acct-notice">Your listing is hidden, so nobody searching the hub can see it. Email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a> and we will put it back.</div>' : '') +
       listingRows(d, s);
@@ -150,10 +180,10 @@
   function listingRows(d, s) {
     var listings = Array.isArray(d.listings) ? d.listings : null;
     if (!listings) {
-      return isHost(s) ? empty('Your listing status appears here.') : '';
+      return isHost(s) ? empty('Your listing status appears here.', 'storefront') : '';
     }
-    if (!listings.length) return isHost(s) ? empty('Your listing status appears here.') : '';
-    return listings.map(function (l) {
+    if (!listings.length) return isHost(s) ? empty('Your listing status appears here.', 'storefront') : '';
+    return group(listings.map(function (l) {
       var st = l.status || 'none';
       var live = l.live || {};
       var pending = l.pending || {};
@@ -167,11 +197,12 @@
       var action = locked
         ? '<span class="acct-disabled" aria-disabled="true">Edit listing</span>'
         : (href ? '<a class="acct-link" href="' + esc(href) + '">Edit listing</a>' : '');
+      var dot = st === 'live' ? 'is-live' : locked ? 'is-pending' : '';
       return '<div class="acct-row">' +
-        '<div class="acct-row__meta"><b>' + esc(hubLabel(l.hub)) + ' listing</b><span>' + esc(text) + '</span></div>' +
+        '<div class="acct-row__meta"><b><span class="acct-dot ' + dot + '" aria-hidden="true"></span>' + esc(hubLabel(l.hub)) + ' listing</b><span>' + esc(text) + '</span></div>' +
         '<div class="acct-row__actions">' + action + '</div>' +
       '</div>';
-    }).join('');
+    }).join(''));
   }
 
   /* ═══════════ 2. introductions ═══════════ */
@@ -237,7 +268,7 @@
 
     var accepted = acceptedStage(p.stage);
     return '<div class="acct-pick">' +
-      (p.ref ? '<b>' + esc(p.ref) + '</b>' : '') +
+      (p.ref ? '<b class="acct-ref">' + esc(p.ref) + '</b>' : '') +
       (rows.length ? '<dl>' + rows.map(function (r) {
         return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>';
       }).join('') + '</dl>' : '') +
@@ -251,16 +282,16 @@
     var facts = [r.material, r.quantity, r.cadence].filter(Boolean).map(String).join(' · ');
     var body;
     if (r.no_match) {
-      body = empty('No match yet. We are still looking, and will write the moment there is one.');
+      body = empty('No match yet. We are still looking, and will write the moment there is one.', 'travel_explore');
     } else if (!picks.length) {
-      body = empty('With NexPoint. Nothing has been put forward yet.');
+      body = empty('With NexPoint. Nothing has been put forward yet.', 'hourglass_top');
     } else {
       body = '<details class="acct-detail"><summary>What we put forward (' + picks.length + ')</summary>' +
         picks.map(function (p) { return pickBlock(p, byId[p.introduction_id]); }).join('') +
       '</details>';
     }
     return '<div class="acct-card">' +
-      '<h3>' + esc([r.ref, hubLabel(r.hub)].filter(Boolean).join(' · ')) + '</h3>' +
+      '<h3>' + refLine(r.ref, r.hub) + '</h3>' +
       '<p class="hint">' + esc([facts, r.created_at ? 'Requested ' + fmtDate(r.created_at) : ''].filter(Boolean).join(' · ')) + '</p>' +
       body +
     '</div>';
@@ -293,7 +324,7 @@
     var accepted = acceptedStage(i.stage);
     return '<div class="acct-row">' +
       '<div class="acct-row__meta">' +
-        '<b>' + esc([i.ref, hubLabel(i.hub)].filter(Boolean).join(' · ')) + '</b>' +
+        '<b>' + refLine(i.ref, i.hub) + '</b>' +
         '<span>' + esc(providerLine(i)) + '</span>' +
         extra.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') +
         statusChain(i.stage) +
@@ -332,7 +363,7 @@
     if (requests) {
       blocks.push('<h3 class="acct-sub">What you asked for</h3>' +
         (requests.length ? requests.map(function (r) { return requestCard(r, byId); }).join('')
-                         : empty('No requests yet. Ask a hub for what you need and it appears here.')));
+                         : empty('No requests yet. Ask a hub for what you need and it appears here.', 'add_circle')));
     }
     if (provider.length) {
       blocks.push('<h3 class="acct-sub">Asked of you</h3>' +
@@ -342,11 +373,10 @@
       blocks.push((requests || provider.length ? '<h3 class="acct-sub">Everything else</h3>' : '') +
         other.map(function (i) { return introRow(i, false); }).join(''));
     }
-    if (!blocks.length) blocks.push(empty('No introductions yet.'));
+    if (!blocks.length) blocks.push(empty('No introductions yet.', 'handshake'));
 
     fill('introductions',
-      '<h2>Introductions</h2>' +
-      '<p class="hint">Contact details are exchanged only once both sides have accepted.</p>' +
+      head('handshake', 'Introductions', 'Contact details are exchanged only once both sides have accepted.') +
       blocks.join(''));
   }
 
@@ -370,7 +400,7 @@
   function declCard(dec, hub) {
     var period = dec.period_open || '';
     var items = Array.isArray(dec.items) ? dec.items : [];
-    if (!items.length) return empty('Nothing to declare this period.');
+    if (!items.length) return empty('Nothing to declare this period.', 'task_alt');
     var pid = 'decl-' + period + '-';
     var rows = items.map(function (it) {
       var base = pid + it.introduction_id + '-';
@@ -388,7 +418,7 @@
     }).join('');
 
     return '<div class="acct-card">' +
-      '<h3>' + esc(period) + '</h3>' +
+      '<h3>' + esc(fmtPeriod(period)) + '</h3>' +
       '<p class="hint">' + esc(dueLine(dec.due_state)) + ' One line per introduction. Tick the last column where nothing came through.</p>' +
       '<div class="acct-scroll"><table class="decl-table">' +
         '<thead><tr><th>Introduction</th><th>Units</th><th>Value</th><th>Currency</th><th>Nothing</th></tr></thead>' +
@@ -405,11 +435,11 @@
   function declHistory(dec) {
     var rows = (dec && Array.isArray(dec.history)) ? dec.history : null;
     var body = (rows && rows.length)
-      ? rows.map(function (h) {
-          return '<div class="acct-row"><div class="acct-row__meta"><b>' + esc(h.period || '') + '</b>' +
+      ? group(rows.map(function (h) {
+          return '<div class="acct-row"><div class="acct-row__meta"><b>' + esc(fmtPeriod(h.period)) + '</b>' +
             '<span>' + esc(h.submitted_at ? 'Sent ' + fmtDate(h.submitted_at) : 'Sent') + '</span></div></div>';
-        }).join('')
-      : empty('Earlier declarations appear here once you have sent one.');
+        }).join(''))
+      : empty('Earlier declarations appear here once you have sent one.', 'history');
     return '<details class="acct-detail"><summary>Earlier declarations</summary>' + body + '</details>';
   }
 
@@ -417,15 +447,14 @@
     if (!isHost(s)) { hide('declarations'); return; }
     var dec = d.declarations;
     var body;
-    if (!dec) body = empty('Declarations open soon.');
-    else if (dec.due_state === 'submitted') body = empty('Declared for ' + (dec.period_open || 'this period') + '. Nothing else to send.');
+    if (!dec) body = empty('Declarations open soon.', 'event_upcoming');
+    else if (dec.due_state === 'submitted') body = empty('Declared for ' + (fmtPeriod(dec.period_open) || 'this period') + '. Nothing else to send.', 'task_alt');
     else if (dec.due_state === 'due' || dec.due_state === 'reminder' || dec.due_state === 'overdue') {
       body = declCard(dec, declHubOf(dec, byId) || hostHubs(s)[0] || '');
-    } else body = empty('Nothing due. Declarations open on the 1st for hosts with accepted introductions.');
+    } else body = empty('Nothing due. Declarations open on the 1st for hosts with accepted introductions.', 'task_alt');
 
     fill('declarations',
-      '<h2>Declarations</h2>' +
-      '<p class="hint">What came through each introduction. The other side confirms it, so both records agree.</p>' +
+      head('fact_check', 'Declarations', 'What came through each introduction. The other side confirms it, so both records agree.') +
       body + declHistory(dec));
   }
 
@@ -438,7 +467,8 @@
     if (o.declared_at) facts.push('Declared ' + fmtDate(o.declared_at));
     return '<div class="acct-row" id="line-' + esc(id) + '">' +
       '<div class="acct-row__meta">' +
-        '<b>' + esc([o.ref, o.period].filter(Boolean).join(' · ') || 'Declared order') + '</b>' +
+        '<b>' + (o.ref ? '<span class="acct-ref">' + esc(o.ref) + '</span>' : '') +
+          (o.period ? '<span class="acct-hub">' + esc(fmtPeriod(o.period)) + '</span>' : (o.ref ? '' : 'Declared order')) + '</b>' +
         '<span>' + esc(facts.join(' · ')) + '</span>' +
       '</div>' +
       '<div class="acct-row__actions">' +
@@ -466,9 +496,9 @@
       });
     }
     fill('orders',
-      '<h2>Waiting on you</h2>' +
-      '<p class="hint">Confirm what matches your records, or query what does not.</p>' +
-      ((lines && lines.length) ? lines.map(confirmRow).join('') : empty('Nothing to confirm.')));
+      head('pending_actions', 'Waiting on you', 'Confirm what matches your records, or query what does not.') +
+      ((lines && lines.length) ? lines.map(confirmRow).join('') : empty('Nothing to confirm.', 'task_alt')));
+    if (el('orders')) el('orders').classList.toggle('is-attention', !!(lines && lines.length));
   }
 
   /* ═══════════ 5. fees and standing (host) ═══════════ */
@@ -477,23 +507,27 @@
     var statements = Array.isArray(d.statements) ? d.statements : null;
     var feesBody;
     if (statements && statements.length) {
-      feesBody = statements.map(function (f) {
-        var when = f.paid_at ? 'Paid ' + fmtDate(f.paid_at)
-          : f.issued_at ? 'Issued ' + fmtDate(f.issued_at)
+      feesBody = group(statements.map(function (f) {
+        var when = f.paid_at ? fmtDate(f.paid_at)
+          : f.issued_at ? fmtDate(f.issued_at)
           : (f.status ? String(f.status) : '');
+        var pill = f.paid_at ? '<span class="acct-pill is-paid">Paid</span>'
+          : f.issued_at ? '<span class="acct-pill is-issued">Issued</span>' : '';
         return '<div class="acct-row"><div class="acct-row__meta">' +
-          '<b>' + esc(f.quarter || '') + ' · ' + esc(money(f.total_fees, f.currency)) + '</b>' +
+          '<b>' + esc(f.quarter || '') + '</b>' +
           '<span>' + esc(when) + '</span>' +
+        '</div><div class="acct-row__actions">' + pill +
+          '<span class="acct-amount">' + esc(money(f.total_fees, f.currency)) + '</span>' +
         '</div></div>';
-      }).join('');
+      }).join(''));
     } else if (!statements && Array.isArray(d.fees_owed) && d.fees_owed.length) {
-      feesBody = d.fees_owed.map(function (f) {
+      feesBody = group(d.fees_owed.map(function (f) {
         return '<div class="acct-row"><div class="acct-row__meta">' +
-          '<b>' + esc(money(f.amount, f.currency)) + '</b><span>Not yet on a statement</span>' +
+          '<b class="acct-amount">' + esc(money(f.amount, f.currency)) + '</b><span>Not yet on a statement</span>' +
         '</div></div>';
-      }).join('');
+      }).join(''));
     } else {
-      feesBody = empty('Fees appear here once a statement is issued.');
+      feesBody = empty('Fees appear here once a statement is issued.', 'receipt_long');
     }
 
     var score = d.score || null;
@@ -504,18 +538,17 @@
     var strikes = (score && Array.isArray(score.open_strikes)) ? score.open_strikes
       : (Array.isArray(d.open_strikes) ? d.open_strikes : []);
     var strikesBody = strikes.length
-      ? strikes.map(function (st) {
+      ? group(strikes.map(function (st) {
           var line = [st.cure_by ? 'Cure by ' + fmtDate(st.cure_by) + '.' : '', st.notes || ''].filter(Boolean).join(' ');
           return '<div class="acct-row"><div class="acct-row__meta">' +
             '<b>' + esc(st.opened_at ? 'Opened ' + fmtDate(st.opened_at) : 'Open strike') + '</b>' +
             '<span>' + esc(line || 'Declaring the matching order clears it.') + '</span>' +
           '</div></div>';
-        }).join('')
-      : empty('No open strikes.');
+        }).join(''))
+      : empty('No open strikes.', 'verified');
 
     fill('fees',
-      '<h2>Fees and standing</h2>' +
-      '<p class="hint">' + esc(scoreLine) + '</p>' +
+      head('receipt_long', 'Fees and standing', scoreLine) +
       feesBody +
       '<h3 class="acct-sub">Open strikes</h3>' +
       strikesBody);
@@ -606,17 +639,15 @@
 
   function paintMore(tiles) {
     fill('more',
-      '<h2>More of the network</h2>' +
-      '<p class="hint">Other doors into the same network, open to your account already.</p>' +
+      head('hub', 'More of the network', 'Other doors into the same network, open to your account already.') +
       (tiles.length ? '<div class="tile-grid">' + tiles.join('') + '</div>'
-                    : empty('You are already in every hub we run today.')));
+                    : empty('You are already in every hub we run today.', 'done_all')));
   }
 
   /* ═══════════ 7. education ═══════════ */
   function renderEducation() {
     fill('education',
-      '<h2>Education</h2>' +
-      '<p class="hint">Courses and training, built with the people who do the work.</p>' +
+      head('school', 'Education', 'Courses and training, built with the people who do the work.') +
       '<div class="tile-grid">' +
         '<button class="tile" type="button" data-act="education">' +
           '<h4>Education Hub</h4>' +
@@ -624,6 +655,58 @@
           '<span class="go">Put me on the list</span>' +
         '</button>' +
       '</div>');
+  }
+
+  /* ═══════════ what needs the reader, and where things are ═══════════ */
+  /* Both read the same summary the sections read, and add nothing of their
+     own: every line here is a link down to the section that already holds
+     the button. */
+  function needsOf(d, s) {
+    var dec = d.declarations || null;
+    var intros = Array.isArray(d.introductions) ? d.introductions : [];
+    var lines = (dec && Array.isArray(dec.awaiting_my_confirmation)) ? dec.awaiting_my_confirmation
+      : (Array.isArray(d.orders_awaiting_confirm) ? d.orders_awaiting_confirm : []);
+    var asked = intros.filter(function (i) { return i.role === 'provider' && i.stage === 'awaiting_acceptance'; }).length;
+    var due = isHost(s) && dec && ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
+      Array.isArray(dec.items) && dec.items.length;
+    var out = [];
+    if (lines.length) out.push({ to: 'orders', icon: 'pending_actions',
+      text: lines.length === 1 ? 'Confirm 1 declared order' : 'Confirm ' + lines.length + ' declared orders' });
+    if (due) out.push({ to: 'declarations', icon: 'fact_check',
+      text: 'Send your declaration for ' + (fmtPeriod(dec.period_open) || 'this period') + (dec.due_state === 'overdue' ? ', now overdue' : '') });
+    if (asked) out.push({ to: 'introductions', icon: 'handshake',
+      text: asked === 1 ? 'Answer 1 introduction from the email we sent you' : 'Answer ' + asked + ' introductions from the emails we sent you' });
+    return out;
+  }
+
+  function renderNeeds(needs) {
+    if (!needs.length) { hide('acctNeeds'); return; }
+    fill('acctNeeds',
+      '<h2>To do now</h2><ul>' + needs.map(function (n) {
+        return '<li><a href="#' + n.to + '">' + icon(n.icon) + '<span>' + esc(n.text) + '</span>' + icon('arrow_downward') + '</a></li>';
+      }).join('') + '</ul>');
+  }
+
+  var NAV_LABEL = { profile: 'Your site', introductions: 'Introductions', declarations: 'Declarations',
+    orders: 'Waiting on you', fees: 'Fees and standing', more: 'More of the network', education: 'Education' };
+
+  function renderNav(needs) {
+    var flagged = {};
+    needs.forEach(function (n) { flagged[n.to] = true; });
+    var links = SECTIONS.filter(function (id) { return el(id) && !el(id).hidden; }).map(function (id) {
+      return '<a href="#' + id + '">' + esc(NAV_LABEL[id]) +
+        (flagged[id] ? '<span class="acct-nav__dot" aria-hidden="true"></span>' : '') + '</a>';
+    });
+    fill('acctNav', links.join(''));
+    var wrap = document.querySelector('.acct-wrap');
+    if (wrap) wrap.classList.add('has-nav');
+  }
+
+  function clearChrome() {
+    hide('acctNeeds');
+    hide('acctNav');
+    var wrap = document.querySelector('.acct-wrap');
+    if (wrap) wrap.classList.remove('has-nav');
   }
 
   /* ═══════════ page states ═══════════ */
@@ -636,6 +719,7 @@
     if (el('acctLoading')) el('acctLoading').hidden = true;
     if (el('acctError')) el('acctError').hidden = true;
     SECTIONS.forEach(hide);
+    clearChrome();
     fill('signInPrompt',
       '<div class="panel" style="max-width:480px;margin:24px auto;text-align:center">' +
         '<h2 style="margin-bottom:10px">Sign in to see your account</h2>' +
@@ -650,6 +734,7 @@
     if (el('acctLoading')) el('acctLoading').hidden = true;
     if (el('signInPrompt')) el('signInPrompt').hidden = true;
     SECTIONS.forEach(hide);
+    clearChrome();
     var e = el('acctError');
     if (!e) return;
     e.innerHTML = 'That did not load. Check your connection and try again, or email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.';
@@ -670,6 +755,9 @@
     renderFees(d, s);
     renderMore(d);
     renderEducation();
+    var needs = needsOf(d, s);
+    renderNeeds(needs);
+    renderNav(needs);
   }
 
   /* ═══════════ loading ═══════════ */
