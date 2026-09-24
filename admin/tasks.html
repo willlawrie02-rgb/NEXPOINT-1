@@ -168,6 +168,13 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 let tasks=[],who='all',intentByKey={},intentById={};
 const keyOf=t=>(t.source||'')+'\u0001'+(t.task||'');
 
+const newer=(a,b)=>!!a&&!!b&&new Date(a).getTime()>new Date(b).getTime();
+/* A done tick newer than the mirror row: the file is ticked and this list
+   (rebuilt at 07:00) has not caught up. A done tick older than the row is
+   history, the mirror already reflects it or the task came back, so the
+   box is live again. */
+const isTicked=t=>{const q=intentByKey[keyOf(t)];return !!q&&q.status==='done'&&newer(q.requested_at,t.collected_at);};
+
 async function boot(){
   const {data}=await sb.auth.getSession();const s=data&&data.session;
   if(s&&isAdmin(s.user.email))showAdmin(s.user);else showLogin(s);
@@ -194,31 +201,38 @@ async function load(){
     return;
   }
   tasks=data||[];
-  // Every tick the engine has not finished with: waiting, claimed, or
-  // failed. A failed tick used to drop out of this query, so the checkbox
-  // quietly came back with no word on why. Failed first then ascending id,
-  // so a re-raised pending tick wins the display over the failure it
-  // replaced (the ordering every other board uses).
+  // Every tick with a say in what a box shows: waiting, claimed, failed
+  // or done. A failed tick used to drop out of this query, so the checkbox
+  // quietly came back with no word on why. Newest first and capped.
   const {data:intents}=await sb.from('engine_intents')
-    .select('id,payload_json,status,result_note').eq('type','tick-task')
-    .in('status',['pending','claimed','failed']);
+    .select('id,payload_json,status,result_note,requested_at').eq('type','tick-task')
+    .in('status',['pending','claimed','failed','done'])
+    .order('id',{ascending:false}).limit(1000);
   intentByKey={};intentById={};
-  (intents||[]).slice().sort((a,b)=>
-    (a.status==='failed'?0:1)-(b.status==='failed'?0:1)||a.id-b.id)
-  .forEach(i=>{intentById[i.id]=i;intentByKey[keyOf(i.payload_json||{})]=i;});
+  /* Ascending id, last write wins: the newest tick for a task decides what
+     its box shows (hub-board.js's newestIntent, inline). Unlike the other
+     boards a done tick STAYS in the map: this list is rebuilt at 07:00
+     while ticks execute within minutes, so render() needs the done tick
+     to show a task ticked since the mirror was built (isTicked). */
+  (intents||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    intentById[i.id]=i;
+    intentByKey[keyOf(i.payload_json||{})]=i;
+  });
+  if((intents||[]).length===1000)showBanner('Showing the newest 1,000 intent rows; older rows are not on this page.');
   render();
 }
 
 async function tick(source,task){
-  // The board queues an INTENT; the engine's hourly execute-intents step
-  // flips the checkbox in the file the task came from and commits it (G2c,
-  // G3b). Nothing here writes to the workspace.
+  // The board queues an INTENT; the engine's intent drain flips the
+  // checkbox in the file the task came from and commits it within a few
+  // minutes (G2c, G3b); this list is rebuilt from the files at 07:00.
+  // Nothing here writes to the workspace.
   const {data:s}=await sb.auth.getSession();
   const by=s&&s.session?s.session.user.email:'unknown';
   const {error}=await sb.from('engine_intents').insert({
     type:'tick-task',payload_json:{source,task},requested_by:by,status:'pending'});
   if(error){showBanner('Could not queue the tick: '+error.message);return;}
-  showBanner('Tick queued for "'+task+'" — the hourly sync commits it to '+source+'.');
+  showBanner('Tick queued for "'+task+'": the engine commits it to '+source+' within a few minutes; this list refreshes at 07:00.');
   load();
 }
 function showBanner(msg){const b=$('banner');b.textContent=msg;b.style.display='block';}
@@ -235,13 +249,14 @@ function render(){
   const owners=[...new Set(tasks.map(t=>t.owner))].sort();
   const shown=tasks.filter(t=>who==='all'||t.owner===who);
   const failedN=tasks.filter(t=>{const q=intentByKey[keyOf(t)];return q&&q.status==='failed';}).length;
-  $('count').textContent=tasks.length?`${tasks.length} open · ${owners.map(o=>`${o} ${tasks.filter(t=>t.owner===o).length}`).join(' · ')}${failedN?` · ${failedN} tick${failedN===1?'':'s'} failed`:''}`:'';
+  const tickedN=tasks.filter(isTicked).length;
+  $('count').textContent=tasks.length?`${tasks.length} open · ${owners.map(o=>`${o} ${tasks.filter(t=>t.owner===o).length}`).join(' · ')}${tickedN?` · ${tickedN} ticked since 07:00`:''}${failedN?` · ${failedN} tick${failedN===1?'':'s'} failed`:''}`:'';
   $('owners').innerHTML=['all',...owners].map(o=>
     `<button class="owner-btn" aria-pressed="${who===o}" data-owner="${esc(o)}" onclick="who=this.dataset.owner;render()">${o==='all'?'Everyone':esc(o)}</button>`).join('');
 
   if(!shown.length){
-    $('groups').innerHTML=`<div class="empty">No open action items. The hourly sync rebuilds
-      this list from the workspace — if that looks wrong, the collector may not have run.</div>`;
+    $('groups').innerHTML=`<div class="empty">No open action items. This list is rebuilt from
+      the workspace at 07:00; if that looks wrong, the collector may not have run.</div>`;
     return;
   }
   // Group by the company folder the checkbox came from: that is how the
@@ -259,17 +274,20 @@ function render(){
         const inEmail=/\/emails\//.test(t.source||'');
         const q=intentByKey[keyOf(t)];
         const failed=!!q&&q.status==='failed';
-        const queued=!!q&&!failed;
+        const ticked=isTicked(t);
+        const queued=!!q&&!failed&&!ticked&&q.status!=='done';
         const why=failed?(q.result_note||'no reason recorded'):'';
-        return `<div class="task ${queued?'queued':''}${failed?' failed':''}">
+        return `<div class="task ${queued||ticked?'queued':''}${failed?' failed':''}">
         ${inEmail
           ?`<span class="box locked" title="Filed email — verbatim received material, never edited by the engine"></span>`
+          :ticked
+            ?`<span class="box done" title="Ticked; this list refreshes at 07:00"></span>`
           :queued
-            ?`<span class="box done" title="Tick queued — the hourly sync will commit it"></span>`
+            ?`<span class="box done" title="Tick queued — the engine commits it within a few minutes"></span>`
             :failed
               ?`<span class="box failed" title="Tick failed: ${esc(why)}"></span>`
               :`<button class="box btn-tick" aria-label="Tick: ${esc(t.task)}" onclick="tick(this.dataset.s,this.dataset.t)" data-s="${esc(t.source)}" data-t="${esc(t.task)}"></button>`}
-        <span class="t">${esc(t.task)}<span class="src">${esc(t.owner)} · ${esc(t.source)}${inEmail?' · <em>untickable: filed email</em>':''}${queued?' · <em>queued</em>':''}${failed
+        <span class="t">${esc(t.task)}<span class="src">${esc(t.owner)} · ${esc(t.source)}${inEmail?' · <em>untickable: filed email</em>':''}${ticked?' · <em>ticked; refreshes at 07:00</em>':''}${queued?' · <em>queued</em>':''}${failed
           ?` · <em class="fail" title="${esc(why)}">tick failed: ${esc(why)}</em><button class="btn-retry" onclick="retry(this.dataset.id)" data-id="${esc(q.id)}">Try again</button>`
           :''}</span></span>
       </div>`;}).join('')}

@@ -366,13 +366,19 @@ function warn(what,error,hint,scope){
   banners.push({what,message:error.message,hint:hint||'',scope:scope||'base'});
   paintBanners();
 }
+/* A plain notice rather than a read failure; cleared with the base scope. */
+function note(text){
+  banners.push({note:text,scope:'base'});
+  paintBanners();
+}
 function clearBanners(scope){
   banners=scope?banners.filter(b=>b.scope!==scope):[];
   paintBanners();
 }
 function paintBanners(){
-  $('banner').innerHTML=banners.map(b=>
-    `<div class="banner">Could not read ${esc(b.what)}: ${esc(b.message)}.
+  $('banner').innerHTML=banners.map(b=>b.note
+    ?`<div class="banner">${esc(b.note)}</div>`
+    :`<div class="banner">Could not read ${esc(b.what)}: ${esc(b.message)}.
     ${esc(b.hint)}</div>`).join('');
 }
 
@@ -400,7 +406,8 @@ async function load(){
     sb.from('organisations').select('id,name'),
     sb.from('orders').select('*').order('logged_at',{ascending:false}),
     sb.from('engine_intents').select('id,type,payload_json,status,result_note')
-      .in('status',['pending','claimed','failed']).in('type',MONEY_INTENTS),
+      .in('status',['pending','claimed','failed','done']).in('type',MONEY_INTENTS)
+      .order('id',{ascending:false}).limit(1000),
   ]);
   if(stQ.error)warn('statements',stQ.error,MIG_HINT);
   if(evQ.error)warn('the evidence queue',evQ.error,MIG_HINT);
@@ -417,21 +424,25 @@ async function load(){
   introById={};intros.forEach(i=>{introById[i.id]=i;});
 
   intentById={};pendByStatement={};pendByOrder={};pendByLine={};pendByEvidence={};pendByOrg={};
-  /* Failed first, so a re-raised pending intent wins the display
-     (the leads.html pattern). */
-  const byState=(intentQ.data||[]).slice().sort((a,b)=>
-    (a.status==='failed'?0:1)-(b.status==='failed'?0:1)||a.id-b.id);
-  byState.forEach(i=>{
+  /* Ascending id, last write wins: the newest intent for a row decides
+     what it shows (the read is newest-first and capped, so the sort
+     restores the order). A key whose newest intent is done is dropped, so
+     a success that followed a failure clears it and the buttons come back
+     (hub-board.js's newestIntent, inline). */
+  const put=(map,key,i)=>{if(i.status==='done')delete map[key];else map[key]=i;};
+  const byId=(intentQ.data||[]).slice().sort((a,b)=>a.id-b.id);
+  byId.forEach(i=>{
     intentById[i.id]=i;
     const p=i.payload_json||{};
-    (p.statement_ids||[]).forEach(id=>{pendByStatement[id]=i;});
-    (p.order_ids||[]).forEach(id=>{pendByOrder[id]=i;});
+    (p.statement_ids||[]).forEach(id=>put(pendByStatement,id,i));
+    (p.order_ids||[]).forEach(id=>put(pendByOrder,id,i));
     if(i.type==='resolve-dispute'&&p.id!=null){
-      if(p.kind==='evidence')pendByEvidence[p.id]=i;else pendByLine[p.id]=i;
+      if(p.kind==='evidence')put(pendByEvidence,p.id,i);else put(pendByLine,p.id,i);
     }
-    if(p.evidence_id!=null)pendByEvidence[p.evidence_id]=i;
-    if(i.type==='open-audit-strike'&&p.org_id!=null)pendByOrg[p.org_id]=i;
+    if(p.evidence_id!=null)put(pendByEvidence,p.evidence_id,i);
+    if(i.type==='open-audit-strike'&&p.org_id!=null)put(pendByOrg,p.org_id,i);
   });
+  if((intentQ.data||[]).length===1000)note('Showing the newest 1,000 intent rows; older rows are not on this page.');
 
   await loadPeriod();
   selStatements=new Set();selected=new Set();
@@ -478,12 +489,16 @@ function render(){
   ].filter(Boolean).join(' · ');
 }
 
-/* A queued or failed intent replaces a row's buttons: the same decision
-   twice would be two intents, and the engine would run both. */
+/* A queued intent replaces a row's buttons: the same decision twice
+   would be two intents, and the engine would run both. A failed one is
+   information, not a lock: it renders as a full-width line ABOVE the
+   buttons the row's own state earns, with Try again, so a stale failure
+   never hides Mark invoiced, Mark paid or Resolve dispute (plan 024). */
 function manageFor(q,fallback){
   if(q&&q.status==='failed')
-    return `<span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span>
-      <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button>`;
+    return `<span class="fail-line" style="flex-basis:100%;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span>
+      <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button></span>${fallback}`;
   if(q)return '<span class="status">Queued, the engine acts within a minute or two.</span>';
   return fallback;
 }
