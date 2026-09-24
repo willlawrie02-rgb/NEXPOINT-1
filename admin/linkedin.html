@@ -217,10 +217,24 @@ async function load(){
   const {data:ps}=await sb.from('linkedin_page_stats')
     .select('captured_at,followers').order('captured_at',{ascending:true});
   pageStats=ps||[];
+  /* Every queue update with a say in what a slot shows: waiting, claimed,
+     failed (a failed update used to be invisible, and the button quietly
+     came back) or done. Newest first and capped. */
   const {data:intents}=await sb.from('engine_intents')
-    .select('payload_json,status').eq('type','update-linkedin-queue').eq('status','pending');
+    .select('id,payload_json,status,result_note,requested_at').eq('type','update-linkedin-queue')
+    .in('status',['pending','claimed','failed','done'])
+    .order('id',{ascending:false}).limit(1000);
   pending={};
-  (intents||[]).forEach(i=>{const p=i.payload_json||{};if(p.item_id)pending[p.item_id]=p.status;});
+  /* Ascending id, last write wins: the newest update for a slot decides
+     what it shows (hub-board.js's newestIntent, inline). A done update
+     STAYS in the map: this mirror refreshes Mon/Wed/Fri while updates
+     commit within minutes, so card() needs it to say a slot has moved. */
+  (intents||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    const p=i.payload_json||{};
+    if(p.item_id)pending[p.item_id]=i;
+  });
+  if((intents||[]).length===1000)
+    $('banner').innerHTML+=`<div class="banner">Showing the newest 1,000 intent rows; older rows are not on this page.</div>`;
   render();
 }
 
@@ -313,21 +327,35 @@ function renderQueue(){
   $('queue').innerHTML=groups;
 }
 
+const MIRROR_NOTE="this board's mirror refreshes on the next Mon/Wed/Fri 07:40 run";
+const newer=(a,b)=>!!a&&!!b&&new Date(a).getTime()>new Date(b).getTime();
 function card(r){
-  const queued=pending[r.id];
+  const q=pending[r.id];
+  const want=q?((q.payload_json||{}).status||''):'';
+  /* A done update newer than the mirror row: the queue file has moved and
+     this board has not caught up, so say so and offer no button. An older
+     done one is history; the row's own status decides. A failed update
+     shows as a red line above the button the status earns. */
+  const committed=!!q&&q.status==='done'&&newer(q.requested_at,r.synced_at);
+  const failed=!!q&&q.status==='failed';
+  const queued=!!q&&!failed&&!committed&&q.status!=='done';
   const badge=`<span class="badge b-${esc(r.status)}">${esc(r.status)}</span>`;
   const meta=[fmtDate(r.scheduled_for),r.slot,r.pillar,r.format].filter(Boolean).map(esc).join(' · ');
   const link=r.posted_url?` · <a href="${esc(r.posted_url)}" target="_blank" rel="noopener">view post</a>`:'';
+  const fail=failed?`<span class="status fail" style="flex-basis:100%">Engine could not action this: ${esc(q.result_note||'')}</span>`:'';
   let controls='';
   if(queued){
-    controls=`<span class="status done">Queued → ${esc(queued)} — the engine commits it to the
-      queue file within the hour.</span>`;
+    controls=`<span class="status done">Queued → ${esc(want)}; the engine commits it within a few minutes; ${MIRROR_NOTE}.</span>`;
+  }else if(committed){
+    controls=`<span class="status done">Committed → ${esc(want)}; ${MIRROR_NOTE}.</span>`;
   }else if(r.status==='drafted'){
-    controls=`<button class="btn btn-grn btn-sm" data-id="${esc(r.id)}" onclick="markReady(this.dataset.id)">
+    controls=fail+`<button class="btn btn-grn btn-sm" data-id="${esc(r.id)}" onclick="markReady(this.dataset.id)">
       <span class="material-symbols-outlined" aria-hidden="true">check</span>Mark ready</button>`;
   }else if(r.status==='ready'||r.status==='planned'){
-    controls=`<button class="btn btn-pri btn-sm" data-id="${esc(r.id)}" onclick="markPosted(this.dataset.id)">
+    controls=fail+`<button class="btn btn-pri btn-sm" data-id="${esc(r.id)}" onclick="markPosted(this.dataset.id)">
       <span class="material-symbols-outlined" aria-hidden="true">task_alt</span>Mark as posted</button>`;
+  }else{
+    controls=fail;
   }
   return `<div class="row">
     <div class="slot-head">
@@ -362,7 +390,7 @@ function markPosted(id){
   if(!/linkedin\.com/i.test(url||'')){alert('That does not look like a linkedin.com URL — nothing queued.');return;}
   submitQueueIntent(
     {item_id:id,status:'posted',posted_url:url.trim(),posted_at:new Date().toISOString().slice(0,10)},
-    'Queued — the engine records your post in the queue file within the hour.');
+    "Queued: the engine records your post in the queue file within a few minutes; this board's mirror refreshes on the next Mon/Wed/Fri 07:40 run.");
 }
 
 boot();

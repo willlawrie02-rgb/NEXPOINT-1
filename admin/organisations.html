@@ -241,7 +241,8 @@ async function load(){
     sb.from('listings').select('id,org_id,hub,status'),
     sb.from('orders').select('org_provider,value,fee_rate,currency,confirmed_at,invoiced_at'),
     sb.from('engine_intents').select('id,type,payload_json,status,result_note')
-      .in('status',['pending','claimed','failed']).in('type',ORG_INTENTS),
+      .in('status',['pending','claimed','failed','done']).in('type',ORG_INTENTS)
+      .order('id',{ascending:false}).limit(1000),
   ]);
   if(strikesQ.error)
     $('banner').innerHTML+=`<div class="banner">Could not read strikes: ${esc(strikesQ.error.message)}.</div>`;
@@ -260,15 +261,22 @@ async function load(){
   });
 
   intentById={};pendingByOrg={};pendingByStrike={};
-  /* Failed first, so a re-raised pending intent wins the display. */
-  const byState=(intentsQ.data||[]).slice().sort((a,b)=>
-    (a.status==='failed'?0:1)-(b.status==='failed'?0:1)||a.id-b.id);
-  byState.forEach(i=>{
+  /* Ascending id, last write wins: the newest intent for a row decides
+     what it shows (the read is newest-first and capped, so the sort
+     restores the order). A row whose newest intent is done is dropped, so
+     a success that followed a failure clears it and the buttons come back
+     (hub-board.js's newestIntent, inline). */
+  const byId=(intentsQ.data||[]).slice().sort((a,b)=>a.id-b.id);
+  byId.forEach(i=>{
     intentById[i.id]=i;
     const p=i.payload_json||{};
-    if(p.strike_id!=null)pendingByStrike[p.strike_id]=i;
-    else if(p.org_id!=null)pendingByOrg[p.org_id]=i;
+    const map=p.strike_id!=null?pendingByStrike:p.org_id!=null?pendingByOrg:null;
+    if(!map)return;
+    const key=p.strike_id!=null?p.strike_id:p.org_id;
+    if(i.status==='done')delete map[key];else map[key]=i;
   });
+  if((intentsQ.data||[]).length===1000)
+    $('banner').innerHTML+=`<div class="banner">Showing the newest 1,000 intent rows; older rows are not on this page.</div>`;
 
   render(feesByOrg);
 }
@@ -331,9 +339,7 @@ function strikeCell(orgId){
   return open.map(s=>{
     const q=pendingByStrike[s.id];
     const late=s.cure_by&&s.cure_by<today;
-    const act=q
-      ? manageFor(q,'')
-      : `<button class="btn btn-gh btn-sm" onclick="cureStrike(${s.id})">Cure</button>`;
+    const act=manageFor(q,`<button class="btn btn-gh btn-sm" onclick="cureStrike(${s.id})">Cure</button>`);
     return `<span class="strike">
       <span class="src">${esc(STRIKE_SOURCE[s.source]||s.source)}</span>
       <span class="due ${late?'overdue':''}">cure by ${esc(fmtDate(s.cure_by))}</span>
@@ -353,11 +359,16 @@ function pipedriveCell(o){
     :'<br><span class="muted">not linked to Pipedrive</span>';
 }
 
-/* A queued or failed intent replaces the buttons it came from. */
+/* A queued intent replaces the buttons it came from: the same decision
+   twice would be two intents, and the engine would run both. A failed one
+   is information, not a lock: it renders as a full-width line ABOVE the
+   buttons the row's own state earns, with Try again, so a stale failure
+   never hides Pause, Record payment or Cure (plan 024). */
 function manageFor(q,fallback){
   if(q&&q.status==='failed')
-    return `<span class="status fail">Failed: ${esc(q.result_note||'')}</span>
-      <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button>`;
+    return `<span class="fail-line" style="flex-basis:100%;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="status fail">Failed: ${esc(q.result_note||'')}</span>
+      <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button></span>${fallback}`;
   if(q)return '<span class="status">Queued, moments away.</span>';
   return fallback;
 }

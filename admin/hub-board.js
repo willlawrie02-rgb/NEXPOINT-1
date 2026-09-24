@@ -36,24 +36,47 @@ let listings=[],revById={},machinesByRev={},seekReqs=[];
 let pendingByListing={},pendingBySeekReq={};
 const HOSTS_HUB=()=>HUB.hub==='print'||HUB.hub==='mill';
 
-/* The one ordering every pending-intent map uses. Sort a copy failed-first
-   then by ascending id and let the last write win, so a row that carries
-   both a failed intent and a re-raised pending one shows the pending one.
-   `keyOf(intent, payload)` returns a key, an array of keys, or null to
-   skip. leads.html and organisations.html do not load this module and
-   carry the same sort inline. */
-function newestWithFailedFirst(intents,keyOf){
+/* The one rule every intent map uses: the NEWEST intent for a key decides
+   what its row shows. Ascending id, last write wins; the read is
+   newest-first and capped (load()), so the sort here restores the order
+   the reduction needs. `done` rows are read too, so a success that
+   followed a failure clears it, and a key whose newest intent is done is
+   dropped: render code never sees a finished intent, and the row's own
+   status decides its buttons. `keyOf(intent, payload)` returns a key, an
+   array of keys, or null to skip. leads.html, organisations.html,
+   orders.html, tasks.html and linkedin.html do not load this module and
+   carry the same reduction inline. */
+function newestIntent(intents,keyOf){
   const out={};
-  (intents||[]).slice().sort((a,b)=>
-    (a.status==='failed'?0:1)-(b.status==='failed'?0:1)||a.id-b.id)
-  .forEach(i=>{
+  (intents||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
     const keys=keyOf(i,i.payload_json||{});
-    (Array.isArray(keys)?keys:[keys]).forEach(k=>{if(k!=null)out[k]=i;});
+    (Array.isArray(keys)?keys:[keys]).forEach(k=>{
+      if(k==null)return;
+      if(i.status==='done')delete out[k];else out[k]=i;
+    });
   });
   return out;
 }
 
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* A failed intent is information, not a lock. It renders ABOVE the buttons
+   the row's own status earns (a full-width line inside the .actions flex
+   row), so a stale failure never hides Approve, Decline or Make
+   introduction. `offerRetry` false withholds Try again where the row has
+   settled since (a decided application, a closed seeker request, a
+   listing with nothing pending): re-raising that payload could only fail
+   again. A pending or claimed intent still replaces the buttons (QUEUED_LINE):
+   the same decision twice would be two intents, and the engine would run
+   both. */
+function failedAbove(q,label,offerRetry=true){
+  if(!q||q.status!=='failed')return '';
+  return `<span class="fail-line" style="flex-basis:100%;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <span class="status fail">${esc(label)}: ${esc(q.result_note||'')}</span>${offerRetry
+      ?`<button class="btn btn-gh btn-sm" onclick="retry(${q.id})"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>Try again</button>`
+      :''}</span>`;
+}
+const QUEUED_LINE='<span class="status">Queued — the engine acts within a minute or two.</span>';
 
 async function boot(){
   const {data}=await sb.auth.getSession();
@@ -219,27 +242,34 @@ async function load(){
     }
   }
 
-  // Which rows already have an intent waiting or failed? newestWithFailedFirst()
-  // decides which intent a row shows when it has more than one.
+  // Which rows have an intent waiting, failed, or lately done? newestIntent()
+  // decides which intent a row shows when it has more than one. Newest
+  // first and capped: past PostgREST's default cap an unordered read drops
+  // the NEWEST rows, which are the ones a board is about.
   const {data:intents}=await sb.from('engine_intents')
     .select('id,type,payload_json,status,result_note')
-    .in('status',['pending','claimed','failed'])
+    .in('status',['pending','claimed','failed','done'])
     .in('type',['review-web-request','create-introduction','update-introduction',
                 'approve-host','decline-host',
                 ...LISTING_INTENTS,...SEEKER_INTENTS,'reroute-introduction',
-                'reissue-acceptance']);
+                'reissue-acceptance'])
+    .order('id',{ascending:false}).limit(1000);
   intentById={};(intents||[]).forEach(i=>{intentById[i.id]=i;});
+  if((intents||[]).length===1000)
+    $('banner').innerHTML+=`<div class="banner">Showing the newest 1,000 intent rows; older rows are not on this page.</div>`;
   /* request_id means two different tables depending on the intent, so it
-     is read by type and never by name alone. */
-  pendingBySeekReq=newestWithFailedFirst(intents,(i,p)=>
+     is read by type and never by name alone. create-introduction names
+     both requests, so BOTH cards read queued or failed, and the partner
+     card stops offering Make introduction while one is in flight. */
+  pendingBySeekReq=newestIntent(intents,(i,p)=>
     SEEKER_INTENTS.includes(i.type)?p.request_id:null);
-  pendingByReq=newestWithFailedFirst(intents,(i,p)=>
-    [SEEKER_INTENTS.includes(i.type)?null:p.request_id,p.request_a]);
-  pendingByIntro=newestWithFailedFirst(intents,(i,p)=>p.introduction_id);
-  pendingByHostApp=newestWithFailedFirst(intents,(i,p)=>p.application_id);
+  pendingByReq=newestIntent(intents,(i,p)=>
+    [SEEKER_INTENTS.includes(i.type)?null:p.request_id,p.request_a,p.request_b]);
+  pendingByIntro=newestIntent(intents,(i,p)=>p.introduction_id);
+  pendingByHostApp=newestIntent(intents,(i,p)=>p.application_id);
   /* add-provider and reroute name a listing too — they are not a decision
      ON that listing, so they never grey out its review buttons. */
-  pendingByListing=newestWithFailedFirst(intents,(i,p)=>
+  pendingByListing=newestIntent(intents,(i,p)=>
     LISTING_INTENTS.includes(i.type)?p.listing_id:null);
   render();
 }
@@ -472,26 +502,25 @@ function reqCard(r,col){
     ?`<div class="meta"><span class="status done"><span class="material-symbols-outlined" aria-hidden="true">handshake</span> In introduction ${inIntros.map(i=>esc(i.ref||('INTRO-'+String(i.id).padStart(4,'0')))).join(', ')}</span></div>`
     :'';
 
+  /* The request's own status decides the buttons; the intent decorates. */
+  const failed=failedAbove(q,'Engine could not action this');
   let actions;
-  if(q&&q.status==='failed'){
-    actions=`<div class="actions"><span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span>
-      <button class="btn btn-gh btn-sm" onclick="retry(${q.id})"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>Try again</button></div>`;
-  }else if(q){
-    actions=`<div class="actions"><span class="status">Queued — the engine acts within a minute or two.</span></div>`;
+  if(q&&!failed){
+    actions=`<div class="actions">${QUEUED_LINE}</div>`;
   }else if(r.status==='new'){
-    actions=`<div class="actions">
+    actions=`<div class="actions">${failed}
       <button class="btn btn-gh btn-sm" onclick="reviewReq(${r.id},'reviewing')">Mark reviewing</button>
       <button class="btn btn-grn btn-sm" onclick="reviewReq(${r.id},'approved')"><span class="material-symbols-outlined" aria-hidden="true">check</span>${esc(col.approveLabel)}</button>
       <button class="btn btn-danger btn-sm" onclick="declineReq(${r.id})"><span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button></div>`;
   }else if(r.status==='reviewing'){
-    actions=`<div class="actions">
+    actions=`<div class="actions">${failed}
       <button class="btn btn-grn btn-sm" onclick="reviewReq(${r.id},'approved')"><span class="material-symbols-outlined" aria-hidden="true">check</span>${esc(col.approveLabel)}</button>
       <button class="btn btn-danger btn-sm" onclick="declineReq(${r.id})"><span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button></div>`;
   }else if(r.status==='approved'){
-    actions=`<div class="actions">
+    actions=`<div class="actions">${failed}
       <button class="btn btn-pri btn-sm" onclick="openIntroModal(${r.id})"><span class="material-symbols-outlined" aria-hidden="true">handshake</span>Make introduction</button></div>`;
   }else{ // declined
-    actions=`<div class="actions">
+    actions=`<div class="actions">${failed}
       <button class="btn btn-gh btn-sm" onclick="reviewReq(${r.id},'reviewing')">Reconsider</button></div>`;
   }
 
@@ -532,14 +561,13 @@ function renderRegister(){
   }
   $('introRows').innerHTML=live.map(i=>{
     const q=pendingByIntro[i.id];
+    /* The stage decides the controls; a failed intent sits above them. */
+    const failed=failedAbove(q,'Failed');
     let manage;
-    if(q&&q.status==='failed'){
-      manage=`<span class="status fail">Failed: ${esc(q.result_note||'')}</span>
-        <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button>`;
-    }else if(q){
+    if(q&&!failed){
       manage=`<span class="status">Queued for the engine — moments away.</span>`;
     }else if(STAGES.includes(i.stage)){
-      manage=`<select aria-label="Set stage for ${esc(introRef(i))}" onchange="setStage(${i.id},this.value)">
+      manage=failed+`<select aria-label="Set stage for ${esc(introRef(i))}" onchange="setStage(${i.id},this.value)">
           ${STAGES.map(s=>`<option value="${s}" ${s===i.stage?'selected':''}>${STAGE_LABEL[s]}</option>`).join('')}
         </select>
         <button class="btn btn-gh btn-sm" onclick="recordCommission(${i.id})">Record commission</button>`;
@@ -551,6 +579,7 @@ function renderRegister(){
         ||`<span style="color:var(--fg-2);font-size:12.5px">No other visible listing to re-route to (hidden organisations are left out)</span>`;
       if(REISSUABLE_STAGES.includes(i.stage))manage+=`
         <button class="btn btn-gh btn-sm" onclick="reissueAcceptance(${i.id})">Reissue acceptance link</button>`;
+      manage=failed+manage;
     }
     const when=i.stage==='declined'&&i.declined_at?String(i.declined_at).slice(0,10)
       :i.stage==='expired'&&i.acceptance_expires_at?String(i.acceptance_expires_at).slice(0,10):'';
@@ -630,17 +659,18 @@ function renderHostApps(){
   $('hostAppRows').innerHTML=hostApps.map(a=>{
     const org=orgById[a.org_id]||{};
     const q=pendingByHostApp[a.id];
+    /* A decided application has settled: its failure is shown (an
+       approval whose email failed after the write lands here), Try again
+       is not, since the decision the payload carries is already made. */
+    const failed=failedAbove(q,'Failed',a.status==='pending');
     let manage;
     if(a.status!=='pending'){
-      manage=stg('host',a.status,HOST_BADGE[a.status]||a.status.toUpperCase(),hostCls(a.status))
+      manage=failed+stg('host',a.status,HOST_BADGE[a.status]||a.status.toUpperCase(),hostCls(a.status))
         +(a.decided_by?` <span style="color:var(--fg-2);font-size:12px">by ${esc(a.decided_by)}</span>`:'');
-    }else if(q&&q.status==='failed'){
-      manage=`<span class="status fail">Failed: ${esc(q.result_note||'')}</span>
-        <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button>`;
-    }else if(q){
+    }else if(q&&!failed){
       manage=`<span class="status">Queued — the engine acts within a minute or two.</span>`;
     }else{
-      manage=`<button class="btn btn-grn btn-sm" onclick="approveHostApp(${a.id})">
+      manage=failed+`<button class="btn btn-grn btn-sm" onclick="approveHostApp(${a.id})">
           <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve</button>
         <button class="btn btn-danger btn-sm" onclick="declineHostApp(${a.id})">
           <span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button>`;
@@ -726,28 +756,28 @@ function listingRow(l){
   const live=revById[l.live_revision_id],pending=revById[l.pending_revision_id];
   const shown=pending||live||{};
   const q=pendingByListing[l.id];
+  /* Nothing pending means the listing has settled: its failure is shown,
+     Try again is not. */
+  const failed=failedAbove(q,'Failed',!!pending);
   let manage;
-  if(q&&q.status==='failed'){
-    manage=`<span class="status fail">Failed: ${esc(q.result_note||'')}</span>
-      <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button>`;
-  }else if(q){
+  if(q&&!failed){
     manage=`<span class="status">Queued — the engine acts within a minute or two.</span>`;
   }else if(l.status!=='live'&&pending){
     /* Covers a first listing (pending) AND a resubmission after
        decline-listing (status stays declined; the new pending_revision_id
        is the only sign there is something to review again) — without this
        a declined listing's resubmission is unreviewable forever. */
-    manage=`<button class="btn btn-grn btn-sm" onclick="approveListing('${esc(l.id)}')">
+    manage=failed+`<button class="btn btn-grn btn-sm" onclick="approveListing('${esc(l.id)}')">
         <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve</button>
       <button class="btn btn-danger btn-sm" onclick="declineListing('${esc(l.id)}')">
         <span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button>`;
   }else if(l.status==='live'&&pending){
-    manage=`<button class="btn btn-grn btn-sm" onclick="approveRevision('${esc(l.id)}')">
+    manage=failed+`<button class="btn btn-grn btn-sm" onclick="approveRevision('${esc(l.id)}')">
         <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve revision</button>
       <button class="btn btn-danger btn-sm" onclick="declineRevision('${esc(l.id)}')">
         <span class="material-symbols-outlined" aria-hidden="true">close</span>Decline revision</button>`;
   }else{
-    manage=`<span style="color:var(--fg-2);font-size:12.5px">Nothing to review</span>`;
+    manage=failed+`<span style="color:var(--fg-2);font-size:12.5px">Nothing to review</span>`;
   }
 
   /* A first listing has nothing to diff against, so the reviewer gets what
@@ -860,24 +890,25 @@ function seekerCard(r){
       <button class="btn btn-gh btn-sm" onclick="addProvider(${r.id})">Add</button>`
     :`<span style="color:var(--fg-2);font-size:12.5px">No other visible listing to add (hidden organisations are left out)</span>`;
 
+  /* The request's own status decides the buttons; the intent decorates.
+     A declined or closed request has settled: its failure is shown, Try
+     again is not. */
+  const settled=!(r.status==='open'||r.status==='picked'||r.status==='desk');
+  const failed=failedAbove(q,'Engine could not action this',!settled);
   let actions;
-  if(q&&q.status==='failed'){
-    actions=`<div class="actions"><span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span>
-      <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">
-        <span class="material-symbols-outlined" aria-hidden="true">refresh</span>Try again</button></div>`;
-  }else if(q){
-    actions=`<div class="actions"><span class="status">Queued — the engine acts within a minute or two.</span></div>`;
+  if(q&&!failed){
+    actions=`<div class="actions">${QUEUED_LINE}</div>`;
   }else if(r.status==='open'||r.status==='picked'||r.status==='desk'){
     /* add-provider needs a picked request server-side — showing it on an
        open one would offer a control that always fails. */
-    actions=`<div class="actions">
+    actions=`<div class="actions">${failed}
       ${picks.length?`<button class="btn btn-grn btn-sm" onclick="approveRequest(${r.id})">
         <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve picks</button>`:''}
       ${['picked','desk'].includes(r.status)?adder:''}
       <button class="btn btn-danger btn-sm" onclick="declineRequest(${r.id})">
         <span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button></div>`;
   }else{
-    actions=`<div class="actions"><span style="color:var(--fg-2);font-size:12.5px">
+    actions=`<div class="actions">${failed}<span style="color:var(--fg-2);font-size:12.5px">
       ${esc(r.decision_note?'Declined: '+r.decision_note:'Closed')}</span></div>`;
   }
 
