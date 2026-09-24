@@ -1,0 +1,20 @@
+# The website's one check, on every pull request (plan 022, 2026-09-24).
+# Merging to main deploys the live site, so a red check here is the last
+# word before Will merges. It runs exactly what `npm run check` runs locally:
+# node --check on every JS module, html-validate on every page, and the
+# internal link checker.
+name: check
+
+on:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npm run check
