@@ -99,7 +99,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           The hubs at a glance. Numbers read straight from the database; every action
           happens on the board each row links to. The second row of tiles is the hub v2
           queues: listings to review, seeker requests open, order emails still to be
-          placed, and statements issued but not yet invoiced.
+          placed, and statements issued but not yet invoiced. Needs attention is every
+          open item of every kind, longest wait first, with how long it has waited.
         </p>
         <div id="banner"></div>
 
@@ -122,6 +123,16 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <div class="row skeleton"><div class="bone" style="width:52%"></div></div>
           <div class="row skeleton"><div class="bone" style="width:38%"></div></div>
         </div>
+
+        <section id="education">
+          <div class="colhead"><h2>Education list</h2><span class="n" id="eduN"></span><span class="rule"></span></div>
+          <p class="note">
+            Sign-ups from the Education list on the door. Approve one and the next hub sync files it
+            as a lead titled by the person's name; decline one and it leaves this list with your
+            reason on the record. Nothing is emailed to the person either way.
+          </p>
+          <div id="edu"></div>
+        </section>
       </div>
     </div>
   </main>
@@ -165,9 +176,12 @@ function showAdmin(user){
   load();
 }
 
-const HUB_PAGE={print:'print-hub.html',mill:'mill-hub.html',opportunities:'opportunities.html'};
-const HUB_NAME={print:'Print Hub',mill:'Mill Hub',opportunities:'Opportunities Hub'};
+const HUB_PAGE={print:'print-hub.html',mill:'mill-hub.html',opportunities:'opportunities.html',education:'dashboard.html#education'};
+const HUB_NAME={print:'Print Hub',mill:'Mill Hub',opportunities:'Opportunities Hub',education:'Education list'};
 const days=iso=>Math.floor((Date.now()-new Date(iso).getTime())/86400000);
+const hoursSince=iso=>(Date.now()-new Date(iso).getTime())/3600000;
+/* An age as the list shows it: hours until two days, then days. */
+const age=h=>h<1?'under an hour':h<48?`${Math.floor(h)} h`:`${Math.floor(h/24)} d`;
 
 async function load(){
   $('banner').innerHTML='';
@@ -249,18 +263,24 @@ async function load(){
   $('t_st_s').textContent=stQ.error?notYet
     :(issued.length?'issued, not yet invoiced':'nothing awaiting an invoice');
 
-  // Needs attention: every new request, every invoiced introduction, the
-  // two hub v2 work queues (one row per hub), and the two money queues
-  // that go stale silently.
+  // Needs attention. Since plan 026 the list is the `inbox` view (migration
+  // 0039): every open item of every kind with its age, longest wait first,
+  // one row each, so a seeker request in `picked` and an education sign-up
+  // are on it too. The tiles keep counting from the base tables. Until the
+  // migration is applied the view is missing: the banner says so and the
+  // older hand-built list stands in (legacyAttentionRows), rather than an
+  // empty section that reads as nothing to do.
   const rows=[];
-  fresh.sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
-  fresh.forEach(r=>rows.push(`<div class="row attn">
-    <span class="material-symbols-outlined" aria-hidden="true">move_to_inbox</span>
-    <span class="t"><strong>${esc(r.company||'(no company given)')}</strong> — new request in the ${esc(HUB_NAME[r.hub]||r.hub)}
-      <span class="sub">received ${esc(String(r.created_at||'').slice(0,10))}${r.location?' · '+esc(r.location):''}</span></span>
-    <span class="spacer"></span>
-    <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[r.hub]||'dashboard.html')}">Review request</a>
-  </div>`));
+  const ibx=await sb.from('inbox').select('*').order('age_hours',{ascending:false}).limit(200);
+  if(ibx.error){
+    $('banner').innerHTML+=`<div class="banner">Migration 0039 not applied: the attention list is unavailable (${esc(ibx.error.message)}).
+      Showing the older list, which has no ages and leaves out picked seeker requests and education sign-ups.</div>`;
+    legacyAttentionRows(rows,fresh,toReview,sreqQ.data||[]);
+  }else{
+    (ibx.data||[]).forEach(r=>rows.push(inboxRow(r)));
+    if((ibx.data||[]).length===200)
+      $('banner').innerHTML+=`<div class="banner">Showing the 200 longest-waiting items; the rest are on their boards.</div>`;
+  }
   invoiced.forEach(i=>rows.push(`<div class="row attn">
     <span class="material-symbols-outlined" aria-hidden="true">request_quote</span>
     <span class="t"><strong>${esc(i.ref||('INTRO-'+String(i.id).padStart(4,'0')))}</strong> — invoiced, payment outstanding
@@ -268,35 +288,6 @@ async function load(){
     <span class="spacer"></span>
     <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[i.hub]||'dashboard.html')}">Chase payment</a>
   </div>`));
-  // The same listings the tile counts (new, or carrying a pending revision),
-  // and the seeker requests waiting on a match (open) or a person (desk).
-  const waitingReqs=(sreqQ.data||[]).filter(r=>r.status==='open'||r.status==='desk');
-  const hubsWithWork=[...new Set([...toReview.map(l=>l.hub),...waitingReqs.map(r=>r.hub)])].sort();
-  hubsWithWork.forEach(hub=>{
-    const lst=toReview.filter(l=>l.hub===hub);
-    if(lst.length){
-      const newOnes=lst.filter(l=>l.status==='pending').length;
-      const revised=lst.length-newOnes;
-      rows.push(`<div class="row attn">
-    <span class="material-symbols-outlined" aria-hidden="true">storefront</span>
-    <span class="t"><strong>${lst.length} listing${lst.length===1?'':'s'}</strong> awaiting review in the ${esc(HUB_NAME[hub]||hub)}
-      <span class="sub">${newOnes} new${revised?` · ${revised} with a pending revision`:''}</span></span>
-    <span class="spacer"></span>
-    <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[hub]||'dashboard.html')}">Review listings</a>
-  </div>`);
-    }
-    const sr=waitingReqs.filter(r=>r.hub===hub);
-    if(sr.length){
-      const desk=sr.filter(r=>r.status==='desk').length;
-      rows.push(`<div class="row attn">
-    <span class="material-symbols-outlined" aria-hidden="true">person_search</span>
-    <span class="t"><strong>${sr.length} seeker request${sr.length===1?'':'s'}</strong> waiting in the ${esc(HUB_NAME[hub]||hub)}
-      <span class="sub">${desk?`${desk} at the desk · `:''}${sr.length-desk} open, waiting on a match</span></span>
-    <span class="spacer"></span>
-    <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[hub]||'dashboard.html')}">Open the request queue</a>
-  </div>`);
-    }
-  });
   // Will's ruling (2026-09-10): the engine never pauses a company. These
   // two rows are where it asks instead: the strike threshold and a
   // subscription 30 or more days overdue, for companies still On.
@@ -337,9 +328,193 @@ async function load(){
   </div>`);
   $('attnN').textContent=rows.length;
   $('attn').innerHTML=rows.length?rows.join('')
-    :`<div class="empty">Nothing needs attention. New requests, unpaid invoices, listings awaiting
-       review, seeker requests waiting on a match, companies needing a decision, homeless order
-       emails and statements awaiting an invoice all appear here.</div>`;
+    :`<div class="empty">Nothing needs attention. New requests and education sign-ups, seeker requests
+       open or with picks, listings and host applications awaiting review, offers not yet sent to a
+       provider, registrations unconfirmed for a day, unpaid invoices, companies needing a decision,
+       homeless order emails and statements awaiting an invoice all appear here.</div>`;
+  await renderEducation(requests.filter(r=>r.hub==='education'&&r.status==='new'));
+}
+
+/* One inbox row. The view names the kind, the reference, the hub, who it is
+   about, the row's own status, the age and the board that acts on it; this
+   only chooses the words and the icon. A registration says how long it has
+   waited and nothing about who (one door, plan 020: the account does not
+   exist until the link is clicked). */
+const INBOX_KIND={
+  enquiry:{icon:'move_to_inbox',verb:'Review request'},
+  seeker_request:{icon:'person_search',verb:'Open the request queue'},
+  listing:{icon:'storefront',verb:'Review listing'},
+  host_application:{icon:'how_to_reg',verb:'Review application'},
+  introduction:{icon:'forward_to_inbox',verb:'Open the register'},
+  registration:{icon:'mark_email_unread',verb:'Open Accounts'},
+};
+const SREQ_WAIT={open:'waiting on a match',picked:'with picks to approve',desk:'at the desk'};
+function inboxRow(r){
+  const k=INBOX_KIND[r.kind]||{icon:'inbox',verb:'Open the board'};
+  const hub=r.hub?` in the ${esc(HUB_NAME[r.hub]||r.hub)}`:'';
+  const waited=`waiting ${esc(age(Number(r.age_hours)||0))}`;
+  const ref=r.ref?` · ${esc(r.ref)}`:'';
+  let text;
+  if(r.kind==='registration')text=`<strong>1 registration</strong> waiting for email confirmation for ${esc(age(Number(r.age_hours)||0))}
+      <span class="sub">the account exists only once the link is clicked; the Accounts board shows who</span>`;
+  else if(r.kind==='enquiry')text=`<strong>${esc(r.name)}</strong>: new request${hub}
+      <span class="sub">${waited}${ref}</span>`;
+  else if(r.kind==='seeker_request')text=`<strong>${esc(r.name)}</strong>: seeker request ${esc(SREQ_WAIT[r.status]||r.status)}${hub}
+      <span class="sub">${waited}${ref}</span>`;
+  else if(r.kind==='listing')text=`<strong>${esc(r.name)}</strong>: ${r.status==='pending'?'listing awaiting review':'listing with a pending revision'}${hub}
+      <span class="sub">${waited}</span>`;
+  else if(r.kind==='host_application')text=`<strong>${esc(r.name)}</strong>: host application awaiting a decision${hub}
+      <span class="sub">${waited}${ref}</span>`;
+  else if(r.kind==='introduction')text=`<strong>${esc(r.ref||'')}</strong>: provider not yet asked (${esc(r.name)})${hub}
+      <span class="sub">${waited} · the offer email has not gone; the 06:15 retry sends it</span>`;
+  else text=`<strong>${esc(r.name||r.ref||r.kind)}</strong>: ${esc(r.kind)}${hub}
+      <span class="sub">${waited}</span>`;
+  return `<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">${k.icon}</span>
+    <span class="t">${text}</span>
+    <span class="spacer"></span>
+    <a class="btn btn-gh btn-sm" href="${esc(r.board||'dashboard.html')}">${k.verb}</a>
+  </div>`;
+}
+
+/* ── Education list (plan 026) ─────────────────────────────────────── */
+
+/* Education sign-ups (web_requests with hub = education) had no board: the
+   dashboard counted them "new" for ever and their button linked back here.
+   This panel is their home. Its two buttons raise review-web-request with
+   the payload the hub boards' review buttons send, and the newest intent
+   for a row decorates it (plan 024's rule): a queued review replaces the
+   buttons, a failed one sits above them with Try again, a done one is
+   dropped so the row's own status decides (an approved or declined row has
+   already left the list). */
+let intentById={},pendingByReq={};
+
+/* Which intent a row shows when it has more than one (hub-board.js's
+   newestIntent, inline): ascending id, last write wins, done rows read too
+   so a success after a failure clears it, and a key whose newest intent is
+   done is dropped. */
+function newestIntent(intents,keyOf){
+  const out={};
+  (intents||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    const keys=keyOf(i,i.payload_json||{});
+    (Array.isArray(keys)?keys:[keys]).forEach(k=>{
+      if(k==null)return;
+      if(i.status==='done')delete out[k];else out[k]=i;
+    });
+  });
+  return out;
+}
+/* A failed intent is information, not a lock: it renders above the
+   buttons the row's own status earns, with Try again. */
+function failedAbove(q,label){
+  if(!q||q.status!=='failed')return '';
+  return `<span class="fail-line" style="flex-basis:100%;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <span class="status fail">${esc(label)}: ${esc(q.result_note||'')}</span>
+    <button class="btn btn-gh btn-sm" onclick="retry(${q.id})"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>Try again</button></span>`;
+}
+const QUEUED_LINE='<span class="status">Queued: the engine acts within a minute or two.</span>';
+
+async function renderEducation(edu){
+  // Newest first and capped: past PostgREST's default cap an unordered
+  // read drops the NEWEST rows, which are the ones this panel is about.
+  const {data:intents,error:ie}=await sb.from('engine_intents')
+    .select('id,type,payload_json,status,result_note')
+    .in('status',['pending','claimed','failed','done'])
+    .eq('type','review-web-request')
+    .order('id',{ascending:false}).limit(1000);
+  if(ie)$('banner').innerHTML+=`<div class="banner">Could not read the intent queue: ${esc(ie.message)}.
+      Education rows show their buttons without knowing what is already queued.</div>`;
+  intentById={};(intents||[]).forEach(i=>{intentById[i.id]=i;});
+  if((intents||[]).length===1000)
+    $('banner').innerHTML+=`<div class="banner">Showing the newest 1,000 intent rows; older rows are not on this page.</div>`;
+  pendingByReq=newestIntent(intents,(i,p)=>p.request_id);
+  edu.sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
+  $('eduN').textContent=edu.length;
+  $('edu').innerHTML=edu.length?edu.map(eduRow).join('')
+    :'<div class="empty">Nothing waiting. A sign-up from the Education list on the door lands here until you approve or decline it.</div>';
+}
+
+function eduRow(r){
+  const q=pendingByReq[r.id];
+  const failed=failedAbove(q,'Engine could not action this');
+  const actions=q&&!failed?QUEUED_LINE
+    :`${failed}<button class="btn btn-grn btn-sm" onclick="approveEdu(${r.id})">
+        <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve</button>
+      <button class="btn btn-danger btn-sm" onclick="declineEdu(${r.id})">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button>`;
+  return `<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">school</span>
+    <span class="t"><strong>${esc(r.contact_name||'(no name given)')}</strong> ${esc(r.email||'')}
+      <span class="sub">received ${esc(String(r.created_at||'').slice(0,10))} · waiting ${esc(age(hoursSince(r.created_at)))}</span></span>
+    <span class="spacer"></span>
+    <span class="actions" id="act-${r.id}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${actions}</span>
+  </div>`;
+}
+
+/* The board's one write: an engine_intents row the engine executes. */
+async function raise(type,payload,spotId,verb){
+  const el=$(spotId);
+  if(el)el.innerHTML='<span class="status">Sending…</span>';
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){if(el)el.innerHTML=`<span class="status fail">Could not queue it: ${esc(error.message)}</span>`;return;}
+  if(el)el.innerHTML=`<span class="status done">${esc(verb)}: queued, the engine acts within a minute or two.</span>`;
+  setTimeout(load,1200);
+}
+function approveEdu(id){raise('review-web-request',{request_id:id,status:'approved'},'act-'+id,'Approved');}
+function declineEdu(id){
+  const reason=prompt('Why is this declined? (recorded on the sign-up, never sent to the person)');
+  if(reason===null)return;
+  raise('review-web-request',{request_id:id,status:'declined',reason},'act-'+id,'Declined');
+}
+function retry(intentId){
+  const i=intentById[intentId];
+  if(!i)return;
+  const p=i.payload_json||{};
+  raise(i.type,p,'act-'+p.request_id,'Sent again');
+}
+
+/* The pre-0039 list: what load() built before the inbox view existed. It
+   stands in only while the migration is missing, so the section is never
+   blank; it has no ages and leaves out picked seeker requests and education
+   sign-ups (their button led back here). Remove once 0039 is applied. */
+function legacyAttentionRows(rows,fresh,toReview,sreqs){
+  fresh.sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
+  fresh.forEach(r=>rows.push(`<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">move_to_inbox</span>
+    <span class="t"><strong>${esc(r.company||'(no company given)')}</strong> — new request in the ${esc(HUB_NAME[r.hub]||r.hub)}
+      <span class="sub">received ${esc(String(r.created_at||'').slice(0,10))}${r.location?' · '+esc(r.location):''}</span></span>
+    <span class="spacer"></span>
+    <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[r.hub]||'dashboard.html')}">Review request</a>
+  </div>`));
+  // The same listings the tile counts (new, or carrying a pending revision),
+  // and the seeker requests waiting on a match (open) or a person (desk).
+  const waitingReqs=sreqs.filter(r=>r.status==='open'||r.status==='desk');
+  const hubsWithWork=[...new Set([...toReview.map(l=>l.hub),...waitingReqs.map(r=>r.hub)])].sort();
+  hubsWithWork.forEach(hub=>{
+    const lst=toReview.filter(l=>l.hub===hub);
+    if(lst.length){
+      const newOnes=lst.filter(l=>l.status==='pending').length;
+      const revised=lst.length-newOnes;
+      rows.push(`<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">storefront</span>
+    <span class="t"><strong>${lst.length} listing${lst.length===1?'':'s'}</strong> awaiting review in the ${esc(HUB_NAME[hub]||hub)}
+      <span class="sub">${newOnes} new${revised?` · ${revised} with a pending revision`:''}</span></span>
+    <span class="spacer"></span>
+    <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[hub]||'dashboard.html')}">Review listings</a>
+  </div>`);
+    }
+    const sr=waitingReqs.filter(r=>r.hub===hub);
+    if(sr.length){
+      const desk=sr.filter(r=>r.status==='desk').length;
+      rows.push(`<div class="row attn">
+    <span class="material-symbols-outlined" aria-hidden="true">person_search</span>
+    <span class="t"><strong>${sr.length} seeker request${sr.length===1?'':'s'}</strong> waiting in the ${esc(HUB_NAME[hub]||hub)}
+      <span class="sub">${desk?`${desk} at the desk · `:''}${sr.length-desk} open, waiting on a match</span></span>
+    <span class="spacer"></span>
+    <a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[hub]||'dashboard.html')}">Open the request queue</a>
+  </div>`);
+    }
+  });
 }
 
 boot();

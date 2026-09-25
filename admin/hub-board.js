@@ -899,12 +899,16 @@ function seekerCard(r){
   if(q&&!failed){
     actions=`<div class="actions">${QUEUED_LINE}</div>`;
   }else if(r.status==='open'||r.status==='picked'||r.status==='desk'){
-    /* add-provider needs a picked request server-side — showing it on an
-       open one would offer a control that always fails. */
+    /* The adder is offered wherever Decline is: add-provider accepts every
+       status this branch does (plan 026 admitted `open`, so a request the
+       search matched nobody for can be routed by hand instead of only
+       declined). tests/test_board_action_preconditions.py holds the
+       branch's statuses to the handler's PROVIDER_ADDABLE_STATUSES. */
     actions=`<div class="actions">${failed}
+      ${r.no_match?'<span class="status" style="flex-basis:100%">The search matched nobody; add a provider by hand or decline.</span>':''}
       ${picks.length?`<button class="btn btn-grn btn-sm" onclick="approveRequest(${r.id})">
         <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve picks</button>`:''}
-      ${['picked','desk'].includes(r.status)?adder:''}
+      ${adder}
       <button class="btn btn-danger btn-sm" onclick="declineRequest(${r.id})">
         <span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button></div>`;
   }else{
