@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>NexPoint link card</title>
+<!--
+  Source of assets/og-image.png, the card a shared https://nexpoint.co.uk/
+  link shows on LinkedIn and elsewhere. Render it at exactly 1200 by 630:
+
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
+    --force-device-scale-factor=1 --hide-scrollbars --virtual-time-budget=5000 \
+    --window-size=1200,630 --screenshot="assets/og-image.png" "file://$PWD/assets/og-image.html"
+
+  Brand: light canvas, Montserrat headline with one phrase in NexPoint Blue,
+  Inter for the domain line (brand/design-system.md, "Banners / social images").
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Inter:wght@500&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #F5F7FA; }
+  body { width: 1200px; height: 630px; overflow: hidden; }
+  .card {
+    box-sizing: border-box; width: 1200px; height: 630px; padding: 72px 80px 76px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    background: #F5F7FA;
+  }
+  .logo { display: block; width: 120px; height: 120px; }
+  .tagline {
+    margin: 0 0 30px; max-width: 980px;
+    font: 700 56px/1.14 "Montserrat", "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: -0.02em; color: #0E1626;
+  }
+  .tagline .accent { color: #005CC8; }
+  .rule { width: 72px; height: 4px; border-radius: 2px; background: #005CC8; margin: 0 0 26px; }
+  .domain {
+    margin: 0;
+    font: 500 28px/1 "Inter", "Helvetica Neue", Arial, sans-serif;
+    color: #4A5462; letter-spacing: 0.01em;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <img class="logo" src="nexpoint-logo.png" alt="NexPoint" />
+  <div>
+    <h1 class="tagline">The commercial bridge for <span class="accent">Orthotics &amp; Prosthetics</span> worldwide.</h1>
+    <div class="rule"></div>
+    <p class="domain">nexpoint.co.uk</p>
+  </div>
+</div>
+</body>
+</html>
