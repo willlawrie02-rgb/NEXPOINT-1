@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /hub/account/
+Sitemap: https://nexpoint.co.uk/sitemap.xml
