@@ -426,6 +426,7 @@
   .confirmed__icon .material-symbols-outlined { font-size: 32px; }
   .confirmed h3 { font: 600 26px/34px var(--font-display); color: #fff; margin: 0 0 12px; }
   .confirmed p { font: 400 16px/26px var(--font-body); color: rgba(226, 226, 226, 0.65); margin: 0 0 24px; }
+  .confirmed p strong { color: #fff; font-weight: 600; }
   @media (max-width: 900px) {
     .book__inner { grid-template-columns: minmax(0, 1fr); gap: 40px; }
     .book__inner > * { max-width: 640px; width: 100%; margin-left: auto; margin-right: auto; }
@@ -594,6 +595,7 @@
   html[data-theme="light"] .form-error { color: #b4272c; background: rgba(229, 72, 77, 0.06); border-color: rgba(229, 72, 77, 0.28); }
   html[data-theme="light"] .confirmed h3 { color: #0E1626; }
   html[data-theme="light"] .confirmed p { color: #4A5462; }
+  html[data-theme="light"] .confirmed p strong { color: #0E1626; }
 
   /* Footer stays dark as a premium base */
   html[data-theme="light"] .footer { background: #0d0e0f; border-top-color: rgba(255, 255, 255, 0.06); }
@@ -1595,29 +1597,55 @@
   const state = { name: '', email: '', company: '', notes: '', sending: false, submitted: false, error: '' };
   const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+  // The form stores what it receives (audit plan 027): the request posts to
+  // the worker's /requests route first, which writes a web_requests row,
+  // emails the desk and puts the enquiry on the Opportunities board. Success
+  // is decided by the worker's answer alone. Web3Forms then gets a
+  // best-effort second copy as a launch-week safety net; it decides nothing.
+  const REQUESTS_URL = 'https://api.nexpoint.co.uk/requests';
+  const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  const SEND_FAILED = 'That did not send. Email hello@nexpoint.co.uk and we will pick it up.';
+
+  function copyToWeb3Forms(name, email, company, notes) {
+    return fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        access_key: WEB3FORMS_KEY,
+        subject: `New intro request from ${name}${company ? ' (' + company + ')' : ''}`,
+        from_name: name,
+        name: name,
+        email: email,
+        company: company || '(not provided)',
+        message: notes || '(no notes)',
+        botcheck: '',
+      }),
+    }).catch(() => {});
+  }
+
   async function submitForm() {
     state.sending = true; state.error = ''; render();
+    const name = state.name.trim(), email = state.email.trim();
+    const company = state.company.trim(), notes = state.notes.trim();
     try {
-      const res = await fetch('https://api.web3forms.com/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      const res = await fetch(REQUESTS_URL, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          access_key: WEB3FORMS_KEY,
-          subject: `New intro request from ${state.name}${state.company ? ' (' + state.company + ')' : ''}`,
-          from_name: state.name,
-          name: state.name,
-          email: state.email,
-          company: state.company || '(not provided)',
-          message: state.notes || '(no notes)',
-          botcheck: '',
+          hub: 'opportunities', side: 'request_intro',
+          company: company, contact_name: name, email: email,
+          phone: '', location: '', brief_ref: '',
+          payload: { source: 'homepage intro call', notes: notes },
+          company_url: '',
         }),
       });
-      const data = await res.json();
-      if (data.success) { state.submitted = true; }
-      else { state.error = data.message || 'Something went wrong. Please email hello@nexpoint.co.uk.'; }
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) { state.submitted = true; }
+      else { state.error = SEND_FAILED; }
     } catch (err) {
-      state.error = 'Network error. Please email hello@nexpoint.co.uk.';
+      state.error = SEND_FAILED;
     }
+    copyToWeb3Forms(name, email, company, notes);
     state.sending = false; render();
   }
 
@@ -1627,7 +1655,7 @@
         <div class="confirmed">
           <div class="confirmed__icon"><span class="material-symbols-outlined">check</span></div>
           <h3>Thanks, message received.</h3>
-          <p>We'll be in touch at <span style="color:#fff">${esc(state.email) || 'your inbox'}</span> within one working day.</p>
+          <p>We'll be in touch at <strong>${esc(state.email.trim()) || 'your inbox'}</strong> within two working days.</p>
         </div>
       `;
       return;
@@ -1641,42 +1669,47 @@
         </div>
       </div>
 
+      <form id="bookForm" novalidate>
       <div class="form-grid-2">
         <div>
-          <label class="field-label">Name</label>
-          <input class="field-input" id="f-name" value="${esc(state.name)}" ${state.sending ? 'disabled' : ''} />
+          <label class="field-label" for="f-name">Name</label>
+          <input class="field-input" id="f-name" name="name" autocomplete="name" value="${esc(state.name)}" ${state.sending ? 'disabled' : ''} />
         </div>
         <div>
-          <label class="field-label">Email</label>
-          <input class="field-input" id="f-email" type="email" value="${esc(state.email)}" ${state.sending ? 'disabled' : ''} />
+          <label class="field-label" for="f-email">Email</label>
+          <input class="field-input" id="f-email" name="email" type="email" autocomplete="email" value="${esc(state.email)}" ${state.sending ? 'disabled' : ''} />
         </div>
       </div>
       <div class="form-row">
-        <label class="field-label">Company</label>
-        <input class="field-input" id="f-company" value="${esc(state.company)}" ${state.sending ? 'disabled' : ''} />
+        <label class="field-label" for="f-company">Company</label>
+        <input class="field-input" id="f-company" name="company" autocomplete="organization" value="${esc(state.company)}" ${state.sending ? 'disabled' : ''} />
       </div>
       <div class="form-row form-row--last">
-        <label class="field-label">What should we come prepared on? (optional)</label>
-        <textarea class="field-input" id="f-notes" rows="3" ${state.sending ? 'disabled' : ''}>${esc(state.notes)}</textarea>
+        <label class="field-label" for="f-notes">What should we come prepared on? (optional)</label>
+        <textarea class="field-input" id="f-notes" name="notes" rows="3" ${state.sending ? 'disabled' : ''}>${esc(state.notes)}</textarea>
       </div>
 
-      ${state.error ? `<div class="form-error">${esc(state.error)}</div>` : ''}
+      ${state.error ? `<div class="form-error" role="alert">${esc(state.error)}</div>` : ''}
 
-      <button class="book-card__submit" id="confirmBtn" ${state.sending ? 'disabled' : ''}>
+      <button class="book-card__submit" id="confirmBtn" type="submit" ${state.sending ? 'disabled' : ''}>
         ${state.sending ? 'Sending…' : 'Send request'}
         <span class="material-symbols-outlined">${state.sending ? 'progress_activity' : 'arrow_forward'}</span>
       </button>
+      </form>
     `;
 
     bookCard.querySelector('#f-name').addEventListener('input', e => { state.name = e.target.value; });
     bookCard.querySelector('#f-email').addEventListener('input', e => { state.email = e.target.value; });
     bookCard.querySelector('#f-company').addEventListener('input', e => { state.company = e.target.value; });
     bookCard.querySelector('#f-notes').addEventListener('input', e => { state.notes = e.target.value; });
-    bookCard.querySelector('#confirmBtn').addEventListener('click', () => {
+    bookCard.querySelector('#bookForm').addEventListener('submit', (e) => {
+      e.preventDefault();
       if (state.sending) return;
-      if (!state.name || !state.email) {
-        const f = !state.name ? bookCard.querySelector('#f-name') : bookCard.querySelector('#f-email');
-        f.focus();
+      const name = state.name.trim(), email = state.email.trim();
+      if (!name || !EMAIL_RE.test(email)) {
+        state.error = 'Add your name and a work email address so we can reply';
+        render();
+        bookCard.querySelector(!name ? '#f-name' : '#f-email').focus();
         return;
       }
       submitForm();
