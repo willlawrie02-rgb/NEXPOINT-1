@@ -286,7 +286,9 @@
       if (!box) return;
       if (!ts) {
         box.innerHTML = '<p class="np-sign-error" style="display:block">' +
-          'The check could not load. Reload the page to try again.</p>';
+          'The security check could not load on this network. Try another connection, or email ' +
+          '<a href="mailto:hello@nexpoint.co.uk" style="color:inherit;text-decoration:underline">hello@nexpoint.co.uk</a> ' +
+          'and we will set the account up for you.</p>';
         return;
       }
       if (turnstileWidgetId != null && turnstileBox === box) {
@@ -480,16 +482,21 @@
     wireResend(content().querySelector('[data-np-resend]'), email);
   }
 
-  /* The worker answers a resend the same way whatever the email, so the button
-     can only ever report that it has been sent. */
+  /* The worker answers a resend the same way whatever the email, and sends
+     nothing to an address already confirmed, so the card says only what is
+     true either way (audit plan 029). That is a sentence, not a label: on a
+     phone it overflowed the button, so the button gives way to it. */
   function wireResend(btn, email) {
     if (!btn) return;
     btn.addEventListener('click', async () => {
       if (btn.disabled) return;
-      const orig = btn.textContent;
       btn.disabled = true; btn.textContent = 'Sending…';
       await A.resendConfirmation(email);
-      btn.textContent = 'Sent, check your inbox';
+      const note = document.createElement('p');
+      note.setAttribute('role', 'status');
+      note.textContent = 'If that address still needs confirming, a new link is on its way.';
+      (btn.closest('.modal-actions') || btn).insertAdjacentElement('beforebegin', note);
+      btn.remove();
     });
   }
 
