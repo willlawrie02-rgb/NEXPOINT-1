@@ -1010,19 +1010,27 @@ function openBrief(id){
   closeAll();document.getElementById('briefOverlay').classList.add('open');document.body.style.overflow='hidden';
 }
 
-const CAPTURE_ENDPOINT="https://nexpoint-portal-capture.nexpoint-network.workers.dev";
+/* One capture path (audit plan 028): this page posts to the same /requests
+   route every other form uses, on the custom domain, inside the Cloudflare
+   burst rule. It used to post the old portal shape to the worker's shared
+   development hostname, which fell through the router into the retired
+   Pipedrive capture: outside the rate rule, and a lead minted from any
+   valid-looking email. `credentials:'include'` sends the hub session cookie, so a
+   signed-in account's request arrives carrying its member_id. */
+const CAPTURE_ENDPOINT="https://api.nexpoint.co.uk/requests";
 async function submitCapture(form){
   const fd=new FormData(form);
   if(fd.get('company_url')) return showSuccess();            // honeypot tripped → drop silently
   const payload={
-    kind:'enquiry',
-    enquiry_kind: fd.get('enquiry_kind')||'',
-    brief_ref: fd.get('brief_ref')||'',
-    fit: (fd.get('fit')||'').toString().trim(),
-    name: profile.name||'', email: profile.email||'', company: profile.company||'',
-    type: profile.type||'', region: profile.region||'', volume: profile.volume||'',
-    goals: profile.goals||[], pressing: profile.pressing||[], timeline: profile.timeline||'',
-    direction: profile.direction||'', product_types: profile.productTypes||[], products: productSummary(), describe: profile.describe||''
+    hub:'opportunities',
+    side: (fd.get('enquiry_kind')||'')==='post' ? 'list_opportunity' : 'request_intro',
+    company: profile.company||'', contact_name: profile.name||'', email: profile.email||'',
+    phone: profile.mobile||'', location: profile.region||'', brief_ref: fd.get('brief_ref')||'',
+    payload: { fit:(fd.get('fit')||'').toString().trim(), type:profile.type||'', volume:profile.volume||'',
+      goals:profile.goals||[], pressing:profile.pressing||[], timeline:profile.timeline||'',
+      direction:profile.direction||'', product_types:profile.productTypes||[], products:productSummary(),
+      describe:profile.describe||'', source:'opportunities page' },
+    company_url: fd.get('company_url')||'',
   };
   // Honest capture (audit plan 009): the worker's answer decides what the visitor sees. Before
   // this, a failed or refused post still showed "Received" and the request was lost silently.
@@ -1033,7 +1041,7 @@ async function submitCapture(form){
   let ok=false;
   if(CAPTURE_ENDPOINT){
     try{
-      const r=await fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const r=await fetch(CAPTURE_ENDPOINT,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const d=await r.json().catch(()=>({}));
       ok=r.ok && d.ok!==false;
     }catch(e){ ok=false; }
@@ -1044,21 +1052,6 @@ async function submitCapture(form){
     err.innerHTML='That did not send. Check your connection and try again, or email <a href="mailto:hello@nexpoint.co.uk" style="color:var(--blue-bright)">hello@nexpoint.co.uk</a> and we will pick it up.';
     err.style.display='block';
   }
-}
-function captureMembership(){
-  if(!CAPTURE_ENDPOINT) return;                              // no-op until the worker URL is set
-  var payload={kind:'account', name:profile.name||'', email:profile.email||'', company:profile.company||'',
-    type:profile.type||'', region:profile.region||'', volume:profile.volume||'',
-    goals:profile.goals||[], pressing:profile.pressing||[], timeline:profile.timeline||'',
-    direction:profile.direction||'', product_types:profile.productTypes||[], products:productSummary(), describe:profile.describe||''};
-  // Deliberately non-blocking (keepalive, no await): completing the desk never waits on the
-  // network. A failure is at least said in the console (audit plan 009).
-  try{
-    fetch(CAPTURE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true})
-      .then(function(r){ if(!r.ok) console.warn('NexPoint: account capture refused, status '+r.status); })
-      .catch(function(e){ console.warn('NexPoint: account capture did not send', e); });
-  }
-  catch(e){ console.warn('NexPoint: account capture did not send', e); }
 }
 function openForm(subject, ref, mode){
   if(mode!=='post' && window.NPAccount && typeof NPAccount.gate === 'function'){
@@ -1156,23 +1149,22 @@ const steps=[
  {key:'describe',type:'text',q:"Your selection suggests you are seeking something, or have something other people may need, for example capacity, a product, equipment, people or a business. In a sentence or two, can you describe what it is?"},
  {key:'timeline',type:'single',q:"And if the right opportunity appeared, when would you act?",
   chips:['Immediately','Within a month','Within 3–6 months','Just looking ahead, no urgency']},
- {key:'contact',type:'form',q:"Thanks for taking the time. Everything you've shared is stored internally and never distributed, Chris and Will are the only people who see it, and we'll contact you directly if there's a good match. Add your contact details and move onto browsing the Global Opportunities Hub. Any issues? Reach us at <a href=\"mailto:info@nexpoint.co.uk\" style=\"color:var(--blue-bright)\">info@nexpoint.co.uk</a>."}
 ];
 let stepIdx=0, history=[];   // history = indices of steps already shown, so Back can walk them
 const msgsEl=()=>document.getElementById('chatMsgs');
 const inputEl=()=>document.getElementById('chatInputArea');
 
+/* The one register (audit plan 028). This used to fall back to the page's own
+   questionnaire, which ended in a form that created a Supabase account
+   directly: around Turnstile, the terms box, the sign-in lockout and the
+   confirmation link the one-door rule (plan 020) requires. That fallback
+   could only ever run when hub-account.js had failed to load, and plan 020's
+   wall keeps the whole page hidden in exactly that case, so it was
+   unreachable as well as wrong. The page-local chat questionnaire below is
+   now unreachable too; it retires with the D3 rebuild. */
 function openGate(){
   if(member) return;                                  // already signed in — nothing to do
-  if(window.NPAccount && typeof NPAccount.openQuestionnaire === 'function'){
-    NPAccount.openQuestionnaire({});
-    return;
-  }
-  // hub-account.js failed to load — fall back to the page's own questionnaire, unchanged
-  closeAll();
-  document.getElementById('chatOverlay').classList.add('open');document.body.style.overflow='hidden';
-  stepIdx=0;history=[];profile={};msgsEl().innerHTML='';inputEl().innerHTML='';
-  askStep('forward');
+  if(window.NPAccount && typeof NPAccount.openQuestionnaire === 'function') NPAccount.openQuestionnaire({});
 }
 function setProg(){document.getElementById('chatProg').textContent=stepIdx<steps.length?`STEP ${history.length+1}`:'COMPLETE';}
 function nextIndex(from){
@@ -1299,52 +1291,6 @@ function commit(s,val){
   if(stepIdx>=steps.length){finishGate();return;}
   setTimeout(()=>askStep('forward'),260);
 }
-function togglePw(btn){
-  const i=document.getElementById('cPassword');
-  if(i.type==='password'){i.type='text';btn.textContent='Hide';}else{i.type='password';btn.textContent='Show';}
-}
-function renderContactForm(s){
-  const el=inputEl();el.innerHTML='';
-  el.innerHTML=`<form class="mini-form" onsubmit="event.preventDefault();submitContact(this)">
-    <input id="cName" required placeholder="Your name" value="${(profile.name||'').replace(/"/g,'&quot;')}">
-    <input id="cCompany" required placeholder="Company, held in confidence" value="${(profile.company||'').replace(/"/g,'&quot;')}">
-    <input id="cEmail" type="email" required placeholder="Email" value="${(profile.email||'').replace(/"/g,'&quot;')}">
-    <input id="cMobile" placeholder="Mobile (optional)" value="${(profile.mobile||'').replace(/"/g,'&quot;')}">
-    <div class="pw-wrap">
-      <input id="cPassword" type="password" required minlength="8" placeholder="Create a password (8+ characters)">
-      <button type="button" class="pw-toggle" onclick="togglePw(this)">Show</button>
-    </div>
-    <div id="authErr" style="color:#ff6b6b;font-size:12.5px;display:none"></div>
-    <button class="btn btn-primary" type="submit" style="justify-content:center">Create account &amp; complete</button>
-    <p style="font-size:11.5px;color:var(--outline);margin-top:2px;line-height:1.5">By creating an account you agree to our <a href="https://nexpoint.co.uk/hub/privacy.html" target="_blank" style="color:var(--blue-bright)">Privacy Policy</a>.</p>
-  </form>`;
-  if(history.length){
-    const row=document.createElement('div');row.className='chat-actions';
-    const back=document.createElement('button');back.type='button';back.className='chip back';back.textContent='← Back';back.onclick=goBack;
-    row.appendChild(back);el.appendChild(row);
-  }
-}
-async function submitContact(form){
-  profile.name=document.getElementById('cName').value;
-  profile.company=document.getElementById('cCompany').value;
-  profile.email=document.getElementById('cEmail').value;
-  profile.mobile=document.getElementById('cMobile').value;
-  const password=document.getElementById('cPassword').value;
-  const errEl=document.getElementById('authErr');
-  const btn=form.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent='Creating account…';
-  const {data,error}=await sb.auth.signUp({
-    email:profile.email, password,
-    options:{ data:Object.assign({},profileMeta(),richMeta()), emailRedirectTo:location.origin+location.pathname }
-  });
-  if(error){ errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Create account & complete'; return; }
-  inSignup=true;
-  captureMembership();                                  // create the Pipedrive lead
-  userSay(`${profile.name} · ${profile.company}`);
-  history.push(stepIdx);
-  inputEl().innerHTML='';stepIdx=steps.length;
-  if(data.session){ await upsertProfile(data.user.id,profile.email); finishGate(); }   // signed in immediately
-  else { finishGateConfirm(); }                                                        // email confirmation required
-}
 let matchWhy={};
 function computeMatches(){
   const m=new Set();matchWhy={};
@@ -1388,7 +1334,7 @@ function finishGate(){
   });
 }
 function unlock(noScroll){
-  member=true;inSignup=false;
+  member=true;
   closeAll();
   document.getElementById('wall').style.display='none';
   document.getElementById('filters').style.display='flex';
@@ -1417,18 +1363,19 @@ function unlock(noScroll){
   if(!noScroll) document.getElementById('briefs').scrollIntoView({behavior:'smooth'});
 }
 
-/* ===== Supabase auth ===== */
+/* ===== The legacy Supabase client: sign-out only =====
+   Since plan 028 this page creates no Supabase session and reads no Supabase
+   table; the hub account (hub-account.js, the worker's /auth routes) is the
+   only authority. The client is kept for one release for the two sign-out
+   calls below, which clear a session this origin may still hold from before.
+   When it goes, the supabase-js script tag in <head> goes with it. */
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let inSignup=false;
 
-function profileMeta(){
-  return {name:profile.name||'',company:profile.company||'',mobile:profile.mobile||'',
-    type:profile.type||'',region:profile.region||'',volume:profile.volume||'',
-    goals:profile.goals||[],pressing:profile.pressing||[],timeline:profile.timeline||''};
-}
-// the richer questionnaire detail (kept out of the profiles-table upsert; stored in schemaless user_metadata and sent with leads)
+// The product detail the request payload carries. profileMeta() and richMeta()
+// stood beside this until plan 028: they shaped the Supabase user_metadata and
+// the profiles-table row, and both writes are gone.
 function productDetail(){
   const cats={p_orthotic:'Orthotic Devices',p_prosthetic:'Prosthetic Devices',p_bracing:'Bracing & Supports',
     p_consumable:'Consumables & Materials',p_tech:'O&P Technology',p_hardware:'Manufacturing Hardware'};
@@ -1439,35 +1386,6 @@ function productDetail(){
 function productSummary(){
   const d=productDetail();
   return Object.keys(d).map(c=>`${c}: ${d[c].join(', ')}`).join(' | ');
-}
-function richMeta(){
-  return {direction:profile.direction||'',product_types:profile.productTypes||[],
-    products:productSummary(),describe:profile.describe||''};
-}
-async function upsertProfile(id,email){
-  try{ await sb.from('profiles').upsert(Object.assign({id,email},profileMeta())); }catch(e){}
-}
-async function loadProfile(user){
-  let row=null;
-  try{ const {data}=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle(); row=data; }catch(e){}
-  if(!row){
-    const m=user.user_metadata||{};
-    row={id:user.id,email:user.email,name:m.name||'',company:m.company||'',mobile:m.mobile||'',
-      type:m.type||'',region:m.region||'',volume:m.volume||'',goals:m.goals||[],pressing:m.pressing||[],timeline:m.timeline||''};
-    try{ await sb.from('profiles').upsert(row); }catch(e){}
-  }
-  Object.assign(profile,row);
-}
-async function onSignedIn(session){
-  if(member||inSignup) return;
-  await loadProfile(session.user);
-  matches=computeMatches();
-  unlock(true);
-}
-function finishGateConfirm(){
-  setProg();
-  const first=(profile.name||'').split(' ')[0];
-  botSay(`Almost there, ${first}. We've sent a confirmation link to <b style="color:#fff">${profile.email}</b>, click it and the board opens, already matched to you. You can close this window.`);
 }
 function openSignIn(){
   document.getElementById('formContent').innerHTML=`
@@ -1508,10 +1426,12 @@ async function doSignIn(form){
     e.style.display='block';
     return;
   }
-  // fallback: existing Supabase sign-in, unchanged
-  const {error}=await sb.auth.signInWithPassword({email:fd.get('email'),password:fd.get('password')});
-  if(error){e.style.color='#ff6b6b';e.textContent=error.message;e.style.display='block';return;}
-  closeAll(); // onAuthStateChange → onSignedIn unlocks
+  // hub-account.js did not load. Plan 020's wall keeps this page hidden in that
+  // case, so this line is unreachable; it says so rather than signing anyone in
+  // around the hub account (audit plan 028 removed the legacy sign-in here).
+  e.style.color='#ff6b6b';
+  e.textContent='Sign-in is unavailable on this page right now. Reload, or sign in at nexpoint.co.uk/hub/.';
+  e.style.display='block';
 }
 /* Password reset goes through the hub account (audit plans 006 and 009). The worker answers
    every address the same way, so one message is shown whatever comes back, and the link it
@@ -1544,10 +1464,10 @@ async function signOut(){
   location.reload();
 }
 
-/* The legacy session unlocks the board only when no hub account is signed in: when the hub
-   account is present it is the sole authority (audit plan 009). */
-sb.auth.onAuthStateChange((_e,session)=>{ if(session && !(window.NPAccount && NPAccount.user)) onSignedIn(session); });
-sb.auth.getSession().then(({data})=>{ if(data && data.session && !(window.NPAccount && NPAccount.user)) onSignedIn(data.session); });
+/* A legacy Supabase session no longer unlocks this board (audit plan 028). Nothing on
+   this page can create one any more, and the hub account is the only authority; a session
+   left in this origin's localStorage from before is cleared by signOut() and by the relock
+   in syncMemberFromAccount, both below, which is the only reason the client survives. */
 
 /* ===== NPAccount — the one hub account, unifying the gate ===== */
 function accountProfile(u){
@@ -1569,7 +1489,6 @@ function syncMemberFromAccount(){
   }
   hubUserSeen=true;
   if(member){ Object.assign(profile,accountProfile(NPAccount.user)); return; }  // already unlocked — just refresh identity fields
-  inSignup=false;
   profile=accountProfile(NPAccount.user);
   matches=computeMatches();
   unlock(true);
