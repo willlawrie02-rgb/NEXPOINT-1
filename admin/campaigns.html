@@ -143,10 +143,10 @@ data but can never press these buttons: that split is the design.
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
 const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI gate; real gate is database RLS
-// The control worker's URL + /smartlead/control — known only once Will
-// deploys the worker (wrangler deploy prints it). Until then the read
-// side works in full and the controls explain themselves honestly.
-const CONTROL_URL='https://nexpoint-portal-capture.nexpoint-network.workers.dev/smartlead/control';
+// The worker's own domain (plan 028). This board used to call the worker's
+// shared development hostname, which sits outside the Cloudflare burst rule
+// and is switched off by the same plan.
+const CONTROL_URL='https://api.nexpoint.co.uk/smartlead/control';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
