@@ -33,6 +33,8 @@
   input{width:100%;background:#fff;border:1px solid rgba(14,22,38,.18);border-radius:4px;color:var(--ink);
         font:400 14.5px/1.4 'Inter',sans-serif;padding:12px 14px;outline:none}
   input:focus{border-color:var(--blue)}
+  .aside{margin-top:22px;font-size:14px}
+  button.linkish{background:none;border:none;padding:0;display:inline;color:var(--blue);font:600 14px/1.6 'Inter',sans-serif;text-decoration:underline;text-underline-offset:3px}
   .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
   .foot a{color:var(--blue)}
 </style>
@@ -70,6 +72,8 @@ const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const API = local ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
 const ACCOUNT_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
   ? 'https://nexpoint.co.uk/hub/account/' : '/hub/account/';
+const DOOR_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
+  ? 'https://nexpoint.co.uk/hub/' : '/hub/';
 
 function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
@@ -100,30 +104,79 @@ function safeReturnTo(){
   return ok ? u.href : null;
 }
 
+/* The door with its sign-in box open, coming back to the same place a
+   confirmation would have. */
+function signInHref(){
+  const dest = safeReturnTo();
+  return DOOR_URL + '?signin=1' + (dest ? '&return=' + encodeURIComponent(dest) : '');
+}
+
+/* Who this device is signed in as, if anyone (audit plan 029). Asked only
+   once the worker has refused the token, never instead of posting it: a
+   device signed in to one account can open another account's link, and
+   that link must still be used. */
+async function whoAmI(){
+  try {
+    const r = await fetch(API + '/auth/me', { credentials: 'include' });
+    const d = await r.json().catch(() => null);
+    return r.ok && d ? d : null;
+  } catch (e) { return null; }
+}
+
 /* ── the states ──────────────────────────────────────────────────── */
 
 /* Both ways on, when there are two (audit plan 015). The account page was
    offered only when there was nowhere to go back to, so anyone who registered
    from a hub page never learned it existed. Going back stays the main action;
-   the account sits beside it as the quieter one. */
-function renderConfirmed(){
+   the account sits beside it as the quieter one.
+
+   The account is named (audit plan 029), and when the link itself was
+   refused (`spent`) there is a way to a fresh one for another address: this
+   device may be signed in to a different account from the one the link
+   was for. */
+function renderConfirmed(email, spent){
   const dest = safeReturnTo();
   const cta = dest
     ? `<div class="actions"><a class="btn yes" href="${escapeHtml(dest)}">Continue where you left off</a>` +
       `<a class="btn quiet" href="${escapeHtml(ACCOUNT_URL)}">Go to your account</a></div>`
     : accountLink('Go to your account');
-  render(`<h1>You're confirmed.</h1><p>Your hub account is ready and you are signed in on this device.</p>` + cta);
+  const who = email ? ` as <strong>${escapeHtml(email)}</strong>` : '';
+  render(`<h1>You're confirmed.</h1><p>Your hub account is ready and you are signed in on this device${who}.</p>` + cta +
+    (spent ? `<p class="aside">Registered a different address? <button class="linkish" type="button" id="needLink">Send it a new link</button></p>` +
+      resendPanel() : ''));
+  if (spent) wireResend();
 }
 
-function renderExpired(){
+/* Audit plan 029. GoTrue refuses a spent link and an expired one with the
+   same answer, so this page cannot tell them apart and says both. It used to
+   say only "That link has expired" beside a resend box, which told someone
+   who had simply opened the link twice that their registration had failed,
+   and the resend then sent nothing to their confirmed address. */
+function renderUsed(){
   render(`
-    <h1>That link has expired.</h1>
-    <p>Confirmation links last a short while only, and each one can be used once. Put your email in below and we will send a fresh one.</p>
-    <div class="panel">
+    <h1>This link has been used or has expired.</h1>
+    <p>Confirmation links work once, and only for a short while. If you have confirmed already, sign in and carry on.</p>
+    <div class="actions"><a class="btn yes" href="${escapeHtml(signInHref())}">Sign in</a>` +
+    `<button class="quiet" type="button" id="needLink">Not confirmed yet? Send a new link</button></div>` +
+    resendPanel());
+  wireResend();
+}
+
+function resendPanel(){
+  return `
+    <div class="panel" id="resendPanel" hidden>
       <label for="resendEmail">Email</label>
       <input id="resendEmail" type="email" placeholder="you@company.com" autocomplete="email">
       <div class="actions"><button class="yes" type="button" id="resendBtn">Send a new link</button></div>
-    </div>`);
+    </div>`;
+}
+
+function wireResend(){
+  const panel = document.getElementById('resendPanel');
+  document.getElementById('needLink').addEventListener('click', () => {
+    panel.hidden = false;
+    document.getElementById('resendEmail').focus();
+  });
   document.getElementById('resendBtn').addEventListener('click', resend);
   document.getElementById('resendEmail').addEventListener('keydown', (e) => { if (e.key === 'Enter') resend(); });
 }
@@ -140,7 +193,10 @@ async function resend(){
       body: JSON.stringify({ email }),
     });
   } catch (e) { /* the worker answers every address the same way; so does this */ }
-  render(`<h1>Check your inbox…</h1><p>If that email has an account waiting, a fresh confirmation link is on its way to it.</p>`);
+  /* It sends nothing to a confirmed address (audit plan 029), so the way on
+     for that address is named too. */
+  render(`<h1>Check your inbox…</h1><p>If that address still needs confirming, a fresh link is on its way. If it is already confirmed, sign in instead.</p>` +
+    actionLink('Sign in', signInHref()));
 }
 
 /* ── boot ────────────────────────────────────────────────────────── */
@@ -171,14 +227,19 @@ async function resend(){
   if (r.ok && d && d.ok){
     /* the cookie is set now; the account can act as soon as the visitor is
        back on a page that loads hub-account.js */
-    renderConfirmed();
+    renderConfirmed(d.member && d.member.email);
     return;
   }
-  if (d && d.error === 'already_confirmed'){
-    render(`<h1>Already confirmed.</h1><p>This email was confirmed already. Nothing more to do here.</p>` + accountLink('Go to your account'));
+  /* A refused token: used already (a second open, a reload, a mail scanner
+     that opened it first) or expired. A device signed in to a confirmed
+     account most likely made the first click itself, so it hears that,
+     with the account named; anyone else gets both ways on. */
+  if (r.status === 401 || (d && d.error === 'invalid_or_expired')){
+    const me = await whoAmI();
+    if (me && me.signed_in && me.confirmed){ renderConfirmed(me.member && me.member.email, true); return; }
+    renderUsed();
     return;
   }
-  if (r.status === 401 || (d && d.error === 'invalid_or_expired')){ renderExpired(); return; }
   say('That did not go through.', 'Open the link from your email again, or email hello@nexpoint.co.uk and we will sort it out.');
 })();
 </script>
