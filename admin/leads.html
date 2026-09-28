@@ -264,15 +264,27 @@ const campaignName=id=>{const c=campaigns.find(c=>String(c.id)===String(id));ret
 const BASE='id,company,category,matched_json,reasoning,judge_reason,website,quality,judged,judge_confidence,proposed_at,decided_at,decided_by,decision_note,status';
 const PLAN043=',prospect_type,recommended_campaign_id,campaign_id,source,display_name,list_overlap';
 
+// The queue passed 1,000 rows on 28 Sept 2026; PostgREST returns at most
+// 1,000 per request, so the page reads in ranges until a short one.
+async function readQueue(cols){
+  const PAGE=1000;let all=[];
+  for(let from=0;;from+=PAGE){
+    const {data,error}=await sb.from('engine_lead_queue').select(cols)
+      .in('status',['pending','approved','rejected','blocked']).order('id',{ascending:true})
+      .range(from,from+PAGE-1);
+    if(error)return {data:null,error};
+    all=all.concat(data||[]);
+    if(!data||data.length<PAGE)return {data:all,error:null};
+  }
+}
+
 async function load(){
   $('banner').innerHTML='';
   let pre=false;
-  let {data,error}=await sb.from('engine_lead_queue').select(BASE+PLAN043)
-    .in('status',['pending','approved','rejected','blocked']).order('id',{ascending:true});
+  let {data,error}=await readQueue(BASE+PLAN043);
   if(error&&/prospect_type|recommended_campaign_id|campaign_id|source|display_name|list_overlap/.test(error.message||'')){
     pre=true;
-    ({data,error}=await sb.from('engine_lead_queue').select(BASE)
-      .in('status',['pending','approved','rejected','blocked']).order('id',{ascending:true}));
+    ({data,error}=await readQueue(BASE));
   }
   if(error){
     $('banner').innerHTML=`<div class="banner">Could not read the prospects: ${esc(error.message)}.</div>`;
