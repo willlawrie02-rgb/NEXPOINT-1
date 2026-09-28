@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint Admin — Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+<style>
+  .opp { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin: 0 0 12px; }
+  .opp-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .opp-head .company { font: 700 16px/1.2 var(--font-head); }
+  .kw { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+  .kw span { font-size: 12px; color: var(--info-ink); background: var(--info-wash); border-radius: var(--radius-sm); padding: 4px 8px; }
+  .match { color: var(--fg-1); font-size: 14px; margin: 8px 0 0; max-width: 80ch; }
+  .ctl { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; color: var(--fg-2); }
+  .ctl input[type=date], .newdeal input { font: 500 13.5px/1.2 var(--font-body); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 9px; background: var(--surface); }
+  .newdeal { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 18px 0 8px; }
+  .newdeal input { min-width: 240px; }
+  .pill { font: 600 12px/1 var(--font-body); border-radius: 999px; padding: 5px 10px; }
+  .pill.on { color: var(--ok-ink); background: var(--grade-high-wash); }
+  .pill.off { color: var(--fg-2); background: var(--bg-alt); }
+  .pill.draft { color: var(--warn-ink); background: var(--grade-medium-wash); }
+</style>
+</head>
+<body>
+<!--
+The Campaigns board reads the Smartlead mirror the engine's hub-sync job
+keeps in Supabase (migration 0018) and holds the ONLY controls that
+change campaign state — each one a human click, confirmed, sent with the
+admin's own session token to the control worker. The engine can read this
+data but can never press these buttons: that split is the design.
+-->
+
+<div id="login" class="door" style="display:none">
+  <img class="door-logo" src="nexpoint-logo.png" alt="NexPoint">
+  <h1>Admin sign in</h1>
+  <p>The opportunity board, leads, tasks and engine health.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+  <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
+</div>
+
+<div id="admin" style="display:none">
+  <header class="topbar">
+    <div class="wrap bar">
+      <a class="brandmark" href="dashboard.html">
+        <img src="nexpoint-logo.png" alt="NexPoint">
+        <span class="admin-tag">Admin</span>
+      </a>
+      <div class="session">
+        <span class="who" id="who"></span>
+        <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <nav class="boards" aria-label="Admin boards">
+        <span class="navgroup">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="leads.html">Prospects</a>
+          <a href="tasks.html">Tasks</a>
+          <a href="print-hub.html">Print Hub</a>
+          <a href="mill-hub.html">Mill Hub</a>
+          <a href="opportunities.html">Opportunities</a>
+        </span>
+        <span class="navgroup">
+          <a href="introductions.html">Introductions</a>
+          <a href="members.html">Accounts</a>
+          <a href="organisations.html">Organisations</a>
+          <a href="orders.html">Orders</a>
+        </span>
+        <span class="navgroup">
+          <a href="health.html">Health</a>
+          <a href="campaigns.html">Campaigns</a>
+          <a href="finder.html" aria-current="page">Finder</a>
+          <a href="linkedin.html">LinkedIn</a>
+        </span>
+      </nav>
+
+      <div class="arrive">
+        <div class="intro">
+          <h1>What the finders look for</h1>
+          <span class="count" id="count"></span>
+        </div>
+        <p class="note">
+          Every Saturday and Sunday the finders search the Fit360 database and the web for companies that
+          match the opportunities switched on here, and each find arrives on the Prospects page. Switch one off,
+          or give it an end date, and the finders stop looking for it. Campaigns keep running until you pause
+          them on the Campaigns board.
+        </p>
+        <div id="banner"></div>
+        <div id="opps"></div>
+        <div class="section-title">A deal to find partners for</div>
+        <p class="note">Name the deal's folder (as under deals/, e.g. bilt-labs). A Claude session drafts its search
+          terms from the deal's profile; you confirm them by switching it on.</p>
+        <div class="newdeal">
+          <input id="deal-slug" placeholder="deal folder, e.g. bilt-labs">
+          <input id="deal-title" placeholder="what to find, e.g. Distributors in Brazil for Bilt Labs">
+          <button class="btn btn-pri btn-sm" onclick="draftDeal()">Draft a deal opportunity</button>
+          <span class="status" id="deal-status"></span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI gate; real gate is database RLS
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let opps=[],me=null;
+
+async function boot(){
+  const {data}=await sb.auth.getSession();
+  const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)) showAdmin(s.user); else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))
+    $('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const email=$('email').value.trim(),password=$('pw').value;
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  showAdmin(data.user);
+}
+async function signOut(){await sb.auth.signOut();location.reload();}
+function showAdmin(user){me=user;$('login').style.display='none';$('admin').style.display='block';$('who').textContent=user.email;load();}
+
+async function load(){
+  $('banner').innerHTML='';
+  const {data,error}=await sb.from('opportunities')
+    .select('id,title,kind,match,keywords,deal_slug,active,ends_on,draft,updated_by,updated_at').order('title',{ascending:true});
+  if(error){
+    $('banner').innerHTML=`<div class="banner">Could not read the opportunities: ${esc(error.message)}. If this names a missing table, migration 0047 has not been applied yet; until then the finders search register.yaml.</div>`;
+    $('opps').innerHTML='';return;
+  }
+  opps=data||[];
+  render();
+}
+
+function today(){return new Date().toISOString().slice(0,10);}
+function state(o){
+  if(o.draft) return ['draft','Draft: waiting for its search terms'];
+  if(!o.active) return ['off','Switched off'];
+  if(o.ends_on&&String(o.ends_on).slice(0,10)<today()) return ['off','Ended '+esc(String(o.ends_on).slice(0,10))];
+  return ['on','Being searched'];
+}
+function render(){
+  const live=opps.filter(o=>state(o)[0]==='on').length;
+  $('count').textContent=`${live} being searched`;
+  if(!opps.length){$('opps').innerHTML='<div class="empty">No opportunities yet.</div>';return;}
+  $('opps').innerHTML=opps.map(o=>{
+    const [cls,label]=state(o);
+    const kws=(o.keywords||[]).map(k=>`<span>${esc(k)}</span>`).join('');
+    const toggle=o.draft&&!(o.keywords||[]).length
+      ?`<span class="status">Switch on once its search terms are written.</span>`
+      :`<button class="btn ${o.active?'btn-gh':'btn-grn'} btn-sm" data-id="${esc(o.id)}" data-on="${o.active?'0':'1'}" onclick="toggle(this.dataset.id,this.dataset.on==='1')">${o.active?'Switch off':'Switch on'}</button>`;
+    return `<div class="opp">
+      <div class="opp-head"><span class="company">${esc(o.title)}</span><span class="pill ${cls}">${label}</span>
+        ${o.deal_slug?`<span class="status">deal: ${esc(o.deal_slug)}</span>`:''}</div>
+      ${o.match?`<div class="match">${esc(o.match)}</div>`:''}
+      ${kws?`<div class="kw">${kws}</div>`:''}
+      <div class="ctl" id="ctl-${esc(o.id)}">${toggle}
+        <label>End date <input type="date" value="${esc(o.ends_on?String(o.ends_on).slice(0,10):'')}" data-id="${esc(o.id)}" onchange="setEnd(this.dataset.id,this.value)"></label>
+        ${o.updated_by?`<span>changed by ${esc(o.updated_by)} ${esc(String(o.updated_at||'').slice(0,10))}</span>`:''}</div>
+    </div>`;
+  }).join('');
+}
+
+async function raise(payload,el,verb){
+  if(el)el.insertAdjacentHTML('beforeend',`<span class="status">Sending…</span>`);
+  const {error}=await sb.from('engine_intents').insert({type:'set-opportunity',payload_json:payload,requested_by:me.email});
+  if(error){alert('Could not queue it: '+error.message);return;}
+  if(el)el.innerHTML=`<span class="status done">${esc(verb)}: queued for the engine; it acts within a minute or two.</span>`;
+  setTimeout(load,1500);
+}
+function toggle(id,on){
+  const o=opps.find(x=>x.id===id);
+  const payload={id,active:on};
+  if(on&&o&&o.draft)payload.draft=false;
+  raise(payload,$('ctl-'+id),on?'Switched on':'Switched off');
+}
+function setEnd(id,value){raise({id,ends_on:value||null},$('ctl-'+id),value?'End date set':'End date cleared');}
+function draftDeal(){
+  const slug=$('deal-slug').value.trim(),title=$('deal-title').value.trim();
+  if(!slug){$('deal-status').textContent='Name the deal folder.';return;}
+  raise({deal_slug:slug,title:title||('Deal: '+slug),draft:true,active:false},$('deal-status'),'Draft requested');
+}
+
+boot();
+</script>
+</body>
+</html>
