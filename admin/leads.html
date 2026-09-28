@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>NexPoint Admin — Leads</title>
+<title>NexPoint Admin — Prospects</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -67,6 +67,28 @@
 
   .row.done { opacity: .72; }
   .row.done:hover { transform: none; box-shadow: var(--shadow-rest); }
+  /* Plan 043: prospects, three tabs, three dropdowns. */
+  .tabs { display: flex; gap: 6px; margin: 0 0 14px; border-bottom: 1px solid var(--border); }
+  .tab { font: 600 14px/1 var(--font-body); color: var(--fg-2); background: none; border: 0;
+         border-bottom: 2px solid transparent; padding: 10px 12px; cursor: pointer; }
+  .tab[aria-selected="true"] { color: var(--np-blue); border-bottom-color: var(--np-blue); }
+  .tab .n { font-size: 11.5px; color: var(--fg-2); background: var(--bg-alt); border-radius: 999px; padding: 3px 8px; margin-left: 4px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 14px; margin: 0 0 18px; font-size: 13px; color: var(--fg-2); }
+  .filters select, .dd { font: 500 13.5px/1.2 var(--font-body); color: var(--fg); background: var(--surface);
+         border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 9px; margin-left: 6px; }
+  .dds { display: flex; flex-wrap: wrap; gap: 12px 18px; margin: 4px 0 10px; }
+  .dds label, label.inline { display: flex; flex-direction: column; gap: 5px; font: 600 12px/1 var(--font-body); color: var(--fg-2); }
+  .dds .dd, label.inline .dd { margin-left: 0; min-width: 190px; }
+  .src { font-size: 12px; color: var(--fg-2); }
+  .overlap { font-size: 13px; color: var(--warn-ink); background: var(--grade-medium-wash);
+             border-radius: var(--radius-sm); padding: 6px 10px; margin-bottom: 10px; max-width: 78ch; }
+  /* Plan 042: the campaign wave, and any overlap with the wave lists. */
+  .wave { font-size: 13px; color: var(--fg-1); margin-bottom: 8px; max-width: 78ch; }
+  .wave .lead-in { font-weight: 600; color: var(--fg); }
+  .overlap { font-size: 13px; color: var(--warn-ink); background: var(--grade-medium-wash);
+             border-radius: var(--radius-sm); padding: 6px 10px; margin-bottom: 10px; max-width: 78ch; }
+  .camp-tick { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
+               color: var(--fg-1); margin-left: 6px; cursor: pointer; }
   .stamp { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
   .stamp .material-symbols-outlined { font-size: 18px; }
   .stamp.ok { color: var(--ok-ink); }
@@ -125,7 +147,7 @@ finish review, the verdict, and DESIGN.md
       <nav class="boards" aria-label="Admin boards">
         <span class="navgroup">
           <a href="dashboard.html">Dashboard</a>
-          <a href="leads.html" aria-current="page">Leads</a>
+          <a href="leads.html" aria-current="page">Prospects</a>
           <a href="tasks.html">Tasks</a>
           <a href="print-hub.html">Print Hub</a>
           <a href="mill-hub.html">Mill Hub</a>
@@ -140,20 +162,32 @@ finish review, the verdict, and DESIGN.md
         <span class="navgroup">
           <a href="health.html">Health</a>
           <a href="campaigns.html">Campaigns</a>
+          <a href="finder.html">Finder</a>
           <a href="linkedin.html">LinkedIn</a>
         </span>
       </nav>
 
       <div class="arrive">
         <div class="intro">
-          <h1>Leads awaiting your decision</h1>
+          <h1>Prospects</h1>
           <span class="count" id="count"></span>
         </div>
         <p class="note">
-          The weekend finders propose companies; the judge pass annotates or withdraws them.
-          Grading a lead queues it for the engine with that grade recorded — nothing is created
-          from the browser. Watch parks a lead without deciding it.
+          Every company the weekend finders surface, plus the Fit360 campaign list and the existing
+          leads, arrives here as a prospect. Check the three dropdowns (filled in by the checking pass),
+          then Accept: it becomes a lead and goes onto its campaign. A campaign of None makes a lead
+          Chris works personally. Nothing is created from the browser: the engine acts on your click.
         </p>
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" data-tab="prospects" onclick="setTab(this.dataset.tab)">Prospects <span class="n" id="n-prospects"></span></button>
+          <button class="tab" role="tab" data-tab="leads" onclick="setTab(this.dataset.tab)">Leads <span class="n" id="n-leads"></span></button>
+          <button class="tab" role="tab" data-tab="rejected" onclick="setTab(this.dataset.tab)">Rejected <span class="n" id="n-rejected"></span></button>
+        </div>
+        <div class="filters">
+          <label>Type <select id="f-type" onchange="render()"><option value="">All</option></select></label>
+          <label>Lead quality <select id="f-quality" onchange="render()"><option value="">All</option></select></label>
+          <label>Campaign <select id="f-campaign" onchange="render()"><option value="">All</option></select></label>
+        </div>
         <div id="banner"></div>
         <div id="sections">
           <div class="row skeleton"><div class="bone" style="width:38%"></div><div class="bone" style="width:82%;margin-top:12px"></div><div class="bone" style="width:24%;margin-top:12px"></div></div>
@@ -172,29 +206,16 @@ const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI 
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
-let rows=[],recent=[],blocked=[],me=null;
+let prospects=[],leads=[],rejected=[],campaigns=[],members={},pendingFor={},me=null,tab='prospects',pre0047=false;
+// Review fix: a dropdown changed but not yet accepted survives every re-render.
+const choices={};
+function choose(id,field,value){(choices[id]=choices[id]||{})[field]=value;}
 
-// The register's opportunities, named. Slugs are what the queue stores;
-// these are what a human reads. tests/test_opportunity_titles.py asserts
-// this map still matches register.yaml, so it cannot drift silently.
-const OPPORTUNITIES={
-  'print-hub-supply':'Print Hub — hosting capacity (supply side)',
-  'print-hub-demand':'Print Hub — using capacity (demand side)',
-};
-const GRADES=[
-  {q:'high',   label:'High'},
-  {q:'medium', label:'Medium'},
-  {q:'low',    label:'Low'},
-  {q:'watch',  label:'Watch'},
-];
-const SECTIONS=[
-  {q:'ungraded', title:'Not yet graded'},
-  {q:'high',     title:'High'},
-  {q:'medium',   title:'Medium'},
-  {q:'low',      title:'Low'},
-  {q:'watch',    title:'Watch — parked'},
-  {q:'blocked',  title:'Blocked — never proposed or researched again'},
-];
+// Plan 043 (Will and Chris, 2026-09-28): the three dropdowns.
+const TYPES=['Current customer','Former customer','Enquired','Cold'];
+const QUALITIES=['high','medium','low'];
+const MEMBER_WORDS={waiting:'Waiting',ready:'Ready to go into Smartlead',in_smartlead:'In Smartlead',
+  remove:'Being removed from Smartlead',removed:'Removed',replied:'Replied',error:'Smartlead refused it'};
 
 async function boot(){
   const {data}=await sb.auth.getSession();
@@ -215,19 +236,15 @@ async function doLogin(){
   showAdmin(data.user);
 }
 async function signOut(){await sb.auth.signOut();location.reload();}
-
 function showAdmin(user){
   me=user;$('login').style.display='none';$('admin').style.display='block';
   $('who').textContent=user.email;
+  try{const t=localStorage.getItem('nx-prospects-tab');if(t)tab=t;}catch(e){}
   load();
 }
 
-const CHIP={'Current customer':'c-current','Former customer':'c-former','Enquired':'c-enquired','Cold':'c-cold'};
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const cap=s=>String(s||'').replace(/^./,c=>c.toUpperCase());
-
-// Fit360 stores some sites bare ("3dee.hu") and some full. The link needs
-// a scheme; the label reads better without one.
 function siteHref(w){
   const s=String(w||'').trim();
   if(!s)return null;
@@ -240,208 +257,221 @@ function siteLabel(w){
   try{return new URL(h).hostname.replace(/^www\./,'');}
   catch(e){return String(w||'').replace(/^https?:\/\//i,'').replace(/^www\./,'').split('/')[0];}
 }
+const nameOf=r=>r.display_name||r.company;
+const typeOf=r=>r.prospect_type||r.category;
+const campaignName=id=>{const c=campaigns.find(c=>String(c.id)===String(id));return c?c.name:null;};
 
-const FOURTEEN_DAYS=14*24*3600*1000;
+const BASE='id,company,category,matched_json,reasoning,judge_reason,website,quality,judged,judge_confidence,proposed_at,decided_at,decided_by,decision_note,status';
+const PLAN043=',prospect_type,recommended_campaign_id,campaign_id,source,display_name,list_overlap';
 
 async function load(){
   $('banner').innerHTML='';
-  const {data,error}=await sb.from('engine_lead_queue')
-    .select('id,company,category,matched_json,reasoning,judge_reason,website,quality,campaign_json,judged,judge_confidence,proposed_at')
-    .eq('status','pending').order('judged',{ascending:true}).order('id',{ascending:true});
+  let pre=false;
+  let {data,error}=await sb.from('engine_lead_queue').select(BASE+PLAN043)
+    .in('status',['pending','approved','rejected','blocked']).order('id',{ascending:true});
+  if(error&&/prospect_type|recommended_campaign_id|campaign_id|source|display_name|list_overlap/.test(error.message||'')){
+    pre=true;
+    ({data,error}=await sb.from('engine_lead_queue').select(BASE)
+      .in('status',['pending','approved','rejected','blocked']).order('id',{ascending:true}));
+  }
   if(error){
-    $('banner').innerHTML=`<div class="banner">Could not read the queue: ${esc(error.message)}.
-      If this mentions a missing column or an unknown status, migrations 0013/0014 have not been run yet.</div>`;
+    $('banner').innerHTML=`<div class="banner">Could not read the prospects: ${esc(error.message)}.</div>`;
     $('sections').innerHTML='';return;
   }
-  rows=data||[];
+  pre0047=pre;
+  if(pre) $('banner').innerHTML+=`<div class="banner">Migration 0047 has not been applied: prospects show without their Campaign, and Accept is paused until it is.</div>`;
+  const all=data||[];
+  prospects=all.filter(r=>r.status==='pending');
+  const byCompany={};
+  all.filter(r=>r.status==='approved').forEach(r=>{byCompany[r.company]=r;});   // ascending id: newest wins
+  leads=Object.values(byCompany);
+  rejected=all.filter(r=>r.status==='rejected'||r.status==='blocked')
+    .sort((a,b)=>String(b.decided_at||'').localeCompare(String(a.decided_at||'')));
 
-  // Recently graded rows the engine has already actioned — they keep the
-  // quality sections meaningful instead of emptying them within the hour.
-  const since=new Date(Date.now()-FOURTEEN_DAYS).toISOString();
-  const {data:done}=await sb.from('engine_lead_queue')
-    .select('id,company,category,quality,website,judge_reason,matched_json,decided_at,decided_by')
-    .eq('status','approved').not('quality','is',null).gte('decided_at',since)
-    .order('decided_at',{ascending:false});
-  recent=done||[];
+  const {data:camps}=await sb.from('nx_campaigns').select('id,name,opportunity_id,active').eq('active',true).order('name',{ascending:true});
+  campaigns=camps||[];
+  const {data:mem}=await sb.from('campaign_members')
+    .select('id,company,campaign_id,version,status,reason,contact_email,updated_at')
+    .in('status',['waiting','ready','in_smartlead','remove','error','replied']).order('id',{ascending:true});
+  members={};(mem||[]).forEach(m=>{members[m.company]=m;});
 
-  // Blocked companies render as their own section — auditable, never hidden.
-  const {data:blk}=await sb.from('engine_lead_queue')
-    .select('id,company,category,website,decided_at,decided_by,decision_note')
-    .eq('status','blocked').order('decided_at',{ascending:false});
-  blocked=blk||[];
-
-  // Which of these have a request waiting for the engine, or one that
-  // failed? This board's own intent types only, newest first and capped,
-  // so the cap rarely bites here.
   const {data:intents}=await sb.from('engine_intents')
     .select('id,type,payload_json,status,result_note')
     .in('status',['pending','claimed','failed','done'])
-    .in('type',['approve-lead','reject-lead','watch-lead','block-lead','unblock-lead'])
+    .in('type',['accept-prospect','reject-lead','block-lead','unblock-lead','change-campaign'])
     .order('id',{ascending:false}).limit(1000);
-  const pendingFor={};
-  /* Ascending id, last write wins: the newest intent for a row decides
-     what it shows. A row whose newest intent is done is dropped, so a
-     success that followed a failure clears it (hub-board.js's
-     newestIntent, inline). */
+  pendingFor={};
   (intents||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
-    const r=i.payload_json&&i.payload_json.queue_row;
-    if(r==null)return;
-    if(i.status==='done')delete pendingFor[r];else pendingFor[r]=i;
+    const p=i.payload_json||{};
+    const key=p.queue_row!=null?'q'+p.queue_row:(p.company?'c'+p.company:null);
+    if(!key)return;
+    if(i.status==='done')delete pendingFor[key];else pendingFor[key]=i;
   });
   if((intents||[]).length===1000)
     $('banner').innerHTML+=`<div class="banner">Showing the newest 1,000 intent rows; older rows are not on this page.</div>`;
-  render(pendingFor);
+  fillFilters();
+  render();
 }
 
-function gradeOf(r,q){
-  // A queued intent is fresher than the stored column.
-  const fromIntent=q&&q.payload_json&&q.payload_json.quality;
-  return fromIntent||r.quality||null;
+function fillFilters(){
+  const keep=id=>$(id).value;
+  const t=keep('f-type'),q=keep('f-quality'),c=keep('f-campaign');
+  $('f-type').innerHTML='<option value="">All</option>'+TYPES.map(x=>`<option>${esc(x)}</option>`).join('');
+  $('f-quality').innerHTML='<option value="">All</option>'+QUALITIES.map(x=>`<option value="${esc(x)}">${esc(cap(x))}</option>`).join('');
+  $('f-campaign').innerHTML='<option value="">All</option><option value="none">None</option>'
+    +campaigns.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
+  $('f-type').value=t;$('f-quality').value=q;$('f-campaign').value=c;
+}
+function passes(r,campaignId){
+  const t=$('f-type').value,q=$('f-quality').value,c=$('f-campaign').value;
+  if(t&&typeOf(r)!==t)return false;
+  if(q&&(r.quality||r.judge_confidence)!==q)return false;
+  if(c==='none'&&campaignId!=null)return false;
+  if(c&&c!=='none'&&String(campaignId)!==c)return false;
+  return true;
 }
 
-function render(pendingFor){
-  const ungraded=rows.filter(r=>!gradeOf(r,pendingFor[r.id])).length;
-  $('count').textContent=rows.length
-    ? `${rows.length} awaiting a decision${ungraded&&ungraded!==rows.length?` · ${ungraded} not yet graded`:''}`
-    : '';
-
-  if(!rows.length&&!recent.length&&!blocked.length){
-    $('sections').innerHTML=`<div class="empty">Nothing waiting. New proposals appear here after the
-      weekend finders run, or when email discovery finds a company that is not in the pipeline.</div>`;
-    return;
-  }
-
-  const buckets={ungraded:[],high:[],medium:[],low:[],watch:[],blocked:[]};
-  rows.forEach(r=>{
-    const g=gradeOf(r,pendingFor[r.id]);
-    (buckets[g]||buckets.ungraded).push({r,q:pendingFor[r.id],done:false});
-  });
-  recent.forEach(r=>{ if(buckets[r.quality]) buckets[r.quality].push({r,q:null,done:true}); });
-  blocked.forEach(r=>buckets.blocked.push({r,q:pendingFor[r.id],done:false,isBlocked:true}));
-
-  $('sections').innerHTML=SECTIONS.map(s=>{
-    const items=buckets[s.q];
-    if(!items.length)return '';
-    const dot=(s.q==='ungraded'||s.q==='blocked')?'':`<span class="grade-dot g-${s.q}"></span>`;
-    return `<section class="section">
-      <div class="section-head">${dot}<h2>${esc(s.title)}</h2>
-        <span class="n">${items.length}</span><span class="rule"></span></div>
-      ${items.map(card).join('')}
-    </section>`;
-  }).join('')||`<div class="empty">Nothing waiting.</div>`;
+function setTab(t){
+  tab=t;try{localStorage.setItem('nx-prospects-tab',t);}catch(e){}
+  render();
 }
 
-function card({r,q,done,isBlocked}){
-  if(isBlocked) return blockedCard(r,q);
-  const opps=(r.matched_json||[]).map(e=>
-    `<span class="opp"><span class="material-symbols-outlined" aria-hidden="true">target</span>${esc(OPPORTUNITIES[e]||e)}</span>`).join('');
-  const href=siteHref(r.website);
-  const site=href
-    ? `<a class="site" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>${esc(siteLabel(r.website))}</a>`
-    : `<span class="site none"><span class="material-symbols-outlined" aria-hidden="true">link_off</span>no website on file</span>`;
-  const judged=r.judged
-    ? `<span class="chip chip-judge"><span class="material-symbols-outlined" aria-hidden="true">verified</span>judged${r.judge_confidence?' · '+esc(r.judge_confidence):''}</span>`
-    : (done?'':`<span class="chip chip-unjudged"><span class="material-symbols-outlined" aria-hidden="true">hourglass_empty</span>not yet judged</span>`);
-
-  const fit=r.judge_reason
-    ? `<div class="fit"><span class="lead-in">Why it fits:</span> ${esc(r.judge_reason)}</div>`
-    : (done?'':`<div class="fit"><span class="lead-in">Not yet assessed.</span> The judge pass has not reached this row — the keyword match below is the only evidence so far.</div>`);
-  const match=r.reasoning&&!done
-    ? `<details class="match"><summary><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>Keyword match</summary><p>${esc(r.reasoning)}</p></details>`
-    : '';
-
-  let actions;
-  if(done){
-    actions=`<div class="grade-row"><span class="stamp ok">
-      <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
-      Graded ${esc(cap(r.quality))} — in Pipedrive${r.decided_by?' · '+esc(r.decided_by):''}</span></div>`;
-  }else if(q&&q.status!=='failed'){
-    const g=(q.payload_json&&q.payload_json.quality)||'';
-    actions=`<div class="grade-row"><span class="status">${g?`Graded ${esc(cap(g))} — `:''}queued for the engine; it acts on its next run.</span></div>`;
+function render(){
+  document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab?'true':'false'));
+  $('n-prospects').textContent=prospects.length;$('n-leads').textContent=leads.length;$('n-rejected').textContent=rejected.length;
+  $('count').textContent=prospects.length?`${prospects.length} to decide`:'';
+  let html='';
+  if(tab==='prospects'){
+    const items=prospects.filter(r=>passes(r,r.recommended_campaign_id));
+    html=items.length?items.map(prospectCard).join('')
+      :`<div class="empty">No prospects to decide. New ones arrive after the weekend finders run.</div>`;
+  }else if(tab==='leads'){
+    const items=leads.filter(r=>passes(r,members[r.company]?members[r.company].campaign_id:null));
+    html=items.length?items.map(leadCard).join(''):`<div class="empty">No accepted leads yet.</div>`;
   }else{
-    /* A failed intent is information, not a lock: the failure sits above
-       the row's full set of buttons, Reject and Block included, so a
-       stale failure never narrows what the row can do (plan 024). */
-    const failed=q?`<div class="grade-row"><span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span></div>`:'';
-    actions=`${failed}<div class="grade-row">${gradeButtons(r.id,q?'Try again:':'')}
-      <span class="spacer"></span>
-      <button class="btn btn-danger btn-sm" onclick="reject(${r.id})">
-        <span class="material-symbols-outlined" aria-hidden="true">close</span>Reject</button>
-      <button class="btn btn-gh btn-sm" title="Never propose or research this company again — only you can lift it" onclick="block(${r.id})">
-        <span class="material-symbols-outlined" aria-hidden="true">block</span>Block</button></div>`;
+    const items=rejected.filter(r=>passes(r,null));
+    html=items.length?items.map(rejectedCard).join(''):`<div class="empty">Nothing rejected or blocked.</div>`;
   }
-
-  return `<div class="row ${done?'done':''}">
-    <div class="row-top">
-      <span class="company">${esc(r.company)}</span>
-      <span class="chip ${CHIP[r.category]||'c-cold'}">${esc(r.category)}</span>
-      ${judged}
-    </div>
-    ${opps?`<div class="opps">${opps}</div>`:''}
-    ${fit}
-    <div class="meta"><span>${site}</span>${r.proposed_at?`<span>proposed ${esc(String(r.proposed_at).slice(0,10))}</span>`:''}${(r.campaign_json||[]).length?`<span>campaign: ${esc((r.campaign_json||[]).join(', '))}</span>`:''}</div>
-    ${match}
-    <div id="act-${r.id}">${actions}</div>
-  </div>`;
+  $('sections').innerHTML=html;
 }
 
-function blockedCard(r,q){
+function site(r){
   const href=siteHref(r.website);
-  const site=href?`<a class="site" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>${esc(siteLabel(r.website))}</a>`:'';
-  const failed=q&&q.status==='failed'?`<span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span>`:'';
-  const action=q&&!failed&&q.type==='unblock-lead'
-    ? `<span class="status">Unblock queued for the engine.</span>`
-    : failed+`<button class="btn btn-gh btn-sm" onclick="unblock(${r.id})"><span class="material-symbols-outlined" aria-hidden="true">undo</span>Unblock</button>`;
-  return `<div class="row done">
-    <div class="row-top"><span class="company">${esc(r.company)}</span>
-      <span class="chip ${CHIP[r.category]||'c-cold'}">${esc(r.category)}</span></div>
-    <div class="meta">${site?`<span>${site}</span>`:''}<span>blocked ${esc(String(r.decided_at||'').slice(0,10))}${r.decided_by?' by '+esc(r.decided_by):''}</span>${r.decision_note?`<span>${esc(r.decision_note)}</span>`:''}</div>
-    <div class="grade-row" id="act-${r.id}">${action}</div>
+  return href
+    ?`<a class="site" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>${esc(siteLabel(r.website))}</a>`
+    :`<span class="site none"><span class="material-symbols-outlined" aria-hidden="true">link_off</span>no website on file</span>`;
+}
+function options(list,selected,labelFn){
+  return list.map(v=>`<option value="${esc(v)}"${String(v)===String(selected)?' selected':''}>${esc(labelFn?labelFn(v):v)}</option>`).join('');
+}
+function pick(r,field,fallback){const c=choices[r.id];return c&&field in c?c[field]:fallback;}
+function campaignSelect(id,selected,dataAttr){
+  return `<select class="dd" id="${esc(id)}" ${dataAttr||''}>
+    <option value=""${selected==null||selected===''?' selected':''}>None: Chris contacts personally</option>
+    ${campaigns.map(c=>`<option value="${esc(c.id)}"${String(c.id)===String(selected)?' selected':''}>${esc(c.name)}</option>`).join('')}
+  </select>`;
+}
+
+function prospectCard(r){
+  const q=pendingFor['q'+r.id];
+  const why=r.judge_reason||r.reasoning||'';
+  const src={'fit360-list':'Fit360 campaign list','existing-lead':'Existing lead',finder:'Weekend finder'}[r.source]||'Weekend finder';
+  let actions;
+  if(q&&q.status!=='failed'){
+    actions=`<span class="status">${esc({'accept-prospect':'Accept','reject-lead':'Reject','block-lead':'Block'}[q.type]||'Decision')} queued for the engine; it acts within a minute or two.</span>`;
+  }else{
+    const failed=q?`<span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span>`:'';
+    actions=`${failed}
+      <button class="btn btn-pri btn-sm" data-id="${esc(r.id)}" onclick="accept(this.dataset.id)"${pre0047?' disabled title="Waiting for migration 0047"':''}><span class="material-symbols-outlined" aria-hidden="true">check</span>Accept</button>
+      <button class="btn btn-danger btn-sm" data-id="${esc(r.id)}" onclick="reject(this.dataset.id)"><span class="material-symbols-outlined" aria-hidden="true">close</span>Reject</button>
+      <button class="btn btn-gh btn-sm" title="Never propose or research this company again; only you can lift it" data-id="${esc(r.id)}" onclick="block(this.dataset.id)"><span class="material-symbols-outlined" aria-hidden="true">block</span>Block</button>`;
+  }
+  return `<div class="row">
+    <div class="row-top"><span class="company">${esc(nameOf(r))}</span><span class="src">${esc(src)}</span></div>
+    <div class="fit"><span class="lead-in">Why it fits:</span> ${esc(why)||'Not yet assessed by the checking pass.'}</div>
+    ${r.list_overlap?`<div class="overlap">Already on the campaign list (${esc(r.list_overlap)}).</div>`:''}
+    <div class="dds">
+      <label>Type<select class="dd" id="type-${esc(r.id)}" data-id="${esc(r.id)}" onchange="choose(this.dataset.id,'type',this.value)">${options(TYPES,pick(r,'type',typeOf(r)))}</select></label>
+      <label>Lead quality<select class="dd" id="quality-${esc(r.id)}" data-id="${esc(r.id)}" onchange="choose(this.dataset.id,'quality',this.value)">${options(QUALITIES,pick(r,'quality',r.quality||r.judge_confidence||'medium'),cap)}</select></label>
+      <label>Campaign${campaignSelect('camp-'+r.id,pick(r,'campaign',r.recommended_campaign_id==null?'':r.recommended_campaign_id),`data-id="${esc(r.id)}" onchange="choose(this.dataset.id,'campaign',this.value)"`)}</label>
+    </div>
+    <div class="meta"><span>${site(r)}</span>${r.proposed_at?`<span>found ${esc(String(r.proposed_at).slice(0,10))}</span>`:''}</div>
+    <div class="grade-row" id="act-${esc(r.id)}">${actions}</div>
   </div>`;
 }
 
-function gradeButtons(id,leadLabel){
-  return `<span class="grade-label">${esc(leadLabel||'Grade:')}</span>` + GRADES.map(g=>
-    `<button class="btn btn-gh btn-sm btn-grade" data-q="${esc(g.q)}" onclick="grade(${id},this.dataset.q)">${g.label}</button>`
-  ).join('');
+function leadCard(r){
+  const m=members[r.company];
+  const q=pendingFor['c'+r.company];
+  const acceptFailed=pendingFor['q'+r.id]&&pendingFor['q'+r.id].status==='failed'
+    ?`<div class="grade-row"><span class="status fail">${esc(pendingFor['q'+r.id].result_note||'')}</span></div>`:'';
+  let where;
+  if(!m) where=`<span class="status">No campaign: Chris contacts personally.</span>`;
+  else{
+    const word=MEMBER_WORDS[m.status]||m.status;
+    const why=(m.status==='waiting'||m.status==='error')&&m.reason?`: ${esc(m.reason)}`:'';
+    where=`<span class="status ${m.status==='error'?'fail':(m.status==='in_smartlead'||m.status==='replied'?'done':'')}">${esc(campaignName(m.campaign_id)||'Campaign '+m.campaign_id)} · ${esc(m.version)} version · ${esc(word)}${why}</span>`;
+  }
+  const control=q&&q.status!=='failed'
+    ?`<span class="status">Campaign change queued for the engine.</span>`
+    :`${q?`<span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span>`:''}
+      <label class="inline">Campaign${campaignSelect('lcamp-'+r.company,m?m.campaign_id:null,`data-company="${esc(r.company)}" data-name="${esc(nameOf(r))}" onchange="changeCampaign(this.dataset.company,this.dataset.name,this.value)"`)}</label>`;
+  return `<div class="row">
+    <div class="row-top"><span class="company">${esc(nameOf(r))}</span>
+      <span class="src">${esc(typeOf(r))} · ${esc(cap(r.quality||r.judge_confidence||''))}</span></div>
+    <div class="meta"><span>${site(r)}</span>${r.decided_at?`<span>accepted ${esc(String(r.decided_at).slice(0,10))}${r.decided_by?' by '+esc(r.decided_by):''}</span>`:''}</div>
+    <div class="grade-row">${where}</div>
+    ${acceptFailed}
+    <div class="grade-row" id="lact-${esc(r.company)}">${control}</div>
+  </div>`;
 }
 
-async function raise(type,payload,rowId,verb){
-  const el=$('act-'+rowId);
-  el.innerHTML=`<div class="grade-row"><span class="status">Sending…</span></div>`;
-  const {error}=await sb.from('engine_intents').insert({
-    type,payload_json:payload,requested_by:me.email
-  });
-  if(error){
-    el.innerHTML=`<div class="grade-row"><span class="status fail">Could not queue it: ${esc(error.message)}</span></div>`;
-    return;
-  }
-  const rowEl=el.closest('.row'); if(rowEl)rowEl.classList.add('settled');
-  el.innerHTML=`<div class="grade-row"><span class="status done">${esc(verb)} — queued for the engine.</span></div>`;
+function rejectedCard(r){
+  const q=pendingFor['q'+r.id];
+  const action=r.status!=='blocked'?''
+    :(q&&q.status!=='failed'&&q.type==='unblock-lead'
+      ?`<span class="status">Unblock queued for the engine.</span>`
+      :`<button class="btn btn-gh btn-sm" data-id="${esc(r.id)}" onclick="unblock(this.dataset.id)"><span class="material-symbols-outlined" aria-hidden="true">undo</span>Unblock</button>`);
+  return `<div class="row done">
+    <div class="row-top"><span class="company">${esc(nameOf(r))}</span><span class="src">${esc(r.status==='blocked'?'Blocked':'Rejected')}</span></div>
+    <div class="meta"><span>${site(r)}</span><span>${esc(String(r.decided_at||'').slice(0,10))}${r.decided_by?' by '+esc(r.decided_by):''}</span>${r.decision_note?`<span>${esc(r.decision_note)}</span>`:''}</div>
+    <div class="grade-row" id="act-${esc(r.id)}">${action}</div>
+  </div>`;
+}
+
+async function raise(type,payload,el,verb){
+  if(el)el.innerHTML=`<span class="status">Sending…</span>`;
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){ if(el)el.innerHTML=`<span class="status fail">Could not queue it: ${esc(error.message)}</span>`; return; }
+  if(el)el.innerHTML=`<span class="status done">${esc(verb)}: queued for the engine.</span>`;
   setTimeout(load,1200);
 }
-
-// High/Medium/Low approve the lead WITH its grade; Watch parks it and
-// decides nothing. Both are intents — the engine does the work.
-function grade(id,q){
-  if(q==='watch')return raise('watch-lead',{queue_row:id,quality:'watch'},id,'Parked on watch');
-  return raise('approve-lead',{queue_row:id,quality:q},id,`Graded ${cap(q)}`);
+function accept(id){
+  const campaign=$('camp-'+id).value;
+  const payload={queue_row:Number(id),type:$('type-'+id).value,quality:$('quality-'+id).value,
+                 campaign_id:campaign===''?null:Number(campaign)};
+  const where=payload.campaign_id==null?'a lead on no campaign':'a lead on '+(campaignName(payload.campaign_id)||'its campaign');
+  raise('accept-prospect',payload,$('act-'+id),'Accepted as '+where);
 }
-// Block is the one permanent exit; it needs a reason, and only a human
-// can set or lift it — the engine executes it in your name.
+function reject(id){
+  const reason=prompt('Why not now? (recorded; a later finder lap may propose it again)');
+  if(reason===null)return;
+  raise('reject-lead',{queue_row:Number(id),reason},$('act-'+id),'Rejected');
+}
 function block(id){
   const reason=prompt('Block this company for good? Say why (recorded; only you can unblock it).');
   if(reason===null||!reason.trim())return;
-  raise('block-lead',{queue_row:id,reason:reason.trim()},id,'Blocked');
+  raise('block-lead',{queue_row:Number(id),reason:reason.trim()},$('act-'+id),'Blocked');
 }
 function unblock(id){
-  if(!confirm('Unblock — it becomes eligible again on its next research lap.'))return;
-  raise('unblock-lead',{queue_row:id},id,'Unblock');
+  if(!confirm('Unblock: it becomes eligible again on its next research lap.'))return;
+  raise('unblock-lead',{queue_row:Number(id)},$('act-'+id),'Unblock');
 }
-function reject(id){
-  const reason=prompt('Why is this not a fit? (recorded, and stops it being proposed again)');
-  if(reason===null)return;
-  raise('reject-lead',{queue_row:id,reason},id,'Rejected');
+function changeCampaign(company,name,value){
+  const target=value===''?null:Number(value);
+  const label=target==null?'None (removed from its campaign)':(campaignName(target)||'the new campaign');
+  if(!confirm(`Move ${name} to ${label}? If it is already in Smartlead it is taken out of its current campaign.`)){render();return;}
+  raise('change-campaign',{company,campaign_id:target,display_name:name},$('lact-'+company),'Moved to '+label);
 }
 
 boot();

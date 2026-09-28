@@ -11,6 +11,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="admin.css">
 <style>
+  /* Plan 043: NexPoint campaigns and their five versions. */
+  .vtable { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13.5px; }
+  .vtable th { text-align: left; font: 600 12px/1 var(--font-body); color: var(--fg-2); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .vtable td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .vtable .sub { color: var(--fg-2); font-size: 12.5px; }
+  .dd { font: 500 13px/1.2 var(--font-body); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px; background: var(--surface); }
+  .newcamp { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 28px; }
+  .newcamp input, .newcamp select { font: 500 13.5px/1.2 var(--font-body); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; background: var(--surface); min-width: 260px; }
   /* Campaign card: status + name, then the four numbers that matter. */
   .camp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .camp-head .spacer { flex: 1; }
@@ -90,7 +98,7 @@ data but can never press these buttons: that split is the design.
       <nav class="boards" aria-label="Admin boards">
         <span class="navgroup">
           <a href="dashboard.html">Dashboard</a>
-          <a href="leads.html">Leads</a>
+          <a href="leads.html">Prospects</a>
           <a href="tasks.html">Tasks</a>
           <a href="print-hub.html">Print Hub</a>
           <a href="mill-hub.html">Mill Hub</a>
@@ -105,6 +113,7 @@ data but can never press these buttons: that split is the design.
         <span class="navgroup">
           <a href="health.html">Health</a>
           <a href="campaigns.html" aria-current="page">Campaigns</a>
+          <a href="finder.html">Finder</a>
           <a href="linkedin.html">LinkedIn</a>
         </span>
       </nav>
@@ -120,6 +129,21 @@ data but can never press these buttons: that split is the design.
           Smartlead immediately and the stats refresh on the next pull.
         </p>
         <div id="banner"></div>
+        <div class="section-title">NexPoint campaigns</div>
+        <p class="note">
+          Each campaign has five email versions, one per type of prospect. Create the versions in
+          Smartlead (paused), link each one here, and approve its template: Will and Chris each
+          press their own Approve. A version's accepted prospects wait until both have, then go into
+          Smartlead by themselves within five minutes. Nothing here starts or pauses a campaign.
+        </p>
+        <div id="nxcamps"></div>
+        <div class="newcamp">
+          <input id="nc-name" placeholder="New campaign name, e.g. Print capacity providers">
+          <select id="nc-opp"></select>
+          <button class="btn btn-pri btn-sm" onclick="newCampaign()">Create campaign</button>
+          <span class="status" id="nc-status"></span>
+        </div>
+        <div class="section-title">Smartlead campaigns</div>
         <div id="campaigns">
           <div class="row skeleton"><div class="bone" style="width:34%"></div><div class="bone" style="width:88%;margin-top:12px"></div><div class="bone" style="width:22%;margin-top:12px"></div></div>
           <div class="row skeleton"><div class="bone" style="width:28%"></div><div class="bone" style="width:80%;margin-top:12px"></div><div class="bone" style="width:22%;margin-top:12px"></div></div>
@@ -150,6 +174,11 @@ const CONTROL_URL='https://api.nexpoint.co.uk/smartlead/control';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
+// Plan 043: NexPoint campaigns, their five versions and the template approvals.
+const VERSIONS=[['current','Current customers'],['former','Former customers'],['enquired','Enquired'],
+  ['enquired_new','Enquired (new contact)'],['cold','Cold']];
+const APPROVER={'willlawrie@nexpoint.co.uk':'will','chris@nexpoint.co.uk':'chris'};
+let nx=[],nxv=[],opps=[],memberCounts={};
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let me=null,camps=[],warm=[];
 
@@ -193,13 +222,76 @@ async function load(){
     $('campaigns').innerHTML='';return;
   }
   camps=data||[];
+  const {data:nc,error:ncErr}=await sb.from('nx_campaigns').select('id,name,opportunity_id,active').order('name',{ascending:true});
+  if(ncErr) $('banner').innerHTML+=`<div class="banner">NexPoint campaigns need migration 0047: ${esc(ncErr.message)}</div>`;
+  nx=nc||[];
+  const {data:vs}=await sb.from('nx_campaign_versions').select('id,campaign_id,version,smartlead_campaign_id,will_approved_at,chris_approved_at');
+  nxv=vs||[];
+  const {data:op}=await sb.from('opportunities').select('id,title,active').order('title',{ascending:true});
+  opps=op||[];
+  const {data:mem}=await sb.from('campaign_members').select('campaign_id,version,status')
+    .in('status',['waiting','ready','in_smartlead','remove','error','replied']);
+  memberCounts={};(mem||[]).forEach(m=>{const k=m.campaign_id+':'+m.version;(memberCounts[k]=memberCounts[k]||{})[m.status]=((memberCounts[k]||{})[m.status]||0)+1;});
   const {data:w}=await sb.from('mailbox_warmup')
     .select('email,warmup_score,status,synced_at').order('email',{ascending:true});
   warm=w||[];
   render();
 }
 
+function renderNx(){
+  $('nc-opp').innerHTML=opps.map(o=>`<option value="${esc(o.id)}">${esc(o.title)}${o.active?'':' (switched off)'}</option>`).join('');
+  if(!nx.length){$('nxcamps').innerHTML=`<div class="empty">No NexPoint campaigns yet. Create one below, then link its five Smartlead versions.</div>`;return;}
+  $('nxcamps').innerHTML=nx.map(c=>{
+    const opp=opps.find(o=>o.id===c.opportunity_id);
+    const rows=VERSIONS.map(([v,label])=>{
+      const row=nxv.find(x=>x.campaign_id===c.id&&x.version===v)||{};
+      const counts=memberCounts[c.id+':'+v]||{};
+      const tally=Object.entries(counts).map(([k,n])=>`${n} ${esc(k.replace('_',' '))}`).join(' · ')||'no prospects yet';
+      const pick=`<select class="dd" data-camp="${esc(c.id)}" data-version="${esc(v)}" onchange="link(this.dataset.camp,this.dataset.version,this.value)">
+        <option value="">Not linked</option>
+        ${camps.map(sc=>`<option value="${esc(sc.id)}"${String(sc.id)===String(row.smartlead_campaign_id)?' selected':''}>${esc(sc.name||('Smartlead '+sc.id))}</option>`).join('')}
+      </select>`;
+      const mine=APPROVER[(me&&me.email||'').toLowerCase()];
+      const stamp=(who,at)=>at?`<span class="status done">${who} approved ${esc(String(at).slice(0,10))}</span>`:`<span class="status">${who}: not yet</span>`;
+      const btn=row.id&&row.smartlead_campaign_id&&mine&&!row[mine+'_approved_at']
+        ?`<button class="btn btn-grn btn-sm" data-id="${esc(row.id)}" onclick="approve(this.dataset.id)">Approve (${mine==='will'?'Will':'Chris'})</button>`:'';
+      return `<tr><td>${esc(label)}</td><td>${pick}</td>
+        <td>${stamp('Will',row.will_approved_at)}<br>${stamp('Chris',row.chris_approved_at)}</td>
+        <td>${btn}</td><td class="sub">${tally}</td></tr>`;
+    }).join('');
+    return `<div class="row">
+      <div class="camp-head"><span class="company">${esc(c.name)}</span>
+        <span class="badge b-cold">${esc(opp?opp.title:(c.opportunity_id||'no opportunity'))}</span></div>
+      <table class="vtable"><thead><tr><th>Version</th><th>Smartlead campaign</th><th>Template</th><th></th><th>Prospects</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    </div>`;
+  }).join('');
+}
+
+async function raiseIntent(type,payload,statusEl,verb){
+  if(statusEl)statusEl.textContent='Sending…';
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){if(statusEl)statusEl.textContent='Could not queue it: '+error.message;else alert(error.message);return;}
+  if(statusEl)statusEl.textContent=verb+': queued for the engine.';
+  setTimeout(load,1500);
+}
+function link(campaignId,version,smartleadId){
+  raiseIntent('link-campaign-version',{campaign_id:Number(campaignId),version,
+    smartlead_campaign_id:smartleadId===''?null:Number(smartleadId)},null,'Linked');
+}
+function approve(versionId){
+  if(!confirm('Approve this version\'s template? When both of you have, its accepted prospects go into Smartlead.'))return;
+  raiseIntent('approve-template',{version_id:Number(versionId)},null,'Approved');
+}
+function newCampaign(){
+  const name=$('nc-name').value.trim();
+  if(!name){$('nc-status').textContent='Give the campaign a name.';return;}
+  raiseIntent('link-campaign-version',{campaign_name:name,opportunity_id:$('nc-opp').value,version:'current',
+    smartlead_campaign_id:null},$('nc-status'),'Created');
+}
+
 function render(){
+  renderNx();
   const latest=camps.map(c=>c.synced_at).sort().pop();
   $('synced').textContent=latest?`Smartlead · synced ${String(latest).slice(11,16)}`:'';
 
