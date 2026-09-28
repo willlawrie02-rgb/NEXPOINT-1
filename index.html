@@ -284,7 +284,7 @@
   .vc-step__node span.material-symbols-outlined { font-size: clamp(24px, 2.2vw, 30px); }
   .vc-step__index { font: 600 10px/1 var(--font-body); letter-spacing: 0.14em; color: var(--fg-2); margin-bottom: 10px; transition: color 420ms var(--ease); }
   .vc-step__label { font: 600 clamp(14px, 1.4vw, 17px)/1.25 var(--font-display); color: var(--fg); margin-bottom: 6px; letter-spacing: -0.01em; min-height: 2.5em; }
-  .vc-step__sub { font: 600 10.5px/1.45 var(--font-body); letter-spacing: 0.07em; text-transform: uppercase; color: rgba(226, 226, 226, 0.55); }
+  .vc-step__sub { font: 600 11px/1.45 var(--font-body); letter-spacing: 0.07em; text-transform: uppercase; color: rgba(226, 226, 226, 0.55); }
   .vc-step.is-lit .vc-step__node { color: var(--np-blue); border-color: var(--np-blue); background: rgba(0, 92, 200, 0.08); }
   .vc-step.is-lit .vc-step__index { color: var(--np-blue); }
   /* progress rail runs under the nodes and fills with scroll */
@@ -325,14 +325,14 @@
   .why__title { font: 600 clamp(28px, 3.2vw, 44px)/1.13 var(--font-display); letter-spacing: -0.02em; color: #fff; margin: 0 0 20px; }
   .why__lede { font: 400 clamp(15px, 1.2vw, 17px)/1.6 var(--font-body); color: rgba(226, 226, 226, 0.65); margin: 0 0 28px; }
   .why__caption { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
-  .why__caption-label { font: 600 10px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--np-green); margin-bottom: 8px; }
+  .why__caption-label { font: 600 11px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--np-green); margin-bottom: 8px; }
   .why__caption-text { font: 500 clamp(15px, 1.2vw, 17px)/1.35 var(--font-display); color: var(--fg); letter-spacing: -0.01em; }
   .why__list { display: flex; flex-direction: column; }
   .why-item { display: grid; grid-template-columns: 44px 1fr; gap: 20px; padding: clamp(24px, 3vh, 34px) 0; border-top: 1px solid var(--border); transition: border-color var(--duration) var(--ease); }
   .why-item:first-child { border-top: 0; padding-top: 0; }
   .why-item:hover { border-color: rgba(0, 92, 200, 0.4); }
   .why-item__num { font: 600 13px/1.7 var(--font-body); color: var(--np-blue); letter-spacing: 0.1em; }
-  .why-item h4 { font: 600 clamp(17px, 1.4vw, 21px)/1.3 var(--font-display); color: #fff; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .why-item h3 { font: 600 clamp(17px, 1.4vw, 21px)/1.3 var(--font-display); color: #fff; margin: 0 0 10px; letter-spacing: -0.01em; }
   .why-item p { font: 400 clamp(14px, 1.05vw, 15px)/1.6 var(--font-body); color: rgba(226, 226, 226, 0.6); margin: 0; }
   @media (max-width: 1000px) {
     .why__inner { grid-template-columns: minmax(0, 1fr); gap: 40px; }
@@ -394,12 +394,27 @@
   .map-card__footer-label { font: 600 10px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.55); }
   @media (max-width: 1000px) { .reach__inner { grid-template-columns: minmax(0, 1fr); gap: 40px; } }
 
-  /* ─── Global Hub teaser band ─── */
-  .hubteaser { display: flex; align-items: center; justify-content: space-between; gap: var(--gap-lg); border-top: 1px solid var(--border); padding-top: clamp(28px, 4vh, 44px); }
-  .hubteaser__line { font: 600 clamp(20px, 2.6vw, 28px)/1.3 var(--font-display); letter-spacing: -0.01em; color: var(--fg); max-width: 560px; margin: 12px 0 18px; }
-  .hubteaser__cta { display: inline-flex; font: 600 clamp(14px, 1.05vw, 15px)/1 var(--font-body); color: var(--np-blue); text-decoration: none; border-bottom: 2px solid var(--np-green); padding-bottom: 2px; transition: border-color var(--duration) var(--ease); }
+  /* ─── Global Hub teaser: one quiet panel, words left, the three hub machines right ─── */
+  .section--tight { padding-top: 0; }
+  .hubteaser {
+    display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--gap-lg); align-items: center;
+    padding: clamp(28px, 3.6vw, 52px); background: var(--surface); border: 1px solid var(--border-card); border-radius: 14px;
+    transition: border-color var(--duration) var(--ease);
+  }
+  .hubteaser:hover { border-color: rgba(0, 92, 200, 0.45); }
+  .hubteaser .eyebrow { margin-bottom: 18px; }
+  .hubteaser__line { font: 600 clamp(22px, 2.3vw, 32px)/1.25 var(--font-display); letter-spacing: -0.018em; color: var(--fg); max-width: 30ch; margin: 0 0 26px; text-wrap: balance; }
+  .hubteaser__cta { display: inline-flex; align-items: center; gap: 8px; font: 600 clamp(14px, 1.05vw, 15px)/1 var(--font-body); color: var(--np-blue); text-decoration: none; border-bottom: 2px solid var(--np-green); padding-bottom: 4px; transition: border-color var(--duration) var(--ease); }
+  .hubteaser__cta .material-symbols-outlined { font-size: 17px; transition: transform var(--duration) var(--ease); }
   .hubteaser__cta:hover { border-bottom-color: var(--np-blue); }
-  @media (max-width: 760px) { .hubteaser { flex-direction: column; align-items: flex-start; } }
+  .hubteaser__cta:hover .material-symbols-outlined { transform: translateX(3px); }
+  .hubteaser__media { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .hubteaser__media img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; border: 1px solid var(--border-card); background: var(--bg-alt); }
+  .hubteaser__media img:first-child { grid-column: 1 / -1; aspect-ratio: 16 / 8; }
+  @media (max-width: 900px) {
+    .hubteaser { grid-template-columns: minmax(0, 1fr); }
+    .hubteaser__media { order: -1; }
+  }
 
   /* ─── Contact ─── */
   .book { position: relative; overflow: hidden; padding: var(--section-pad) 0; background: #121212; }
@@ -573,7 +588,7 @@
   /* Why NexPoint */
   html[data-theme="light"] .why__title { color: #0E1626; }
   html[data-theme="light"] .why__lede { color: #4A5462; }
-  html[data-theme="light"] .why-item h4 { color: #0E1626; }
+  html[data-theme="light"] .why-item h3 { color: #0E1626; }
   html[data-theme="light"] .why-item p { color: #55606E; }
   html[data-theme="light"] .why-item:hover { border-color: rgba(0, 92, 200, 0.4); }
 
@@ -612,6 +627,46 @@
 
   /* Footer stays dark as a premium base */
   html[data-theme="light"] .footer { background: #0d0e0f; border-top-color: rgba(255, 255, 255, 0.06); }
+
+  /* ═══ Finish (polish pass, 2026-09-28) ═══
+     Consistency and the browser's own surfaces; no layout moves. */
+  /* the flipped service row keeps the same image size as the row above it */
+  .svc-row--flip { grid-template-columns: minmax(0, 0.6fr) minmax(0, 1fr); }
+  @media (max-width: 900px) { .svc-row--flip { grid-template-columns: minmax(0, 1fr); } }
+  .shot img { transition: transform 600ms var(--ease); }
+  .svc-row:hover .shot img, .focus-item:hover .shot img { transform: scale(1.03); }
+  .shot { border-radius: 10px; }
+  .focus-item .shot { border-radius: 10px; }
+  /* market list: hairlines carry the rows; the zebra fill goes */
+  html[data-theme="light"] .market-row:nth-child(even) { background: transparent; }
+  html[data-theme="light"] .markets { background: var(--surface); border-color: var(--border-card); }
+  html[data-theme="light"] .markets__header { background: rgba(0, 92, 200, 0.05); }
+  .market-row { padding: 13px 20px; }
+  .market-row__dot { width: 7px; height: 7px; box-shadow: 0 0 0 3px rgba(139, 197, 63, 0.16); }
+  /* green as text needs its deeper shade on the light canvas */
+  html[data-theme="light"] .why__caption-label { color: #4A7816; }
+  html[data-theme="light"] .svc-row--green .svc-row__icon { color: #5A8F1D; }
+  html[data-theme="light"] .focus-item__icon { color: #5A8F1D; }
+  /* type rhythm */
+  h1, h2, h3, h4, .hero__title, .why__title, .reach__title, .book__title { text-wrap: balance; }
+  p { text-wrap: pretty; }
+  .proof__num, .markets__header-num { font-variant-numeric: tabular-nums; }
+  /* browser surfaces */
+  html { scrollbar-color: rgba(14, 22, 38, 0.22) transparent; scrollbar-width: thin; }
+  input, textarea, select { caret-color: var(--np-blue); accent-color: var(--np-blue); }
+  :is(a, button):focus-visible { outline: 2px solid var(--np-blue-bright); outline-offset: 3px; border-radius: 4px; }
+  html[data-theme="light"] .field-input:hover { border-color: rgba(14, 22, 38, 0.3); }
+  html[data-theme="light"] .field-input:focus { border-color: var(--np-blue); box-shadow: 0 0 0 3px rgba(0, 92, 200, 0.14); }
+  .field-input { transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease); }
+  html[data-theme="light"] .field-input::placeholder { color: rgba(44, 52, 68, 0.6); }
+  .book-card__submit:active { transform: scale(0.99); background: var(--np-blue-pressed); }
+  .book-card__submit:hover { background: var(--np-blue-hover); }
+  .btn--ghost-lg:active { transform: scale(0.97); }
+  .book__write-row a { text-underline-offset: 0.2em; }
+  .book__write-row a:hover { color: var(--np-blue); text-decoration: underline; }
+  html[data-theme="light"] .book__write { background: var(--surface); border-color: var(--border-card); }
+  .footer__bar a:hover { color: #fff; }
+  .footer__bar a { transition: color var(--duration) var(--ease); }
 </style>
 <!-- Lead Forensics tracking -->
 <script type="text/javascript" src="https://www.365-syndicate.com/js/818863.js"></script>
@@ -831,28 +886,28 @@
         <article class="why-item enter enter--up" style="--d:0ms;">
           <div class="why-item__num">01</div>
           <div>
-            <h4>Direct access to decision makers</h4>
+            <h3>Direct access to decision makers</h3>
             <p>Our ~1,000 trusted contacts include manufacturers, distributors, fabrication labs, clinical groups, and technology leaders across the UK, Europe, North America, the Middle East, and Australia.</p>
           </div>
         </article>
         <article class="why-item enter enter--up" style="--d:80ms;">
           <div class="why-item__num">02</div>
           <div>
-            <h4>Industry native, not generic</h4>
+            <h3>Industry native, not generic</h3>
             <p>20+ years inside O&amp;P manufacturing, fabrication, and clinical workflows. We bring market reality and commercial fluency, not slide deck theory.</p>
           </div>
         </article>
         <article class="why-item enter enter--up" style="--d:160ms;">
           <div class="why-item__num">03</div>
           <div>
-            <h4>Flexible commercial models</h4>
+            <h3>Flexible commercial models</h3>
             <p>Engage as a strategic advisor, on success based terms, or as a recurring commercial partner. Aligned with your stage, risk profile, and growth goals.</p>
           </div>
         </article>
         <article class="why-item enter enter--up" style="--d:240ms;">
           <div class="why-item__num">04</div>
           <div>
-            <h4>A shorter path to traction</h4>
+            <h3>A shorter path to traction</h3>
             <p>We compress the cost and complexity of international expansion by going direct to the right people: qualified commercial conversations, not cold outreach.</p>
           </div>
         </article>
@@ -876,7 +931,7 @@
 <section id="focus" class="section section--alt">
   <div class="container">
     <div class="sec-head enter enter--up">
-      <h2 class="h2">Quality Suppliers we help</h2>
+      <h2 class="h2">Quality suppliers we help</h2>
       <p class="lede" style="margin-top:20px; max-width:560px;">Orthotics &amp; Prosthetics is our core market. We help companies in clinical technology, manufacturing, and materials bring their products into our community of customers.</p>
     </div>
 
@@ -913,7 +968,7 @@
         <div class="shot"><img src="assets/img/tile-finishing.jpg" alt="Three finished custom foot orthoses with grey top covers and coloured EVA bases on a bench in front of a finishing grinder" loading="lazy" width="900" height="1200" /></div>
         <figcaption class="focus-item__body">
           <span class="focus-item__icon material-symbols-outlined" aria-hidden="true">handyman</span>
-          <span class="focus-item__title">Finishing Hardware</span>
+          <span class="focus-item__title">Finishing hardware</span>
         </figcaption>
       </figure>
     </div>
@@ -1027,13 +1082,18 @@
 </section>
 
 <!-- ───── Global Hub teaser ───── -->
-<section id="hub-teaser" class="section">
+<section id="hub-teaser" class="section section--tight">
   <div class="container">
-    <div class="hubteaser">
-      <div class="enter enter--left">
+    <div class="hubteaser enter enter--up">
+      <div class="hubteaser__copy">
         <span class="eyebrow">The Global Hub</span>
         <h2 class="hubteaser__line">Where the O&amp;P world finds print capacity, milled production and live opportunities, one personal introduction at a time.</h2>
-        <a class="hubteaser__cta" href="/hub/#how">See how the Global Hub works</a>
+        <a class="hubteaser__cta" href="/hub/#how">See how the Global Hub works <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
+      </div>
+      <div class="hubteaser__media" aria-hidden="true">
+        <img src="hub/assets/img/print-hub.jpg" alt="" loading="lazy" width="1600" height="893" />
+        <img src="hub/assets/img/mill-hub.jpg" alt="" loading="lazy" width="1600" height="893" />
+        <img src="hub/assets/img/product-hub.jpg" alt="" loading="lazy" width="1600" height="893" />
       </div>
     </div>
   </div>

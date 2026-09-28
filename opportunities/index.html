@@ -28,7 +28,7 @@
     --outline:rgba(226,226,226,.45); --outline-var:#2A2A2A;
     --border:#262626; --border-card:#2A2A2A; --border-soft:rgba(255,255,255,.06);
     --blue:#005CC8; --blue-hover:#0066DC; --blue-pressed:#004FAA; --blue-bright:#3D8EEB;
-    --green:#8BC53F; --green-bright:#9CD850;
+    --green:#8BC53F; --green-bright:#9CD850; --green-ink:var(--green);
     --radius:4px; --radius-lg:8px; --radius-xl:12px;
     --ease:cubic-bezier(.2,.8,.2,1); --dur:200ms;
     --container-max:1360px; --side-pad:clamp(20px,4.5vw,64px); --section-pad:clamp(72px,10vh,132px);
@@ -50,7 +50,7 @@
   /* eyebrow + label */
   .eyebrow{font:600 12px/1 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--blue);display:inline-flex;align-items:center;gap:10px;margin-bottom:20px}
   .eyebrow::before{content:"";width:24px;height:1.5px;background:currentColor;display:inline-block;flex-shrink:0}
-  .eyebrow--green{color:var(--green)}
+  .eyebrow--green{color:var(--green-ink)}
   .label{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
 
   /* buttons */
@@ -163,13 +163,13 @@
   .op__type .txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ref{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--outline)}
   .dir{font-size:10px;font-weight:600;letter-spacing:.08em;padding:5px 10px;border-radius:9999px;text-transform:uppercase;white-space:nowrap;flex:0 0 auto}
-  .dir.offering{background:rgba(139,197,63,.12);border:1px solid rgba(139,197,63,.3);color:var(--green)}
+  .dir.offering{background:rgba(139,197,63,.12);border:1px solid rgba(139,197,63,.3);color:var(--green-ink)}
   .dir.seeking{background:rgba(0,92,200,.12);border:1px solid rgba(0,92,200,.3);color:var(--blue-bright)}
   .dir.twoway{background:rgba(226,226,226,.07);border:1px solid rgba(226,226,226,.20);color:var(--on-surface)}
   .op__head{font:600 clamp(17px,1.5vw,20px)/1.3 var(--font-display);letter-spacing:-.015em;color:#fff;margin:0 0 14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .op__facts{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
   .op__fact{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--on-surface)}
-  .op__fact .material-symbols-outlined{font-size:15px;color:var(--green)}
+  .op__fact .material-symbols-outlined{font-size:15px;color:var(--green-ink)}
   .op__hook{font-size:13.5px;line-height:21px;color:var(--outline);margin:0;flex:1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .op__foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border-soft)}
   .op__cta{font-size:13px;font-weight:600;color:var(--blue-bright);display:inline-flex;align-items:center;gap:6px}
@@ -178,7 +178,7 @@
   .meta{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 0}
   .tag{font-size:11px;font-weight:600;letter-spacing:.04em;padding:5px 10px;border-radius:9999px;background:rgba(255,255,255,.04);color:var(--on-surface-var);border:1px solid rgba(255,255,255,.08)}
   .fit{margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);font-size:12.5px;line-height:19px;color:var(--outline)}
-  .fit b{color:var(--green);font-weight:600}
+  .fit b{color:var(--green-ink);font-weight:600}
 
   /* membership wall + member states */
   .wall{position:relative;border:1px solid rgba(0,92,200,.4);border-radius:var(--radius-xl);padding:clamp(40px,6vw,64px) 40px;text-align:center;margin-bottom:32px;overflow:hidden;
@@ -190,12 +190,12 @@
   .preview-blur{filter:blur(7px);opacity:.4;pointer-events:none;user-select:none}
   .member-strip{display:none;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:rgba(139,197,63,.08);border:1px solid rgba(139,197,63,.3);border-radius:var(--radius-lg);padding:16px 22px;margin-bottom:26px}
   .member-strip .who{font-size:14px;color:var(--on-surface)}
-  .member-strip .who b{color:var(--green)}
+  .member-strip .who b{color:var(--green-ink)}
   .member-strip .sub{font-size:12.5px;color:var(--outline);margin-top:2px}
   .matched-home{display:none;margin-bottom:36px}
   .matched-home h3{font:600 20px/1.3 var(--font-display);color:#fff;margin-bottom:6px}
   .matched-home .sub{font-size:13px;color:var(--outline);margin-bottom:18px}
-  .match-why{margin-top:14px;font-size:12.5px;color:var(--green);background:rgba(139,197,63,.08);border:1px solid rgba(139,197,63,.25);border-radius:var(--radius);padding:8px 12px}
+  .match-why{margin-top:14px;font-size:12.5px;color:var(--green-ink);background:rgba(139,197,63,.08);border:1px solid rgba(139,197,63,.25);border-radius:var(--radius);padding:8px 12px}
   .badge-match{font-size:10px;font-weight:600;letter-spacing:.08em;padding:4px 10px;border-radius:9999px;background:var(--green);color:#121212;margin-left:8px}
 
   /* ---------- how it works ---------- */
@@ -261,7 +261,7 @@
   .modal .body p{margin-bottom:14px}
   .sig{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:22px 0}
   .sig div{background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:14px}
-  .sig b{display:block;font-family:var(--font-display);font-size:16px;color:var(--green);margin-bottom:3px}
+  .sig b{display:block;font-family:var(--font-display);font-size:16px;color:var(--green-ink);margin-bottom:3px}
   .sig span{font-size:12px;color:var(--outline)}
   .locked{margin:24px 0;border:1px dashed var(--outline-var);border-radius:var(--radius-lg);padding:20px 22px;background:rgba(13,14,15,.6)}
   .locked .label{color:var(--blue-bright);display:flex;gap:8px;align-items:center;margin-bottom:12px}
@@ -309,7 +309,7 @@
   .chat-input .chips{display:flex;flex-wrap:wrap;gap:8px}
   .chat-input textarea{width:100%;max-width:100%;box-sizing:border-box;overflow-wrap:break-word}
   .mini-form input{width:100%;max-width:100%;box-sizing:border-box}
-  .chip.sel{background:rgba(139,197,63,.16);border-color:var(--green);color:var(--green)}
+  .chip.sel{background:rgba(139,197,63,.16);border-color:var(--green-ink);color:var(--green-ink)}
   .chip.confirm{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
   .chat-input .hint{font-size:11.5px;color:var(--outline);margin-bottom:10px}
   .mini-form{display:flex;flex-direction:column;gap:10px}
@@ -368,6 +368,12 @@
     --border:#E3E7ED; --border-card:#E3E7ED; --border-soft:rgba(14,22,38,.09);
   }
   html[data-theme="light"] ::selection{background:rgba(0,92,200,.18);color:#0E1626}
+  /* green as text takes its deeper shade on the light canvas; dots and fills keep the bright one */
+  html[data-theme="light"]{--green-ink:#4A7816;scrollbar-color:rgba(14,22,38,.22) transparent;scrollbar-width:thin}
+  html[data-theme="light"] h1,html[data-theme="light"] h2,html[data-theme="light"] h3{text-wrap:balance}
+  html[data-theme="light"] p{text-wrap:pretty}
+  html[data-theme="light"] input,html[data-theme="light"] textarea,html[data-theme="light"] select{caret-color:var(--blue);accent-color:var(--blue)}
+  html[data-theme="light"] :is(a,button):focus-visible{outline:2px solid var(--blue-bright);outline-offset:3px}
   html[data-theme="light"] ::-webkit-scrollbar-thumb{background:rgba(14,22,38,.2)}
 
   /* header + nav */
@@ -991,7 +997,7 @@ function openBrief(id){
   if(!member){openGate();return;}
   const b=briefs.find(x=>x.id===id);if(!b)return;
   document.getElementById('briefContent').innerHTML=`
-    <span class="ref">${CAT_LABELS[b.cat]||''} · ${b.regions.join(' · ')} · <span style="color:${b.dir==='OFFERING'?'var(--green)':'var(--blue-bright)'}">${b.dir}</span></span>
+    <span class="ref">${CAT_LABELS[b.cat]||''} · ${b.regions.join(' · ')} · <span style="color:${b.dir==='OFFERING'?'var(--green-ink)':'var(--blue)'}">${b.dir}</span></span>
     <h2>${b.title}</h2>
     <div class="meta" style="margin:0 0 20px">${b.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
     <div class="body">${(b.sum||'').split('\n').map(p=>`<p>${p}</p>`).join('')}</div>
@@ -1077,7 +1083,7 @@ function openForm(subject, ref, mode){
     <span class="ref">CONFIDENTIAL, SEEN BY NEXPOINT ONLY</span>
     <h2>${heading}</h2>
     <p style="color:var(--on-surface-var);font-size:14.5px">${leadLine}</p>
-    <p style="color:var(--outline);font-size:13px;margin-top:10px">${post?'Posting':'Requesting'} as <b style="color:var(--green)">${profile.name||'you'}</b>${[profile.company,profile.type,profile.region].filter(Boolean).length?' · '+[profile.company,profile.type,profile.region].filter(Boolean).join(' · '):''}, from your hub profile.</p>
+    <p style="color:var(--outline);font-size:13px;margin-top:10px">${post?'Posting':'Requesting'} as <b style="color:var(--green-ink)">${profile.name||'you'}</b>${[profile.company,profile.type,profile.region].filter(Boolean).length?' · '+[profile.company,profile.type,profile.region].filter(Boolean).join(' · '):''}, from your hub profile.</p>
     <form onsubmit="event.preventDefault();submitCapture(this)">
       <input type="hidden" name="brief_ref" value="${ref||''}">
       ${post?'<input type="hidden" name="enquiry_kind" value="post">':''}
@@ -1326,7 +1332,7 @@ function finishGate(){
   matches=computeMatches();
   const first=(profile.name||'').split(' ')[0];
   const n=matches.size;
-  botSay(`Thank you, ${first}. Chris or Will will read your profile personally, if there's an obvious fit, expect a short note from one of us within two working days, and we'll email you whenever a new opportunity matches.${n?` Against the live board right now: <b style="color:var(--green)">${n} opportunit${n>1?'ies':'y'} look${n>1?'':'s'} like a genuine fit.</b> ${n>1?'They\'re':'It\'s'} flagged for you.`:` The board is open, and as new opportunities arrive, we'll already know which ones belong in front of you.`}`,()=>{
+  botSay(`Thank you, ${first}. Chris or Will will read your profile personally, if there's an obvious fit, expect a short note from one of us within two working days, and we'll email you whenever a new opportunity matches.${n?` Against the live board right now: <b style="color:var(--green-ink)">${n} opportunit${n>1?'ies':'y'} look${n>1?'':'s'} like a genuine fit.</b> ${n>1?'They\'re':'It\'s'} flagged for you.`:` The board is open, and as new opportunities arrive, we'll already know which ones belong in front of you.`}`,()=>{
     const b=document.createElement('button');b.className='chip confirm';b.textContent='Enter the Network →';
     b.onclick=()=>unlock();
     const chips=document.createElement('div');chips.className='chips';chips.appendChild(b);

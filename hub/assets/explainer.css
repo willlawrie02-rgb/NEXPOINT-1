@@ -7,9 +7,9 @@
 
 /* ── storyboard (default content; stays for reduced-motion and no-JS) ── */
 .xp-board{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
-.xp-panel{background:var(--surface);border:1px solid var(--border-card);border-radius:12px;padding:20px 18px}
-.xp-panel .n{font:700 12px/1 var(--font-display);color:var(--green);letter-spacing:.08em}
+.xp-panel{background:var(--surface);border:1px solid var(--border-card);border-radius:12px;padding:22px 20px}
+.xp-panel .n{font:700 12px/1 var(--font-display);color:var(--green-deep);letter-spacing:.08em}
 .xp-panel h3{font:700 16px/1.3 var(--font-display);color:var(--on-surface);margin:10px 0 8px}
-.xp-panel p{font:400 13.5px/1.55 var(--font-body);color:var(--on-surface-var);margin:0}
+.xp-panel p{font:400 14px/1.55 var(--font-body);color:var(--on-surface-var);margin:0}
 @media (max-width:900px){.xp-board{grid-template-columns:1fr 1fr}}
 @media (max-width:560px){.xp-board{grid-template-columns:1fr}}

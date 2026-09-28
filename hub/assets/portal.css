@@ -32,7 +32,7 @@ img,svg{max-width:100%}
 .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(139,197,63,.7)}
 
 /* buttons */
-.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);font-weight:600;font-size:14px;padding:13px 22px;border-radius:var(--radius);border:none;cursor:pointer;transition:all var(--dur) var(--ease);text-decoration:none;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);font-weight:600;font-size:14px;padding:13px 22px;border-radius:var(--radius);border:none;cursor:pointer;transition:background-color var(--dur) var(--ease),border-color var(--dur) var(--ease),color var(--dur) var(--ease),box-shadow var(--dur) var(--ease),transform var(--dur) var(--ease);text-decoration:none;white-space:nowrap}
 .btn-primary{background:var(--blue);color:#fff}
 .btn-primary:hover{background:var(--blue-hover);box-shadow:0 10px 28px rgba(0,92,200,.35)}
 .btn-primary:active{transform:scale(.97);background:var(--blue-pressed)}
@@ -94,7 +94,7 @@ header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.82);backdro
 .stats{display:flex;flex-wrap:wrap;gap:clamp(18px,2.5vw,26px) clamp(24px,2.8vw,40px)}
 .stat{display:flex;align-items:baseline;gap:10px;flex:0 1 auto;max-width:270px}
 .stat b{flex:0 0 auto;font:700 clamp(21px,1.9vw,27px)/1 var(--font-display);letter-spacing:-.02em;color:#0E1626}
-.stat span{display:block;font-size:12.5px;color:var(--on-surface-var);line-height:1.4}
+.stat span{display:block;font-size:13px;color:var(--on-surface-var);line-height:1.4}
 
 /* hub chooser cards (landing): image-led */
 .hub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(16px,2vw,24px)}
@@ -108,7 +108,7 @@ a.hub-card:hover .media img{transform:scale(1.04);filter:saturate(1)}
 .hub-card .status.soon{color:rgba(14,22,38,.75)}
 .hub-card .body{display:flex;flex-direction:column;flex:1;padding:24px 26px 22px}
 .hub-card h3{font:600 clamp(19px,1.7vw,23px)/1.25 var(--font-display);letter-spacing:-.015em;color:#0E1626;margin:0 0 8px}
-.hub-card p{font-size:14px;line-height:21px;color:var(--on-surface-var);margin:0;flex:1}
+.hub-card p{font-size:14.5px;line-height:23px;color:var(--on-surface-var);margin:0;flex:1}
 .hub-card .go{display:inline-flex;align-items:center;gap:7px;font:600 13.5px/1 var(--font-body);color:var(--blue);margin-top:18px;padding-top:16px;border-top:1px solid var(--border-soft)}
 .hub-card .go svg{transition:transform var(--dur) var(--ease)}
 a.hub-card:hover .go svg{transform:translateX(3px)}
@@ -120,7 +120,7 @@ a.hub-card:hover .go svg{transform:translateX(3px)}
 .row{display:grid;grid-template-columns:44px minmax(0,.75fr) minmax(0,1.6fr);gap:clamp(14px,3vw,40px);align-items:baseline;padding:clamp(20px,2.8vh,28px) 0;border-bottom:1px solid var(--border)}
 .row .material-symbols-outlined{font-size:22px;color:var(--blue);position:relative;top:3px}
 .row .lead{font:600 clamp(16px,1.5vw,19px)/1.3 var(--font-display);letter-spacing:-.01em;color:#0E1626}
-.row p{margin:0;font-size:14.5px;line-height:23px;color:var(--on-surface-var)}
+.row p{margin:0;font-size:15px;line-height:24px;color:var(--on-surface-var)}
 @media(max-width:860px){
   .row{grid-template-columns:32px minmax(0,1fr);gap:10px 16px}
   .row p{grid-column:2}
@@ -131,17 +131,18 @@ a.hub-card:hover .go svg{transform:translateX(3px)}
 .steps{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:clamp(14px,1.8vw,24px)}
 .steps.four{grid-template-columns:repeat(4,minmax(0,1fr))}
 .steps.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.steps.five{grid-template-columns:repeat(5,minmax(0,1fr))}
 .step{position:relative;padding:24px 0 0}
 .step::before{content:"";position:absolute;top:0;left:0;right:calc(-1 * clamp(14px,1.8vw,24px));height:1px;background:var(--border-card)}
 .step:last-child::before{right:0}
 .step::after{content:"";position:absolute;top:-3px;left:0;width:7px;height:7px;border-radius:50%;background:var(--blue)}
 .step .n{display:block;font:600 12px/1 var(--font-body);letter-spacing:.14em;margin-bottom:10px;color:var(--blue)}
-.step h3{font:600 15.5px/1.3 var(--font-display);color:#0E1626;margin:8px 0 7px}
-.step p{font-size:12.5px;line-height:19px;color:var(--on-surface-var)}
-@media(max-width:1100px){.steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:28px clamp(14px,1.8vw,24px)}}
+.step h3{font:600 16.5px/1.3 var(--font-display);color:#0E1626;margin:8px 0 7px}
+.step p{font-size:13.5px;line-height:21px;color:var(--on-surface-var)}
+@media(max-width:1100px){.steps,.steps.five{grid-template-columns:repeat(3,minmax(0,1fr));gap:28px clamp(14px,1.8vw,24px)}}
 @media(max-width:980px){.steps.four{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px clamp(14px,1.8vw,24px)}}
 @media(max-width:640px){
-  .steps,.steps.four,.steps.three{grid-template-columns:minmax(0,1fr);gap:0}
+  .steps,.steps.four,.steps.three,.steps.five{grid-template-columns:minmax(0,1fr);gap:0}
   .step{padding:20px 0 20px 26px}
   .step::before{top:0;left:0;right:auto;bottom:0;width:1px;height:auto}
   .step:last-child::before{right:auto}
@@ -159,7 +160,7 @@ a.hub-card:hover .go svg{transform:translateX(3px)}
 .loc-grid{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:14px;align-items:end;margin-bottom:8px}
 @media(max-width:900px){.loc-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.loc-grid{grid-template-columns:1fr}}
-.loc-note{font-size:12.5px;color:var(--outline);margin-bottom:26px}
+.loc-note{font-size:13.5px;color:var(--outline);margin-bottom:26px}
 
 /* capacity cards */
 .cap-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
@@ -168,7 +169,7 @@ a.hub-card:hover .go svg{transform:translateX(3px)}
 .cap:hover{border-color:var(--blue);transform:translateY(-2px)}
 .cap h3{font:600 17px/1.3 var(--font-display);letter-spacing:-.01em;color:#0E1626;margin:0 0 16px}
 .cap dl{margin:0 0 18px;flex:1}
-.cap dl div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--border-soft);font-size:13px}
+.cap dl div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:13.5px}
 .cap dl div:last-child{border-bottom:none}
 .cap dt{color:var(--on-surface-var);font-weight:500}
 .cap dd{color:#0E1626;font-weight:600;text-align:right}
@@ -178,10 +179,10 @@ a.hub-card:hover .go svg{transform:translateX(3px)}
 .locked{margin:20px 0 0;border:1px dashed rgba(14,22,38,.25);border-radius:var(--radius-lg);padding:18px 20px;background:rgba(14,22,38,.03)}
 .locked .label{color:var(--blue);display:flex;gap:8px;align-items:center;margin-bottom:10px}
 .locked ul{list-style:none}
-.locked li{font-size:13.5px;color:var(--outline);padding:7px 0;border-bottom:1px solid rgba(14,22,38,.08);display:flex;justify-content:space-between;gap:12px}
+.locked li{font-size:14px;color:var(--outline);padding:7px 0;border-bottom:1px solid rgba(14,22,38,.08);display:flex;justify-content:space-between;gap:12px}
 .locked li:last-child{border-bottom:none}
 .blurval{filter:blur(5px);user-select:none;color:var(--on-surface-var)}
-.locked .note{font-size:12px;color:var(--outline);margin-top:10px}
+.locked .note{font-size:13px;color:var(--outline);margin-top:10px}
 
 /* split feature (photo + content) */
 .split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:clamp(28px,4vw,64px);align-items:center}
@@ -192,13 +193,13 @@ a.hub-card:hover .go svg{transform:translateX(3px)}
 
 /* checklist */
 .benefits{list-style:none;display:flex;flex-direction:column;gap:10px}
-.benefits li{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:20px;color:var(--on-surface)}
+.benefits li{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;line-height:22px;color:var(--on-surface)}
 .benefits li .material-symbols-outlined{font-size:17px;color:var(--green-deep);flex-shrink:0;margin-top:2px}
 
 /* chip list (mill: time of change) */
 .chip-list{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:560px){.chip-list{grid-template-columns:1fr}}
-.chip-list li{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:13px 15px;font-size:13px;line-height:19px;color:var(--on-surface)}
+.chip-list li{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:13px 15px;font-size:14px;line-height:21px;color:var(--on-surface)}
 .chip-list li .material-symbols-outlined{font-size:17px;color:var(--green-deep);flex-shrink:0;margin-top:1px}
 
 /* forms */
@@ -210,11 +211,12 @@ a.hub-card:hover .go svg{transform:translateX(3px)}
    pages hide with the attribute has to say so itself */
 .field[hidden]{display:none}
 .field label{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--on-surface-var)}
-.field input,.field select,.field textarea{background:var(--surface-input);border:1px solid rgba(14,22,38,.18);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14.5px;padding:12px 14px;outline:none;transition:border-color var(--dur) var(--ease)}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue)}
+.field input,.field select,.field textarea{background:var(--surface-input);border:1px solid rgba(14,22,38,.18);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:15px;padding:12px 14px;outline:none;transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.field input:hover,.field select:hover,.field textarea:hover{border-color:rgba(14,22,38,.32)}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,92,200,.14)}
 .field textarea{min-height:90px;resize:vertical}
 .field ::placeholder{color:rgba(44,52,68,.72)}
-.privacy{display:flex;gap:10px;align-items:flex-start;margin-top:18px;font-size:12.5px;color:var(--outline);line-height:19px}
+.privacy{display:flex;gap:10px;align-items:flex-start;margin-top:18px;font-size:13px;color:var(--outline);line-height:20px}
 .privacy svg{flex-shrink:0;margin-top:2px}
 .success{text-align:center;padding:30px 10px}
 .success .ok{width:56px;height:56px;border-radius:50%;background:rgba(139,197,63,.15);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;color:var(--green-deep)}
@@ -355,7 +357,7 @@ a.door:hover .go svg{transform:translateX(3px)}
 .flow-step:last-child::after{display:none}
 .flow{counter-reset:flow}
 .flow-step h2{font:600 clamp(19px,1.9vw,25px)/1.25 var(--font-display);letter-spacing:-.015em;color:#0E1626;margin:0 0 6px}
-.flow-step .hint{font-size:13.5px;line-height:21px;color:var(--on-surface-var);margin-bottom:18px;max-width:560px}
+.flow-step .hint{font-size:14.5px;line-height:23px;color:var(--on-surface-var);margin-bottom:18px;max-width:560px}
 .flow-step[hidden]{display:none}
 @media(max-width:620px){.flow-step{padding-left:26px}.flow-step::after{left:4px}}
 
@@ -469,9 +471,12 @@ a.hub-line:hover .go svg{transform:translateX(4px)}
 }
 
 [data-np-account-slot]{display:inline-flex;align-items:center;gap:28px}
-.np-chip{display:inline-flex;align-items:center;gap:10px;font:600 12px/1 var(--font-body);color:var(--on-surface-var);letter-spacing:.02em}
+.np-chip{display:inline-flex;align-items:center;gap:12px;font:500 12.5px/1 var(--font-body);color:var(--on-surface-var);letter-spacing:.01em}
 .np-chip__out,.np-chip__link{background:none;border:none;color:var(--blue);font:600 12px/1 var(--font-body);cursor:pointer;padding:4px 0;text-transform:uppercase;letter-spacing:.05em}
 .np-chip__link:hover{color:var(--blue-hover)}
+.np-chip__out{position:relative;margin-left:2px;padding-left:14px}
+.np-chip__out::before{content:"";position:absolute;left:0;top:50%;width:1px;height:14px;margin-top:-7px;background:rgba(14,22,38,.16)}
+.np-chip__out:hover{color:var(--blue-hover)}
 /* "Your account" is a destination, not a footnote (audit plan 015): drawn as
    an outline button. Two classes deep so it outranks `.nav-links a`, which
    would otherwise take its padding and give it the nav's underline. */
@@ -578,14 +583,14 @@ a.hub-line:hover .go svg{transform:translateX(4px)}
 .decl-table td{padding:11px 12px 11px 0;border-bottom:1px solid var(--border-soft);color:var(--on-surface);vertical-align:middle}
 .decl-table tr:last-child td{border-bottom:none}
 .decl-table input,.decl-table select{max-width:160px;background:var(--surface-input);border:1px solid rgba(14,22,38,.18);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14px;padding:9px 11px;outline:none;transition:border-color var(--dur) var(--ease)}
-.decl-table input:focus,.decl-table select:focus{border-color:var(--blue)}
+.decl-table input:focus,.decl-table select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,92,200,.14)}
 
 /* small cards: the hubs and boards a person has not opened yet */
 .tile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
 .tile{display:flex;flex-direction:column;gap:8px;padding:20px 22px;background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-lg);transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
 a.tile:hover{border-color:var(--blue);transform:translateY(-2px)}
 .tile h4{font:600 16px/1.3 var(--font-display);letter-spacing:-.01em;color:#0E1626;margin:0}
-.tile p{flex:1;margin:0;font-size:13.5px;line-height:20px;color:var(--on-surface-var)}
+.tile p{flex:1;margin:0;font-size:14px;line-height:21px;color:var(--on-surface-var)}
 .tile .go{display:inline-flex;align-items:center;gap:7px;margin-top:6px;font:600 13px/1 var(--font-body);color:var(--blue)}
 
 /* verified first-hand, and nothing else earns this */
@@ -598,7 +603,7 @@ button.notice-warn:hover,a.notice-warn:hover{background:rgba(245,166,35,.22)}
 .notice-warn--block{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;border-radius:var(--radius-lg);padding:14px 16px;font-weight:500;font-size:13.5px;line-height:20px}
 
 /* a note under a field: the answer to "why are you asking me this?" */
-.np-hint{display:block;margin-top:5px;font:400 12px/1.5 var(--font-body);letter-spacing:0;text-transform:none;color:var(--outline)}
+.np-hint{display:block;margin-top:6px;font:400 12.5px/1.5 var(--font-body);letter-spacing:0;text-transform:none;color:var(--outline)}
 .np-hint[hidden]{display:none}
 
 /* the listing form: sections, a wrapping row of pick chips, and the
@@ -624,3 +629,23 @@ body[data-np-signed-in] .np-stranger{display:none}
    at their account instead. */
 .np-holder{display:none}
 body[data-np-signed-in] .np-holder{display:block}
+
+/* ═══════════ finish (polish pass, 2026-09-28) ═══════════
+   The parts the browser draws for free, drawn from the palette: caret,
+   checkboxes, scrollbars in Firefox, link underlines. Headings balance their
+   lines so no heading ends on one orphaned word; numerals in figures and
+   tables line up. Nothing here changes a layout. */
+html{scrollbar-color:rgba(14,22,38,.22) transparent;scrollbar-width:thin;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{text-rendering:optimizeLegibility}
+input,textarea,select{caret-color:var(--blue);accent-color:var(--blue)}
+h1,h2,h3,h4,.lead{text-wrap:balance}
+p,li,dd{text-wrap:pretty}
+.stat b,.net b,.cap dd,.decl-table td,.cap__num{font-variant-numeric:tabular-nums}
+a[href]:not([class]){text-underline-offset:.2em;text-decoration-thickness:1px}
+.btn:focus-visible{outline-offset:2px}
+.btn-outline:hover{border-color:rgba(14,22,38,.4);color:#0E1626}
+.btn-outline:active{transform:scale(.97)}
+.btn-ghost:active{transform:scale(.97)}
+.close:focus-visible{outline:2px solid var(--blue-bright);outline-offset:2px}
+.pick:active{transform:scale(.98)}
+.next-hub h3 svg{flex:0 0 auto;width:18px;height:18px}

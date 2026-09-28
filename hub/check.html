@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>Quick question — The NexPoint Global Hub</title>
+<title>Quick question · The NexPoint Global Hub</title>
 <link rel="icon" href="../assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -14,27 +14,33 @@
   body{background:var(--canvas);color:var(--ink);font:400 16px/1.6 'Inter',system-ui,sans-serif;
        min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
   .card{max-width:440px;text-align:center}
-  .mark{font:700 22px/1 'Montserrat',sans-serif;letter-spacing:-.02em}
-  .mark span{color:var(--blue)}
+  .mark img{height:64px;width:64px;display:block;margin:0 auto}
   .rule{width:44px;height:3px;background:var(--green);border-radius:9999px;margin:22px auto}
   h1{font:700 clamp(22px,4vw,28px)/1.25 'Montserrat',sans-serif;letter-spacing:-.02em;margin:0 0 14px}
   p{color:var(--muted)}
   .actions{display:flex;gap:12px;justify-content:center;margin-top:26px;flex-wrap:wrap}
   button{font:600 14px/1 'Inter',sans-serif;padding:13px 22px;border-radius:4px;border:none;cursor:pointer}
   .yes{background:var(--blue);color:#fff}
+  .yes:hover{background:#0066DC}
+  button{transition:background-color 200ms cubic-bezier(.2,.8,.2,1),border-color 200ms cubic-bezier(.2,.8,.2,1),transform 150ms cubic-bezier(.2,.8,.2,1)}
+  button:active{transform:scale(.97)}
+  .no:hover{border-color:rgba(14,22,38,.4)}
+  :is(a,button):focus-visible{outline:2px solid #3D8EEB;outline-offset:3px}
+  .foot a{color:var(--blue)}
   .no{background:transparent;border:1px solid rgba(14,22,38,.2);color:var(--ink)}
   .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
 </style>
 </head>
 <body>
   <main class="card">
-    <div class="mark">Nex<span>Point</span></div>
+    <div class="mark"><img src="../assets/nexpoint-logo.png" alt="NexPoint"></div>
     <div class="rule"></div>
     <div id="checkBody">
       <h1>One moment…</h1>
       <p>Recording your answer.</p>
     </div>
-    <div class="foot">NexPoint — the commercial bridge for Orthotics &amp; Prosthetics worldwide.</div>
+    <div class="foot">NexPoint, the commercial bridge for Orthotics &amp; Prosthetics worldwide.<br>
+      Stuck? Email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</div>
   </main>
 
 <script>
@@ -81,7 +87,7 @@ async function submitAnswer(introId, token, answer){
 
   if (d && d.ok) { render('Thank you.', 'Your answer is recorded.'); return; }
   const err = d && d.error;
-  if (err === 'already recorded') render('Already recorded.', 'We already have an answer for this introduction — thank you.');
+  if (err === 'already recorded') render('Already recorded.', 'We already have an answer for this introduction. Thank you.');
   else if (err === 'invalid token' || err === 'no seeker check due for this introduction') render('Link no longer valid.', 'This link has expired or was already used. Email hello@nexpoint.co.uk if you think that is wrong.');
   else if (err === 'network') render('That did not send.', 'Check your connection and try again, or email hello@nexpoint.co.uk.');
   else render('That did not go through.', 'Try again, or email hello@nexpoint.co.uk.');
@@ -97,7 +103,7 @@ async function submitAnswer(introId, token, answer){
   } else if (introId && token) {
     renderChoice(introId, token);
   } else {
-    render('Link incomplete.', 'This link is missing information — use the link from your email, or email hello@nexpoint.co.uk.');
+    render('Link incomplete.', 'This link is missing information. Use the link from your email, or email hello@nexpoint.co.uk.');
   }
 })();
 </script>
