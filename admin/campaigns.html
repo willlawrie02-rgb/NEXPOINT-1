@@ -143,6 +143,15 @@ data but can never press these buttons: that split is the design.
           <button class="btn btn-pri btn-sm" onclick="newCampaign()">Create campaign</button>
           <span class="status" id="nc-status"></span>
         </div>
+        <!-- Will's ruling (2026-09-30): a campaign in use is never deleted; it is
+             switched off into this archive, every row kept, and can come back. -->
+        <details class="legacy" id="nxArchive">
+          <summary>Archive <span class="count" id="nxArchiveCount"></span></summary>
+          <p class="note">Switched off: out of the Campaign dropdown on the Prospects page and out of the
+            working list above, with every version, approval and member kept. Switch on brings a
+            campaign back; one that is still empty can be deleted from here.</p>
+          <div id="nxArchiveRows"></div>
+        </details>
         <div class="section-title">Smartlead campaigns</div>
         <div id="campaigns">
           <div class="row skeleton"><div class="bone" style="width:34%"></div><div class="bone" style="width:88%;margin-top:12px"></div><div class="bone" style="width:22%;margin-top:12px"></div></div>
@@ -244,38 +253,53 @@ function renderNx(){
      first. The choice survives a reload while the form is being filled. */
   const chosen=$('nc-opp').value;
   $('nc-opp').innerHTML='<option value="">Choose an opportunity</option>'+opps.map(o=>`<option value="${esc(o.id)}"${o.id===chosen?' selected':''}>${esc(o.title)}${o.active?'':' (switched off)'}</option>`).join('');
-  if(!nx.length){$('nxcamps').innerHTML=`<div class="empty">No NexPoint campaigns yet. Create one below, then link its five Smartlead versions.</div>`;return;}
-  $('nxcamps').innerHTML=nx.map(c=>{
-    const opp=opps.find(o=>o.id===c.opportunity_id);
-    const rows=VERSIONS.map(([v,label])=>{
-      const row=nxv.find(x=>x.campaign_id===c.id&&x.version===v)||{};
-      const counts=memberCounts[c.id+':'+v]||{};
-      const tally=Object.entries(counts).map(([k,n])=>`${n} ${esc(k.replace('_',' '))}`).join(' · ')||'no prospects yet';
-      const pick=`<select class="dd" data-camp="${esc(c.id)}" data-version="${esc(v)}" onchange="link(this.dataset.camp,this.dataset.version,this.value)">
-        <option value="">Not linked</option>
-        ${camps.map(sc=>`<option value="${esc(sc.id)}"${String(sc.id)===String(row.smartlead_campaign_id)?' selected':''}>${esc(sc.name||('Smartlead '+sc.id))}</option>`).join('')}
-      </select>`;
-      const mine=APPROVER[(me&&me.email||'').toLowerCase()];
-      const stamp=(who,at)=>at?`<span class="status done">${who} approved ${esc(String(at).slice(0,10))}</span>`:`<span class="status">${who}: not yet</span>`;
-      const btn=row.id&&row.smartlead_campaign_id&&mine&&!row[mine+'_approved_at']
-        ?`<button class="btn btn-grn btn-sm" data-id="${esc(row.id)}" onclick="approve(this.dataset.id)">Approve (${mine==='will'?'Will':'Chris'})</button>`:'';
-      return `<tr><td>${esc(label)}</td><td>${pick}</td>
-        <td>${stamp('Will',row.will_approved_at)}<br>${stamp('Chris',row.chris_approved_at)}</td>
-        <td>${btn}</td><td class="sub">${tally}</td></tr>`;
-    }).join('');
-    /* Delete is offered only while the card's own data shows the campaign
-       empty: no version linked, no approval, no member. The handler checks
-       the same and, beyond it, that no prospect points at the campaign. */
-    const empty=VERSIONS.every(([v])=>{const row=nxv.find(x=>x.campaign_id===c.id&&x.version===v)||{};
-      return !row.smartlead_campaign_id&&!row.will_approved_at&&!row.chris_approved_at&&!Object.keys(memberCounts[c.id+':'+v]||{}).length;});
-    const del=empty?`<button class="btn btn-danger btn-sm" data-id="${esc(c.id)}" onclick="deleteCampaign(this.dataset.id)">Delete campaign</button>`:'';
-    return `<div class="row">
-      <div class="camp-head"><span class="company">${esc(c.name)}</span>
-        <span class="badge b-cold">${esc(opp?opp.title:(c.opportunity_id||'no opportunity'))}</span><span class="spacer"></span>${del}</div>
-      <table class="vtable"><thead><tr><th>Version</th><th>Smartlead campaign</th><th>Template</th><th></th><th>Prospects</th></tr></thead>
-      <tbody>${rows}</tbody></table>
-    </div>`;
+  /* The working list holds live campaigns. A switched-off one sits in the
+     archive below the form (the Organisations board's shape, the same
+     ruling), every row kept, with Switch on and, while empty, Delete. */
+  const live=nx.filter(c=>c.active!==false);
+  const off=nx.filter(c=>c.active===false);
+  $('nxcamps').innerHTML=live.length?live.map(c=>campaignCard(c,false)).join('')
+    :`<div class="empty">${nx.length?`No live NexPoint campaigns; ${off.length} in the archive below.`
+      :'No NexPoint campaigns yet. Create one below, then link its five Smartlead versions.'}</div>`;
+  $('nxArchiveCount').textContent=off.length?`\u00b7 ${off.length} switched off`:'\u00b7 none switched off';
+  $('nxArchiveRows').innerHTML=off.length?off.map(c=>campaignCard(c,true)).join(''):'<div class="empty">Nothing switched off.</div>';
+}
+
+function campaignCard(c,archived){
+  const opp=opps.find(o=>o.id===c.opportunity_id);
+  const rows=VERSIONS.map(([v,label])=>{
+    const row=nxv.find(x=>x.campaign_id===c.id&&x.version===v)||{};
+    const counts=memberCounts[c.id+':'+v]||{};
+    const tally=Object.entries(counts).map(([k,n])=>`${n} ${esc(k.replace('_',' '))}`).join(' · ')||'no prospects yet';
+    const pick=`<select class="dd" data-camp="${esc(c.id)}" data-version="${esc(v)}" onchange="link(this.dataset.camp,this.dataset.version,this.value)">
+      <option value="">Not linked</option>
+      ${camps.map(sc=>`<option value="${esc(sc.id)}"${String(sc.id)===String(row.smartlead_campaign_id)?' selected':''}>${esc(sc.name||('Smartlead '+sc.id))}</option>`).join('')}
+    </select>`;
+    const mine=APPROVER[(me&&me.email||'').toLowerCase()];
+    const stamp=(who,at)=>at?`<span class="status done">${who} approved ${esc(String(at).slice(0,10))}</span>`:`<span class="status">${who}: not yet</span>`;
+    const btn=row.id&&row.smartlead_campaign_id&&mine&&!row[mine+'_approved_at']
+      ?`<button class="btn btn-grn btn-sm" data-id="${esc(row.id)}" onclick="approve(this.dataset.id)">Approve (${mine==='will'?'Will':'Chris'})</button>`:'';
+    return `<tr><td>${esc(label)}</td><td>${pick}</td>
+      <td>${stamp('Will',row.will_approved_at)}<br>${stamp('Chris',row.chris_approved_at)}</td>
+      <td>${btn}</td><td class="sub">${tally}</td></tr>`;
   }).join('');
+  /* Delete is offered only while the card's own data shows the campaign
+     empty: no version linked, no approval, no member. The handler checks
+     the same and, beyond it, that no prospect points at the campaign. A
+     live campaign that is not empty is switched off instead; an archived
+     one is switched on, and deleted only if empty. */
+  const empty=VERSIONS.every(([v])=>{const row=nxv.find(x=>x.campaign_id===c.id&&x.version===v)||{};
+    return !row.smartlead_campaign_id&&!row.will_approved_at&&!row.chris_approved_at&&!Object.keys(memberCounts[c.id+':'+v]||{}).length;});
+  const act=archived
+    ?`<button class="btn btn-grn btn-sm" data-id="${esc(c.id)}" onclick="switchCampaign(this.dataset.id,true)">Switch on</button>`
+      +(empty?`<button class="btn btn-danger btn-sm" data-id="${esc(c.id)}" onclick="deleteCampaign(this.dataset.id)">Delete campaign</button>`:'')
+    :empty?`<button class="btn btn-danger btn-sm" data-id="${esc(c.id)}" onclick="deleteCampaign(this.dataset.id)">Delete campaign</button>`:`<button class="btn btn-amb btn-sm" data-id="${esc(c.id)}" onclick="switchCampaign(this.dataset.id,false)">Switch off</button>`;
+  return `<div class="row">
+    <div class="camp-head"><span class="company">${esc(c.name)}</span>
+      <span class="badge b-cold">${esc(opp?opp.title:(c.opportunity_id||'no opportunity'))}</span>${archived?'<span class="badge b-warn">Switched off</span>':''}<span class="spacer"></span>${act}</div>
+    <table class="vtable"><thead><tr><th>Version</th><th>Smartlead campaign</th><th>Template</th><th></th><th>Prospects</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+  </div>`;
 }
 
 async function raiseIntent(type,payload,statusEl,verb){
@@ -302,6 +326,15 @@ function deleteCampaign(campaignId){
   const name=c?c.name:'this campaign';
   if(!confirm(`Delete "${name}"? Only an empty campaign can go: nothing linked to Smartlead, no approved template, no prospect on it. This cannot be undone.`))return;
   raiseIntent('delete-campaign',{campaign_id:Number(campaignId)},null,'Deleted');
+}
+/* The same ruling's second half: a campaign in use is switched off, not
+   deleted. Touches nothing in Smartlead. */
+function switchCampaign(campaignId,active){
+  const c=nx.find(x=>String(x.id)===String(campaignId));
+  const name=c?c.name:'this campaign';
+  if(!confirm(active?`Switch "${name}" back on? It returns to the Campaign dropdown on the Prospects page and to the working list here.`
+    :`Switch "${name}" off? It leaves the Campaign dropdown on the Prospects page and the working list here; every version, approval and member is kept, and you can switch it back on.`))return;
+  raiseIntent('switch-campaign',{campaign_id:Number(campaignId),active},null,active?'Switched on':'Switched off');
 }
 function newCampaign(){
   const name=$('nc-name').value.trim();
