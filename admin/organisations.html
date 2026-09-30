@@ -138,8 +138,10 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           orders. Recording a payment queues the engine to advance the billing period. A
           company is On, Paused or Removed, and only you or Chris move it: Pause takes it
           out of search and the desk's pickers with the record kept, Remove takes it off the
-          hub with its people unable to act, and both are reversible here. The engine never
-          changes a state itself; it tells you when a company needs a decision.
+          hub with its people unable to act, and both are reversible here. A removed company
+          drops into the Archive below the register, out of the working list, until you
+          restore it. The engine never changes a state itself; it tells you when a company
+          needs a decision.
           Curing a strike closes it in the requester's name; an audit strike is the manual
           way to open one.
         </p>
@@ -153,6 +155,26 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
             <tbody id="orgRows"><tr><td colspan="9" style="color:var(--fg-2)">Loading…</td></tr></tbody>
           </table>
         </div>
+
+        <!-- Will's ruling (2026-09-30): a removed company leaves the working list
+             for an archive. Nothing is deleted; Restore is the way back. -->
+        <details class="legacy" id="archive">
+          <summary>Archive <span class="count" id="archiveCount"></span></summary>
+          <p class="muted" style="margin:0 0 12px">
+            Removed from the hub and kept for the records, out of the working list above.
+            Restore puts a company back; a pause recorded before the removal stands until
+            you resume it.
+          </p>
+          <div class="register">
+            <table>
+              <thead><tr>
+                <th scope="col">Organisation</th><th scope="col">Removed</th><th scope="col">Strikes</th>
+                <th scope="col">Fees owed</th><th scope="col">Manage</th>
+              </tr></thead>
+              <tbody id="archiveRows"><tr><td colspan="5" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </details>
 
         <div class="note-box">
           <strong>Attribute definitions.</strong> The extra fields a host fills in on a listing or a
@@ -233,6 +255,7 @@ async function load(){
       If this says the table does not exist or permission is denied, migration 0024 (schema) and
       0025 (engine_worker grants) may not be applied yet.</div>`;
     $('orgRows').innerHTML='';
+    $('archiveRows').innerHTML='';
     return;
   }
   orgs=oq.data||[];
@@ -375,27 +398,31 @@ function manageFor(q,fallback){
 }
 
 function render(feesByOrg){
-  $('count').textContent=orgs.length?`${orgs.length} organisation${orgs.length===1?'':'s'}`:'';
-  $('orgRows').innerHTML = orgs.length ? orgs.map(o=>{
+  /* Will's ruling (2026-09-30): the register is the working list, On and
+     Paused (still on the system, tagged red). A Removed company drops
+     into the archive below, with its Restore button, and nothing is
+     deleted. */
+  const active=orgs.filter(o=>orgState(o)!=='removed');
+  const archived=orgs.filter(o=>orgState(o)==='removed');
+  $('count').textContent=active.length?`${active.length} organisation${active.length===1?'':'s'}`:'';
+  $('orgRows').innerHTML = active.length ? active.map(o=>{
     const q=pendingByOrg[o.id];
     const state=orgState(o);
     const buttons=[
-      state==='removed'?'':(o.sub_period
+      o.sub_period
         ?`<button class="btn btn-grn btn-sm" data-org-id="${esc(o.id)}" onclick="recordPaid(this.dataset.orgId)">
             <span class="material-symbols-outlined" aria-hidden="true">payments</span>Record payment</button>`
-        :'<span class="muted">no subscription yet</span>'),
-      state==='removed'
-        ?`<button class="btn btn-gh btn-sm" data-org-id="${esc(o.id)}" onclick="restoreOrg(this.dataset.orgId)">Restore to the hub</button>`
-        :state==='paused'
-          ?`<button class="btn btn-grn btn-sm" data-org-id="${esc(o.id)}" onclick="resumeOrg(this.dataset.orgId)">
-              <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>Resume</button>`
-          :`<button class="btn btn-amb btn-sm" data-org-id="${esc(o.id)}" onclick="pauseOrg(this.dataset.orgId)">
-              <span class="material-symbols-outlined" aria-hidden="true">pause</span>Pause</button>`,
-      state==='removed'?'':`<button class="btn btn-danger btn-sm" data-org-id="${esc(o.id)}" onclick="openAuditStrike(this.dataset.orgId)">
+        :'<span class="muted">no subscription yet</span>',
+      state==='paused'
+        ?`<button class="btn btn-grn btn-sm" data-org-id="${esc(o.id)}" onclick="resumeOrg(this.dataset.orgId)">
+            <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>Resume</button>`
+        :`<button class="btn btn-amb btn-sm" data-org-id="${esc(o.id)}" onclick="pauseOrg(this.dataset.orgId)">
+            <span class="material-symbols-outlined" aria-hidden="true">pause</span>Pause</button>`,
+      `<button class="btn btn-danger btn-sm" data-org-id="${esc(o.id)}" onclick="openAuditStrike(this.dataset.orgId)">
         <span class="material-symbols-outlined" aria-hidden="true">gavel</span>Open audit strike</button>`,
-      state==='removed'?'':`<button class="btn btn-danger btn-sm" data-org-id="${esc(o.id)}" onclick="removeOrg(this.dataset.orgId)">
+      `<button class="btn btn-danger btn-sm" data-org-id="${esc(o.id)}" onclick="removeOrg(this.dataset.orgId)">
         <span class="material-symbols-outlined" aria-hidden="true">delete</span>Remove from the hub</button>`,
-    ].filter(Boolean).join('');
+    ].join('');
     return `<tr>
       <td><strong>${esc(o.name||'(unnamed)')}</strong>${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}
         ${o.fee_exempt_note?`<br><span class="muted">${esc(o.fee_exempt_note)}</span>`:''}${pipedriveCell(o)}</td>
@@ -408,7 +435,32 @@ function render(feesByOrg){
       <td>${stateCell(o)}</td>
       <td><div class="actions" style="margin-top:0">${manageFor(q,buttons)}</div></td>
     </tr>`;
-  }).join('') : '<tr><td colspan="9">No organisations yet.</td></tr>';
+  }).join('')
+    : orgs.length
+      ? `<tr><td colspan="9">Nothing on the hub; ${archived.length} in the archive below.</td></tr>`
+      : '<tr><td colspan="9">No organisations yet.</td></tr>';
+  $('archiveCount').textContent=archived.length?`\u00b7 ${archived.length} removed`:'\u00b7 nothing removed';
+  $('archiveRows').innerHTML = archived.length
+    ? archived.map(o=>archiveRow(o,feesByOrg)).join('')
+    : '<tr><td colspan="5">Nothing removed.</td></tr>';
+  /* A failed restore is information the row must show (plan 024), so the
+     archive opens itself rather than folding the failure away. */
+  if(archived.some(o=>{const q=pendingByOrg[o.id];return !!q&&q.status==='failed';}))$('archive').open=true;
+}
+
+/* One archived company: when, who and why it was removed, any strike still
+   open against it (curable here), fees still owed on confirmed orders, and
+   the one way back. */
+function archiveRow(o,feesByOrg){
+  const q=pendingByOrg[o.id];
+  const restore=`<button class="btn btn-gh btn-sm" data-org-id="${esc(o.id)}" onclick="restoreOrg(this.dataset.orgId)">Restore to the hub</button>`;
+  return `<tr>
+    <td><strong>${esc(o.name||'(unnamed)')}</strong>${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}${pipedriveCell(o)}</td>
+    <td>${stateCell(o)}${o.removed_reason?`<br><span class="muted">${esc(o.removed_reason)}</span>`:''}</td>
+    <td>${strikeCell(o.id)}</td>
+    <td class="fees">${fmtMoney(feesByOrg[o.id])}</td>
+    <td><div class="actions" style="margin-top:0">${manageFor(q,restore)}</div></td>
+  </tr>`;
 }
 
 async function raise(type,payload,verb){
