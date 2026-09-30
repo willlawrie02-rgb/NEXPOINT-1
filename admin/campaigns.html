@@ -239,7 +239,11 @@ async function load(){
 }
 
 function renderNx(){
-  $('nc-opp').innerHTML=opps.map(o=>`<option value="${esc(o.id)}">${esc(o.title)}${o.active?'':' (switched off)'}</option>`).join('');
+  /* Will's ruling (2026-09-30): the form starts on no opportunity, so a
+     campaign is never created against whichever option happened to be
+     first. The choice survives a reload while the form is being filled. */
+  const chosen=$('nc-opp').value;
+  $('nc-opp').innerHTML='<option value="">Choose an opportunity</option>'+opps.map(o=>`<option value="${esc(o.id)}"${o.id===chosen?' selected':''}>${esc(o.title)}${o.active?'':' (switched off)'}</option>`).join('');
   if(!nx.length){$('nxcamps').innerHTML=`<div class="empty">No NexPoint campaigns yet. Create one below, then link its five Smartlead versions.</div>`;return;}
   $('nxcamps').innerHTML=nx.map(c=>{
     const opp=opps.find(o=>o.id===c.opportunity_id);
@@ -259,9 +263,15 @@ function renderNx(){
         <td>${stamp('Will',row.will_approved_at)}<br>${stamp('Chris',row.chris_approved_at)}</td>
         <td>${btn}</td><td class="sub">${tally}</td></tr>`;
     }).join('');
+    /* Delete is offered only while the card's own data shows the campaign
+       empty: no version linked, no approval, no member. The handler checks
+       the same and, beyond it, that no prospect points at the campaign. */
+    const empty=VERSIONS.every(([v])=>{const row=nxv.find(x=>x.campaign_id===c.id&&x.version===v)||{};
+      return !row.smartlead_campaign_id&&!row.will_approved_at&&!row.chris_approved_at&&!Object.keys(memberCounts[c.id+':'+v]||{}).length;});
+    const del=empty?`<button class="btn btn-danger btn-sm" data-id="${esc(c.id)}" onclick="deleteCampaign(this.dataset.id)">Delete campaign</button>`:'';
     return `<div class="row">
       <div class="camp-head"><span class="company">${esc(c.name)}</span>
-        <span class="badge b-cold">${esc(opp?opp.title:(c.opportunity_id||'no opportunity'))}</span></div>
+        <span class="badge b-cold">${esc(opp?opp.title:(c.opportunity_id||'no opportunity'))}</span><span class="spacer"></span>${del}</div>
       <table class="vtable"><thead><tr><th>Version</th><th>Smartlead campaign</th><th>Template</th><th></th><th>Prospects</th></tr></thead>
       <tbody>${rows}</tbody></table>
     </div>`;
@@ -283,9 +293,20 @@ function approve(versionId){
   if(!confirm('Approve this version\'s template? When both of you have, its accepted prospects go into Smartlead.'))return;
   raiseIntent('approve-template',{version_id:Number(versionId)},null,'Approved');
 }
+/* Will's ruling (2026-09-30): a mistake is undone here, not in SQL. The
+   engine deletes only an empty campaign and says what holds one that is
+   not; the board reports that refusal on the next reload as the intent's
+   failure is not shown here, so the card keeps its button until then. */
+function deleteCampaign(campaignId){
+  const c=nx.find(x=>String(x.id)===String(campaignId));
+  const name=c?c.name:'this campaign';
+  if(!confirm(`Delete "${name}"? Only an empty campaign can go: nothing linked to Smartlead, no approved template, no prospect on it. This cannot be undone.`))return;
+  raiseIntent('delete-campaign',{campaign_id:Number(campaignId)},null,'Deleted');
+}
 function newCampaign(){
   const name=$('nc-name').value.trim();
   if(!name){$('nc-status').textContent='Give the campaign a name.';return;}
+  if(!$('nc-opp').value){$('nc-status').textContent='Choose the opportunity it targets.';return;}
   raiseIntent('link-campaign-version',{campaign_name:name,opportunity_id:$('nc-opp').value,version:'current',
     smartlead_campaign_id:null},$('nc-status'),'Created');
 }
