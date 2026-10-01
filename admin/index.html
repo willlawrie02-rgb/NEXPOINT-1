@@ -239,31 +239,32 @@ async function doLogin(){
 async function signOut(){await sb.auth.signOut();location.reload();}
 
 // ---- publish to live site ----
-// Inserts a request into deploy_queue; the Mac-side watcher
-// (portal_sync.py --watch, every 60s) picks it up, runs the leak-guarded
-// build, deploys the board to GitHub Pages, and marks the row done/failed.
+// Plan 030 (2026-09-30): the button raises the publish-to-live-site intent,
+// like every other board. The worker's /intents/ping dispatches
+// portal-publish-watch (J2) the moment the row lands; J2 builds the board
+// behind the leak guard and publishes into hub_briefs. The old queue row
+// was read by nothing once the desk-side watcher was retired.
 let pubTimer=null;
 async function publishLive(){
   const btn=$('pubBtn'),st=$('pubStatus');
   if(pubTimer){clearInterval(pubTimer);pubTimer=null;}
   btn.disabled=true;st.className='status';st.textContent='Requesting…';
   const {data:u}=await sb.auth.getUser();
-  const {data,error}=await sb.from('deploy_queue')
-    .insert({requested_by:u?.user?.email||null}).select('id').single();
+  const {data,error}=await sb.from('engine_intents').insert({type:'publish-to-live-site',payload_json:{},requested_by:u?.user?.email||null,status:'pending'}).select('id').single();
   if(error){st.className='status fail';st.textContent='Publish failed: '+error.message;btn.disabled=false;return;}
   st.textContent='Publishing… usually live within 2 minutes';
   const t0=Date.now();
   pubTimer=setInterval(async()=>{
-    const {data:row}=await sb.from('deploy_queue').select('status,detail').eq('id',data.id).single();
+    const {data:row}=await sb.from('engine_intents').select('status,result_note').eq('id',data.id).single();
     if(row&&row.status==='done'){
       clearInterval(pubTimer);pubTimer=null;
-      st.className='status done';st.textContent='✓ Live — '+(row.detail||'board updated');btn.disabled=false;
+      st.className='status done';st.textContent='Live: '+(row.result_note||'board updated');btn.disabled=false;
     }else if(row&&row.status==='failed'){
       clearInterval(pubTimer);pubTimer=null;
-      st.className='status fail';st.textContent='✗ '+(row.detail||'failed — see sync log');btn.disabled=false;
-    }else if(Date.now()-t0>6*60*1000){
+      st.className='status fail';st.textContent='Failed: '+(row.result_note||'see the Health board');btn.disabled=false;
+    }else if(Date.now()-t0>10*60*1000){
       clearInterval(pubTimer);pubTimer=null;
-      st.textContent='Queued — will publish when the Mac next wakes';btn.disabled=false;
+      st.textContent='The engine has not picked this up; check the Health board (portal-publish-watch)';btn.disabled=false;
     }
   },10000);
 }
