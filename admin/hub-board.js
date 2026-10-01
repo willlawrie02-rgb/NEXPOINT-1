@@ -25,7 +25,7 @@
 
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
-const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // UI gate; real gate is database RLS
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a hint for which screen to show; the database decides (is_brief_admin, a second factor since plan 035)
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
@@ -81,7 +81,7 @@ const QUEUED_LINE='<span class="status">Queued — the engine acts within a minu
 async function boot(){
   const {data}=await sb.auth.getSession();
   const s=data&&data.session;
-  if(s&&isAdmin(s.user.email)) showAdmin(s.user); else showLogin(s);
+  if(s&&isAdmin(s.user.email)){if(await NXAdminAuth.requireAal2(sb))showAdmin(s.user);else showLogin(s);}else showLogin(s);
 }
 function showLogin(session){
   $('login').style.display='block';$('admin').style.display='none';
@@ -94,6 +94,7 @@ async function doLogin(){
   const {data,error}=await sb.auth.signInWithPassword({email,password});
   if(error){$('loginErr').textContent=error.message;return;}
   if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  if(!(await NXAdminAuth.requireAal2(sb)))return;
   showAdmin(data.user);
 }
 async function signOut(){await sb.auth.signOut();location.reload();}
