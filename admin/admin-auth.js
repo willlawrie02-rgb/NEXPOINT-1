@@ -52,9 +52,11 @@
   }
 
   /* Renders `intro` and a six-digit code form; resolves true when `submit`
-     accepts a code, false on Cancel. A refused code stays on the form
-     with the reason, so the next code from the app can be tried. */
-  function ask(intro, submit) {
+     accepts a code, and `onCancel` (false unless given) when the operator
+     backs out through the button labelled `cancelLabel`. A refused code
+     stays on the form with the reason, so the next code from the app can
+     be tried. */
+  function ask(intro, submit, onCancel, cancelLabel) {
     return new Promise((resolve) => {
       const p = panel();
       p.innerHTML = intro +
@@ -62,7 +64,7 @@
         '<input id="nxMfaCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" ' +
         'maxlength="6" placeholder="6-digit code" required>' +
         '<button class="btn btn-pri" type="submit">Verify</button> ' +
-        '<button class="btn" type="button" id="nxMfaCancel">Cancel</button>' +
+        '<button class="btn" type="button" id="nxMfaCancel">' + esc(cancelLabel || 'Cancel') + '</button>' +
         '</form><div class="err" id="nxMfaErr" role="alert"></div>';
       const form = $('nxMfaForm'), code = $('nxMfaCode'), err = $('nxMfaErr');
       code.focus();
@@ -82,6 +84,19 @@
       });
       $('nxMfaCancel').addEventListener('click', () => resolve(!!onCancel));
     });
+  }
+
+  /* supabase-js hands the QR code back as `data:image/svg+xml;utf-8,<svg ...>`:
+     the SVG raw, quotes and all, which cannot sit inside an HTML attribute
+     (Will's walk, 1 October: the tag broke at the first quote and the page
+     drew the raw markup). The payload is percent-encoded whatever shape it
+     arrives in, and the attribute is escaped on top. */
+  function svgDataUri(qr) {
+    const text = String(qr || '');
+    const comma = text.indexOf(',');
+    const payload = text.indexOf('data:') === 0 && comma > 0 ? text.slice(comma + 1) : text;
+    if (payload.trim().indexOf('<') === 0) return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(payload);
+    return text;
   }
 
   async function verifyWith(sb, factorId, code) {
@@ -108,12 +123,11 @@
         esc(error.message) + '</div>';
       return false;
     }
-    const qr = (en.totp && en.totp.qr_code) || '';
-    const src = qr.indexOf('data:') === 0 ? qr : 'data:image/svg+xml;utf8,' + encodeURIComponent(qr);
+    const src = svgDataUri(en.totp && en.totp.qr_code);
     return ask(
       '<p>Set up your second factor: scan this with an authenticator app (Google Authenticator, ' +
       'Microsoft Authenticator or 1Password), then enter the first code it shows.</p>' +
-      '<p><img alt="QR code for the authenticator app" src="' + src + '" width="180" height="180"></p>' +
+      '<p><img alt="QR code for the authenticator app" src="' + esc(src) + '" width="180" height="180"></p>' +
       '<p class="hint">Or enter the key by hand: <code>' + esc(en.totp && en.totp.secret) + '</code></p>',
       (code) => verifyWith(sb, en.id, code),
       /* "Not now" opens the board anyway: until migration 0054 the database
