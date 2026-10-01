@@ -929,6 +929,12 @@
       if (d && d.ok) { say(msg, 'Sent again.'); btn.disabled = true; btn.textContent = 'Sent again'; return; }
       done();
       if (isNotBuilt(d)) { say(msg, 'We could not resend that just now. Email hello@nexpoint.co.uk and we will send it again.'); return; }
+      /* Plan 037: the worker's three named refusals in the host's own words.
+         "Try again" was the wrong advice for every one of them. */
+      var code = d && d.error;
+      if (code === 'too_soon') { say(msg, 'Sent in the last two minutes. Check your spam folder before asking again.'); return; }
+      if (code === 'no owner address for this organisation') { say(msg, 'Your organisation has no owner address on file. Email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
+      if (code === 'this introduction is no longer open') { say(msg, 'This introduction is no longer open, so there is nothing to send again. If that looks wrong, email hello@nexpoint.co.uk.'); return; }
       say(msg, 'That did not go through. Try again, or email hello@nexpoint.co.uk.', true);
     });
   }

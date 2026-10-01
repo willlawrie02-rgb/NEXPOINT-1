@@ -140,6 +140,11 @@ async function setPassword(token){
   if (r.ok && d && d.ok){ renderDone(); return; }
   if (d && d.error === 'password_too_short'){ back(); showError(`Use at least ${MIN_LENGTH} characters.`); return; }
   if (d && d.error === 'reset_invalid'){ renderExpired(); return; }
+  /* Plan 037: the retry rides on the session the spent link minted, and the
+     worker allows that for fifteen minutes; after that it asks for the
+     current password, which a reset by definition does not have. A fresh
+     link is the way back. */
+  if (d && d.error === 'current_password_required'){ renderExpired(); return; }
   back();
   if (!d || !d.error){
     /* No answer from the worker itself (a gateway page, say): the link may

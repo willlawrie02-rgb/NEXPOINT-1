@@ -762,9 +762,25 @@
   /* The request is filed once per ask. A retry after a failed picks call
      hands back the same ask object, so it attaches to the request already
      filed instead of filing a second one; a different ask files its own. */
+  /* Plan 037: one client key per ask. A retry after a timeout that landed
+     the row is answered with that row (the worker reads the key back)
+     instead of filing a second request and sending a second pair of emails.
+     The key lives on the ask object, not in storage: a stored key that
+     outlived its ask would replay the wrong request. */
+  let keyedSpec = null;
+  let clientKey = null;
+  function clientKeyFor(s) {
+    if (keyedSpec !== s || !clientKey) {
+      keyedSpec = s;
+      clientKey = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+        : 'k-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    }
+    return clientKey;
+  }
+
   async function sendRequestAndPicks(theSpec, thePicks, termsVersionId) {
     if (!requestId || filedSpec !== theSpec) {
-      const filed = await postJson('/seeker-requests', bodyFor(theSpec));
+      const filed = await postJson('/seeker-requests', bodyFor(theSpec, clientKeyFor(theSpec)));
       if (!filed || !filed.ok || !filed.request_id) return filed || { error: 'network' };
       requestId = filed.request_id;
       filedSpec = theSpec;
@@ -775,16 +791,18 @@
   }
 
   /* The request body the worker takes, and nothing else. POST
-     /seeker-requests reads exactly these eleven names; `materials` and
-     `quantity_unit` have no column and no reader there, so
-     sending them would be a contract the worker never agreed to. They stay
-     on the internal `spec` and reach the desk as a sentence on the notes. */
-  function bodyFor(s) {
+     /seeker-requests reads exactly these eleven names plus `client_key`
+     (plan 037); `materials` and `quantity_unit` have no column and no
+     reader there, so sending them would be a contract the worker never
+     agreed to. They stay on the internal `spec` and reach the desk as a
+     sentence on the notes. */
+  function bodyFor(s, key) {
     return {
       hub: s.hub, material: s.material, process: s.process,
       quantity: s.quantity, cadence: s.cadence,
       max_lead_time_days: s.max_lead_time_days, needed_by: s.needed_by,
       town: s.town, country: s.country, services: s.services, notes: s.notes,
+      client_key: key,
     };
   }
 
