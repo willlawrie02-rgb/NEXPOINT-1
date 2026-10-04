@@ -100,7 +100,10 @@ function safeReturnTo(){
   try { u = new URL(raw, location.href); } catch (e) { return null; }
   if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
   const host = u.hostname;
-  const ok = host === 'nexpoint.co.uk' || host.endsWith('.nexpoint.co.uk') || host === 'localhost';
+  // localhost is a development allowance: followed only when this page is
+  // itself on a local preview, never from the live site (code review,
+  // 4 October 2026).
+  const ok = host === 'nexpoint.co.uk' || host.endsWith('.nexpoint.co.uk') || (local && host === 'localhost');
   return ok ? u.href : null;
 }
 

@@ -70,6 +70,17 @@ function serializeForm(form){
   return out;
 }
 
+/* The trap field (code review, 4 October 2026). The worker drops a request
+   whose company_url is filled and answers ok. The desk form and the
+   Education sign-up used to post a hard-coded empty string, so there was
+   nothing for a bot to fill. Off-screen, out of the tab order and hidden
+   from assistive technology; it has no id, so serializeForm leaves it be. */
+const TRAP_FIELD = '<input type="text" name="company_url" value="" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">';
+function trapValue(form){
+  const t = form.querySelector('[name="company_url"]');
+  return t ? t.value : '';
+}
+
 async function sendRequest(body, onOk, onFail){
   try {
     const r = await fetch(CAPTURE_REQUESTS_URL, {
@@ -345,6 +356,7 @@ function openIntro(ref, heading, payload){
     <h2>${escapeHtml(heading || 'Ask us to introduce you')}</h2>
     <p class="body">Two minutes, in confidence. One of us reads every request personally.</p>
     <form onsubmit="return introSubmit(event)">
+      ${TRAP_FIELD}
       <div class="form-grid">
         <div class="field"><label for="iName">Your name</label><input id="iName" required placeholder="Full name"></div>
         <div class="field"><label for="iCompany">Company</label><input id="iCompany" required placeholder="Held in confidence"></div>
@@ -370,7 +382,7 @@ function introSubmit(e){
     company: fields.iCompany || '', contact_name: fields.iName || '',
     email: fields.iEmail || '', phone: fields.iMobile || '',
     location: fields.iWhere || '', brief_ref: ref,
-    payload: { notes: fields.iNotes || '' }, company_url: '',
+    payload: { notes: fields.iNotes || '' }, company_url: trapValue(form),
   }, () => {
     document.getElementById('introContent').innerHTML = `
       <div class="success">
@@ -390,6 +402,7 @@ function openEducationList(){
     <h2>Put me on the Education Hub list</h2>
     <p class="body">Name and email, nothing else. We'll write when the first courses open.</p>
     <form onsubmit="return eduSubmit(event)">
+      ${TRAP_FIELD}
       <div class="form-grid" style="grid-template-columns:1fr">
         <div class="field"><label for="eName">Your name</label><input id="eName" required placeholder="Full name"></div>
         <div class="field"><label for="eEmail">Email</label><input id="eEmail" type="email" required placeholder="you@company.com"></div>
@@ -402,7 +415,7 @@ function eduSubmit(e){
   e.preventDefault();
   const form = e.target, fields = serializeForm(form), state = formSendingState(form);
   sendRequest({ hub: 'education', side: 'join_list', company: '', contact_name: fields.eName || '',
-    email: fields.eEmail || '', phone: '', location: '', brief_ref: '', payload: {}, company_url: '' },
+    email: fields.eEmail || '', phone: '', location: '', brief_ref: '', payload: {}, company_url: trapValue(form) },
   () => {
     document.getElementById('introContent').innerHTML = `
       <div class="success">

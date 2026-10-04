@@ -125,7 +125,9 @@
     try { u = new URL(raw, location.href); } catch (e) { return null; }
     if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
     const h = u.hostname;
-    const ok = h === 'nexpoint.co.uk' || h.endsWith('.nexpoint.co.uk') || h === 'localhost' || h === '127.0.0.1';
+    // A local address is a development allowance: followed only when this
+    // page is itself on a local preview (code review, 4 October 2026).
+    const ok = h === 'nexpoint.co.uk' || h.endsWith('.nexpoint.co.uk') || (local && (h === 'localhost' || h === '127.0.0.1'));
     return ok ? u.href : null;
   }
   function doorReturn() { return safeReturn(new URLSearchParams(location.search).get('return')); }

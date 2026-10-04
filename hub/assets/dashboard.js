@@ -935,6 +935,10 @@
       if (code === 'too_soon') { say(msg, 'Sent in the last two minutes. Check your spam folder before asking again.'); return; }
       if (code === 'no owner address for this organisation') { say(msg, 'Your organisation has no owner address on file. Email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
       if (code === 'this introduction is no longer open') { say(msg, 'This introduction is no longer open, so there is nothing to send again. If that looks wrong, email hello@nexpoint.co.uk.'); return; }
+      /* The email provider refused the message (code review, 4 October
+         2026). The worker counts the attempt towards its two-minute wait,
+         so the advice is a few minutes, not "try again" at once. */
+      if (code === 'send_failed') { say(msg, 'We could not send that just now. Try again in a few minutes, or email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
       say(msg, 'That did not go through. Try again, or email hello@nexpoint.co.uk.', true);
     });
   }
