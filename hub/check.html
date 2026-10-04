@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>Quick question — The NexPoint Global Hub</title>
+<title>Quick question · The NexPoint Global Hub</title>
 <link rel="icon" href="../assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -34,11 +34,11 @@
       <h1>One moment…</h1>
       <p>Recording your answer.</p>
     </div>
-    <div class="foot">NexPoint — the commercial bridge for Orthotics &amp; Prosthetics worldwide.</div>
+    <div class="foot">NexPoint, the commercial bridge for Orthotics &amp; Prosthetics worldwide.</div>
   </main>
 
 <script>
-/* Seeker-check landing (spec §2's 30-day question). No sign-in — the HMAC token in the
+/* Seeker-check landing (spec §2's 30-day question). No sign-in: the HMAC token in the
    link is the whole of the security model, checked server-side. Auto-submits only when
    intro, token and a valid yes/no answer are all present in the query string; otherwise
    this shows plain yes/no buttons so a person can still answer by hand. */
@@ -81,7 +81,7 @@ async function submitAnswer(introId, token, answer){
 
   if (d && d.ok) { render('Thank you.', 'Your answer is recorded.'); return; }
   const err = d && d.error;
-  if (err === 'already recorded') render('Already recorded.', 'We already have an answer for this introduction — thank you.');
+  if (err === 'already recorded') render('Already recorded.', 'We already have an answer for this introduction. Thank you.');
   else if (err === 'invalid token' || err === 'no seeker check due for this introduction') render('Link no longer valid.', 'This link has expired or was already used. Email hello@nexpoint.co.uk if you think that is wrong.');
   else if (err === 'network') render('That did not send.', 'Check your connection and try again, or email hello@nexpoint.co.uk.');
   else render('That did not go through.', 'Try again, or email hello@nexpoint.co.uk.');
@@ -97,7 +97,7 @@ async function submitAnswer(introId, token, answer){
   } else if (introId && token) {
     renderChoice(introId, token);
   } else {
-    render('Link incomplete.', 'This link is missing information — use the link from your email, or email hello@nexpoint.co.uk.');
+    render('Link incomplete.', 'This link is missing information. Use the link from your email, or email hello@nexpoint.co.uk.');
   }
 })();
 </script>
