@@ -123,10 +123,11 @@ for (const p of pages) {
   const html = read(p).replace(/<script[\s\S]*?<\/script>/gi, "");
   for (const [tag] of html.matchAll(/<img\b[^>]*>/g)) {
     const src = (tag.match(/\bsrc="([^"]+)"/) || [])[1];
-    if (!src || /^(https?:)?\/\//.test(src) || src.startsWith("data:")) continue;
+    if (!src || src.startsWith("data:")) continue;
     const w = Number((tag.match(/\bwidth="(\d+)"/) || [])[1]);
     const h = Number((tag.match(/\bheight="(\d+)"/) || [])[1]);
     if (!w || !h) { fail(`${p}: <img src="${src}"> has no width and height (the page shifts as it loads)`); continue; }
+    if (/^(https?:)?\/\//.test(src)) continue; // a third-party image: sized, but its file is not ours to measure
     const file = join(ROOT, dirname(p), src);
     if (!existsSync(file)) continue; // the links check reports a missing file
     const real = imageSize(file);
@@ -137,6 +138,8 @@ for (const p of pages) {
   const door = read("hub/index.html");
   const firstCard = door.match(/<img\b[^>]*src="assets\/img\/print-hub\.jpg"[^>]*>/);
   if (firstCard && !/fetchpriority="high"/.test(firstCard[0])) fail('hub/index.html: the first hub card image should carry fetchpriority="high"');
+  const thirdCard = door.match(/<img\b[^>]*src="assets\/img\/product-hub\.jpg"[^>]*>/);
+  if (thirdCard && !/loading="lazy"/.test(thirdCard[0])) fail('hub/index.html: the third hub card sits below the first screen and should be lazy');
 }
 
 // ---------------------------------------------------------------- the hub stylesheet
