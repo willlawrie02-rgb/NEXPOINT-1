@@ -8,15 +8,17 @@
 <link rel="icon" href="assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://nexpoint.co.uk/hub/assets/portal.css">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,done_all,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,lan,layers,local_shipping,lock,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility_off,warehouse&display=swap" rel="stylesheet">
 <script>
-  /* One portal.css for the whole hub, served from the apex. These pages run on
-     their own subdomain, where /hub/ is not a path that exists, so the
-     stylesheet has to be named absolutely. NP_APEX is empty on a local
-     preview, where one server holds the whole site. */
+  /* One portal.css for the whole hub, served from the apex and linked statically
+     above, before the fonts, so the page is styled without waiting for this
+     script. A local preview of these pages therefore loads the live stylesheet.
+     NP_APEX stays for portal.js; it is empty on a local preview, where one
+     server holds the whole site. */
   window.NP_APEX = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
-  document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="' + window.NP_APEX + '/hub/assets/portal.css">');
 
   /* The header renders its buttons before the module chain that defines what
      they call: portal.js arrives from the apex over a sequential chain of
@@ -49,7 +51,7 @@ and at most three picks. hub/assets/find.js owns all three steps.
 
 <header>
   <div class="container nav">
-    <a href="https://nexpoint.co.uk/" class="wordmark" aria-label="NexPoint home"><img src="assets/nexpoint-logo.png" alt="NexPoint"></a>
+    <a href="https://nexpoint.co.uk/" class="wordmark" aria-label="NexPoint home"><img src="assets/nexpoint-logo.png" alt="NexPoint" width="52" height="52"></a>
     <nav class="nav-links" aria-label="Global Hub">
       <a href="index.html" class="hide-m" aria-current="page">Print Hub</a>
       <a href="https://millhub.nexpoint.co.uk/" class="hide-m">Mill Hub</a>
@@ -129,8 +131,8 @@ and at most three picks. hub/assets/find.js owns all three steps.
 <footer class="footer">
   <div class="footer__inner">
     <div class="footer__brand">
-      <a href="https://nexpoint.co.uk/" aria-label="NexPoint home"><img src="assets/nexpoint-logo.png" alt="NexPoint"></a>
-      <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, and Australia.</p>
+      <a href="https://nexpoint.co.uk/" aria-label="NexPoint home"><img src="assets/nexpoint-logo.png" alt="NexPoint" width="44" height="44" loading="lazy"></a>
+      <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, Australia and Asia.</p>
     </div>
     <div class="footer__col">
       <h5>Print Hub</h5>
