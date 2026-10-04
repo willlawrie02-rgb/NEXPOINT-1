@@ -7,9 +7,11 @@
     "check:links": "node check/links.mjs",
     "check": "npm run check:js && npm run check:html && npm run check:links && npm run check:sweep && npm run check:review",
     "check:sweep": "node check/sweep.mjs",
-    "check:review": "node check/review.mjs"
+    "check:review": "node check/review.mjs",
+    "walk": "node check/walk.mjs"
   },
   "devDependencies": {
-    "html-validate": "^8.29.0"
+    "html-validate": "^8.29.0",
+    "playwright-core": "1.62.0"
   }
 }
