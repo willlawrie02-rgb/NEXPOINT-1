@@ -52,6 +52,31 @@ for (const p of pages) {
   else if (!/^Later, cross-border/.test(leads[leads.length - 1])) fail("printhub/index.html: the cross-border use case is not the last row, softened to the add-on it is");
 }
 
+// ---------------------------------------------------------------- descriptions and labels
+// The site audit of 5 October 2026 marked two things as errors on the live
+// pages. A page a visitor or a link preview can reach says what it is in one
+// or two sentences; the link landings (they only make sense with a token)
+// and the old portal redirect are left out. And a link or button that carries
+// an aria-label hides its icon from assistive technology, or a screen reader
+// user hears "lock Global Hub" where the label says "Global Hub".
+const NO_DESCRIPTION = new Set(["hub/accept.html", "hub/check.html", "hub/confirm.html", "hub/reset.html", "portal/index.html"]);
+const unescape = (t) => t.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+for (const p of pages) {
+  const t = read(p);
+  const found = [...t.matchAll(/<meta\s+name="description"\s+content="([^"]*)"\s*\/?>/g)].map((m) => unescape(m[1]));
+  if (!NO_DESCRIPTION.has(p)) {
+    if (found.length !== 1) fail(`${p}: needs exactly one meta description (found ${found.length})`);
+    else if (found[0].length < 110 || found[0].length > 160) fail(`${p}: the meta description is ${found[0].length} characters (110 to 160)`);
+    else if (/\bmembers?\b|\bmembership\b/i.test(found[0])) fail(`${p}: the meta description says "member"`);
+  }
+  const markup = t.replace(/<script[\s\S]*?<\/script>/g, "");
+  for (const m of markup.matchAll(/<(a|button)\b[^>]*aria-label="([^"]*)"[^>]*>([\s\S]*?)<\/\1>/g)) {
+    for (const icon of m[3].matchAll(/<span[^>]*material-symbols-outlined[^>]*>/g)) {
+      if (!/aria-hidden="true"/.test(icon[0])) fail(`${p}: the "${m[2]}" ${m[1] === "a" ? "link" : "button"} has an icon that is not hidden from screen readers`);
+    }
+  }
+}
+
 // ---------------------------------------------------------------- icons
 // One subset for the whole site: every page that draws icons loads the same
 // stylesheet URL, so the font is cached across pages and no page can miss an
