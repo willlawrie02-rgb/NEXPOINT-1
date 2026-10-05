@@ -80,9 +80,8 @@ until the scenes are remade with Chris.
       <p class="sub">Each hub is a door into a different part of the network. Three are open today; the fourth is being built with founding partners now.</p>
     </div>
     <!-- Two live doors lead, in the main site's alternating svc-row idiom: media one side,
-         body the other, flipping between them. The other two hubs are a different kind of
-         thing - an outbound board and a waiting list - so they take the site's hairline
-         why-item treatment rather than pretending to be the same object.
+         body the other, flipping between them. Education is a waiting list, not a door, so
+         its band is a plain block with the list button instead of a link.
          This section is deliberately static: no scroll entrances. -->
     <div class="hub-bands">
       <a class="hub-band" href="https://printhub.nexpoint.co.uk/">
@@ -120,16 +119,17 @@ until the scenes are remade with Chris.
           <span class="go">Browse the board <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
         </div>
       </a>
-    </div>
 
-    <div class="hub-lines">
-      <div class="hub-line hub-line--soon">
-        <div class="hub-line__head">
+      <div class="hub-band hub-band--flip hub-band--soon">
+        <div class="hub-band__media">
+          <img src="assets/img/education-hub.jpg" alt="Illustration of a desk globe wearing a graduation cap, standing on a stack of books" loading="lazy" width="1600" height="893" style="height:auto">
           <span class="status soon">Coming soon</span>
-          <h4>Global Education Hub</h4>
         </div>
-        <p>Training and digital-workflow education for teams adopting scanning, CAD/CAM and additive manufacturing for the first time. Built with the network's most experienced hands.</p>
-        <button class="btn btn-primary" onclick="openEducationList()">Put me on the list</button>
+        <div class="hub-band__body">
+          <h3>Global Education Hub</h3>
+          <p>Training and digital-workflow education for teams adopting scanning, CAD/CAM and additive manufacturing for the first time. Built with the network's most experienced hands.</p>
+          <button class="btn btn-primary" onclick="openEducationList()">Put me on the list</button>
+        </div>
       </div>
     </div>
   </div>
