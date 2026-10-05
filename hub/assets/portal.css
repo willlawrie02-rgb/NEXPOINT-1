@@ -408,8 +408,8 @@ a.door:hover .go svg{transform:translateX(3px)}
 
 /* ═══════════ the four doors ═══════════
    Ported from the main site's own vocabulary rather than invented here: alternating
-   svc-row bands for the two live hubs, hairline why-item rows for the two that aren't
-   doors. No card boxes: the rule and the space carry the structure. */
+   svc-row bands for all four hubs, media and body flipping side each time. No card
+   boxes: the rule and the space carry the structure. */
 .hub-bands{display:grid;gap:clamp(28px,3.4vw,52px)}
 .hub-band{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);
   gap:clamp(28px,4vw,64px);align-items:center;text-decoration:none}
@@ -436,22 +436,8 @@ a.door:hover .go svg{transform:translateX(3px)}
 .hub-band .go svg{transition:transform var(--dur) var(--ease)}
 .hub-band:hover .go svg{transform:translateX(4px)}
 
-/* the two that aren't doors: a board you read, and a list you join */
-.hub-lines{margin-top:clamp(40px,5vw,72px)}
-.hub-line{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr) auto;
-  gap:clamp(18px,3vw,48px);align-items:start;padding:clamp(26px,3.2vh,38px) 0;
-  border-top:1px solid var(--border);text-decoration:none;
-  transition:border-color var(--dur) var(--ease)}
-a.hub-line:hover{border-color:rgba(0,92,200,.4)}
-.hub-line__head .status{position:static;margin-bottom:12px}
-.hub-line h4{font:600 clamp(19px,1.6vw,24px)/1.25 var(--font-display);letter-spacing:-.015em;
-  color:#0E1626;margin:0}
-.hub-line p{font:400 15px/1.6 var(--font-body);color:var(--on-surface-var);margin:0;max-width:62ch}
-.hub-line .go{display:inline-flex;align-items:center;gap:8px;font:600 14px/1 var(--font-body);
-  color:var(--blue);white-space:nowrap;padding-top:2px}
-.hub-line .go svg{transition:transform var(--dur) var(--ease)}
-a.hub-line:hover .go svg{transform:translateX(4px)}
-.hub-line--soon h4{color:rgba(14,22,38,.75)}
+/* Education is a waiting list, not a door: the same band, with its list button */
+.hub-band--soon .btn{margin-top:22px}
 
 /* the status pill is shared with the bands, so it keeps its own positioning there */
 .status{font:600 10.5px/1 var(--font-body);letter-spacing:.08em;padding:7px 12px;
@@ -464,8 +450,6 @@ a.hub-line:hover .go svg{transform:translateX(4px)}
   .hub-band{grid-template-columns:minmax(0,1fr);gap:22px}
   .hub-band--flip .hub-band__media,.hub-band--flip .hub-band__body{grid-column:1;grid-row:auto}
   .hub-band__media{order:-1}
-  .hub-line{grid-template-columns:minmax(0,1fr);gap:14px}
-  .hub-line .go{padding-top:4px}
 }
 
 [data-np-account-slot]{display:inline-flex;align-items:center;gap:28px}
