@@ -190,6 +190,7 @@ const VERSIONS=[['current','Current customers'],['former','Former customers'],['
   ['enquired_new','Enquired (new contact)'],['cold','Cold']];
 const APPROVER={'willlawrie@nexpoint.co.uk':'will','chris@nexpoint.co.uk':'chris'};
 let nx=[],nxv=[],opps=[],memberCounts={};
+let pendingByVersion={},pendingByCampaign={},pendingNewCampaign={};
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let me=null,camps=[],warm=[];
 
@@ -241,13 +242,64 @@ async function load(){
   nxv=vs||[];
   const {data:op}=await sb.from('opportunities').select('id,title,active').order('title',{ascending:true});
   opps=op||[];
-  const {data:mem}=await sb.from('campaign_members').select('campaign_id,version,status')
-    .in('status',['waiting','ready','in_smartlead','remove','error','replied']);
-  memberCounts={};(mem||[]).forEach(m=>{const k=m.campaign_id+':'+m.version;(memberCounts[k]=memberCounts[k]||{})[m.status]=((memberCounts[k]||{})[m.status]||0)+1;});
+  const mem=await readMembers('campaign_id,version,status');
+  // Plan 024's rule, on this board too: the newest intent for a version or a
+  // campaign decides what its row says. Approve, link, switch and delete used
+  // to raise an intent and reload 1.5 seconds later, before the engine had
+  // run, so the button was back with nothing to say it was queued, and a
+  // refusal was never shown. Newest first and capped, like every board.
+  const {data:intents}=await sb.from('engine_intents')
+    .select('id,type,payload_json,status,result_note')
+    .in('status',['pending','claimed','failed','done'])
+    .in('type',['link-campaign-version','approve-template','switch-campaign','delete-campaign'])
+    .order('id',{ascending:false}).limit(1000);
+  if((intents||[]).length===1000)
+    $('banner').innerHTML+=`<div class="banner">Showing the newest 1,000 intent rows; older rows are not on this page.</div>`;
+  pendingByVersion={};pendingByCampaign={};pendingNewCampaign={};
+  const keyOfVersion={};nxv.forEach(v=>{keyOfVersion[v.id]=v.campaign_id+':'+v.version;});
+  (intents||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    const p=i.payload_json||{};
+    let map=null,key=null;
+    if(i.type==='approve-template'){map=pendingByVersion;key=keyOfVersion[p.version_id];}
+    else if(i.type==='link-campaign-version'&&p.campaign_id!=null){map=pendingByVersion;key=p.campaign_id+':'+p.version;}
+    else if(i.type==='link-campaign-version'&&p.campaign_name){map=pendingNewCampaign;key=p.campaign_name;}
+    else if(p.campaign_id!=null){map=pendingByCampaign;key=p.campaign_id;}
+    if(!map||key==null)return;
+    if(i.status==='done')delete map[key];else map[key]=i;
+  });
+  memberCounts={};mem.forEach(m=>{const k=m.campaign_id+':'+m.version;(memberCounts[k]=memberCounts[k]||{})[m.status]=((memberCounts[k]||{})[m.status]||0)+1;});
   const {data:w}=await sb.from('mailbox_warmup')
     .select('email,warmup_score,status,synced_at').order('email',{ascending:true});
   warm=w||[];
   render();
+}
+
+/* campaign_members, read in pages (code review, 4 October 2026). One
+   unpaged read ordered by ascending id drops the NEWEST members past
+   PostgREST's 1,000-row cap, the same failure readQueue's comment on the
+   Prospects page describes. A failed page returns what was read so far. */
+async function readMembers(cols){
+  const PAGE=1000;let all=[];
+  for(let from=0;;from+=PAGE){
+    const {data,error}=await sb.from('campaign_members').select(cols)
+      .in('status',['waiting','ready','in_smartlead','remove','error','replied'])
+      .order('id',{ascending:true}).range(from,from+PAGE-1);
+    if(error)return all;
+    all=all.concat(data||[]);
+    if(!data||data.length<PAGE)return all;
+  }
+}
+
+/* What a row says about its newest intent (plan 024's rule, on this board
+   since the code review of 4 October 2026). A queued one is the line shown
+   in place of the control it came from, since the same decision twice would
+   be two intents; a failed one is a red line above the control, which stays. */
+const isQueued=q=>!!q&&q.status!=='failed';
+function intentLine(q,what){
+  if(!q)return '';
+  if(q.status==='failed')
+    return `<span class="status fail" style="display:block">${esc(what)} failed: ${esc(q.result_note||'the engine gave no reason')}</span>`;
+  return `<span class="status">${esc(what)} queued: the engine acts within a minute or two.</span>`;
 }
 
 function renderNx(){
@@ -266,6 +318,9 @@ function renderNx(){
       :'No NexPoint campaigns yet. Create one below, then link its five Smartlead versions.'}</div>`;
   $('nxArchiveCount').textContent=off.length?`\u00b7 ${off.length} switched off`:'\u00b7 none switched off';
   $('nxArchiveRows').innerHTML=off.length?off.map(c=>campaignCard(c,true)).join(''):'<div class="empty">Nothing switched off.</div>';
+  /* A campaign being created has no card yet; its intent shows by the form. */
+  const creating=Object.entries(pendingNewCampaign);
+  if(creating.length)$('nc-status').innerHTML=creating.map(([name,q])=>intentLine(q,`Creating "${name}"`)).join(' ');
 }
 
 function campaignCard(c,archived){
@@ -274,17 +329,21 @@ function campaignCard(c,archived){
     const row=nxv.find(x=>x.campaign_id===c.id&&x.version===v)||{};
     const counts=memberCounts[c.id+':'+v]||{};
     const tally=Object.entries(counts).map(([k,n])=>`${n} ${esc(k.replace('_',' '))}`).join(' · ')||'no prospects yet';
-    const pick=`<select class="dd" data-camp="${esc(c.id)}" data-version="${esc(v)}" onchange="link(this.dataset.camp,this.dataset.version,this.value)">
+    /* The version's newest intent: while a link or an approval is queued the
+       dropdown is not live and Approve is withheld; a failure sits above. */
+    const vq=pendingByVersion[c.id+':'+v];
+    const vline=intentLine(vq,vq&&vq.type==='approve-template'?'Approval':'Link');
+    const pick=`<select class="dd" data-camp="${esc(c.id)}" data-version="${esc(v)}"${isQueued(vq)?' disabled':''} onchange="link(this.dataset.camp,this.dataset.version,this.value)">
       <option value="">Not linked</option>
       ${camps.map(sc=>`<option value="${esc(sc.id)}"${String(sc.id)===String(row.smartlead_campaign_id)?' selected':''}>${esc(sc.name||('Smartlead '+sc.id))}</option>`).join('')}
     </select>`;
     const mine=APPROVER[(me&&me.email||'').toLowerCase()];
     const stamp=(who,at)=>at?`<span class="status done">${who} approved ${esc(String(at).slice(0,10))}</span>`:`<span class="status">${who}: not yet</span>`;
-    const btn=row.id&&row.smartlead_campaign_id&&mine&&!row[mine+'_approved_at']
+    const btn=!isQueued(vq)&&row.id&&row.smartlead_campaign_id&&mine&&!row[mine+'_approved_at']
       ?`<button class="btn btn-grn btn-sm" data-id="${esc(row.id)}" onclick="approve(this.dataset.id)">Approve (${mine==='will'?'Will':'Chris'})</button>`:'';
     return `<tr><td>${esc(label)}</td><td>${pick}</td>
       <td>${stamp('Will',row.will_approved_at)}<br>${stamp('Chris',row.chris_approved_at)}</td>
-      <td>${btn}</td><td class="sub">${tally}</td></tr>`;
+      <td>${vline}${btn}</td><td class="sub">${tally}</td></tr>`;
   }).join('');
   /* Delete is offered only while the card's own data shows the campaign
      empty: no version linked, no approval, no member. The handler checks
@@ -297,9 +356,13 @@ function campaignCard(c,archived){
     ?`<button class="btn btn-grn btn-sm" data-id="${esc(c.id)}" onclick="switchCampaign(this.dataset.id,true)">Switch on</button>`
       +(empty?`<button class="btn btn-danger btn-sm" data-id="${esc(c.id)}" onclick="deleteCampaign(this.dataset.id)">Delete campaign</button>`:'')
     :empty?`<button class="btn btn-danger btn-sm" data-id="${esc(c.id)}" onclick="deleteCampaign(this.dataset.id)">Delete campaign</button>`:`<button class="btn btn-amb btn-sm" data-id="${esc(c.id)}" onclick="switchCampaign(this.dataset.id,false)">Switch off</button>`;
+  /* The campaign's own newest intent (switch or delete): queued replaces
+     the buttons, a failure sits beside them. */
+  const cq=pendingByCampaign[c.id];
+  const cline=intentLine(cq,cq&&cq.type==='delete-campaign'?'Delete':'Switch');
   return `<div class="row">
     <div class="camp-head"><span class="company">${esc(c.name)}</span>
-      <span class="badge b-cold">${esc(opp?opp.title:(c.opportunity_id||'no opportunity'))}</span>${archived?'<span class="badge b-warn">Switched off</span>':''}<span class="spacer"></span>${act}</div>
+      <span class="badge b-cold">${esc(opp?opp.title:(c.opportunity_id||'no opportunity'))}</span>${archived?'<span class="badge b-warn">Switched off</span>':''}<span class="spacer"></span>${cline}${isQueued(cq)?'':act}</div>
     <table class="vtable"><thead><tr><th>Version</th><th>Smartlead campaign</th><th>Template</th><th></th><th>Prospects</th></tr></thead>
     <tbody>${rows}</tbody></table>
   </div>`;
@@ -313,6 +376,12 @@ async function raiseIntent(type,payload,statusEl,verb){
   setTimeout(load,1500);
 }
 function link(campaignId,version,smartleadId){
+  /* A dropdown that raised an intent the moment it changed could relink an
+     approved version on a stray scroll or a mis-click, with nothing on
+     screen to say so. It asks first; a No puts the dropdown back. */
+  const sc=camps.find(x=>String(x.id)===String(smartleadId));
+  const target=smartleadId===''?'no Smartlead campaign (unlinked)':((sc&&sc.name)||('Smartlead '+smartleadId));
+  if(!confirm(`Link this version to ${target}? Its accepted prospects go into whichever campaign is linked.`)){render();return;}
   raiseIntent('link-campaign-version',{campaign_id:Number(campaignId),version,
     smartlead_campaign_id:smartleadId===''?null:Number(smartleadId)},null,'Linked');
 }

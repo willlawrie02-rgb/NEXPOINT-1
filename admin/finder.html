@@ -129,6 +129,7 @@ const $=id=>document.getElementById(id);
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let opps=[],me=null;
+let pendingByOpp={},pendingDrafts={};
 
 async function boot(){
   const {data}=await sb.auth.getSession();
@@ -161,7 +162,36 @@ async function load(){
     $('opps').innerHTML='';return;
   }
   opps=data||[];
+  // Plan 024's rule, on this board too (code review, 4 October 2026): a
+  // switch or an end date raised an intent and reloaded before the engine had
+  // run, so the change looked undone and a refusal was never shown.
+  const {data:intents}=await sb.from('engine_intents')
+    .select('id,type,payload_json,status,result_note')
+    .in('status',['pending','claimed','failed','done'])
+    .eq('type','set-opportunity')
+    .order('id',{ascending:false}).limit(1000);
+  if((intents||[]).length===1000)
+    $('banner').innerHTML+=`<div class="banner">Showing the newest 1,000 intent rows; older rows are not on this page.</div>`;
+  pendingByOpp={};pendingDrafts={};
+  (intents||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    const p=i.payload_json||{};
+    const map=p.id!=null?pendingByOpp:(p.deal_slug?pendingDrafts:null);
+    if(!map)return;
+    const key=p.id!=null?p.id:p.deal_slug;
+    if(i.status==='done')delete map[key];else map[key]=i;
+  });
   render();
+}
+/* What a row says about its newest intent (plan 024's rule, on this board
+   since the code review of 4 October 2026). A queued one is the line shown
+   in place of the control it came from, since the same decision twice would
+   be two intents; a failed one is a red line above the control, which stays. */
+const isQueued=q=>!!q&&q.status!=='failed';
+function intentLine(q,what){
+  if(!q)return '';
+  if(q.status==='failed')
+    return `<span class="status fail" style="display:block">${esc(what)} failed: ${esc(q.result_note||'the engine gave no reason')}</span>`;
+  return `<span class="status">${esc(what)} queued: the engine acts within a minute or two.</span>`;
 }
 
 function today(){return new Date().toISOString().slice(0,10);}
@@ -175,8 +205,15 @@ function render(){
   const live=opps.filter(o=>state(o)[0]==='on').length;
   $('count').textContent=`${live} being searched`;
   if(!opps.length){$('opps').innerHTML='<div class="empty">No opportunities yet.</div>';return;}
+  /* A draft asked for by deal folder has no row until the engine writes it. */
+  const drafts=Object.entries(pendingDrafts);
+  if(drafts.length)$('deal-status').innerHTML=drafts.map(([slug,q])=>intentLine(q,`Draft for ${slug}`)).join(' ');
   $('opps').innerHTML=opps.map(o=>{
     const [cls,label]=state(o);
+    /* The opportunity's newest intent: queued replaces its controls, a
+       failure sits above them. */
+    const q=pendingByOpp[o.id];
+    const line=intentLine(q,'Change');
     const kws=(o.keywords||[]).map(k=>`<span>${esc(k)}</span>`).join('');
     const toggle=o.draft&&!(o.keywords||[]).length
       ?`<span class="status">Switch on once its search terms are written.</span>`
@@ -186,8 +223,8 @@ function render(){
         ${o.deal_slug?`<span class="status">deal: ${esc(o.deal_slug)}</span>`:''}</div>
       ${o.match?`<div class="match">${esc(o.match)}</div>`:''}
       ${kws?`<div class="kw">${kws}</div>`:''}
-      <div class="ctl" id="ctl-${esc(o.id)}">${toggle}
-        <label>End date <input type="date" value="${esc(o.ends_on?String(o.ends_on).slice(0,10):'')}" data-id="${esc(o.id)}" onchange="setEnd(this.dataset.id,this.value)"></label>
+      <div class="ctl" id="ctl-${esc(o.id)}">${line}${isQueued(q)?'':toggle}
+        <label>End date <input type="date" value="${esc(o.ends_on?String(o.ends_on).slice(0,10):'')}" data-id="${esc(o.id)}"${isQueued(q)?' disabled':''} onchange="setEnd(this.dataset.id,this.value)"></label>
         ${o.updated_by?`<span>changed by ${esc(o.updated_by)} ${esc(String(o.updated_at||'').slice(0,10))}</span>`:''}</div>
     </div>`;
   }).join('');

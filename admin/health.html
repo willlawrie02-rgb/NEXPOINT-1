@@ -259,8 +259,17 @@ async function load(){
 
   const findings=[];
   let isBad=false;
+  // Jobs whose LATEST run failed after the morning report was written (code
+  // review, 4 October 2026). With a report on file the board showed that
+  // verdict and nothing since, so a job that failed at 11:00 was green here
+  // until 07:30 the next day, on the one page that is meant to say so.
+  let failedSince=new Set();
   const STALE_HOURS=26;
   if(hrow){
+    const reportAt=new Date(hrow.generated_at).getTime();
+    failedSince=new Set(bad.filter(j=>new Date(j.started_at).getTime()>reportAt).map(j=>j.job));
+    bad.filter(j=>failedSince.has(j.job)).forEach(j=>{
+      isBad=true;findings.push(['bad',`${j.job} failed since the morning report: last run ${ago(j.started_at)}`]);});
     const ageH=(Date.now()-new Date(hrow.generated_at).getTime())/36e5;
     if(ageH>STALE_HOURS){isBad=true;findings.push(['bad',`The health report has not run since ${fmtWhen(hrow.generated_at)}; the job states below are that old`]);}
     (hrow.problems||[]).forEach(p=>findings.push(['bad',p]));
@@ -294,12 +303,14 @@ async function load(){
     const rows=(hrow.jobs||[]).slice().sort((a,b)=>String(a.job).localeCompare(String(b.job)));
     $('jobs').innerHTML=rows.length? `<table><thead><tr>
         <th scope="col">Job</th><th scope="col">State</th><th scope="col">Detail</th><th scope="col">Run</th></tr></thead><tbody>${
-      rows.map(j=>`<tr>
+      rows.map(j=>{
+        const late=failedSince.has(j.job)?latest[j.job]:null;
+        return `<tr>
         <td class="job">${esc(j.job)}</td>
-        <td><span class="st ${STATE_CLS[j.state]||'st-idle'}">${esc(j.state||'')}</span></td>
-        <td class="when">${esc(j.detail||'')}</td>
-        <td class="when">${esc(String(j.last_run_id||'').slice(-13))}</td>
-      </tr>`).join('')}</tbody></table>`
+        <td><span class="st ${late?'st-bad':(STATE_CLS[j.state]||'st-idle')}">${esc(late?'failed':(j.state||''))}</span></td>
+        <td class="when">${esc(late?`failed ${ago(late.started_at)}, after the morning report`:(j.detail||''))}</td>
+        <td class="when">${esc(String((late?late.id:j.last_run_id)||'').slice(-13))}</td>
+      </tr>`;}).join('')}</tbody></table>`
       : `<div class="empty">The engine's report names no jobs.</div>`;
     return;
   }

@@ -7,9 +7,11 @@
    verified second factor): at once if it already is; after a six-digit
    code when a factor is enrolled; after enrolment (a QR code, then the
    first code) when none is. It resolves false when the operator backs
-   out of a challenge, and the board shows its sign-in card again; backing
-   out of enrolment resolves true (see enrol), a grace that ends when 0054
-   makes the database require the factor.
+   out of a challenge or of enrolment, or when the level cannot be read,
+   and the board shows its sign-in card again. (Until migration 0054 was
+   applied on 1 October 2026, backing out of enrolment opened the board on
+   a password alone; the database now refuses that session every row, so
+   the grace would only show an empty board with no reason.)
 
    Order of landing, so nobody is locked out: this script ships first and
    both operators enrol through it; only then does migration 0054 make
@@ -41,9 +43,12 @@
     }
     return p;
   }
-  function passwordForm(show) {
-    const f = document.querySelector('#login form');
-    if (f) f.style.display = show ? '' : 'none';
+  /* The whole sign-in card steps aside while the prompt shows, not only its
+     form: a card with its form hidden is an empty white box above the panel
+     (Will, 1 October). */
+  function signInCard(show) {
+    const c = document.querySelector('#login .card');
+    if (c) c.style.display = show ? '' : 'none';
   }
   function showDoor() {
     const login = $('login'), admin = $('admin');
@@ -129,30 +134,32 @@
       'Microsoft Authenticator or 1Password), then enter the first code it shows.</p>' +
       '<p><img alt="QR code for the authenticator app" src="' + esc(src) + '" width="180" height="180"></p>' +
       '<p class="hint">Or enter the key by hand: <code>' + esc(en.totp && en.totp.secret) + '</code></p>',
-      (code) => verifyWith(sb, en.id, code),
-      /* "Not now" opens the board anyway: until migration 0054 the database
-         admits a password alone, so an operator who cannot enrol today is
-         not locked out by the boards themselves. After 0054 that board
-         would simply show no rows, which is the plan's own check. */
-      true, 'Not now');
+      (code) => verifyWith(sb, en.id, code));
   }
 
   async function requireAal2(sb) {
+    const stale = $('nxMfa');
+    if (stale) stale.innerHTML = '';
     const { data: aal, error } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
     if (error) {
-      /* The level cannot be read (an old client, a network blip): let the
-         board carry on and the database decide, which is where the gate is. */
-      return true;
+      /* The level cannot be read (an old client, a network blip). The
+         database is the gate and admits no session without the factor, so
+         opening the board would show every table empty with no reason:
+         hold the door and say why. */
+      showDoor();
+      panel().innerHTML = '<div class="err" role="alert">Could not check your second factor: ' +
+        esc(error.message || 'no answer') + '. Reload the page to try again.</div>';
+      return false;
     }
     if (aal && aal.currentLevel === 'aal2') return true;
     const { data: factors } = await sb.auth.mfa.listFactors();
     const totp = ((factors && factors.totp) || []).find((f) => f.status === 'verified');
     showDoor();
-    passwordForm(false);
+    signInCard(false);
     try {
       return totp ? await challenge(sb, totp) : await enrol(sb, factors || {});
     } finally {
-      passwordForm(true);
+      signInCard(true);
       panel().innerHTML = '';
     }
   }

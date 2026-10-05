@@ -281,6 +281,21 @@ async function readQueue(cols){
   }
 }
 
+/* campaign_members, read in pages (code review, 4 October 2026). One
+   unpaged read ordered by ascending id drops the NEWEST members past
+   PostgREST's 1,000-row cap, the same failure readQueue's comment on the
+   Prospects page describes. A failed page returns what was read so far. */
+async function readMembers(cols){
+  const PAGE=1000;let all=[];
+  for(let from=0;;from+=PAGE){
+    const {data,error}=await sb.from('campaign_members').select(cols)
+      .in('status',['waiting','ready','in_smartlead','remove','error','replied'])
+      .order('id',{ascending:true}).range(from,from+PAGE-1);
+    if(error)return all;
+    all=all.concat(data||[]);
+    if(!data||data.length<PAGE)return all;
+  }
+}
 async function load(){
   $('banner').innerHTML='';
   let pre=false;
@@ -305,10 +320,8 @@ async function load(){
 
   const {data:camps}=await sb.from('nx_campaigns').select('id,name,opportunity_id,active').eq('active',true).order('name',{ascending:true});
   campaigns=camps||[];
-  const {data:mem}=await sb.from('campaign_members')
-    .select('id,company,campaign_id,version,status,reason,contact_email,updated_at')
-    .in('status',['waiting','ready','in_smartlead','remove','error','replied']).order('id',{ascending:true});
-  members={};(mem||[]).forEach(m=>{members[m.company]=m;});
+  const mem=await readMembers('id,company,campaign_id,version,status,reason,contact_email,updated_at');
+  members={};mem.forEach(m=>{members[m.company]=m;});
 
   const {data:intents}=await sb.from('engine_intents')
     .select('id,type,payload_json,status,result_note')
@@ -443,6 +456,9 @@ function leadCard(r){
 
 function rejectedCard(r){
   const q=pendingFor['q'+r.id];
+  /* A failed unblock used to bring the button back with no reason. */
+  const failed=q&&q.status==='failed'
+    ?`<span class="status fail">Engine could not action this: ${esc(q.result_note||'')}</span>`:'';
   const action=r.status!=='blocked'?''
     :(q&&q.status!=='failed'&&q.type==='unblock-lead'
       ?`<span class="status">Unblock queued for the engine.</span>`
@@ -450,7 +466,7 @@ function rejectedCard(r){
   return `<div class="row done">
     <div class="row-top"><span class="company">${esc(nameOf(r))}</span><span class="src">${esc(r.status==='blocked'?'Blocked':'Rejected')}</span></div>
     <div class="meta"><span>${site(r)}</span><span>${esc(String(r.decided_at||'').slice(0,10))}${r.decided_by?' by '+esc(r.decided_by):''}</span>${r.decision_note?`<span>${esc(r.decision_note)}</span>`:''}</div>
-    <div class="grade-row" id="act-${esc(r.id)}">${action}</div>
+    <div class="grade-row" id="act-${esc(r.id)}">${failed}${action}</div>
   </div>`;
 }
 
