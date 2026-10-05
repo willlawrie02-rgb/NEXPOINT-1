@@ -27,8 +27,20 @@ Run `npm run check` before any PR (first time: `npm install`). It chains:
 `check:js` (node --check on every JS module), `check:html` (html-validate;
 `.htmlvalidate.json` relaxes ~11 rules covering 444 pre-existing findings
 from 2026-09-09 — tighten one rule at a time as pages are touched, never
-grow the off-list silently), and `check:links` (every relative href/src in
-static markup must resolve to a file on disk).
+grow the off-list silently), `check:links` (every relative href/src in
+static markup must resolve to a file on disk), `check:sweep` (plan 039: the
+pages agree with each other and paint fast) and `check:review` (the code
+review of 2026-10-04: trap fields, return addresses, the failed resend).
+
+`npm run walk` is the scripted walk (launch checklist, Phase 4): a real
+browser opens every way in as a stranger and as a signed-in account, and
+every admin board, with the API and the database stubbed in
+`check/walk.mjs`. It needs Chrome on the machine and is not part of
+`npm run check`, so CI does not run it yet (Band 3). Run it before a
+launch gate and after any change to a hub script or a board.
+`WALK_ADMIN_DIR=<engine>/app npm run walk` walks the boards from the
+engine's source, before an admin sync. A page that calls an API path the
+walk has no stub for fails it: add the stub beside the others.
 
 ## Layout
 

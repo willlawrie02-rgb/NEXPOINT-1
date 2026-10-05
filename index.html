@@ -1651,7 +1651,12 @@
     }).catch(() => {});
   }
 
-  async function submitForm() {
+  /* `trap` is the value of the form's company_url field (code review,
+     4 October 2026). The field is off-screen and no person fills it; the
+     worker drops a request that carries one and answers ok. The form used to
+     post a hard-coded empty string, so there was nothing for a bot to fill.
+     It is read before the first render() here, which rebuilds the form. */
+  async function submitForm(trap) {
     state.sending = true; state.error = ''; render();
     const name = state.name.trim(), email = state.email.trim();
     const company = state.company.trim(), notes = state.notes.trim();
@@ -1664,7 +1669,7 @@
           company: company, contact_name: name, email: email,
           phone: '', location: '', brief_ref: '',
           payload: { source: 'homepage intro call', notes: notes },
-          company_url: '',
+          company_url: trap || '',
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1673,7 +1678,7 @@
     } catch (err) {
       state.error = SEND_FAILED;
     }
-    copyToWeb3Forms(name, email, company, notes);
+    if (!trap) copyToWeb3Forms(name, email, company, notes);
     state.sending = false; render();
   }
 
@@ -1698,6 +1703,7 @@
       </div>
 
       <form id="bookForm" novalidate>
+      <input type="text" name="company_url" value="" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
       <div class="form-grid-2">
         <div>
           <label class="field-label" for="f-name">Name</label>
@@ -1733,6 +1739,7 @@
     bookCard.querySelector('#bookForm').addEventListener('submit', (e) => {
       e.preventDefault();
       if (state.sending) return;
+      const trap = e.target.querySelector('[name="company_url"]').value;
       const name = state.name.trim(), email = state.email.trim();
       if (!name || !EMAIL_RE.test(email)) {
         state.error = 'Add your name and a work email address so we can reply';
@@ -1740,7 +1747,7 @@
         bookCard.querySelector(!name ? '#f-name' : '#f-email').focus();
         return;
       }
-      submitForm();
+      submitForm(trap);
     });
   }
 
