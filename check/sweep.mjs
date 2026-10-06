@@ -77,6 +77,17 @@ for (const p of pages) {
   }
 }
 
+// ---------------------------------------------------------------- plan 046: the third hub is named like the other two
+// "Opportunities Hub" (Will, 6 October 2026, Q3), in both bars of every page
+// that names Print Hub and Mill Hub beside it.
+for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.html", "printhub/find.html",
+  "printhub/offer.html", "millhub/index.html", "millhub/find.html", "millhub/offer.html", "opportunities/index.html"]) {
+  // The board's own footer list may say Opportunities; the two bars may not.
+  const bars = read(p).replace(/<footer[\s\S]*$/, "");
+  const bare = (bars.match(/>Opportunities<\/a>/g) || []).length;
+  if (bare) fail(`${p}: ${bare} nav label(s) say "Opportunities"; the hub is the Opportunities Hub (plan 046)`);
+}
+
 // ---------------------------------------------------------------- descriptions and labels
 // The site audit of 5 October 2026 marked two things as errors on the live
 // pages. A page a visitor or a link preview can reach says what it is in one
