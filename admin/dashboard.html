@@ -333,7 +333,7 @@ async function load(){
   $('attnN').textContent=rows.length;
   $('attn').innerHTML=rows.length?rows.join('')
     :`<div class="empty">Nothing needs attention. New requests and education sign-ups, seeker requests
-       open or with picks, listings and host applications awaiting review, offers not yet sent to a
+       open or with picks, listings awaiting review, offers not yet sent to a
        provider, registrations unconfirmed for a day, unpaid invoices, companies needing a decision,
        homeless order emails and statements awaiting an invoice all appear here.</div>`;
   await renderEducation(requests.filter(r=>r.hub==='education'&&r.status==='new'));
