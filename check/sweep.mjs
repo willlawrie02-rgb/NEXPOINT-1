@@ -79,6 +79,10 @@ for (const p of pages) {
   if (!read("hub/assets/typeahead.js").includes("reopenAfterPick")) fail("typeahead: the list must come back after a pick (plan 045)");
   // Will's Q7 (6 Oct): the founding pricing line is off the offer page.
   if (/Preferential pricing/.test(read("printhub/offer.html"))) fail("printhub/offer.html: still promises preferential pricing (plan 045)");
+  // Plan 050: the site promises no fixed price per pair while that is an open point (nexpoint.md).
+  for (const p of ["hub/index.html", "printhub/index.html", "printhub/offer.html", "millhub/index.html", "millhub/offer.html"]) {
+    if (/standard network price/i.test(read(p))) fail(`${p}: promises a "standard network price" nobody has set (plan 050)`);
+  }
   for (const p of ["printhub/offer.html", "millhub/offer.html"]) {
     if (!/class="split offer-split"/.test(read(p))) fail(`${p}: the offer split needs the offer-split class so the form sits level with the text (plan 045)`);
   }
