@@ -195,9 +195,12 @@
       const fail = failure
         ? ' <span class="np-chip__fail" role="alert" style="color:#E5484D;font-size:13px">' + escapeText(failure) + '</span>'
         : '';
-      slot.innerHTML = '<span class="np-chip">Signed in · ' + escapeText(A.user.name || A.user.email) + ' ' +
-        '<a class="np-chip__link np-chip__account" href="' + ACCOUNT_URL + '"' +
-        (onAccountPage ? ' aria-current="page"' : '') + '>Your account</a> ' +
+      /* The name is the link to the account, Sign out beside it, and the
+         slot sits right of Talk to the desk in every header (Will, 5 and
+         6 October 2026; plan 046). */
+      slot.innerHTML = '<span class="np-chip">' +
+        '<a class="np-chip__name np-chip__account" href="' + ACCOUNT_URL + '"' +
+        (onAccountPage ? ' aria-current="page"' : '') + '>' + escapeText(A.user.name || A.user.email) + '</a> ' +
         '<button type="button" class="np-chip__out">Sign out</button>' + fail + '</span>';
       slot.querySelector('.np-chip__out').addEventListener('click', () => A.signOut());
     } else {
@@ -342,12 +345,15 @@
           <div class="field"><label for="qCompany">Company and site</label><input id="qCompany" required value="${esc(draft.company)}" placeholder="Held in confidence"></div>
           <div class="field"><label for="qEmail">Email</label><input id="qEmail" type="email" required value="${esc(draft.email)}" placeholder="you@company.com"></div>
           <div class="field"><label for="qPass">Choose a password</label><input id="qPass" type="password" required minlength="8" maxlength="72" placeholder="At least 8 characters"></div>
+          <div class="field full"><label for="qWebsite">Website (optional)</label><input id="qWebsite" type="text" inputmode="url" autocomplete="url" value="${esc(draft.website || '')}" placeholder="yourlab.com"></div>
         </div>
-        <div class="modal-actions"><button class="btn btn-primary" type="submit">Continue to where you are</button></div>
+        <div class="modal-actions"><button class="btn btn-primary" type="submit">Continue</button></div>
       </form>`;
+    A.passwordEye(content().querySelector('#qPass'));
     content().querySelector('form').addEventListener('submit', (e) => {
       e.preventDefault();
       draft.name = qv('qName'); draft.company = qv('qCompany'); draft.email = qv('qEmail'); draft.password = qv('qPass');
+      draft.website = qv('qWebsite');
       step2();
     });
     show();
@@ -391,6 +397,7 @@
       draft.region = qv('qRegion'); draft.country = qv('qCountry'); draft.town = qv('qTown');
       const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Creating your account…';
       const body = { name: draft.name, company: draft.company, email: draft.email, password: draft.password,
+        website: draft.website || '',
         region: draft.region, country: draft.country, town: draft.town,
         interests: [], notes: '', terms_version_id: draft.terms_version_id,
         company_url: e.target.querySelector('[name="company_url"]').value };
@@ -501,6 +508,43 @@
       btn.remove();
     });
   }
+
+  /* Show-password (Will, 5 Oct; every password field, 6 Oct; plan 046): one
+     eye after the input, which swaps the field between password and text.
+     Nothing is stored; the field is exactly as it was when the eye is not
+     pressed. One state signal for assistive technology: the label stays
+     "Show password" and aria-pressed says whether it is. Idempotent, so the
+     same input is never wrapped twice. */
+  A.passwordEye = function (input) {
+    if (!input || input.dataset.npEye) return;
+    input.dataset.npEye = '1';
+    const wrap = document.createElement('div');
+    wrap.className = 'np-eye';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'np-eye__btn';
+    btn.setAttribute('aria-label', 'Show password');
+    btn.setAttribute('aria-pressed', 'false');
+    btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">visibility</span>';
+    btn.addEventListener('click', () => {
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+      btn.firstChild.textContent = show ? 'visibility_off' : 'visibility';
+      input.focus();
+    });
+    wrap.appendChild(btn);
+  };
+  /* The sign-in box is in every page's own markup, so it is there once the
+     document is; the hub pages' module loader fires np:modules later still,
+     and the registration form wires its own field as it renders. */
+  function eyeEveryPassword() {
+    document.querySelectorAll('input[type="password"]').forEach(A.passwordEye);
+  }
+  whenDom(eyeEveryPassword);
+  document.addEventListener('np:modules', eyeEveryPassword);
 
   function qv(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
   function esc(v) { return escapeText(v == null ? '' : v); }

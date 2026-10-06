@@ -85,6 +85,50 @@ for (const p of pages) {
   if (/Type and press Enter/.test(read("hub/assets/find.js"))) fail('hub/assets/find.js: still says "Type and press Enter" (plan 045)');
 }
 
+// ---------------------------------------------------------------- plan 046: account creation and the header
+// Will and Chris's walk of 5 October 2026 (record blocks A and B): the
+// register button says Continue, every password field has an eye, step 1
+// asks for the website, and the header shows the person's name right of
+// Talk to the desk, never "Signed in · name".
+{
+  const ha = read("assets/hub-account.js");
+  for (const want of [">Continue<", 'id="qWebsite"', "passwordEye", "np-chip__name"]) {
+    if (!ha.includes(want)) fail(`assets/hub-account.js: missing "${want}" (plan 046)`);
+  }
+  for (const gone of ["Continue to where you are", "Signed in · "]) {
+    if (ha.includes(gone)) fail(`assets/hub-account.js: still says "${gone}" (plan 046)`);
+  }
+  if (!read("hub/reset.html").includes("np-eye")) fail("hub/reset.html: no show-password control (plan 046)");
+  for (const p of pages) {
+    const header = (read(p).match(/<header[\s\S]*?<\/header>/) || [""])[0];
+    const slot = header.indexOf("<span data-np-account-slot");
+    const desk = header.indexOf(">Talk to the desk</button>");
+    if (slot >= 0 && desk >= 0 && slot < desk) fail(`${p}: the account slot sits before Talk to the desk; the name goes to its right (plan 046)`);
+  }
+}
+
+// ---------------------------------------------------------------- plan 046: the third hub is named like the other two
+// "Opportunities Hub" (Will, 6 October 2026, Q3), in both bars of every page
+// that names Print Hub and Mill Hub beside it.
+for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.html", "printhub/find.html",
+  "printhub/offer.html", "millhub/index.html", "millhub/find.html", "millhub/offer.html", "opportunities/index.html"]) {
+  // The board's own footer list may say Opportunities; the two bars may not.
+  const bars = read(p).replace(/<footer[\s\S]*$/, "");
+  const bare = (bars.match(/>Opportunities<\/a>/g) || []).length;
+  if (bare) fail(`${p}: ${bare} nav label(s) say "Opportunities"; the hub is the Opportunities Hub (plan 046)`);
+}
+
+// ---------------------------------------------------------------- plan 046: the account page
+// The account page sends a new account to the Global Hub as its one next
+// step and cross-sells nothing (record B1, B2).
+{
+  const page = read("hub/account/index.html");
+  if (!page.includes('id="goHub"')) fail("hub/account/index.html: no Go to the Global Hub button (plan 046)");
+  if (page.includes('id="more"')) fail("hub/account/index.html: More of the network is gone (plan 046)");
+  const dash = read("hub/assets/dashboard.js");
+  if (/More of the network|renderMore|loadBriefs|HUB_TILE|opportunities\/briefs/.test(dash)) fail("hub/assets/dashboard.js: the cross-sell is gone (plan 046)");
+}
+
 // ---------------------------------------------------------------- descriptions and labels
 // The site audit of 5 October 2026 marked two things as errors on the live
 // pages. A page a visitor or a link preview can reach says what it is in one
