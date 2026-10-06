@@ -77,8 +77,19 @@
       if (multi) chosen.push(option); else chosen = [option];
       if (multi) { input.value = ''; } else { input.value = option.label; }
       renderChips();
-      closeList();
+      reopenAfterPick();
       fire();
+    }
+
+    /* Will's bug of 5 Oct: after a material was picked the list stayed shut
+       until a key was pressed or the field was left and re-entered. A pick
+       in a multi-select re-renders the list without the chosen term, so the
+       next pick is one click away; a single-select closes, since its one
+       value is now chosen. The highlight is dropped first, so the next Enter
+       does not add whichever term slid into the picked one's slot. */
+    function reopenAfterPick() {
+      if (multi) { input.value = ''; active = -1; renderList(); return; }
+      closeList();
     }
 
     function remove(term) {
@@ -196,6 +207,8 @@
 
     input.addEventListener('input', renderList);
     input.addEventListener('focus', renderList);
+    /* a click into a field that already has focus reopens the list too */
+    input.addEventListener('click', () => { if (!open) renderList(); });
     input.addEventListener('blur', () => { commitSingleOnBlur(); setTimeout(closeList, 120); });
 
     input.addEventListener('keydown', (e) => {

@@ -55,6 +55,36 @@ for (const p of pages) {
   else if (!/^Later, cross-border/.test(leads[leads.length - 1])) fail("printhub/index.html: the cross-border use case is not the last row, softened to the add-on it is");
 }
 
+// Plan 045: the listing form's copy as Will and Chris wrote it, and the
+// fallback vocabulary in step with migration 0033 (two services, eight
+// print materials): the form must never show the old seven chips when the
+// worker cannot be reached.
+{
+  const lf = read("hub/assets/listing-form.js");
+  for (const want of ['Business address', 'Other services', 'Print +',
+    'Select from the list or type your own', 'Material(s) on this ',
+    'Monthly capacity (units/pairs)', 'What hosting costs', 'billing_period']) {
+    if (!lf.includes(want)) fail(`hub/assets/listing-form.js: missing "${want}" (plan 045)`);
+  }
+  for (const gone of ['Services you offer', '(pairs), optional', 'Type and press Enter', 'Add a service we have not listed']) {
+    if (lf.includes(gone)) fail(`hub/assets/listing-form.js: still says "${gone}" (plan 045)`);
+  }
+  const vocab = read("hub/assets/vocab.js");
+  const services = (vocab.match(/const SERVICES = \[([\s\S]*?)\];/) || [])[1] || "";
+  const terms = [...services.matchAll(/t\('([a-z_]+)'/g)].map((m) => m[1]);
+  if (terms.join(",") !== "design_cad,finishing_dyeing")
+    fail(`hub/assets/vocab.js: the services seed is [${terms}]; migration 0033 made it design_cad, finishing_dyeing`);
+  if (vocab.includes("dye_colours")) fail("hub/assets/vocab.js: Dye colours is retired (plan 045)");
+  // Will's bug of 5 Oct: after a material was picked the list stayed shut.
+  if (!read("hub/assets/typeahead.js").includes("reopenAfterPick")) fail("typeahead: the list must come back after a pick (plan 045)");
+  // Will's Q7 (6 Oct): the founding pricing line is off the offer page.
+  if (/Preferential pricing/.test(read("printhub/offer.html"))) fail("printhub/offer.html: still promises preferential pricing (plan 045)");
+  for (const p of ["printhub/offer.html", "millhub/offer.html"]) {
+    if (!/class="split offer-split"/.test(read(p))) fail(`${p}: the offer split needs the offer-split class so the form sits level with the text (plan 045)`);
+  }
+  if (/Type and press Enter/.test(read("hub/assets/find.js"))) fail('hub/assets/find.js: still says "Type and press Enter" (plan 045)');
+}
+
 // ---------------------------------------------------------------- plan 046: account creation and the header
 // Will and Chris's walk of 5 October 2026 (record blocks A and B): the
 // register button says Continue, every password field has an eye, step 1

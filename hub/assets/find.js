@@ -173,12 +173,12 @@
       '<div class="form-grid">' +
 
         '<div class="field full"><label for="fMaterial">Material</label>' +
-        '<input id="fMaterial" placeholder="Type and press Enter">' +
+        '<input id="fMaterial" placeholder="Select from the list or type your own">' +
         '<span class="np-hint">Name the material you need. Add more if any of them would do; ' +
         'we match on the first and carry the rest with your request.</span></div>' +
 
         '<div class="field full"><label for="fProcess">Process (optional)</label>' +
-        '<input id="fProcess" placeholder="Type and press Enter"></div>' +
+        '<input id="fProcess" placeholder="Select from the list or type your own"></div>' +
 
         '<div class="field"><label for="fQuantity" id="fQuantityLabel">' +
         'How many</label>' +
@@ -549,8 +549,11 @@
         ? '1 day' : Number(card.min_lead_time_days) + ' days']);
     }
 
+    /* Every host prints or mills; the extras follow the base service (Will,
+       6 Oct): "Print + Design/CAD, Finish", or just "Print". */
     const servs = labelsFor(vocab && vocab.services, card.services);
-    if (servs.length) rows.push(['Services', servs.join(', ')]);
+    const base = HUB === 'mill' ? 'Mill' : 'Print';
+    rows.push(['Services', servs.length ? base + ' + ' + servs.join(', ') : base]);
 
     if (card.distance_km != null) rows.push(['Distance', '~' + card.distance_km + ' km']);
 
