@@ -75,6 +75,8 @@ for (const p of pages) {
   if (terms.join(",") !== "design_cad,finishing_dyeing")
     fail(`hub/assets/vocab.js: the services seed is [${terms}]; migration 0033 made it design_cad, finishing_dyeing`);
   if (vocab.includes("dye_colours")) fail("hub/assets/vocab.js: Dye colours is retired (plan 045)");
+  // Will's bug of 5 Oct: after a material was picked the list stayed shut.
+  if (!read("hub/assets/typeahead.js").includes("reopenAfterPick")) fail("typeahead: the list must come back after a pick (plan 045)");
 }
 
 // ---------------------------------------------------------------- descriptions and labels
