@@ -2,17 +2,19 @@
    One list of materials, processes, services, machines and regions, so the
    listing form and the find form offer the same words and store the same
    terms. The worker owns the list (`/vocab`, `/attributes`); the seed below
-   is the same data as migration 0031, kept here so a page still renders a
-   full set of choices when the routes are not deployed yet or the network
-   drops. Terms are canonical: never invent one here that the migration does
-   not have, or a listing and a search will stop matching. */
+   is the same data as migration 0031 as corrected by 0033 (the print
+   materials and the two services, 8 September) and 0056 (Dye colours
+   retired, plan 045), kept here so a page still renders a full set of
+   choices when the routes are not deployed yet or the network drops. Terms
+   are canonical: never invent one here that the migrations do not have, or
+   a listing and a search will stop matching. */
 (function () {
   'use strict';
 
   const API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
     ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
 
-  /* ── the seed (migration 0031, verbatim terms and labels) ───────────── */
+  /* ── the seed (migrations 0031, 0033 and 0056, verbatim terms and labels) ── */
 
   const t = (term, label) => ({ term: term, label: label });
 
@@ -31,17 +33,16 @@
   ];
 
   const MATERIALS = {
+    /* the eight of migration 0033, in its order */
     print: [
-      t('pa12_nylon12', 'PA12/Nylon 12'),
       t('pa11', 'PA11'),
+      t('pa12_nylon12', 'PA12'),
+      t('pa12_tough', 'PA12 Tough'),
       t('tpu', 'TPU'),
-      t('pp', 'PP'),
-      t('pa12_glass_filled', 'PA12 glass-filled'),
-      t('resin_sla', 'resin (SLA)'),
+      t('pp', 'Polyprop'),
+      t('resin_sla', 'Resin SLA'),
       t('petg', 'PETG'),
-      t('pla', 'PLA'),
-      t('abs', 'ABS'),
-      t('carbon_filled_nylon', 'carbon-filled nylon'),
+      t('carbon_filled_nylon', 'Carbon-Filled Nylon'),
     ],
     mill: [
       t('eva', 'EVA'),
@@ -69,15 +70,11 @@
     ],
   };
 
-  /* services are hub-agnostic */
+  /* services are hub-agnostic: the two of migration 0033. The base service
+     (Print or Mill) is not a term; the listing form shows it as a fixed chip. */
   const SERVICES = [
-    t('design_cad', 'design/CAD'),
-    t('scan_processing', 'scan processing'),
-    t('finishing_dyeing', 'finishing/dyeing'),
-    t('assembly', 'assembly'),
-    t('strapping_fitting', 'strapping/fitting'),
-    t('kitting_packaging', 'kitting/packaging'),
-    t('drop_ship', 'drop-ship'),
+    t('design_cad', 'Design/CAD'),
+    t('finishing_dyeing', 'Finish'),
   ];
 
   const MACHINES = {
@@ -105,13 +102,11 @@
     listing: [
       { key: 'certifications', label: 'Certifications', type: 'multiselect',
         options: ['ISO 13485', 'ISO 9001', 'MDR'], required: false },
-      { key: 'min_order_units', label: 'Minimum order units', type: 'number',
+      { key: 'min_order_units', label: 'Minimum order units/pairs per month', type: 'number',
         options: null, required: false },
     ],
-    machine: [
-      { key: 'dye_colours', label: 'Dye colours', type: 'multiselect',
-        options: null, required: false },
-    ],
+    /* no machine attributes since plan 045 retired the one there was */
+    machine: [],
   };
 
   const KINDS = ['material', 'process', 'service', 'machine', 'region'];

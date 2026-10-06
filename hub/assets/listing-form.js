@@ -1,7 +1,7 @@
 /* NexPoint Global Hub - the per-site listing form (spec 2026-09-03).
    The offer page's own module. One listing per site per hub: an address,
-   the regions it ships to, services, quality notes, optional capacity, and
-   an unlimited list of machines. Nothing a host writes goes live on its
+   the regions it ships to, services, quality notes, monthly capacity, the
+   host's choice of billing period, and an unlimited list of machines. Nothing a host writes goes live on its
    own; every submission is a pending revision an admin approves, so the
    page has five faces (signed out, unconfirmed, none, pending, live) and a
    sixth for a declined one.
@@ -109,6 +109,9 @@
   let hostTerms = null;    /* {id, version, body_md} or null */
   let mine = null;         /* the last GET /listings/mine body */
   let termsRequired = false;
+  /* True while the form edits a LIVE listing: the billing period is then
+     already on file, so the form does not insist on it again (plan 045). */
+  let editingLive = false;
   const TA = {};           /* type-ahead handles by input id */
   let rowSeq = 0;
   let bootQueued = false;
@@ -226,7 +229,8 @@
     if (ships.length) rows.push(['Ships to', ships.join(', ')]);
     const services = (rev.services || []).map((t) => termLabel(vocab && vocab.services, t));
     if (services.length) rows.push(['Services', services.join(', ')]);
-    if (rev.monthly_capacity != null) rows.push(['Monthly capacity', String(rev.monthly_capacity) + ' pairs']);
+    if (rev.monthly_capacity != null) rows.push(['Monthly capacity', String(rev.monthly_capacity) + ' units']);
+    if (rev.billing_period) rows.push(['Hosting', rev.billing_period === 'monthly' ? 'Monthly, 100 a month' : 'Annual, 1,000 a year']);
     if (rev.quality_notes) rows.push(['Quality systems', rev.quality_notes]);
     Object.keys(rev.attributes || {}).forEach((k) => {
       const text = attrValueText(rev.attributes[k]);
@@ -276,7 +280,7 @@
       }
       /* text and multiselect both take an input; multiselect gets a type-ahead */
       return '<div class="field full">' + label + '<input id="' + esc(id) + '"' +
-        (def.type === 'multiselect' ? ' placeholder="Type and press Enter"' : '') + '></div>';
+        (def.type === 'multiselect' ? ' placeholder="Select from the list or type your own"' : '') + '></div>';
     }).join('');
   }
 
@@ -329,16 +333,33 @@
       '<span>' + esc(label) + '</span></label>';
   }
 
+  function pickRadio(name, value, label, on) {
+    return '<label class="pick' + (on ? ' is-on' : '') + '">' +
+      '<input type="radio" name="' + esc(name) + '" value="' + esc(value) + '"' + (on ? ' checked' : '') + '>' +
+      '<span>' + esc(label) + '</span></label>';
+  }
+  /* The base service is fixed (Will, 6 Oct): every host prints or mills, so
+     the first chip is a statement, not a choice. */
+  function fixedServiceLabel() { return HUB === 'mill' ? 'Mill +' : 'Print +'; }
+  /* The listing attributes in the order Will wrote them; anything the admin
+     defines later follows in its own order. */
+  function orderDefs(defs, first) {
+    const byKey = {};
+    defs.forEach((d) => { byKey[d.key] = d; });
+    return first.map((k) => byKey[k]).filter(Boolean)
+      .concat(defs.filter((d) => first.indexOf(d.key) === -1));
+  }
+
   function machineRowHtml(n, m) {
     const defs = (vocab && vocab.attributes && vocab.attributes.machine) || [];
     return '<div class="mrow" data-mrow="' + n + '">' +
       '<button class="mrow__rm" type="button" id="m-' + n + '-remove">Remove</button>' +
       '<div class="field full"><label for="m-' + n + '-machine">' + esc(machineNounTitle()) + '</label>' +
-      '<input id="m-' + n + '-machine" placeholder="Make and model"></div>' +
-      '<div class="field full"><label for="m-' + n + '-materials">Materials</label>' +
-      '<input id="m-' + n + '-materials" placeholder="Type and press Enter"></div>' +
+      '<input id="m-' + n + '-machine" placeholder="Select from the list or type your own"></div>' +
+      '<div class="field full"><label for="m-' + n + '-materials">Material(s) on this ' + esc(machineNoun()) + '</label>' +
+      '<input id="m-' + n + '-materials" placeholder="Select from the list or type your own"></div>' +
       '<div class="field full"><label for="m-' + n + '-process">Process (optional)</label>' +
-      '<input id="m-' + n + '-process" placeholder="Type and press Enter"></div>' +
+      '<input id="m-' + n + '-process" placeholder="Select from the list or type your own"></div>' +
       '<div class="field"><label for="m-' + n + '-count">How many</label>' +
       '<input id="m-' + n + '-count" type="number" min="1" step="1" inputmode="numeric" value="' +
       esc(m && m.count != null ? String(m.count) : '1') + '"></div>' +
@@ -419,6 +440,7 @@
     hostTerms = null;
     termsRequired = !d.host_terms_accepted_version_id;
     const editing = !!live;
+    editingLive = editing;
     const listingDefs = (vocab && vocab.attributes && vocab.attributes.listing) || [];
     const regions = (vocab && vocab.regions) || [];
     const services = (vocab && vocab.services) || [];
@@ -439,13 +461,28 @@
       '</p>' +
       '<form id="listingForm" novalidate>' +
 
+      /* The cost comes first (Will, 5 Oct): a host knows the commercial
+         structure before filling anything in, and picks the period here with
+         no default. Supersedes the 4 September rule for this page only. */
+      '<div class="lsec lcost" id="hostCost"><div class="lsec__h">What hosting costs</div>' +
+      '<p class="body">Hosting on the Global Hub is <strong>1,000 a year or 100 a month</strong>, the same number in ' +
+      'pounds, US dollars or euros, and one membership covers both the Print Hub and the Mill Hub. ' +
+      'On the work the hub brings you we charge a percentage of what you invoice that customer: ' +
+      '<strong>6% in their first year, then 5%, 4%, 3% and 2%, and nothing from year six</strong>. ' +
+      'If you sell your business inside those five years you can close it out for 5% of the previous ' +
+      'twelve months. You price it in; your customer pays you, never us.</p>' +
+      '<div class="lgroup" id="billingPeriod" role="radiogroup" aria-label="Billing period">' +
+      pickRadio('billing', 'annual', 'Annual: 1,000 a year', (rev && rev.billing_period) === 'annual') +
+      pickRadio('billing', 'monthly', 'Monthly: 100 a month', (rev && rev.billing_period) === 'monthly') +
+      '</div><span class="np-hint">Choose one. Nothing is charged until we approve your listing.</span></div>' +
+
       '<div class="lsec"><div class="lsec__h">Your site</div><div class="form-grid">' +
       /* Not an input, so not a `for`: the site name is read off the account
          and shown, and a label pointing at a paragraph labels nothing. */
       '<div class="field full"><label>Site name' +
       '<span class="np-hint">Taken from your hub account.</span></label>' +
       '<p class="body" id="siteName" style="margin:0">' + esc(u.company || 'Your site') + '</p></div>' +
-      '<div class="field full"><label for="siteAddress1">Address</label>' +
+      '<div class="field full"><label for="siteAddress1">Business address</label>' +
       '<input id="siteAddress1" value="' + esc((rev && rev.address_line) || '') + '"></div>' +
       '<div class="field full"><label for="siteAddress2">Address line 2 (optional)</label>' +
       '<input id="siteAddress2"></div>' +
@@ -464,30 +501,30 @@
       '<button class="pick" type="button" id="shipsToOwn">Own country only</button>' +
       '</div></div>' +
 
-      '<div class="lsec"><div class="lsec__h">Services you offer</div>' +
-      '<div class="lgroup" id="services" role="group" aria-label="Services you offer">' +
+      /* The base service is fixed (Will, 6 Oct): every host prints, so the
+         first chip is a statement, not a choice. */
+      '<div class="lsec"><div class="lsec__h">Other services</div>' +
+      '<div class="lgroup" id="services" role="group" aria-label="Other services">' +
+      '<span class="pick is-on is-fixed" aria-disabled="true"><span>' + esc(fixedServiceLabel()) + '</span></span>' +
       services.map((s) => pickChip('service', s.term, s.label, chosenServices.indexOf(s.term) !== -1)).join('') +
       extraServices.map((t) => pickChip('service', t, termLabel(services, t), true)).join('') +
-      '</div>' +
-      '<div class="field" style="margin-top:14px"><label for="servicesAdd">Add a service we have not listed</label>' +
-      '<input id="servicesAdd" placeholder="Type and press Enter"></div></div>' +
+      '</div></div>' +
 
       '<div class="lsec"><div class="lsec__h">' + esc(machineNounPlural()) + '</div>' +
       '<div id="machineRows"></div>' +
       '<button class="btn btn-outline" type="button" id="addMachineRow">Add another ' + esc(machineNoun()) + '</button>' +
       '</div>' +
 
-      '<div class="lsec" id="listingAttrs"' + (listingDefs.length ? '' : ' hidden') + '>' +
-      '<div class="lsec__h">About your site</div>' +
-      '<div class="form-grid">' + fieldsFor(listingDefs, (k) => 'attr-' + k) + '</div></div>' +
-
-      '<div class="lsec"><div class="lsec__h">Quality and capacity</div><div class="form-grid">' +
+      /* Capacity, then minimum order, then certifications (Will, 5 Oct);
+         the quality notes, written for Chris and Will, close the section. */
+      '<div class="lsec"><div class="lsec__h">Capacity and quality</div><div class="form-grid">' +
+      '<div class="field"><label for="monthlyCapacity">Monthly capacity (units/pairs)</label>' +
+      '<input id="monthlyCapacity" type="number" min="0" step="1" inputmode="numeric" value="' +
+      esc(rev && rev.monthly_capacity != null ? String(rev.monthly_capacity) : '') + '"></div>' +
+      fieldsFor(orderDefs(listingDefs, ['min_order_units', 'certifications']), (k) => 'attr-' + k) +
       '<div class="field full"><label for="qualityNotes">Quality systems and standards' +
       '<span class="np-hint">How you inspect, calibrate and package. Written for Chris and Will, not published.</span></label>' +
       '<textarea id="qualityNotes">' + esc((rev && rev.quality_notes) || '') + '</textarea></div>' +
-      '<div class="field"><label for="monthlyCapacity">Monthly capacity (pairs), optional</label>' +
-      '<input id="monthlyCapacity" type="number" min="0" step="1" inputmode="numeric" value="' +
-      esc(rev && rev.monthly_capacity != null ? String(rev.monthly_capacity) : '') + '"></div>' +
       '</div></div>' +
 
       '<div id="hostTermsBlock" style="margin-top:20px"></div>' +
@@ -500,23 +537,17 @@
       options: countryOptions(), allowFree: true,
       value: (rev && rev.country) || u.country || '',
     });
-    TA.servicesAdd = NPTypeahead.attach(el('servicesAdd'), {
-      options: services, allowFree: true,
-      onChange: (v, chosen) => {
-        if (!chosen.length) return;
-        addServiceChip(chosen[0].term, chosen[0].label);
-        TA.servicesAdd.clear();
-      },
-    });
     wireAttrFields(listingDefs, (k) => 'attr-' + k, (rev && rev.attributes) || {});
 
-    /* chips toggle their own class; one delegated listener per group */
-    ['shipsTo', 'services'].forEach((groupId) => {
+    /* chips toggle their own class; one delegated listener per group. A
+       radio in the billing group moves the class to the one chosen. */
+    ['shipsTo', 'services', 'billingPeriod'].forEach((groupId) => {
       const group = el(groupId);
       if (!group) return;
       group.addEventListener('change', (e) => {
         const box = e.target;
-        if (!box || box.type !== 'checkbox') return;
+        if (!box || (box.type !== 'checkbox' && box.type !== 'radio')) return;
+        if (box.type === 'radio') group.querySelectorAll('.pick').forEach((l) => l.classList.remove('is-on'));
         const label = box.closest('.pick');
         if (label) label.classList.toggle('is-on', box.checked);
       });
@@ -532,22 +563,6 @@
     else addMachineRow(null, false);
 
     renderTermsBlock();
-  }
-
-  function addServiceChip(term, label) {
-    const group = el('services');
-    if (!group) return;
-    /* pickChip() writes the same term into the data-service attribute HTML-
-       escaped for that context; CSS.escape here is the read side's own
-       escaping, for the selector context it is actually used in. */
-    const existing = group.querySelector('[data-service="' + CSS.escape(String(term)) + '"]');
-    if (existing) {
-      existing.checked = true;
-      const lab = existing.closest('.pick');
-      if (lab) lab.classList.add('is-on');
-      return;
-    }
-    group.insertAdjacentHTML('beforeend', pickChip('service', term, label, true));
   }
 
   function ownCountryOnly() {
@@ -732,10 +747,21 @@
       }
     }
 
+    /* The period is the host's own choice, with no default (Will, 6 Oct):
+       a first listing does not leave without one. An edit of a live listing
+       already has one on file, so it is sent only if ticked. */
+    const period = (document.querySelector('#billingPeriod input:checked') || {}).value || '';
+    if (!editingLive && period !== 'annual' && period !== 'monthly') {
+      return { error: 'Choose annual or monthly hosting.', focus: 'billingPeriod' };
+    }
     const line1 = [val('siteAddress1'), val('siteAddress2')].filter(Boolean).join(', ');
+    /* Required since 6 Oct (Will): a listing says what it can make. */
     const capacity = wholeNumber(val('monthlyCapacity'));
-    if (capacity !== null && (!Number.isFinite(capacity) || capacity < 0)) {
-      return { error: 'Monthly capacity is a whole number of pairs, or leave it blank.', focus: 'monthlyCapacity' };
+    if (capacity === null) {
+      return { error: 'How many units or pairs can this site make in a month? A whole number.', focus: 'monthlyCapacity' };
+    }
+    if (!Number.isFinite(capacity) || capacity < 0) {
+      return { error: 'Monthly capacity is a whole number of units or pairs.', focus: 'monthlyCapacity' };
     }
     const listingDefs = (vocab && vocab.attributes && vocab.attributes.listing) || [];
 
@@ -747,8 +773,9 @@
       quality_notes: val('qualityNotes'),
       attributes: readAttrFields(listingDefs, (k) => 'attr-' + k),
       machines: machines,
+      monthly_capacity: capacity,
     };
-    if (capacity !== null) payload.monthly_capacity = capacity;
+    if (period) payload.billing_period = period;
     if (termsRequired && hostTerms && hostTerms.id) payload.terms_version_id = hostTerms.id;
     return { payload: payload };
   }
