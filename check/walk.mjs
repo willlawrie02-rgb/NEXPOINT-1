@@ -127,6 +127,30 @@ const EMPTY_SUMMARY = {
   score: null, hubs_used: [],
 };
 
+/* The terms files are hard-wrapped at about 95 characters, so a paragraph, an
+   aside in italics and a list item each arrive on more than one line. The
+   reader must join them: on 6 October 2026 the live terms page showed every
+   source line as its own paragraph, with the aside's asterisks visible. */
+const WRAPPED_TERMS = "# Walk terms\n\n*Version 1.0 · effective 19 October 2026.*\n*Accepted at registration, and again on your next action after a new\nversion takes effect.*\n\n" +
+  "The walk's stand-in text, written\nto be read rather than litigated. It wraps\nonto three lines.\n\n" +
+  "## 1. A heading\n\n- one item that\n  wraps\n- two\n\n---\n\n**A title on its own line**\nRef [REQ-0001] · [hub] · [date]\n\nA last paragraph.";
+const WRAPPED_HTML = {
+  paragraphs: ["Version 1.0 · effective 19 October 2026. Accepted at registration, and again on your next action after a new version takes effect.",
+    "The walk's stand-in text, written to be read rather than litigated. It wraps onto three lines.",
+    "A title on its own line", "Ref [REQ-0001] · [hub] · [date]", "A last paragraph."],
+  italics: ["Version 1.0 · effective 19 October 2026.", "Accepted at registration, and again on your next action after a new version takes effect."],
+  items: ["one item that wraps", "two"],
+  bold: ["A title on its own line"],
+  rules: 1,
+};
+const readRendered = (root) => ({
+  paragraphs: [...root.querySelectorAll("p")].map((p) => p.textContent.trim()),
+  italics: [...root.querySelectorAll("em")].map((e) => e.textContent.trim()),
+  items: [...root.querySelectorAll("li")].map((e) => e.textContent.trim()),
+  bold: [...root.querySelectorAll("p > strong:only-child")].map((e) => e.textContent.trim()),
+  rules: root.querySelectorAll("hr").length,
+});
+
 /* The worker's answers, as the pages meet them. Keyed by method and path. */
 const API = {
   "GET /auth/me": (w) => (w.user ? [200, { ok: true, signed_in: true, member: w.user }] : [200, { ok: true, signed_in: false }]),
@@ -140,7 +164,7 @@ const API = {
   "POST /auth/reset-request": () => [200, { ok: true }],
   "POST /auth/confirm": (w) => { w.user = USER; return [200, { ok: true, email: USER.email, member: USER }]; },
   "GET /terms/current": (w, req) => [200, { ok: true, id: 12, layer: req.query.layer || "platform", version: "1.0",
-    title: "NexPoint terms (walk)", body_md: "# Walk terms\n\nThe walk's stand-in text.\n\n- one\n- two" }],
+    title: "NexPoint terms (walk)", body_md: WRAPPED_TERMS }],
   "POST /requests": () => [200, { ok: true }],
   "GET /account/summary": (w) => (w.user ? [200, w.summary || EMPTY_SUMMARY] : [401, { error: "unauthenticated" }]),
   "GET /opportunities/briefs": () => [200, { ok: true, briefs: [] }],
@@ -677,8 +701,36 @@ async function walkLandings() {
     });
     await context.close();
   }
+  {
+    const world = newWorld();
+    const { context, page, errors } = await visit(world);
+    await step("the terms page joins a wrapped paragraph, a wrapped aside and a wrapped list item", async () => {
+      await page.goto(`${APEX}/hub/terms/`);
+      await page.waitForSelector("#termsBody p");
+      const got = await page.evaluate((read) => new Function("root", read)(document.getElementById("termsBody")), `return (${readRendered.toString()})(root);`);
+      eq(got, WRAPPED_HTML, "the rendered terms");
+      has(await page.textContent("#termsMeta"), "Version 1.0", "the meta line");
+    });
+    clean(world, errors, "the terms page");
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER });
+    const { context, page, errors } = await visit(world);
+    await step("the shared reader on the hub pages joins wrapped lines the same way", async () => {
+      await page.goto(`${APEX}/hub/`);
+      await page.waitForFunction(() => window.NP && typeof NP.markdownLite === "function");
+      const got = await page.evaluate(([md, read]) => {
+        const root = document.createElement("div");
+        root.innerHTML = NP.markdownLite(md);
+        return new Function("root", read)(root);
+      }, [WRAPPED_TERMS, `return (${readRendered.toString()})(root);`]);
+      eq(got, WRAPPED_HTML, "the shared reader's output");
+    });
+    clean(world, errors, "the shared reader");
+    await context.close();
+  }
   for (const [name, url, sign] of [
-    ["the terms page", `${APEX}/hub/terms/`, "Walk terms"],
     ["the privacy page", `${APEX}/hub/privacy.html`, "hosted in the UK"],
     ["the reset page", `${APEX}/hub/reset.html`, ""],
     ["the old portal address", `${APEX}/portal/`, ""],
