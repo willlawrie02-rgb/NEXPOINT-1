@@ -87,6 +87,10 @@ for (const p of pages) {
     if (!/class="split offer-split"/.test(read(p))) fail(`${p}: the offer split needs the offer-split class so the form sits level with the text (plan 045)`);
   }
   if (/Type and press Enter/.test(read("hub/assets/find.js"))) fail('hub/assets/find.js: still says "Type and press Enter" (plan 045)');
+  // Will's ruling of 6 Oct (evening): "the twenty" leaves the hub pages; the recognition lines stay.
+  for (const p of ["hub/index.html", "printhub/index.html", "printhub/offer.html", "millhub/index.html", "millhub/offer.html"]) {
+    if (/\btwenty\b/i.test(read(p))) fail(`${p}: still counts "the twenty" (Will, 6 Oct)`);
+  }
 }
 
 // ---------------------------------------------------------------- plan 046: account creation and the header
