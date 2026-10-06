@@ -483,22 +483,36 @@ function renderCol(which){
     seen.add(String(l.id));return true;
   });
   const shown=all.filter(({r,l})=>l?listingMatches(l):(filter==='all'||r.status===filter));
-  let cards=shown.map(({r,l})=>({at:r.created_at||'',html:l?listingCard(r,l):reqCard(r,col)}));
-  let total=all.length;
+  /* A Removed organisation (Will, 30 Sept 2026: off the hub, kept for the
+     records, a human act on the Organisations board) is never mixed with
+     the working list: its card goes under a Removed disclosure below the
+     column, as the Organisations board's archive does. Paused stays in
+     the list, marked. */
+  const gone=o=>!!(o&&o.removed_at);
+  let cards=shown.map(({r,l})=>({at:r.created_at||'',html:l?listingCard(r,l):reqCard(r,col),
+    removed:!!l&&gone(orgById[l.org_id])}));
+  let total=all.filter(({l})=>!(l&&gone(orgById[l.org_id]))).length;
   if(which==='right'&&HOSTS_HUB()){
     /* Find-capacity requests (hub v2) render beside the older enquiries
        (Will, 6 Oct): the right column is every seeker, whichever door
        they came through. */
-    total+=seekReqs.length;
-    cards=cards.concat(seekReqs.filter(seekMatches).map(r=>({at:r.created_at||'',html:seekerCard(r)})));
+    total+=seekReqs.filter(r=>!gone(orgById[r.org_id])).length;
+    cards=cards.concat(seekReqs.filter(seekMatches).map(r=>({at:r.created_at||'',html:seekerCard(r),
+      removed:gone(orgById[r.org_id])})));
   }
   cards.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  const active=cards.filter(c=>!c.removed),removed=cards.filter(c=>c.removed);
   $(which+'N').textContent=total;
-  $(which+'Col').innerHTML=cards.length
-    ?cards.map(c=>c.html).join('')
+  const archive=removed.length
+    ?`<details class="legacy"><summary>Removed <span class="count">\u00b7 ${removed.length} kept for the records</span></summary>${
+      removed.map(c=>c.html).join('')}</details>`
+    :'';
+  $(which+'Col').innerHTML=(active.length
+    ?active.map(c=>c.html).join('')
     :`<div class="empty">${total?'Nothing matches this filter.'
       :which==='left'?'Nothing to review. A host\'s listing lands here the moment it is submitted.'
-      :'Nothing here yet. A seeker who searches and picks providers, or writes to the desk, lands here.'}</div>`;
+      :'Nothing here yet. A seeker who searches and picks providers, or writes to the desk, lands here.'}</div>`)
+    +archive;
 }
 
 function payloadDetails(r){
