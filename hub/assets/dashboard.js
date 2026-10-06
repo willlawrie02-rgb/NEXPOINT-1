@@ -1,5 +1,5 @@
 /* NexPoint Global Hub - the account dashboard.
-   One page, seven sections, one GET /account/summary. Every section owns its
+   One page, six sections, one GET /account/summary. Every section owns its
    own empty copy, so a key the worker has not shipped yet leaves that section
    saying something sensible rather than breaking the page: a missing key is
    never an error. Started by portal.js's np:modules boot, like every other
@@ -10,21 +10,13 @@
   /* ── the words a hub is known by ────────────────────────────────── */
   var HUBS = ['print', 'mill'];
   var HUB_LABEL = { print: 'Print Hub', mill: 'Mill Hub', opportunities: 'Opportunities' };
-  var HUB_FIND = {
-    print: 'https://printhub.nexpoint.co.uk/find.html',
-    mill: 'https://millhub.nexpoint.co.uk/find.html',
-  };
   var HUB_LISTING = {
     print: 'https://printhub.nexpoint.co.uk/offer.html',
     mill: 'https://millhub.nexpoint.co.uk/offer.html',
   };
-  var OPPORTUNITIES_URL = '/opportunities/';
-
-  /* What a hub says about the board. */
-  var HUB_SECTORS = {
-    print: ['print', 'manufacturing', 'materials'],
-    mill: ['mill', 'manufacturing'],
-  };
+  /* The door with the four hub cards: where an account that has done nothing
+     yet is sent (plan 046, record B2). */
+  var HUB_DOOR = '/hub/';
 
   /* The five steps every introduction walks, in order. A stopped one keeps the
      steps it actually reached and ends on the word for how it stopped. */
@@ -125,7 +117,7 @@
     node.hidden = false;
   }
 
-  var SECTIONS = ['profile', 'introductions', 'declarations', 'orders', 'fees', 'more', 'education'];
+  var SECTIONS = ['profile', 'introductions', 'declarations', 'orders', 'fees', 'education'];
 
   /* ── the account, as this page reads it ─────────────────────────── */
   function siteOf(d) {
@@ -554,97 +546,7 @@
       strikesBody);
   }
 
-  /* ═══════════ 6. more of the network ═══════════ */
-  function hubsUsed(d) {
-    if (Array.isArray(d.hubs_used) && d.hubs_used.length) return d.hubs_used.slice();
-    var seen = {};
-    [].concat(
-      Array.isArray(d.requests) ? d.requests : [],
-      Array.isArray(d.listings) ? d.listings : [],
-      Array.isArray(d.introductions) ? d.introductions : [],
-      Array.isArray(d.offers) ? d.offers : []
-    ).forEach(function (x) { if (x && x.hub) seen[x.hub] = true; });
-    return Object.keys(seen);
-  }
-
-  /* Driven by hubs_used alone (host or seeker, either counts as "used"): a
-     stated interest was never anything but empty from sign-up onward, since
-     PR #35 dropped the interests step before anyone could tick one. */
-  function sectorsFor(used) {
-    var out = {};
-    used.forEach(function (h) {
-      (HUB_SECTORS[h] || []).forEach(function (sec) { out[sec] = true; });
-    });
-    return Object.keys(out);
-  }
-
-  function briefMatches(brief, sectors) {
-    if (sectors.indexOf('any') !== -1) return true;
-    var cat = String(brief.cat || '').toLowerCase();
-    var tags = (Array.isArray(brief.tags) ? brief.tags : []).map(function (t) { return String(t).toLowerCase(); });
-    return sectors.some(function (sec) {
-      if (cat === sec) return true;
-      return tags.some(function (t) { return t.indexOf(sec) !== -1; });
-    });
-  }
-
-  /* The board's cards come from the worker, signed-in only (one-door
-     register, Q13): the public briefs file this used to read is gone. A
-     refusal or a dropped connection reads as "no cards", so the cross-sell
-     simply does not show. */
-  var briefsCache = null;
-  function loadBriefs() {
-    if (briefsCache) return briefsCache;
-    briefsCache = api('/opportunities/briefs')
-      .then(function (d) { return (d && Array.isArray(d.briefs)) ? d.briefs : []; })
-      .catch(function () { return []; });
-    return briefsCache;
-  }
-
-  function tile(href, heading, body, go) {
-    return '<a class="tile" href="' + esc(href) + '">' +
-      '<h4>' + esc(heading) + '</h4><p>' + esc(body) + '</p>' +
-      '<span class="go">' + esc(go) + ' <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>' +
-    '</a>';
-  }
-
-  var HUB_TILE = {
-    print: ['Global Print Hub', 'Certified labs print each other\'s work close to the end customer. The file travels, the product does not.', 'Find print capacity'],
-    mill: ['Global Mill Hub', 'Milled production run as your own line inside a partner facility: your styles, your branding, your standard.', 'Find a milling cell'],
-  };
-
-  function renderMore(d) {
-    var used = hubsUsed(d);
-    var tiles = HUBS.filter(function (h) { return used.indexOf(h) === -1; }).map(function (h) {
-      var t = HUB_TILE[h];
-      return tile(HUB_FIND[h], t[0], t[1], t[2]);
-    });
-    paintMore(tiles);
-
-    /* The Opportunities cross-sell earns its place only for an account that
-       has used at least one hub already and has not used Opportunities
-       itself - never as a rediscovery of a door it already walked through. */
-    if (!used.length || used.indexOf('opportunities') !== -1) return;
-    var sectors = sectorsFor(used);
-    if (!sectors.length) return;
-    loadBriefs().then(function (briefs) {
-      var hit = briefs.some(function (b) { return briefMatches(b, sectors); });
-      if (!hit) return;
-      tiles = tiles.concat(tile(OPPORTUNITIES_URL, 'Global Opportunities Hub',
-        'Products, materials, technologies and companies looking to buy or sell, placed as verified, anonymised opportunities.',
-        'Browse the board'));
-      paintMore(tiles);
-    });
-  }
-
-  function paintMore(tiles) {
-    fill('more',
-      head('hub', 'More of the network', 'Other doors into the same network, open to your account already.') +
-      (tiles.length ? '<div class="tile-grid">' + tiles.join('') + '</div>'
-                    : empty('You are already in every hub we run today.', 'done_all')));
-  }
-
-  /* ═══════════ 7. education ═══════════ */
+  /* ═══════════ 6. education ═══════════ */
   function renderEducation() {
     fill('education',
       head('school', 'Education', 'Courses and training, built with the people who do the work.') +
@@ -676,19 +578,30 @@
       text: 'Send your declaration for ' + (fmtPeriod(dec.period_open) || 'this period') + (dec.due_state === 'overdue' ? ', now overdue' : '') });
     if (asked) out.push({ to: 'introductions', icon: 'handshake',
       text: asked === 1 ? 'Answer 1 introduction from the email we sent you' : 'Answer ' + asked + ' introductions from the emails we sent you' });
+    /* An account that is not a host and has listed, asked and been
+       introduced to nothing yet has one thing to do: choose a hub. The
+       line goes to the door, not to a section (plan 046, record B2). */
+    var nothingYet = !isHost(s) && !(Array.isArray(d.listings) && d.listings.length) &&
+      !(Array.isArray(d.requests) && d.requests.length) && !intros.length;
+    if (nothingYet) out.push({ href: HUB_DOOR, icon: 'hub',
+      text: 'Choose a hub: find print or milling capacity, or list your site' });
     return out;
   }
 
+  /* A line with an href leaves the page (the trailing arrow points on); one
+     with a section id scrolls down to it. */
   function renderNeeds(needs) {
     if (!needs.length) { hide('acctNeeds'); return; }
     fill('acctNeeds',
       '<h2>To do now</h2><ul>' + needs.map(function (n) {
-        return '<li><a href="#' + n.to + '">' + icon(n.icon) + '<span>' + esc(n.text) + '</span>' + icon('arrow_downward') + '</a></li>';
+        var open = n.href ? '<a href="' + esc(n.href) + '">' : '<a href="#' + n.to + '">';
+        var arrow = n.href ? icon('arrow_forward') : icon('arrow_downward');
+        return '<li>' + open + icon(n.icon) + '<span>' + esc(n.text) + '</span>' + arrow + '</a></li>';
       }).join('') + '</ul>');
   }
 
   var NAV_LABEL = { profile: 'Your site', introductions: 'Introductions', declarations: 'Declarations',
-    orders: 'Waiting on you', fees: 'Fees and standing', more: 'More of the network', education: 'Education' };
+    orders: 'Waiting on you', fees: 'Fees and standing', education: 'Education' };
 
   function renderNav(needs) {
     var flagged = {};
@@ -780,7 +693,6 @@
     renderDeclarations(d, s, byId);
     renderOrders(d);
     renderFees(d, s);
-    renderMore(d);
     renderEducation();
     var needs = needsOf(d, s);
     renderNeeds(needs);

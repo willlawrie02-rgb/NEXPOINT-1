@@ -88,6 +88,17 @@ for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.htm
   if (bare) fail(`${p}: ${bare} nav label(s) say "Opportunities"; the hub is the Opportunities Hub (plan 046)`);
 }
 
+// ---------------------------------------------------------------- plan 046: the account page
+// The account page sends a new account to the Global Hub as its one next
+// step and cross-sells nothing (record B1, B2).
+{
+  const page = read("hub/account/index.html");
+  if (!page.includes('id="goHub"')) fail("hub/account/index.html: no Go to the Global Hub button (plan 046)");
+  if (page.includes('id="more"')) fail("hub/account/index.html: More of the network is gone (plan 046)");
+  const dash = read("hub/assets/dashboard.js");
+  if (/More of the network|renderMore|loadBriefs|HUB_TILE|opportunities\/briefs/.test(dash)) fail("hub/assets/dashboard.js: the cross-sell is gone (plan 046)");
+}
+
 // ---------------------------------------------------------------- descriptions and labels
 // The site audit of 5 October 2026 marked two things as errors on the live
 // pages. A page a visitor or a link preview can reach says what it is in one
