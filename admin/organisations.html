@@ -200,7 +200,7 @@ const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 let me=null, orgs=[], strikes=[], listings=[];
-let intentById={}, pendingByOrg={}, pendingByStrike={};
+let intentById={}, pendingByOrg={}, pendingByStrike={}, townByOrg={};
 
 /* The score's bands, verbatim from the engine's own constants
    (statements.SCORE_BAND_GREEN = 80, statements.SCORE_BAND_AMBER = 60):
@@ -265,7 +265,7 @@ async function load(){
 
   const [strikesQ, listQ, ordersQ, intentsQ] = await Promise.all([
     sb.from('strikes').select('*'),
-    sb.from('listings').select('id,org_id,hub,status'),
+    sb.from('listings').select('id,org_id,hub,status,live_revision_id'),
     sb.from('orders').select('org_provider,value,fee_rate,currency,confirmed_at,invoiced_at'),
     sb.from('engine_intents').select('id,type,payload_json,status,result_note')
       .in('status',['pending','claimed','failed','done']).in('type',ORG_INTENTS)
@@ -278,6 +278,27 @@ async function load(){
       If this says the table does not exist, migration 0029 may not be applied yet.</div>`;
   strikes=strikesQ.data||[];
   listings=listQ.data||[];
+
+  /* organisations has no town column (0029 put the address on the listing
+     revision), so a site's town is read off its live revision, else its
+     newest one, the way the hub boards' listingLabel reads it. Only a row
+     whose name another row shares displays it (record B6, plan 050). */
+  townByOrg={};
+  const lids=listings.map(l=>l.id);
+  if(lids.length){
+    const rq=await sb.from('listing_revisions').select('id,listing_id,town')
+      .in('listing_id',lids).order('id',{ascending:false});
+    if(rq.error)
+      $('banner').innerHTML+=`<div class="banner">Could not read listing revisions: ${esc(rq.error.message)}.</div>`;
+    const live=new Set(listings.map(l=>l.live_revision_id).filter(Boolean));
+    const byListing={};
+    (rq.data||[]).forEach(r=>{
+      if(!r.town)return;
+      const cur=byListing[r.listing_id];
+      if(!cur||(live.has(r.id)&&!live.has(cur.id)))byListing[r.listing_id]=r;
+    });
+    listings.forEach(l=>{const r=byListing[l.id];if(r&&!townByOrg[l.org_id])townByOrg[l.org_id]=r.town;});
+  }
 
   const feesByOrg={};
   (ordersQ.data||[]).forEach(o=>{
@@ -400,6 +421,18 @@ function manageFor(q,fallback){
   return fallback;
 }
 
+/* Two sites with one company name read as Name · Town (seen 6 October: two
+   "Bob Lab" rows told apart by nothing). Counted within the list a row sits
+   in, so a removed namesake in the archive leaves the working row plain. */
+const nameKey=o=>(o.name||'').trim().toLowerCase();
+function sameName(rows){
+  const n={};rows.forEach(o=>{const k=nameKey(o);n[k]=(n[k]||0)+1;});return n;
+}
+function nameCell(o,counts){
+  const town=counts[nameKey(o)]>1?townByOrg[o.id]:'';
+  return `<strong>${esc(o.name||'(unnamed)')}</strong>${town?` <span class="muted">\u00b7 ${esc(town)}</span>`:''}`;
+}
+
 function render(feesByOrg){
   /* Will's ruling (2026-09-30): the register is the working list, On and
      Paused (still on the system, tagged red). A Removed company drops
@@ -407,6 +440,7 @@ function render(feesByOrg){
      deleted. */
   const active=orgs.filter(o=>orgState(o)!=='removed');
   const archived=orgs.filter(o=>orgState(o)==='removed');
+  const activeNames=sameName(active), archivedNames=sameName(archived);
   $('count').textContent=active.length?`${active.length} organisation${active.length===1?'':'s'}`:'';
   $('orgRows').innerHTML = active.length ? active.map(o=>{
     const q=pendingByOrg[o.id];
@@ -427,7 +461,7 @@ function render(feesByOrg){
         <span class="material-symbols-outlined" aria-hidden="true">delete</span>Remove from the hub</button>`,
     ].join('');
     return `<tr>
-      <td><strong>${esc(o.name||'(unnamed)')}</strong>${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}
+      <td>${nameCell(o,activeNames)}${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}
         ${o.fee_exempt_note?`<br><span class="muted">${esc(o.fee_exempt_note)}</span>`:''}${pipedriveCell(o)}</td>
       <td>${scoreCell(o)}</td>
       <td>${subBadge(o)}</td>
@@ -444,7 +478,7 @@ function render(feesByOrg){
       : '<tr><td colspan="9">No organisations yet.</td></tr>';
   $('archiveCount').textContent=archived.length?`\u00b7 ${archived.length} removed`:'\u00b7 nothing removed';
   $('archiveRows').innerHTML = archived.length
-    ? archived.map(o=>archiveRow(o,feesByOrg)).join('')
+    ? archived.map(o=>archiveRow(o,feesByOrg,archivedNames)).join('')
     : '<tr><td colspan="5">Nothing removed.</td></tr>';
   /* A failed restore is information the row must show (plan 024), so the
      archive opens itself rather than folding the failure away. */
@@ -454,11 +488,11 @@ function render(feesByOrg){
 /* One archived company: when, who and why it was removed, any strike still
    open against it (curable here), fees still owed on confirmed orders, and
    the one way back. */
-function archiveRow(o,feesByOrg){
+function archiveRow(o,feesByOrg,counts){
   const q=pendingByOrg[o.id];
   const restore=`<button class="btn btn-gh btn-sm" data-org-id="${esc(o.id)}" onclick="restoreOrg(this.dataset.orgId)">Restore to the hub</button>`;
   return `<tr>
-    <td><strong>${esc(o.name||'(unnamed)')}</strong>${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}${pipedriveCell(o)}</td>
+    <td>${nameCell(o,counts)}${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}${pipedriveCell(o)}</td>
     <td>${stateCell(o)}${o.removed_reason?`<br><span class="muted">${esc(o.removed_reason)}</span>`:''}</td>
     <td>${strikeCell(o.id)}</td>
     <td class="fees">${fmtMoney(feesByOrg[o.id])}</td>
