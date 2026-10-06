@@ -930,7 +930,60 @@ async function walkBoards() {
    WALK_ADMIN_DIR pointed at the engine's app/ walks them before the sync. */
 const notes = [];
 const REVIEWED = /failedSince/.test(readFileSync(join(ADMIN_DIR, "health.html"), "utf8"));
+const SAME_NAME = /function sameName\(/.test(readFileSync(join(ADMIN_DIR, "organisations.html"), "utf8"));
 const ago = (hours) => new Date(Date.now() - hours * 36e5).toISOString();
+
+
+/* Plan 050 (record B6): two sites with one company name are told apart on the
+   Organisations board by the town, read off the site's listing revision, and
+   only while another row in the same list shares the name. */
+async function walkOrganisationsNames() {
+  area = "The Organisations board with two sites of one name";
+  if (!SAME_NAME) {
+    notes.push("The Organisations board in this copy predates plan 050's same-name town, so its check was not run. " +
+      "It arrives with the admin sync; WALK_ADMIN_DIR=<engine>/app walks it now.");
+    return;
+  }
+  const world = newWorld();
+  world.rows.organisations = [
+    { id: "org-a", name: "Bob Lab", domain: "boblab.example", sub_status: "active", sub_rate_gbp: 1000, sub_period: "annual", host_print: "live" },
+    { id: "org-b", name: "Bob Lab", domain: null, sub_status: "none" },
+    { id: "org-c", name: "Crux Orthotics", domain: "crux.example", sub_status: "none" },
+    { id: "org-d", name: "Bob Lab", domain: null, sub_status: "none", removed_at: ago(30), removed_by: ADMIN_EMAIL, removed_reason: "the walk's test host" },
+  ];
+  world.rows.listings = [
+    { id: "l-a", org_id: "org-a", hub: "print", status: "live", live_revision_id: 1 },
+    { id: "l-b", org_id: "org-b", hub: "print", status: "pending", live_revision_id: null },
+    { id: "l-d", org_id: "org-d", hub: "print", status: "live", live_revision_id: 3 },
+  ];
+  world.rows.listing_revisions = [
+    { id: 1, listing_id: "l-a", town: "Bromsgrove" },
+    { id: 2, listing_id: "l-b", town: "Leeds" },
+    { id: 3, listing_id: "l-d", town: "Derby" },
+  ];
+  const { context, page, errors } = await visit(world, { seedAdmin: true });
+  await page.goto(`${APEX}/admin/organisations.html`);
+  /* The first line of a name cell: the name, and the town when it is shown. */
+  const firstLines = (sel) => page.$$eval(sel, (tds) => tds.map((td) => {
+    const d = document.createElement("div"); d.innerHTML = td.innerHTML.split("<br>")[0];
+    return d.textContent.replace(/\s+/g, " ").trim();
+  }));
+  await step("Organisations: two working rows of one name carry their towns, and a lone name stays plain", async () => {
+    await page.waitForSelector("#admin", { state: "visible" });
+    await page.waitForSelector("#orgRows tr");
+    await settled(page);
+    eq(await firstLines("#orgRows tr td:first-child"), ["Bob Lab · Bromsgrove", "Bob Lab · Leeds", "Crux Orthotics"], "the working list's names");
+  });
+  await step("Organisations: a removed namesake alone in the archive reads plain", async () => {
+    eq(await firstLines("#archiveRows tr td:first-child"), ["Bob Lab"], "the archive's names");
+  });
+  await step("Organisations: the board read the revisions and wrote nothing", async () => {
+    eq(world.reads.some((r) => r.table === "listing_revisions"), true, "a listing_revisions read");
+    eq(world.writes, [], "writes on load");
+  });
+  clean(world, errors, "the Organisations board");
+  await context.close();
+}
 
 async function walkReviewedBoards() {
   area = "The boards after the code review of 4 October";
@@ -1062,7 +1115,7 @@ const started = Date.now();
    failed check with the reason, and the parts after it still run. */
 const parts = []
   .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkSignedIn, walkAccount, walkHomepage, walkLandings] : [])
-  .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards] : []);
+  .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames] : []);
 try {
   for (const part of parts) {
     try { await part(); } catch (e) {
