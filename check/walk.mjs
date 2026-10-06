@@ -461,8 +461,18 @@ async function walkRegister() {
     await submit();
     return (await onStep(1)) && (await page.locator("#qPass:invalid").count()) === 1;
   });
-  await step("a complete first step moves on to where the site is", async () => {
+  await step("the eye shows the password and hides it again (plan 046)", async () => {
     await page.fill("#qPass", ""); await page.locator("#qPass").pressSequentially(PASSWORD);
+    eq(await page.getAttribute("#qPass", "type"), "password", "before the eye");
+    await page.click('#npAccountContent .np-eye__btn');
+    eq(await page.getAttribute("#qPass", "type"), "text", "after one press");
+    eq(await page.getAttribute('#npAccountContent .np-eye__btn', "aria-pressed"), "true", "the eye's state");
+    await page.click('#npAccountContent .np-eye__btn');
+    eq(await page.getAttribute("#qPass", "type"), "password", "after the second press");
+    return has(await page.textContent('#npAccountContent button[type=submit]'), "Continue", "the button");
+  });
+  await step("a complete first step moves on to where the site is", async () => {
+    await page.fill("#qWebsite", "example.com");
     await submit();
     await page.waitForSelector('form[data-np-step="2"]');
     return has(await page.textContent("#npAccountContent h2"), "Where is this site?", "step two");
@@ -489,8 +499,8 @@ async function walkRegister() {
     const sent = apiCalls(world, "POST /auth/register");
     eq(sent.length, 1, "registrations sent");
     const b = sent[0].body;
-    eq([b.name, b.company, b.email, b.password, b.country, b.town, b.terms_version_id, b.turnstile_token, b.company_url],
-      ["Walk Tester", "ZZ Walk Test Ltd", "walk@example.com", PASSWORD, "United Kingdom", "Leeds", 12, "walk-turnstile-token", ""], "the register body");
+    eq([b.name, b.company, b.email, b.password, b.website, b.country, b.town, b.terms_version_id, b.turnstile_token, b.company_url],
+      ["Walk Tester", "ZZ Walk Test Ltd", "walk@example.com", PASSWORD, "example.com", "United Kingdom", "Leeds", 12, "walk-turnstile-token", ""], "the register body");
   });
   await step("it says check your inbox, and signs nobody in", async () => {
     has(await page.textContent("#npAccountContent .success"), "Check your inbox", "the card");
@@ -542,6 +552,13 @@ async function walkWall() {
   const { context, page, errors } = await visit(world);
   await page.goto(`${PRINT}/find.html`);
   await page.waitForSelector("#signOverlay.open");
+  await step("the sign-in box has the eye too (plan 046)", async () => {
+    await page.fill("#sPass", "peek-at-me");
+    await page.click("#signContent .np-eye__btn");
+    eq(await page.getAttribute("#sPass", "type"), "text", "after one press");
+    await page.click("#signContent .np-eye__btn");
+    return (await page.getAttribute("#sPass", "type")) === "password";
+  });
   await step("a wrong password says so and stays at the door", async () => {
     await page.fill("#sEmail", USER.email); await page.fill("#sPass", "wrong-password");
     await page.click("#signContent button[type=submit]");
@@ -555,7 +572,7 @@ async function walkWall() {
     await page.waitForURL(`${PRINT}/find.html`);
     await page.waitForSelector("body[data-np-open]");
     await page.waitForSelector(".np-chip");
-    return has(await page.textContent("[data-np-account-slot]"), "Signed in · Walk Tester", "the chip");
+    return has(await page.textContent(".np-chip__name"), "Walk Tester", "the chip");
   });
   await step("signing out closes the page and returns to the door", async () => {
     await page.click(".np-chip__out");
@@ -576,7 +593,17 @@ async function walkSignedIn() {
       await page.goto(url);
       if (url !== `${APEX}/hub/`) await page.waitForSelector("body[data-np-open]");
       await page.waitForSelector(".np-chip");
-      has(await page.textContent("[data-np-account-slot]"), "Signed in · Walk Tester", "the chip");
+      has(await page.textContent(".np-chip__name"), "Walk Tester", "the chip's name");
+      has(await page.textContent("[data-np-account-slot]"), "Sign out", "the chip's sign out");
+      if (/Signed in/.test(await page.textContent("[data-np-account-slot]"))) throw new Error('the chip still says "Signed in"');
+      // The Opportunities board has its own header with no Talk to the desk
+      // button; everywhere else the chip sits right of it (plan 046).
+      eq(await page.evaluate(() => {
+        if (!/Talk to the desk/.test(document.querySelector("header").textContent)) return true;
+        const slot = document.querySelector("[data-np-account-slot]");
+        const before = slot && slot.previousElementSibling;
+        return !!(before && /Talk to the desk/.test(before.textContent));
+      }), true, "the chip sits right of Talk to the desk");
       await settled(page);
       const heading = (await page.locator("h1").first().textContent()) || "";
       if (!heading.trim()) throw new Error("the page has no headline");

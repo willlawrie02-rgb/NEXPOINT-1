@@ -8,6 +8,8 @@
 <link rel="icon" href="../assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,done_all,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,lan,layers,local_shipping,lock,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=swap" rel="stylesheet">
 <style>
   :root{--canvas:#F5F7FA;--ink:#0E1626;--muted:#5A6B84;--blue:#005CC8;--blue-hover:#0066DC;--green:#8BC53F;--border:#E3E8EF;--red:#B3261E}
   *{margin:0;padding:0;box-sizing:border-box}
@@ -32,6 +34,12 @@
   input{width:100%;background:#fff;border:1px solid rgba(14,22,38,.18);border-radius:4px;color:var(--ink);
         font:400 14.5px/1.4 'Inter',sans-serif;padding:12px 14px;outline:none}
   input:focus{border-color:var(--blue)}
+  /* show-password (plan 046): the eye sits inside the field, after the text */
+  .np-eye{position:relative;display:block}
+  .np-eye input{padding-right:44px}
+  .np-eye__btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;padding:6px;color:var(--muted);cursor:pointer;border-radius:4px;display:inline-flex}
+  .np-eye__btn:hover{color:var(--blue)}
+  .np-eye__btn .material-symbols-outlined{font-size:20px;display:block}
   .err{display:none;margin-top:12px;color:var(--red);font-size:14px}
   .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
   .foot a{color:var(--blue)}
@@ -106,10 +114,38 @@ function renderForm(token){
       <p class="err" id="formErr"></p>
       <div class="actions"><button class="yes" type="button" id="setBtn">Set password and sign in</button></div>
     </div>`);
+  passwordEye(document.getElementById('pass1'));
+  passwordEye(document.getElementById('pass2'));
   const submit = () => setPassword(token);
   document.getElementById('setBtn').addEventListener('click', submit);
   document.getElementById('pass2').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
   document.getElementById('pass1').focus();
+}
+
+/* Show-password (plan 046): the same eye hub-account.js gives every other
+   password field, inlined because this page loads no shared script. */
+function passwordEye(input){
+  if (!input || input.dataset.npEye) return;
+  input.dataset.npEye = '1';
+  const wrap = document.createElement('div');
+  wrap.className = 'np-eye';
+  input.parentNode.insertBefore(wrap, input);
+  wrap.appendChild(input);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'np-eye__btn';
+  btn.setAttribute('aria-label', 'Show password');
+  btn.setAttribute('aria-pressed', 'false');
+  btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">visibility</span>';
+  btn.addEventListener('click', () => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    btn.firstChild.textContent = show ? 'visibility_off' : 'visibility';
+    input.focus();
+  });
+  wrap.appendChild(btn);
 }
 
 function showError(text){

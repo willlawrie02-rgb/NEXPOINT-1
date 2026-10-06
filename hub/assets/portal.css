@@ -462,12 +462,22 @@ a.door:hover .go svg{transform:translateX(3px)}
 .np-chip .np-chip__account{display:inline-flex;align-items:center;border:1px solid var(--blue);border-radius:var(--radius);padding:8px 13px;color:var(--blue);background:transparent;transition:background var(--dur) var(--ease)}
 .np-chip .np-chip__account:hover{background:rgba(0,92,200,.08);color:var(--blue)}
 .np-chip .np-chip__account[aria-current="page"]{background:rgba(0,92,200,.10)}
-/* On a phone the header has no room for it (the name and Sign out wrapped
-   onto two lines beside it), and it is not needed there: every page that has
-   this chip also has the hub-switch pill bar, shown from 900px down, which
-   carries "Your account" as a pill. Sign out never wraps. */
+/* The chip is the person's name, as the link to the account, with Sign out
+   beside it (Will, 5 and 6 October 2026; plan 046). The name keeps the
+   outline-button look above and its own case: `.nav-links a` would upper-
+   case it. On a phone the name is clipped to fit so Sign out, the only
+   sign-out control there is, stays on the line; "Your account" is also a
+   pill in the hub-switch bar from 900px down. Sign out never wraps. */
+.np-chip .np-chip__name{text-transform:none;letter-spacing:.01em;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block}
 .np-chip__out{white-space:nowrap}
-@media(max-width:600px){.np-chip .np-chip__account{display:none}}
+@media(max-width:600px){.np-chip .np-chip__name{max-width:110px;padding:8px 10px}}
+
+/* Show-password (plan 046): the eye sits inside the field, after the text. */
+.np-eye{position:relative;display:block}
+.np-eye input{width:100%;box-sizing:border-box;padding-right:44px}
+.np-eye__btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;padding:6px;color:var(--on-surface-var);cursor:pointer;border-radius:var(--radius);display:inline-flex;transition:color var(--dur) var(--ease)}
+.np-eye__btn:hover{color:var(--blue)}
+.np-eye__btn .material-symbols-outlined{font-size:20px;display:block}
 
 .np-steps{display:flex;gap:8px;margin-bottom:22px}
 .np-step-dot{width:26px;height:3px;border-radius:9999px;background:var(--border-card)}

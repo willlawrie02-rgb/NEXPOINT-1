@@ -55,6 +55,28 @@ for (const p of pages) {
   else if (!/^Later, cross-border/.test(leads[leads.length - 1])) fail("printhub/index.html: the cross-border use case is not the last row, softened to the add-on it is");
 }
 
+// ---------------------------------------------------------------- plan 046: account creation and the header
+// Will and Chris's walk of 5 October 2026 (record blocks A and B): the
+// register button says Continue, every password field has an eye, step 1
+// asks for the website, and the header shows the person's name right of
+// Talk to the desk, never "Signed in · name".
+{
+  const ha = read("assets/hub-account.js");
+  for (const want of [">Continue<", 'id="qWebsite"', "passwordEye", "np-chip__name"]) {
+    if (!ha.includes(want)) fail(`assets/hub-account.js: missing "${want}" (plan 046)`);
+  }
+  for (const gone of ["Continue to where you are", "Signed in · "]) {
+    if (ha.includes(gone)) fail(`assets/hub-account.js: still says "${gone}" (plan 046)`);
+  }
+  if (!read("hub/reset.html").includes("np-eye")) fail("hub/reset.html: no show-password control (plan 046)");
+  for (const p of pages) {
+    const t = read(p);
+    const slot = t.indexOf("data-np-account-slot");
+    const desk = t.indexOf(">Talk to the desk</button>");
+    if (slot >= 0 && desk >= 0 && slot < desk) fail(`${p}: the account slot sits before Talk to the desk; the name goes to its right (plan 046)`);
+  }
+}
+
 // ---------------------------------------------------------------- descriptions and labels
 // The site audit of 5 October 2026 marked two things as errors on the live
 // pages. A page a visitor or a link preview can reach says what it is in one
