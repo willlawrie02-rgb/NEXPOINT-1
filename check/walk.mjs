@@ -972,7 +972,8 @@ async function walkOrganisationsNames() {
     await page.waitForSelector("#admin", { state: "visible" });
     await page.waitForSelector("#orgRows tr");
     await settled(page);
-    eq(await firstLines("#orgRows tr td:first-child"), ["Bob Lab · Bromsgrove", "Bob Lab · Leeds", "Crux Orthotics"], "the working list's names");
+    /* Sorted: the stub hands rows back as seeded, but the two namesakes have no order of their own. */
+    eq((await firstLines("#orgRows tr td:first-child")).sort(), ["Bob Lab · Bromsgrove", "Bob Lab · Leeds", "Crux Orthotics"], "the working list's names");
   });
   await step("Organisations: a removed namesake alone in the archive reads plain", async () => {
     eq(await firstLines("#archiveRows tr td:first-child"), ["Bob Lab"], "the archive's names");
