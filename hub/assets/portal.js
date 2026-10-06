@@ -160,21 +160,33 @@ async function npApi(path, opts){
    of a reader that turns text into markup is three places for one of them
    to stop escaping first. Escaped first it is: nothing a terms body
    carries can arrive as markup of its own.                              */
+/* A line is joined to the one before it unless it is blank, a heading or a
+   new list item (markdown's soft line break): the terms files are wrapped at
+   about 95 characters, and on 6 October 2026 the live page showed each source
+   line as its own paragraph. The same reader sits on the terms page. */
 function markdownLite(md){
+  const LEVEL = 2;
   const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
-  let html = '', inList = false;
-  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  let html = '', inList = false, para = [], item = null;
   const inline = (s) => escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+  const flushPara = () => { if (para.length) { html += '<p>' + inline(para.join(' ')) + '</p>'; para = []; } };
+  const flushItem = () => { if (item) { html += '<li>' + inline(item.join(' ')) + '</li>'; item = null; } };
+  const closeList = () => { flushItem(); if (inList) { html += '</ul>'; inList = false; } };
   lines.forEach((raw) => {
     const line = raw.trim();
-    if (!line) { closeList(); return; }
+    if (!line) { flushPara(); closeList(); return; }
     const h = /^(#{1,4})\s+(.*)$/.exec(line);
-    if (h) { closeList(); const lvl = Math.min(h[1].length + 2, 6); html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>'; return; }
+    if (h) { flushPara(); closeList(); const lvl = Math.min(h[1].length + LEVEL, 6); html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>'; return; }
     const li = /^[-*]\s+(.*)$/.exec(line);
-    if (li) { if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(li[1]) + '</li>'; return; }
-    closeList();
-    html += '<p>' + inline(line) + '</p>';
+    if (li) { flushPara(); flushItem(); if (!inList) { html += '<ul>'; inList = true; } item = [li[1]]; return; }
+    if (item) { item.push(line); return; }
+    /* A rule, and a line that is entirely bold (the acceptance screens' titles,
+       with the reference on the next line) each stand alone. */
+    if (/^-{3,}$/.test(line)) { flushPara(); html += '<hr>'; return; }
+    if (/^\*\*[^*]+\*\*$/.test(line)) { flushPara(); html += '<p>' + inline(line) + '</p>'; return; }
+    para.push(line);
   });
+  flushPara();
   closeList();
   return html;
 }

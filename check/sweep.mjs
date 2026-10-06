@@ -28,6 +28,9 @@ const stripComments = (t) =>
 
 for (const p of pages) {
   const t = read(p);
+  // The company is NexPoint Global Ltd (Companies House 17214028, confirmed by
+  // Will on 5 October 2026); "NexPoint Ltd" is an unrelated company's name.
+  if (/NexPoint Ltd\b|NexPoint Limited\b/.test(stripComments(t))) fail(`${p}: says "NexPoint Ltd" (the company is NexPoint Global Ltd)`);
   if (/forty years/i.test(t)) fail(`${p}: says "forty years" (the figure is 20+ years)`);
   if (/member portal/i.test(t)) fail(`${p}: says "member portal"`);
   if (stripComments(t).includes("—")) fail(`${p}: an em-dash in outward copy`);

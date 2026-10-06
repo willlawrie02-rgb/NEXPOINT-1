@@ -54,21 +54,34 @@ function fmtDate(iso){
   try { return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }); }
   catch (e) { return iso; }
 }
+/* The same reader as portal.js's markdownLite, one heading level higher:
+   a line is joined to the one before it unless it is blank, a heading or a
+   new list item (markdown's soft line break). The terms files are wrapped
+   at about 95 characters, and on 6 October 2026 this page showed each
+   source line as its own paragraph. */
 function renderMarkdownLite(md){
+  const LEVEL = 1;
   const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
-  let html = '', inList = false;
-  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  let html = '', inList = false, para = [], item = null;
   const inline = (s) => escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+  const flushPara = () => { if (para.length) { html += '<p>' + inline(para.join(' ')) + '</p>'; para = []; } };
+  const flushItem = () => { if (item) { html += '<li>' + inline(item.join(' ')) + '</li>'; item = null; } };
+  const closeList = () => { flushItem(); if (inList) { html += '</ul>'; inList = false; } };
   lines.forEach((raw) => {
     const line = raw.trim();
-    if (!line) { closeList(); return; }
+    if (!line) { flushPara(); closeList(); return; }
     const h = /^(#{1,4})\s+(.*)$/.exec(line);
-    if (h) { closeList(); const lvl = Math.min(h[1].length + 1, 6); html += `<h${lvl}>${inline(h[2])}</h${lvl}>`; return; }
+    if (h) { flushPara(); closeList(); const lvl = Math.min(h[1].length + LEVEL, 6); html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>'; return; }
     const li = /^[-*]\s+(.*)$/.exec(line);
-    if (li) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(li[1])}</li>`; return; }
-    closeList();
-    html += `<p>${inline(line)}</p>`;
+    if (li) { flushPara(); flushItem(); if (!inList) { html += '<ul>'; inList = true; } item = [li[1]]; return; }
+    if (item) { item.push(line); return; }
+    /* A rule, and a line that is entirely bold (the acceptance screens' titles,
+       with the reference on the next line) each stand alone. */
+    if (/^-{3,}$/.test(line)) { flushPara(); html += '<hr>'; return; }
+    if (/^\*\*[^*]+\*\*$/.test(line)) { flushPara(); html += '<p>' + inline(line) + '</p>'; return; }
+    para.push(line);
   });
+  flushPara();
   closeList();
   return html;
 }
