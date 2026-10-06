@@ -7,15 +7,16 @@
      right: { side: 'request_capacity', title: 'Seekers — requesting capacity', approveLabel: 'Approve request' },
    }
    plus the board skeleton: #banner, #count, #filters, #leftTitle/#leftN/#leftCol,
-   #rightTitle/#rightN/#rightCol, #introRows, #overlay/#modalBody. Print/Mill
-   additionally carry #hostAppRows (host applications, spec §4 — "only print
-   and mill hosts pay"), #listingRows (the listing review queue) and
-   #seekerCol (the seeker request queue that replaces the old right column,
-   which stays on the page under a "Website enquiries" disclosure, opened
-   whenever it holds anything) and #legend (the badge key renderLegend fills):
-   Opportunities has none of those, so every code path below checks for the
-   element before touching the DOM, and the fetches are gated on HUB.hub
-   being 'print' or 'mill'.
+   #rightTitle/#rightN/#rightCol, #overlay/#modalBody. Print/Mill are the
+   two-column board (plan 044, Will's ruling of 6 Oct): #leftCol reviews
+   listings as cards and #rightCol renders Find-capacity seeker requests
+   beside the older enquiries. The Listings table, the Seeker requests
+   section, the Host applications table and the Introductions register left
+   the two pages; approve-listing makes the host and starts billing.
+   Opportunities has #introRows and no listings, so every code path below
+   checks for the element before touching the DOM, and the hub v2 fetches
+   are gated on HUB.hub being 'print' or 'mill'. #legend is the badge key
+   renderLegend fills where a page has one.
 
    Every action inserts an engine_intents row; the UI marks the card
    "Queued for the engine" until the executed intent's result lands.
@@ -30,7 +31,7 @@ const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
 let me=null,requests=[],intros=[],pendingByReq={},pendingByIntro={},intentById={},filter='all';
-let hostApps=[],orgById={},pendingByHostApp={};
+let orgById={};
 /* Hub v2: the listing review queue and the seeker request queue. */
 let listings=[],revById={},machinesByRev={},seekReqs=[];
 let pendingByListing={},pendingBySeekReq={};
@@ -140,9 +141,6 @@ const FILTERS=[
   {f:'approved',label:'Approved'},{f:'declined',label:'Declined'},
 ];
 const REQ_BADGE={new:'NEW',reviewing:'REVIEWING',approved:'APPROVED',declined:'DECLINED'};
-const HOST_BADGE={pending:'PENDING',approved:'APPROVED',declined:'DECLINED'};
-/* Host applications borrow the request colours: pending reads as new. */
-const hostCls=v=>v==='pending'?'new':v==='approved'?'approved':'declined';
 
 /* One plain-English line per badge value, keyed by vocabulary because the
    same word (declined, approved, pending) means something different on each
@@ -182,11 +180,6 @@ const STATUS_HELP={
     approved:'Approved; pair it into an introduction from the card',
     declined:'Declined, with the reason on the card',
   },
-  host:{
-    pending:'Applied to host on this hub; billing starts only when approved',
-    approved:'Approved; billing runs at the rate entered',
-    declined:'Declined; never charged',
-  },
 };
 /* A status badge: the vocabulary's label, its plain line as the title, and
    the .stg-* colour class (cls when a vocabulary borrows another's colours). */
@@ -205,16 +198,12 @@ async function load(){
     $('banner').innerHTML=`<div class="banner">Could not read requests: ${esc(rq.error.message)}.
       If this says the table does not exist or permission is denied, migration 0016 has not been run yet.</div>`;
     $('leftCol').innerHTML='';$('rightCol').innerHTML='';
-    /* On print/mill the listings and seeker queues are the working board and
-       the enquiry inbox is the legacy section, so a web_requests failure
-       shows its banner and the rest of the page still loads. */
-    if(!(HOSTS_HUB()&&$('listingRows')))return;
+    /* On print/mill the host cards read through web_requests, but the seeker
+       requests and the listings do not, so a web_requests failure shows its
+       banner and the rest of the page still loads. */
+    if(!HOSTS_HUB())return;
   }
   requests=rq.data||[];
-  /* The website enquiry inbox lives under a disclosure on print/mill; live
-     traffic still lands there, so it opens itself whenever it has rows. */
-  const legacy=document.querySelector('details.legacy');
-  if(legacy&&requests.length)legacy.open=true;
   const iq=await sb.from('introductions').select('*').eq('hub',HUB.hub)
     .order('updated_at',{ascending:false});
   if(iq.error){
@@ -222,20 +211,13 @@ async function load(){
   }
   intros=iq.data||[];
 
-  hostApps=[];orgById={};listings=[];revById={};machinesByRev={};seekReqs=[];
+  orgById={};listings=[];revById={};machinesByRev={};seekReqs=[];
   if(HOSTS_HUB()){
-    const haq=await sb.from('host_applications').select('*').eq('hub',HUB.hub)
-      .order('submitted_at',{ascending:false});
-    if(haq.error){
-      $('banner').innerHTML+=`<div class="banner">Could not read host applications: ${esc(haq.error.message)}.
-        If this says the table does not exist or permission is denied, migration 0024 (schema) and
-        0025 (engine_worker grants) may not be applied yet.</div>`;
-    }else{
-      hostApps=haq.data||[];
-    }
     await loadHubV2();
-    /* One organisations lookup for every table that names one. */
-    const orgIds=[...new Set([...hostApps.map(a=>a.org_id),...listings.map(l=>l.org_id),
+    /* One organisations lookup for every table that names one. A web_requests
+       row has no organisation column; a host card reads the organisation
+       through its listing. */
+    const orgIds=[...new Set([...listings.map(l=>l.org_id),
       ...seekReqs.map(r=>r.org_id)].filter(Boolean))];
     if(orgIds.length){
       const oq=await sb.from('organisations').select('id,name,domain,hidden_at,removed_at,paused_reason,removed_reason').in('id',orgIds);
@@ -251,7 +233,6 @@ async function load(){
     .select('id,type,payload_json,status,result_note')
     .in('status',['pending','claimed','failed','done'])
     .in('type',['review-web-request','create-introduction','update-introduction',
-                'approve-host','decline-host',
                 ...LISTING_INTENTS,...SEEKER_INTENTS,'reroute-introduction',
                 'reissue-acceptance'])
     .order('id',{ascending:false}).limit(1000);
@@ -267,7 +248,6 @@ async function load(){
   pendingByReq=newestIntent(intents,(i,p)=>
     [SEEKER_INTENTS.includes(i.type)?null:p.request_id,p.request_a,p.request_b]);
   pendingByIntro=newestIntent(intents,(i,p)=>p.introduction_id);
-  pendingByHostApp=newestIntent(intents,(i,p)=>p.application_id);
   /* add-provider and reroute name a listing too — they are not a decision
      ON that listing, so they never grey out its review buttons. */
   pendingByListing=newestIntent(intents,(i,p)=>
@@ -348,14 +328,25 @@ function retry(intentId){
   const spot=LISTING_INTENTS.includes(i.type)?'lst-'+p.listing_id
     :SEEKER_INTENTS.includes(i.type)?'sreq-'+p.request_id
     :p.introduction_id!=null?'iact-'+p.introduction_id
-    :p.application_id!=null?'happ-'+p.application_id
     :'act-'+(p.request_id!=null?p.request_id:p.request_a);
   raise(i.type,p,spot,'Sent again');
 }
 
 /* ── Hub v2 actions ────────────────────────────────────────────────── */
 
-function approveListing(id){raise('approve-listing',{listing_id:id},'lst-'+id,'Approved');}
+function approveListing(id){
+  /* Approval makes the host and starts billing (plan 044). The membership
+     is fixed at 1,000 a year or 100 a month; the board asks only which,
+     with no default (Will, 6 Oct), prefilled with the host's own choice
+     once the form carries one (plan 045). */
+  const l=listingById(id)||{};
+  const rev=revById[l.pending_revision_id]||{};
+  const asked=prompt("Billing period for this host: type 'annual' (1,000 a year) or 'monthly' (100 a month)",rev.billing_period||'');
+  if(asked===null)return;
+  const period=asked.trim().toLowerCase();
+  if(period!=='annual'&&period!=='monthly'){alert("Type 'annual' or 'monthly'.");return;}
+  raise('approve-listing',{listing_id:id,period},'lst-'+id,'Approved');
+}
 function declineListing(id){
   const note=prompt('What needs changing before this listing can go live? (sent to the host)');
   if(note===null)return;
@@ -391,28 +382,19 @@ function declineRequest(id){
   if(!reason.trim()){alert('The engine keeps a reason on every declined request.');return;}
   raise('decline-intro-request',{request_id:id,reason:reason.trim()},'sreq-'+id,'Declined');
 }
+function offerToSeeker(listingId){
+  /* "Offer to a seeker" on a live host card (Will, 6 Oct): the existing
+     add-provider path, so the host is emailed the offer with its accept
+     and decline links and contact details are released only on
+     acceptance. Nothing is sent from Outlook. */
+  const sel=$('offer-'+listingId);
+  if(!sel||!sel.value){alert('Choose a seeker request to offer this host to.');return;}
+  raise('add-provider',{request_id:Number(sel.value),listing_id:listingId},'lst-'+listingId,'Offered');
+}
 function reroute(id){
   const sel=$('rr-'+id);
   if(!sel||!sel.value){alert('Choose a listing to re-route to.');return;}
   raise('reroute-introduction',{introduction_id:id,listing_id:sel.value},'iact-'+id,'Re-routed');
-}
-
-/* ── Host applications (spec §4 — gated onboarding, print/mill only) ──── */
-
-function approveHostApp(id){
-  const rateStr=prompt('Subscription rate in GBP (e.g. 500 for £500):');
-  if(rateStr===null)return;
-  const rate=Number(rateStr);
-  if(!rate||rate<=0){alert('Enter a positive number for the rate.');return;}
-  const period=(prompt("Billing period — type 'annual' or 'monthly':","annual")||'').trim().toLowerCase();
-  if(period===''){return;}
-  if(period!=='annual'&&period!=='monthly'){alert("Period must be 'annual' or 'monthly'.");return;}
-  raise('approve-host',{application_id:id,rate,period},'happ-'+id,'Approved');
-}
-function declineHostApp(id){
-  const note=prompt('Reason for declining (optional — shown to the applicant only if you give one):');
-  if(note===null)return;
-  raise('decline-host',{application_id:id,note},'happ-'+id,'Declined');
 }
 
 /* ── Rendering ─────────────────────────────────────────────────────── */
@@ -421,15 +403,16 @@ function setFilter(f){filter=f;render();}
 
 function render(){
   const awaiting=requests.filter(r=>r.status==='new'||r.status==='reviewing').length;
-  if(HOSTS_HUB()&&$('listingRows')){
-    /* On print/mill the page is about listings and seeker requests now; the
-       web_requests columns below are the legacy inbox and say so. */
+  if(HOSTS_HUB()){
+    /* On print/mill the count reads the two columns: listings to review on
+       the left, open seeker requests and other enquiries on the right. */
     const toReview=listings.filter(l=>l.status==='pending'||l.pending_revision_id).length;
-    const open=seekReqs.filter(r=>r.status==='open'||r.status==='picked').length;
+    const open=seekReqs.filter(r=>r.status==='open'||r.status==='picked'||r.status==='desk').length;
+    const other=requests.filter(r=>sidesOf(HUB.right).includes(r.side)&&(r.status==='new'||r.status==='reviewing')).length;
     $('count').textContent=[
       toReview?`${toReview} listing${toReview===1?'':'s'} to review`:'',
       open?`${open} open seeker request${open===1?'':'s'}`:'',
-      requests.length?`${requests.length} website enquir${requests.length===1?'y':'ies'}`:'',
+      other?`${other} other enquir${other===1?'y':'ies'}`:'',
     ].filter(Boolean).join(' · ');
   }else{
     $('count').textContent=requests.length
@@ -444,10 +427,12 @@ function render(){
   renderCol('left');
   renderCol('right');
   renderRegister();
-  if(HOSTS_HUB()&&$('hostAppRows'))renderHostApps();
-  if(HOSTS_HUB()&&$('listingRows'))renderListings();
-  if(HOSTS_HUB()&&$('seekerCol'))renderSeekerQueue();
   renderLegend();
+  /* #listing-<id> (the desk notice's button, plan 047): open that card once. */
+  if(!render.jumped&&/^#listing-/.test(location.hash)){
+    const card=document.getElementById('lst-card-'+location.hash.slice(9));
+    if(card){render.jumped=true;card.scrollIntoView({block:'start'});}
+  }
 }
 
 /* The badge key under the page intro: one row per queue this page has,
@@ -458,22 +443,62 @@ function renderLegend(){
     Object.keys(labels).map(v=>`<span class="legend-i">${stg(kind,v,labels[v],cls?cls(v):undefined)} ${
       esc((STATUS_HELP[kind]||{})[v]||'')}</span>`).join('')}</div>`;
   const rows=[];
-  if(HOSTS_HUB()&&$('listingRows'))rows.push(row('Listings','listing',LISTING_BADGE));
-  if(HOSTS_HUB()&&$('seekerCol'))rows.push(row('Seeker requests','seeker',SREQ_BADGE));
+  if(HOSTS_HUB())rows.push(row('Listings','listing',LISTING_BADGE));
+  if(HOSTS_HUB())rows.push(row('Seeker requests','seeker',SREQ_BADGE));
   rows.push(row('Introductions','stage',STAGE_LABEL));
-  if(HOSTS_HUB()&&$('hostAppRows'))rows.push(row('Host applications','host',HOST_BADGE,hostCls));
-  rows.push(row('Website enquiries','request',REQ_BADGE));
+  rows.push(row(HOSTS_HUB()?'Other enquiries':'Website enquiries','request',REQ_BADGE));
   el.innerHTML=`<details class="legend-box"><summary>What the badges mean</summary>${rows.join('')}</details>`;
+}
+
+/* The seeker-request vocabulary mapped onto the filter chips, so one row of
+   chips filters both kinds of card in the right column. */
+const SEEK_FILTER={new:['open','picked'],reviewing:['desk'],approved:['closed'],declined:['declined']};
+/* Under All the closed requests stay off the board, as the queue this
+   replaces kept them; the Approved chip is where they are listed. */
+function seekMatches(r){return filter==='all'?r.status!=='closed':(SEEK_FILTER[filter]||[]).includes(r.status);}
+/* A host card is judged by its LISTING, not by the enquiry row behind it:
+   New is anything with a revision to review, Approved is live. */
+function listingMatches(l){
+  if(filter==='all')return true;
+  if(filter==='new')return l.status==='pending'||!!l.pending_revision_id;
+  if(filter==='approved')return l.status==='live';
+  if(filter==='declined')return l.status==='declined';
+  return false;
 }
 
 function renderCol(which){
   const col=HUB[which];
-  const all=requests.filter(r=>sidesOf(col).includes(r.side));
-  const shown=all.filter(r=>filter==='all'||r.status===filter);
-  $(which+'N').textContent=all.length;
-  $(which+'Col').innerHTML=shown.length
-    ?shown.map(r=>reqCard(r,col)).join('')
-    :`<div class="empty">${all.length?'Nothing matches this filter.':'Nothing here yet — requests from the website land in this column.'}</div>`;
+  /* The worker files one web_requests row per SUBMISSION, so a resubmitted
+     or edited listing has several rows behind it: the newest row (the read
+     is created_at descending) stands for the listing and the rest are
+     dropped, one card per listing. A row with no listing behind it is a
+     legacy enquiry and keeps its own card. */
+  const seen=new Set();
+  const all=requests.filter(r=>sidesOf(col).includes(r.side)).map(r=>{
+    const l=HOSTS_HUB()&&r.side==='offer_capacity'?listingById((r.payload||{}).listing_id):null;
+    return {r,l};
+  }).filter(({l})=>{
+    if(!l)return true;
+    if(seen.has(String(l.id)))return false;
+    seen.add(String(l.id));return true;
+  });
+  const shown=all.filter(({r,l})=>l?listingMatches(l):(filter==='all'||r.status===filter));
+  let cards=shown.map(({r,l})=>({at:r.created_at||'',html:l?listingCard(r,l):reqCard(r,col)}));
+  let total=all.length;
+  if(which==='right'&&HOSTS_HUB()){
+    /* Find-capacity requests (hub v2) render beside the older enquiries
+       (Will, 6 Oct): the right column is every seeker, whichever door
+       they came through. */
+    total+=seekReqs.length;
+    cards=cards.concat(seekReqs.filter(seekMatches).map(r=>({at:r.created_at||'',html:seekerCard(r)})));
+  }
+  cards.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  $(which+'N').textContent=total;
+  $(which+'Col').innerHTML=cards.length
+    ?cards.map(c=>c.html).join('')
+    :`<div class="empty">${total?'Nothing matches this filter.'
+      :which==='left'?'Nothing to review. A host\'s listing lands here the moment it is submitted.'
+      :'Nothing here yet. A seeker who searches and picks providers, or writes to the desk, lands here.'}</div>`;
 }
 
 function payloadDetails(r){
@@ -483,6 +508,80 @@ function payloadDetails(r){
     .map(([k,v])=>`<strong>${esc(k.replace(/_/g,' '))}:</strong> ${esc(Array.isArray(v)?v.join(', '):v)}`);
   if(!lines.length)return '';
   return `<details class="pl"><summary><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>What they submitted</summary><p>${lines.join('<br>')}</p></details>`;
+}
+
+/* A listing's card (plan 044): the worker files one web_requests row per
+   submission with the listing and revision ids in its payload. The card
+   shows the LISTING's status and the whole revision the host filled in, and
+   its buttons raise the listing intents, so the row settles when the engine
+   decides (handlers._settle_enquiry). A live host gets "Offer to a seeker".
+   A legacy offer row with no listing behind it keeps the plain request card. */
+function offerControl(l){
+  /* A Paused or Removed host is not shown to seekers or the desk's pickers
+     (Will's 2026-09-10 ruling), so it is not offered from its own card either. */
+  if(!orgVisible(orgById[l.org_id]))return `<span style="color:var(--fg-2);font-size:12.5px">Paused or removed on the Organisations board: not offered to seekers</span>`;
+  const taken=new Set(intros.filter(i=>String(i.listing_id)===String(l.id)).map(i=>i.seeker_request_id));
+  const open=seekReqs.filter(r=>(r.status==='open'||r.status==='picked'||r.status==='desk')&&!taken.has(r.id));
+  if(!open.length)return `<span style="color:var(--fg-2);font-size:12.5px">No open seeker request to offer this host to</span>`;
+  return `<select id="offer-${esc(l.id)}" aria-label="Offer ${esc((orgById[l.org_id]||{}).name||'this host')} to a seeker">
+      <option value="">Offer to a seeker…</option>
+      ${open.map(r=>`<option value="${r.id}">${esc(seekRef(r))} · ${esc((orgById[r.org_id]||{}).name||'(seeker)')}${
+        r.material?' · '+esc(r.material):''}</option>`).join('')}
+    </select>
+    <button class="btn btn-gh btn-sm" onclick="offerToSeeker('${esc(l.id)}')">Offer</button>`;
+}
+
+function listingCard(r,l){
+  const pending=revById[l.pending_revision_id],live=revById[l.live_revision_id];
+  const rev=revById[(r.payload||{}).revision_id]||pending||live||{};
+  const q=pendingByListing[l.id];
+  const failed=failedAbove(q,'Failed',!!pending);
+  let actions;
+  if(q&&!failed){
+    actions=`<div class="actions">${QUEUED_LINE}</div>`;
+  }else if(l.status!=='live'&&pending){
+    actions=`<div class="actions">${failed}
+      <button class="btn btn-grn btn-sm" onclick="approveListing('${esc(l.id)}')"><span class="material-symbols-outlined" aria-hidden="true">check</span>Approve</button>
+      <button class="btn btn-danger btn-sm" onclick="declineListing('${esc(l.id)}')"><span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button></div>`;
+  }else if(l.status==='live'&&pending){
+    actions=`<div class="actions">${failed}
+      <button class="btn btn-grn btn-sm" onclick="approveRevision('${esc(l.id)}')"><span class="material-symbols-outlined" aria-hidden="true">check</span>Approve revision</button>
+      <button class="btn btn-danger btn-sm" onclick="declineRevision('${esc(l.id)}')"><span class="material-symbols-outlined" aria-hidden="true">close</span>Decline revision</button></div>`;
+  }else if(l.status==='live'){
+    actions=`<div class="actions">${failed}${offerControl(l)}</div>`;
+  }else{
+    actions=`<div class="actions">${failed}<span style="color:var(--fg-2);font-size:12.5px">Nothing to review</span></div>`;
+  }
+  const meta=[
+    r.contact_name?`<span>${esc(r.contact_name)}</span>`:'',
+    r.email?`<span>${esc(r.email)}</span>`:'',
+    r.location?`<span>${esc(r.location)}</span>`:'',
+    rev.submitted_at?`<span>submitted ${esc(String(rev.submitted_at).slice(0,10))}</span>`:
+      r.created_at?`<span>received ${esc(String(r.created_at).slice(0,10))}</span>`:'',
+  ].filter(Boolean).join('');
+  /* This host's introductions, each with its controls (introManage): the
+     register left the page, and the Introductions page is read-only. */
+  const mine=intros.filter(i=>String(i.listing_id)===String(l.id)&&i.stage!=='dead');
+  const linked=mine.length
+    ?mine.map(i=>`<div class="meta" style="align-items:center">
+        <span>${stg('stage',i.stage,STAGE_LABEL[i.stage]||i.stage)} ${esc(introRef(i))} · ${esc(partyB(i))}</span>
+        <div id="iact-${i.id}" class="actions" style="margin-top:0">${introManage(i)}</div></div>`).join('')
+    :'';
+  const changes=pending&&live&&l.status==='live'?revisionDiff(live,pending):[];
+  const wanted=location.hash==='#listing-'+l.id;
+  return `<div class="row req s-${esc(l.status==='pending'?'new':l.status==='live'?'approved':l.status)}" id="lst-card-${esc(l.id)}">
+    <div class="row-top">
+      <span class="ref">${esc(reqRef(r))}</span>
+      <span class="company">${esc((orgById[l.org_id]||{}).name||r.company||'(no company given)')}${
+        rev.town?` <span style="color:var(--fg-2);font-weight:400">· ${esc(rev.town)}</span>`:''}</span>
+      ${stg('listing',l.status,LISTING_BADGE[l.status]||l.status)}${orgStateMarker(orgById[l.org_id])}
+    </div>
+    <div class="meta">${meta}</div>
+    ${linked}
+    <details class="pl"${wanted?' open':''}><summary><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>What they submitted</summary>${
+      changes.length?diffTable(changes):submittedTable(rev)}</details>
+    <div id="lst-${esc(l.id)}">${actions}</div>
+  </div>`;
 }
 
 function reqCard(r,col){
@@ -550,9 +649,37 @@ function fmtCommission(i){
   return i.commission_basis?esc(i.commission_basis):'—';
 }
 
+/* One introduction's controls: the stage dropdown and Record commission
+   while the stage is one the desk sets; With the provider, Re-route and
+   Reissue while the acceptance flow owns it; a failed intent above either.
+   The register row (Opportunities) and the host card (Print and Mill, where
+   the register left the page in plan 044) render the same thing, so no
+   introduction is ever without its controls. */
+function introManage(i){
+  const q=pendingByIntro[i.id];
+  const failed=failedAbove(q,'Failed');
+  if(q&&!failed)return `<span class="status">Queued for the engine — moments away.</span>`;
+  if(STAGES.includes(i.stage)){
+    return failed+`<select aria-label="Set stage for ${esc(introRef(i))}" onchange="setStage(${i.id},this.value)">
+        ${STAGES.map(s=>`<option value="${s}" ${s===i.stage?'selected':''}>${STAGE_LABEL[s]}</option>`).join('')}
+      </select>
+      <button class="btn btn-gh btn-sm" onclick="recordCommission(${i.id})">Record commission</button>`;
+  }
+  /* In the acceptance flow: the provider, the worker and the engine move
+     these, not a dropdown. A spent one may be re-routed to another host. */
+  let manage=`<span style="color:var(--fg-2);font-size:12.5px">With the provider</span>`;
+  if(SPENT_STAGES.includes(i.stage))manage=rerouteControl(i)
+    ||`<span style="color:var(--fg-2);font-size:12.5px">No other visible listing to re-route to (hidden organisations are left out)</span>`;
+  if(REISSUABLE_STAGES.includes(i.stage))manage+=`
+    <button class="btn btn-gh btn-sm" onclick="reissueAcceptance(${i.id})">Reissue acceptance link</button>`;
+  return failed+manage;
+}
+
 function renderRegister(){
+  if(!$('introRows'))return;
   /* Dead introductions leave the working board; the rows stay in the
-     database and the nightly archive. */
+     database and the nightly archive. Print and Mill have no register since
+     plan 044 (the Introductions page has every hub's); Opportunities keeps it. */
   const live=intros.filter(i=>i.stage!=='dead');
   if(!live.length){
     $('introRows').innerHTML=`<tr><td colspan="6" style="color:var(--fg-2)">${intros.length
@@ -561,27 +688,7 @@ function renderRegister(){
     return;
   }
   $('introRows').innerHTML=live.map(i=>{
-    const q=pendingByIntro[i.id];
-    /* The stage decides the controls; a failed intent sits above them. */
-    const failed=failedAbove(q,'Failed');
-    let manage;
-    if(q&&!failed){
-      manage=`<span class="status">Queued for the engine — moments away.</span>`;
-    }else if(STAGES.includes(i.stage)){
-      manage=failed+`<select aria-label="Set stage for ${esc(introRef(i))}" onchange="setStage(${i.id},this.value)">
-          ${STAGES.map(s=>`<option value="${s}" ${s===i.stage?'selected':''}>${STAGE_LABEL[s]}</option>`).join('')}
-        </select>
-        <button class="btn btn-gh btn-sm" onclick="recordCommission(${i.id})">Record commission</button>`;
-    }else{
-      /* In the acceptance flow: the provider, the worker and the engine move
-         these, not a dropdown. A spent one may be re-routed to another host. */
-      manage=`<span style="color:var(--fg-2);font-size:12.5px">With the provider</span>`;
-      if(SPENT_STAGES.includes(i.stage))manage=rerouteControl(i)
-        ||`<span style="color:var(--fg-2);font-size:12.5px">No other visible listing to re-route to (hidden organisations are left out)</span>`;
-      if(REISSUABLE_STAGES.includes(i.stage))manage+=`
-        <button class="btn btn-gh btn-sm" onclick="reissueAcceptance(${i.id})">Reissue acceptance link</button>`;
-      manage=failed+manage;
-    }
+    const manage=introManage(i);
     const when=i.stage==='declined'&&i.declined_at?String(i.declined_at).slice(0,10)
       :i.stage==='expired'&&i.acceptance_expires_at?String(i.acceptance_expires_at).slice(0,10):'';
     return `<tr>
@@ -644,48 +751,6 @@ function rerouteControl(i){
     <button class="btn btn-gh btn-sm" onclick="reroute(${i.id})">Re-route</button>`;
 }
 
-function hostAppProfile(a){
-  const lines=Object.entries(a.profile||{})
-    .filter(([k,v])=>v!=null&&String(v).trim()!=='')
-    .map(([k,v])=>`<strong>${esc(k.replace(/_/g,' '))}:</strong> ${esc(Array.isArray(v)?v.join(', '):v)}`);
-  if(!lines.length)return '<span style="color:var(--fg-2)">—</span>';
-  return `<details class="pl"><summary><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>Profile</summary><p>${lines.join('<br>')}</p></details>`;
-}
-
-function renderHostApps(){
-  if(!hostApps.length){
-    $('hostAppRows').innerHTML=`<tr><td colspan="5" style="color:var(--fg-2)">No ${esc(HUB.hub)} hub applications yet.</td></tr>`;
-    return;
-  }
-  $('hostAppRows').innerHTML=hostApps.map(a=>{
-    const org=orgById[a.org_id]||{};
-    const q=pendingByHostApp[a.id];
-    /* A decided application has settled: its failure is shown (an
-       approval whose email failed after the write lands here), Try again
-       is not, since the decision the payload carries is already made. */
-    const failed=failedAbove(q,'Failed',a.status==='pending');
-    let manage;
-    if(a.status!=='pending'){
-      manage=failed+stg('host',a.status,HOST_BADGE[a.status]||a.status.toUpperCase(),hostCls(a.status))
-        +(a.decided_by?` <span style="color:var(--fg-2);font-size:12px">by ${esc(a.decided_by)}</span>`:'');
-    }else if(q&&!failed){
-      manage=`<span class="status">Queued — the engine acts within a minute or two.</span>`;
-    }else{
-      manage=failed+`<button class="btn btn-grn btn-sm" onclick="approveHostApp(${a.id})">
-          <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve</button>
-        <button class="btn btn-danger btn-sm" onclick="declineHostApp(${a.id})">
-          <span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button>`;
-    }
-    return `<tr>
-      <td><strong>${esc(org.name||a.org_id||'(unknown)')}</strong>${org.domain?`<br><span style="color:var(--fg-2);font-size:12px">${esc(org.domain)}</span>`:''}</td>
-      <td>${a.submitted_at?esc(String(a.submitted_at).slice(0,10)):'—'}</td>
-      <td>${stg('host',a.status,HOST_BADGE[a.status]||(a.status||'').toUpperCase(),hostCls(a.status))}</td>
-      <td>${hostAppProfile(a)}</td>
-      <td><div id="happ-${a.id}" class="actions" style="margin-top:0">${manage}</div></td>
-    </tr>`;
-  }).join('');
-}
-
 /* ── Listings (hub v2) ─────────────────────────────────────────────── */
 
 const REV_FIELDS=[['address_line','Address'],['town','Town'],['postcode','Postcode'],
@@ -744,68 +809,6 @@ const listingLabel=l=>{
   return `${(orgById[l.org_id]||{}).name||'(host)'}${where?' · '+where:''}`;
 };
 
-function renderListings(){
-  if(!listings.length){
-    $('listingRows').innerHTML=`<tr><td colspan="7" style="color:var(--fg-2)">No ${esc(HUB.hub)}
-      listings yet — a host's site appears here the moment they submit one.</td></tr>`;
-    return;
-  }
-  $('listingRows').innerHTML=listings.map(listingRow).join('');
-}
-
-function listingRow(l){
-  const live=revById[l.live_revision_id],pending=revById[l.pending_revision_id];
-  const shown=pending||live||{};
-  const q=pendingByListing[l.id];
-  /* Nothing pending means the listing has settled: its failure is shown,
-     Try again is not. */
-  const failed=failedAbove(q,'Failed',!!pending);
-  let manage;
-  if(q&&!failed){
-    manage=`<span class="status">Queued — the engine acts within a minute or two.</span>`;
-  }else if(l.status!=='live'&&pending){
-    /* Covers a first listing (pending) AND a resubmission after
-       decline-listing (status stays declined; the new pending_revision_id
-       is the only sign there is something to review again) — without this
-       a declined listing's resubmission is unreviewable forever. */
-    manage=failed+`<button class="btn btn-grn btn-sm" onclick="approveListing('${esc(l.id)}')">
-        <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve</button>
-      <button class="btn btn-danger btn-sm" onclick="declineListing('${esc(l.id)}')">
-        <span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button>`;
-  }else if(l.status==='live'&&pending){
-    manage=failed+`<button class="btn btn-grn btn-sm" onclick="approveRevision('${esc(l.id)}')">
-        <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve revision</button>
-      <button class="btn btn-danger btn-sm" onclick="declineRevision('${esc(l.id)}')">
-        <span class="material-symbols-outlined" aria-hidden="true">close</span>Decline revision</button>`;
-  }else{
-    manage=failed+`<span style="color:var(--fg-2);font-size:12.5px">Nothing to review</span>`;
-  }
-
-  /* A first listing has nothing to diff against, so the reviewer gets what
-     the host actually submitted; an edit to a live one gets old -> new. */
-  const changes=pending&&live?revisionDiff(live,pending):[];
-  const detail=pending?`<tr class="detail"><td colspan="7">
-      <details ${l.status==='live'?'open':''}>
-        <summary><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>${
-          live?'Requested changes':'Submitted details'}</summary>
-        ${live?(changes.length?diffTable(changes)
-          :'<p class="empty">This revision changes nothing on the live listing.</p>')
-          :submittedTable(pending)}
-      </details></td></tr>`:'';
-
-  return `<tr>
-    <td><strong>${esc((orgById[l.org_id]||{}).name||l.org_id||'(unknown)')}</strong></td>
-    <td>${esc(l.hub)}</td>
-    <td>${stg('listing',l.status,LISTING_BADGE[l.status]||l.status)}${
-      l.status==='live'?orgStateMarker(orgById[l.org_id]):''}${
-      pending&&l.status==='live'?'<br><span class="when">revision pending</span>':''}</td>
-    <td>${esc([shown.town,shown.country].filter(Boolean).join(', ')||'—')}</td>
-    <td>${esc(fmtVal(shown.ships_to))}</td>
-    <td>${esc(shown.submitted_at?String(shown.submitted_at).slice(0,10):'—')}</td>
-    <td><div id="lst-${esc(l.id)}" class="actions" style="margin-top:0">${manage}</div></td>
-  </tr>${detail}`;
-}
-
 /* ── Seeker request queue (hub v2) ─────────────────────────────────── */
 
 const NEED_FIELDS=[['material','Material'],['process','Process'],['quantity','Quantity'],
@@ -847,15 +850,6 @@ function cardSummary(intro){
     (rev.services||[]).join(', '),
     rev.monthly_capacity!=null?`${rev.monthly_capacity} a month`:'',
   ].filter(Boolean).join(' · ');
-}
-
-function renderSeekerQueue(){
-  const open=seekReqs.filter(r=>r.status!=='closed');
-  $('seekerN').textContent=seekReqs.length;
-  $('seekerCol').innerHTML=open.length
-    ?open.map(seekerCard).join('')
-    :`<div class="empty">${seekReqs.length?'Every seeker request here is closed.'
-      :'Nothing here yet — a seeker who searches and picks providers lands in this queue.'}</div>`;
 }
 
 function seekerCard(r){
