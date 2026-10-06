@@ -70,9 +70,9 @@ for (const p of pages) {
   }
   if (!read("hub/reset.html").includes("np-eye")) fail("hub/reset.html: no show-password control (plan 046)");
   for (const p of pages) {
-    const t = read(p);
-    const slot = t.indexOf("data-np-account-slot");
-    const desk = t.indexOf(">Talk to the desk</button>");
+    const header = (read(p).match(/<header[\s\S]*?<\/header>/) || [""])[0];
+    const slot = header.indexOf("<span data-np-account-slot");
+    const desk = header.indexOf(">Talk to the desk</button>");
     if (slot >= 0 && desk >= 0 && slot < desk) fail(`${p}: the account slot sits before Talk to the desk; the name goes to its right (plan 046)`);
   }
 }

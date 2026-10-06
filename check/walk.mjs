@@ -608,6 +608,20 @@ async function walkSignedIn() {
       const heading = (await page.locator("h1").first().textContent()) || "";
       if (!heading.trim()) throw new Error("the page has no headline");
     });
+    await step(`${name} at phone width: the header fits and Sign out is on screen`, async () => {
+      await page.setViewportSize({ width: 375, height: 740 });
+      await page.waitForTimeout(150);
+      const m = await page.evaluate(() => {
+        const nav = document.querySelector("header .nav");
+        const out = document.querySelector(".np-chip__out").getBoundingClientRect();
+        const name = document.querySelector(".np-chip__name").getBoundingClientRect();
+        return { navScroll: nav.scrollWidth, navClient: nav.clientWidth, inner: window.innerWidth,
+          outRight: Math.round(out.right), outWidth: Math.round(out.width), nameRight: Math.round(name.right), nameWidth: Math.round(name.width) };
+      });
+      if (m.navScroll > m.navClient) throw new Error(`the header's row overflows: ${m.navScroll}px of content in ${m.navClient}px`);
+      if (!m.nameWidth || m.nameRight > m.inner) throw new Error(`the name ends at ${m.nameRight}px in a ${m.inner}px window`);
+      if (!m.outWidth || m.outRight > m.inner) throw new Error(`Sign out ends at ${m.outRight}px in a ${m.inner}px window`);
+    });
     clean(world, errors, name);
     await context.close();
   }
@@ -657,6 +671,31 @@ async function walkAccount() {
   });
   clean(world, errors, "the account page");
   await context.close();
+
+  area = "The account page (an account that has done nothing yet)";
+  {
+    const world = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY) });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/`);
+    await step("the page opens with Go to the Global Hub under the title, and no More of the network", async () => {
+      await page.waitForSelector("body[data-np-open]");
+      await page.waitForSelector("#profile:not([hidden])");
+      has(await page.textContent("#goHub"), "Go to the Global Hub", "the button");
+      eq(new URL(await page.getAttribute("#goHub", "href"), page.url()).pathname, "/hub/index.html", "where it goes");
+      eq(await page.locator("#more").count(), 0, "More of the network sections");
+      eq(apiCalls(world, "GET /opportunities/briefs").length, 0, "briefs reads");
+    });
+    await step("its one to-do line is Choose a hub, and it leaves the page for the door (plan 046)", async () => {
+      await page.waitForSelector("#acctNeeds:not([hidden])");
+      has(await page.textContent("#acctNeeds"), "Choose a hub", "the to-do block");
+      const links = await page.locator("#acctNeeds a").all();
+      eq(links.length, 1, "to-do lines");
+      eq(new URL(await links[0].getAttribute("href"), page.url()).pathname, "/hub/index.html", "where the line goes");
+      return has(await links[0].textContent(), "arrow_forward", "the trailing arrow");
+    });
+    clean(world, errors, "the new account's page");
+    await context.close();
+  }
 }
 
 async function walkHomepage() {

@@ -141,7 +141,6 @@ function passwordEye(input){
     const show = input.type === 'password';
     input.type = show ? 'text' : 'password';
     btn.setAttribute('aria-pressed', show ? 'true' : 'false');
-    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
     btn.firstChild.textContent = show ? 'visibility_off' : 'visibility';
     input.focus();
   });

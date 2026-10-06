@@ -9,14 +9,15 @@
 
   /* ── the words a hub is known by ────────────────────────────────── */
   var HUBS = ['print', 'mill'];
-  var HUB_LABEL = { print: 'Print Hub', mill: 'Mill Hub', opportunities: 'Opportunities' };
+  var HUB_LABEL = { print: 'Print Hub', mill: 'Mill Hub', opportunities: 'Opportunities Hub' };
   var HUB_LISTING = {
     print: 'https://printhub.nexpoint.co.uk/offer.html',
     mill: 'https://millhub.nexpoint.co.uk/offer.html',
   };
   /* The door with the four hub cards: where an account that has done nothing
-     yet is sent (plan 046, record B2). */
-  var HUB_DOOR = '/hub/';
+     yet is sent (plan 046, record B2). Spelt as the page's own links spell
+     it, so the Go to the Global Hub button and this line land in one place. */
+  var HUB_DOOR = '../index.html';
 
   /* The five steps every introduction walks, in order. A stopped one keeps the
      steps it actually reached and ends on the word for how it stopped. */

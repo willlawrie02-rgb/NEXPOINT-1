@@ -512,7 +512,9 @@
   /* Show-password (Will, 5 Oct; every password field, 6 Oct; plan 046): one
      eye after the input, which swaps the field between password and text.
      Nothing is stored; the field is exactly as it was when the eye is not
-     pressed. Idempotent, so the same input is never wrapped twice. */
+     pressed. One state signal for assistive technology: the label stays
+     "Show password" and aria-pressed says whether it is. Idempotent, so the
+     same input is never wrapped twice. */
   A.passwordEye = function (input) {
     if (!input || input.dataset.npEye) return;
     input.dataset.npEye = '1';
@@ -530,7 +532,6 @@
       const show = input.type === 'password';
       input.type = show ? 'text' : 'password';
       btn.setAttribute('aria-pressed', show ? 'true' : 'false');
-      btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
       btn.firstChild.textContent = show ? 'visibility_off' : 'visibility';
       input.focus();
     });
