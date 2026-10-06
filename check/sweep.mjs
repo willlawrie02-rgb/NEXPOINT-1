@@ -77,6 +77,12 @@ for (const p of pages) {
   if (vocab.includes("dye_colours")) fail("hub/assets/vocab.js: Dye colours is retired (plan 045)");
   // Will's bug of 5 Oct: after a material was picked the list stayed shut.
   if (!read("hub/assets/typeahead.js").includes("reopenAfterPick")) fail("typeahead: the list must come back after a pick (plan 045)");
+  // Will's Q7 (6 Oct): the founding pricing line is off the offer page.
+  if (/Preferential pricing/.test(read("printhub/offer.html"))) fail("printhub/offer.html: still promises preferential pricing (plan 045)");
+  for (const p of ["printhub/offer.html", "millhub/offer.html"]) {
+    if (!/class="split offer-split"/.test(read(p))) fail(`${p}: the offer split needs the offer-split class so the form sits level with the text (plan 045)`);
+  }
+  if (/Type and press Enter/.test(read("hub/assets/find.js"))) fail('hub/assets/find.js: still says "Type and press Enter" (plan 045)');
 }
 
 // ---------------------------------------------------------------- descriptions and labels
