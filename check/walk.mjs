@@ -160,6 +160,9 @@ const API = {
   },
   "POST /auth/logout": (w) => { w.user = null; return [200, { ok: true }]; },
   "POST /auth/register": () => [200, { ok: true }],
+  // the site map's two lookups (plan 046): a place for a search, a place for a pin
+  "GET /geocode/search": () => [200, { ok: true, point: { lat: 53.8, lng: -1.55 } }],
+  "GET /geocode/reverse": () => [200, { ok: true, town: "Leeds", country: "United Kingdom", region: "uk" }],
   "POST /auth/resend-confirmation": () => [200, { ok: true }],
   "POST /auth/reset-request": () => [200, { ok: true }],
   "POST /auth/confirm": (w) => { w.user = USER; return [200, { ok: true, email: USER.email, member: USER }]; },
@@ -475,7 +478,40 @@ async function walkRegister() {
     await page.fill("#qWebsite", "example.com");
     await submit();
     await page.waitForSelector('form[data-np-step="2"]');
+    eq(await page.locator("#qMap").count(), 1, "the site map");
     return has(await page.textContent("#npAccountContent h2"), "Where is this site?", "step two");
+  });
+  await step("a place search fills town, country and region, which stay editable (plan 046)", async () => {
+    await page.waitForSelector("#qMap .leaflet-container, #qMap.leaflet-container");
+    await page.fill("#qPlace", "Leeds");
+    await page.click("#qPlaceFind");
+    await page.waitForFunction(() => document.querySelector("#qTown") && document.querySelector("#qTown").value === "Leeds");
+    eq(apiCalls(world, "GET /geocode/search").pop().query.q, "Leeds", "the search asked for");
+    eq(apiCalls(world, "GET /geocode/reverse").length, 1, "reverse lookups after a search");
+    eq([await page.inputValue("#qTown"), await page.inputValue("#qCountry"), await page.inputValue("#qRegion")],
+      ["Leeds", "United Kingdom", "UK"], "the three fields");
+    eq(await page.locator("#qMap .leaflet-marker-icon").count(), 1, "the pin");
+    await page.fill("#qTown", "Bradford");
+    return (await page.inputValue("#qTown")) === "Bradford";
+  });
+  await step("a pin on the map fills the fields too, and a place the worker cannot name says so (plan 046)", async () => {
+    await page.click("#qMap", { position: { x: 120, y: 90 } });
+    await page.waitForFunction(() => document.querySelector("#qTown") && document.querySelector("#qTown").value === "Leeds");
+    eq(apiCalls(world, "GET /geocode/reverse").length, 2, "reverse lookups after a pin");
+    world.api["GET /geocode/search"] = () => [200, { ok: true, point: null }];
+    await page.fill("#qPlace", "Nowhere in particular");
+    await page.keyboard.press("Enter");
+    await page.waitForSelector("#qMapNote:not([hidden])");
+    eq(apiCalls(world, "POST /auth/register").length, 0, "registrations sent by Enter in the search box");
+    delete world.api["GET /geocode/search"];
+    has(await page.textContent("#qMapNote"), "could not place that", "the note");
+    // a pin the worker cannot name is a miss too, and the fields are left alone
+    world.api["GET /geocode/reverse"] = () => [200, { ok: true, town: null, country: null, region: null }];
+    await page.fill("#qTown", "Keep me");
+    await page.click("#qMap", { position: { x: 60, y: 60 } });
+    await page.waitForFunction(() => document.querySelectorAll('#qMapNote:not([hidden])').length === 1);
+    delete world.api["GET /geocode/reverse"];
+    return (await page.inputValue("#qTown")) === "Keep me";
   });
   await step("the terms and the security check arrive, and unlock the button", async () => {
     await page.waitForSelector("#qTerms");
