@@ -740,7 +740,7 @@ async function walkAccount() {
       classes: [...ol.children].map((li) => li.className.trim()),
       inDetails: !!ol.closest("details") })));
     const want = ["Requested", "Approved by NexPoint", "Awaiting provider", "Introduced"];
-    if (chains.length !== 4) throw new Error(`expected 4 chains, saw ${chains.length}`);
+    if (chains.length !== 5) throw new Error(`expected 5 chains, saw ${chains.length}`);
     for (const c of chains) {
       eq(JSON.stringify(c.labels), JSON.stringify(want), "the step labels");
       eq(c.inDetails, false, "the chain is collapsed");
@@ -748,7 +748,7 @@ async function walkAccount() {
     const by = (cls) => chains.filter((c) => JSON.stringify(c.classes) === JSON.stringify(cls));
     // proposed (seeker), awaiting_acceptance (seeker pick and provider row), introduced (seeker)
     eq(by(["is-done", "is-current", "", ""]).length, 1, "a proposed chain");
-    eq(by(["is-done", "is-done", "is-current", ""]).length, 2, "the awaiting_acceptance chains, seeker and provider alike");
+    eq(by(["is-done", "is-done", "is-current", ""]).length, 3, "the awaiting_acceptance chains, seeker and provider alike, and the hand-routed pick");
     eq(by(["is-done", "is-done", "is-done", "is-done is-green"]).length, 1, "the introduced chain");
     const text = await page.textContent("#introductions");
     for (const gone of ["In progress", "Accepted"]) if (text.includes(gone)) throw new Error(`the page still says ${gone}`);
