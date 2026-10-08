@@ -197,8 +197,13 @@ const jsonBody = (request) => {
 async function answerApi(world, route, request, url) {
   if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors(request) });
   const key = `${request.method()} ${url.pathname}`;
-  const req = { method: request.method(), path: url.pathname, query: Object.fromEntries(url.searchParams), body: jsonBody(request) };
+  const req = { method: request.method(), path: url.pathname, query: Object.fromEntries(url.searchParams), body: jsonBody(request),
+    origin: request.headers().origin || "" };
   world.calls.push(req);
+  /* Plan 052 item 1: /auth/me can fail at the network (meFailures, counted
+     down) or never answer at all (meHang). */
+  if (key === "GET /auth/me" && world.meFailures > 0) { world.meFailures--; return route.abort("failed"); }
+  if (key === "GET /auth/me" && world.meHang) return;
   /* A path with an id in it is matched by its shape. */
   const shaped = key.replace(/\/\d+(\/|$)/g, "/:id$1");
   const fn = world.api[key] || world.api[shaped] || API[key] || API[shaped];
@@ -617,6 +622,121 @@ async function walkWall() {
   });
   clean(world, errors, "the sign-in round trip");
   await context.close();
+}
+
+/* Plan 052 item 1: a signed-in visitor sent to the door by mistake (a slow
+   page, a dropped /auth/me, a busy sign-in service) was left on the Global
+   Hub's front page with ?return= ignored. */
+async function walkDoorReturn() {
+  area = "The door sends a signed-in visitor back (plan 052 item 1)";
+  const doorWith = (ret) => `${APEX}/hub/?signin=1&return=${encodeURIComponent(ret)}`;
+  {
+    const world = newWorld({ user: USER });
+    const { context, page, errors } = await visit(world);
+    await step("a signed-in visitor at the door with ?return= goes straight back, page open", async () => {
+      await page.goto(doorWith(`${PRINT}/find.html`));
+      await page.waitForURL(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-open]");
+      return !(await page.isVisible("#signOverlay.open"));
+    });
+    clean(world, errors, "the door's way back");
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER });
+    const { context, page, errors } = await visit(world);
+    /* A real page there, so a navigation would land (the catch-all's 204
+       would leave the browser where it was and hide one). */
+    let foreign = 0;
+    await context.route("https://evil.example/**", (route) => { foreign++; return route.fulfill({ status: 200, contentType: "text/html", body: "<p>elsewhere</p>" }); });
+    await step("a ?return= to another site is not followed", async () => {
+      await page.goto(doorWith("https://evil.example/phish"));
+      await settled(page);
+      await page.waitForTimeout(300);
+      const u = new URL(page.url());
+      eq([u.origin, u.pathname], [APEX, "/hub/"], "where the visitor is");
+      eq(foreign, 0, "requests to the other site");
+    });
+    clean(world, errors, "a foreign return");
+    await context.close();
+  }
+  /* A dropped /auth/me is asked again, not read as signed out. The browser
+     logs its own line for the aborted request, so `clean` is not used. */
+  for (const [what, over] of [
+    ["a network failure", { meFailures: 1 }],
+    ["an unsure answer (signed_in null)", { api: { "GET /auth/me": (w) => {
+      w.meAsked = (w.meAsked || 0) + 1;
+      return w.meAsked === 1 ? [200, { signed_in: null, retry: true }] : [200, { ok: true, signed_in: true, member: w.user }];
+    } } }],
+  ]) {
+    const world = newWorld(Object.assign({ user: USER }, over));
+    const { context, page } = await visit(world);
+    await step(`a first /auth/me ${what} then success keeps the page`, async () => {
+      await page.goto(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-open]");
+      eq(page.url(), `${PRINT}/find.html`, "the page");
+      eq(apiCalls(world, "GET /auth/me").length, 2, "times /auth/me was asked");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER, meFailures: 2 });
+    const { context, page } = await visit(world);
+    await step("two network failures in a row go to the door, which sends the visitor back once it can tell", async () => {
+      await page.goto(`${PRINT}/find.html`);
+      await until(() => apiCalls(world, "GET /auth/me").length >= 3, "the door asking");
+      await page.waitForURL(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-open]");
+      eq(apiCalls(world, "GET /auth/me").length, 4, "asked twice on the page, once at the door, once back on the page");
+    });
+    await context.close();
+  }
+  {
+    /* The page can never tell, the door always can: one trip back, then the
+       visitor stays at the door rather than bouncing for ever. */
+    const world = newWorld({ user: USER, api: { "GET /auth/me": (w, req) => (req.origin === PRINT
+      ? [200, { signed_in: null, retry: true }] : [200, { ok: true, signed_in: true, member: w.user }]) } });
+    const { context, page } = await visit(world);
+    await step("a page that never tells sends the visitor back once, then the door holds", async () => {
+      await page.goto(`${PRINT}/find.html`);
+      const fromPage = () => world.calls.filter((c) => c.path === "/auth/me" && c.origin === PRINT).length;
+      await until(() => fromPage() >= 4, "the second visit to the page", 12000);
+      await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/");
+      await page.waitForTimeout(3000);
+      eq(fromPage(), 4, "the page asked twice on each of two visits, no third");
+      eq(new URL(page.url()).pathname, "/hub/", "where the visitor is");
+    });
+    await context.close();
+  }
+  /* The wall timer: 20 seconds, and gone once the account module is in. */
+  {
+    const world = newWorld({ user: USER, meHang: true });
+    const { context, page } = await visit(world);
+    await step("once the account module has loaded, the wall timer never fires", async () => {
+      await page.clock.install();
+      await page.goto(`${PRINT}/find.html`);
+      await until(() => apiCalls(world, "GET /auth/me").length, "the account module asking");
+      await page.clock.runFor(30000);
+      await page.waitForTimeout(200);
+      eq(new URL(page.url()).hostname, "printhub.nexpoint.co.uk", "the host after 30 s");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER });
+    const { context, page } = await visit(world);
+    await context.route("https://nexpoint.co.uk/assets/hub-account.js", (route) => route.fulfill({ status: 404, body: "" }));
+    await step("with no account module the wall waits 20 seconds, not 10, then goes to the door", async () => {
+      await page.clock.install();
+      await page.goto(`${PRINT}/find.html`);
+      await page.clock.runFor(15000);
+      await page.waitForTimeout(200);
+      eq(new URL(page.url()).hostname, "printhub.nexpoint.co.uk", "the host after 15 s");
+      await page.clock.runFor(6000);
+      await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/");
+    });
+    await context.close();
+  }
 }
 
 async function walkSignedIn() {
@@ -1226,7 +1346,7 @@ const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
 const parts = []
-  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkSignedIn, walkAccount, walkHomepage, walkLandings] : [])
+  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkAccount, walkHomepage, walkLandings] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames] : []);
 try {
   for (const part of parts) {

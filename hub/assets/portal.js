@@ -564,10 +564,30 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); 
 
 /* The door (one-door register, Q4): a walled page sends a stranger here with
    ?signin=1 and its own address in ?return=. Open the box once the account
-   has settled, unless it turns out they are signed in after all. */
+   has settled, unless it turns out they are signed in after all. A visitor
+   who is signed in was sent here by mistake (a slow page, a dropped
+   /auth/me), so they go straight back to the page they asked for, through
+   doorReturn()'s allow-list of NexPoint addresses only (plan 052 item 1).
+   Once per address per half minute: should that page keep reading them as
+   signed out, the second bounce stays at the door rather than looping. */
+function doorSendBack(){
+  const back = window.NPAccount && NPAccount.user && NPAccount.doorReturn && NPAccount.doorReturn();
+  if (!back) return false;
+  const KEY = 'np-door-return';
+  try {
+    const last = JSON.parse(sessionStorage.getItem(KEY) || 'null');
+    if (last && last.to === back && Date.now() - last.at < 30000) return false;
+    sessionStorage.setItem(KEY, JSON.stringify({ to: back, at: Date.now() }));
+  } catch (e) { /* no storage: still send them back; the walled page's own retry is the guard */ }
+  location.replace(back);
+  return true;
+}
 (function openDoorSignIn(){
   if (new URLSearchParams(location.search).get('signin') !== '1') return;
-  const go = () => { if (!(window.NPAccount && NPAccount.user) && document.getElementById('signOverlay')) openSignIn(); };
+  const go = () => {
+    if (doorSendBack()) return;
+    if (!(window.NPAccount && NPAccount.user) && document.getElementById('signOverlay')) openSignIn();
+  };
   if (window.NPAccount && NPAccount.ready && NPAccount.ready.then) NPAccount.ready.then(go, go);
   else go();
 })();

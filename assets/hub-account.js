@@ -11,6 +11,10 @@
    a stranger to the door and back. Nothing is held for later. */
 (function () {
   'use strict';
+  /* The walled page's own fallback timer (its inline head script) is only
+     for a module that never arrives. It has arrived: from here on this
+     module decides, after /auth/me has answered (plan 052 item 1). */
+  if (window.NP_WALL_TIMER) { clearTimeout(window.NP_WALL_TIMER); window.NP_WALL_TIMER = null; }
   const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   const API = local ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
 
@@ -83,7 +87,16 @@
     ready: null,
     async refresh() {
       try {
-        const d = await call('/auth/me', { method: 'GET' });
+        /* A dropped request, or the worker saying it could not tell
+           (signed_in null: the sign-in service gave no answer), is not
+           "signed out". Ask once more after a moment; a second miss falls
+           through to the door as before, so nothing loops (plan 052 item 1). */
+        const unsure = (r) => !r || r.error === 'network' || r.signed_in === null;
+        let d = await call('/auth/me', { method: 'GET' });
+        if (unsure(d)) {
+          await new Promise((res) => setTimeout(res, 1500));
+          d = await call('/auth/me', { method: 'GET' });
+        }
         const signedIn = d.signed_in != null ? d.signed_in : !!(d.ok && d.member);
         A.user = signedIn ? normalise(d.member) : null;
       } catch (e) { A.user = null; }
