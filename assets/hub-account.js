@@ -374,7 +374,7 @@
       <h2>Where is this site?</h2>
       <p class="body" style="margin-bottom:12px">Every hub answers by distance first. Search for your town or drop a pin, then check the three fields below. You can type over them.</p>
       <form data-np-step="2">
-        <div class="np-map-search"><input id="qPlace" type="text" placeholder="Town or city, country" aria-label="Find your town" autocomplete="off"><button class="btn btn-outline" type="button" id="qPlaceFind">Find</button></div>
+        <div class="np-map-search"><input id="qPlace" type="text" placeholder="Town or city, country" aria-label="Find your town" autocomplete="off"><button class="btn btn-outline" type="button" id="qPlaceFind">Find on the map</button></div>
         <div id="qMap" class="np-map" role="application" aria-label="Map: click to place your site"></div>
         <p class="np-hint" id="qMapNote" hidden>We could not place that; type the town and country below.</p>
         <div class="form-grid">
