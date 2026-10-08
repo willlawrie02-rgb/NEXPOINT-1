@@ -676,6 +676,14 @@ async function walkAccount() {
         accepted_b_at: null, acceptance_expires_at: soon, declined_at: null, created_at: new Date().toISOString(), role: "provider",
         introduced_at: null, counterpart: null }],
       offers: [{ introduction_id: 7, ref: "INT-0007", hub: "print", acceptance_expires_at: soon, request: null }],
+      // Plan 052, item 4: PS-/MS- codes are the worker's and the desk's; the seeker sees INTRO- only.
+      requests: [
+        { id: 3, ref: "PS-0046", hub: "print", material: "pa12_nylon12", quantity: 500, cadence: "recurring", status: "picked",
+          created_at: new Date().toISOString(), no_match: false,
+          picks: [{ introduction_id: 8, ref: "INTRO-0008", stage: "proposed", card: { town: "Leeds", country: "United Kingdom" } }] },
+        { id: 4, ref: "MS-0047", hub: "mill", material: "pa12_nylon12", quantity: 200, cadence: "once", status: "open",
+          created_at: new Date().toISOString(), no_match: false, picks: [] },
+      ],
       hubs_used: ["print"],
     }),
   });
@@ -686,6 +694,13 @@ async function walkAccount() {
     await page.waitForSelector("#profile:not([hidden])");
     has(await page.textContent("#profile"), "ZZ Walk Test Ltd", "the profile section");
     eq(apiCalls(world, "GET /account/summary").length, 1, "summary reads");
+  });
+  await step("a request is known by INTRO- once it has one, and the page never shows REQ- or the PS- code", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    const text = await page.textContent("#introductions");
+    has(text, "INTRO-0008", "the introduced pick");
+    for (const gone of ["REQ-", "PS-0046", "MS-0047"])
+      if (text.includes(gone)) throw new Error(`the account page still shows ${gone}`);
   });
   await step("an offer waiting on the provider shows, with a way to have it sent again", async () => {
     await page.waitForSelector("#introductions:not([hidden])");

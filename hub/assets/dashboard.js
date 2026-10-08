@@ -105,6 +105,12 @@
     var r = ref ? '<span class="acct-ref">' + esc(ref) + '</span>' : '';
     return (r + hubPill(hub)) || esc(fallback || '');
   }
+  /* A request is known by its INTRO- code once an introduction exists, and by
+     nothing before (plan 052, item 4): the PS-/MS- code is the desk's and the
+     email's, and REQ- is retired. One code per pick, in rank order. */
+  function requestRefs(r) {
+    return (Array.isArray(r.picks) ? r.picks : []).map(function (p) { return p.ref; }).filter(Boolean).join(' \u00b7 ');
+  }
   /* Plain rows that belong together share one surface, ruled off by hairlines. */
   function group(rows) { return '<div class="acct-list">' + rows + '</div>'; }
   function initials(name) {
@@ -284,7 +290,7 @@
       '</details>';
     }
     return '<div class="acct-card">' +
-      '<h3>' + refLine(r.ref, r.hub) + '</h3>' +
+      '<h3>' + refLine(requestRefs(r), r.hub, 'Your request') + '</h3>' +
       '<p class="hint">' + esc([facts, r.created_at ? 'Requested ' + fmtDate(r.created_at) : ''].filter(Boolean).join(' · ')) + '</p>' +
       body +
     '</div>';
