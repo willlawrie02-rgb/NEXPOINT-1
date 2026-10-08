@@ -3,8 +3,16 @@
    the page used to lead with. Three numbered steps:
 
      1  the ask       what you need, in the network's own vocabulary
-     2  the shortlist ranked anonymous cards, at most ten, pick at most three
+     2  the shortlist the best three anonymous cards and a map of them; pick one
      3  the request   the Introduction Acceptance terms, then one submission
+
+   The shortlist (plan 052, items 23 and 24, Will's answers of 8 Oct): hard
+   filters first (material, process, lead time), then the three nearest by
+   town, no weights. The worker ranks up to ten and marks the best three
+   `shortlist`; only those are shown. The map (match-map.js) puts the
+   seeker's town and the three sites' towns on OpenStreetMap; sites in one
+   town share a numbered pin. The seeker picks one site, on a card or on
+   the map, and the two stay in step.
 
    Nothing here names a site. A card carries a town, a country, machines,
    materials, services and a lead time; who the site is, and where exactly,
@@ -20,7 +28,8 @@
   'use strict';
 
   const HUB = document.body.dataset.hub === 'mill' ? 'mill' : 'print';
-  const MAX_PICKS = 3;
+  const MAX_PICKS = 1;
+  const SHORTLIST = 3;
 
   /* Local, not borrowed: this module renders before anything guarantees the
      shared portal finished loading, and every value below comes from an API. */
@@ -110,7 +119,9 @@
   let vocab = null;            /* NPVocab.load(HUB) */
   const TA = {};               /* live type-ahead handles by input id */
   let spec = null;             /* the ask, as POST /seeker-requests takes it */
-  let matches = [];            /* the cards the search returned, in rank order */
+  let matches = [];            /* the shortlist shown: at most SHORTLIST cards, in rank order */
+  let seekerPoint = null;      /* the seeker's own town point, for the map */
+  let matchMap = null;         /* NPMatchMap handle while step 2 shows one */
   let noMatch = false;         /* nothing met the hard filter, so this is the pool */
   let picks = [];              /* listing ids, at most MAX_PICKS, in tick order */
   let introTerms = null;       /* {id, version, body_md} for layer=introduction */
@@ -434,11 +445,13 @@
       NP.saveLoc(regionOf(spec.country) || spec.country, spec.country, spec.town);
     }
 
-    matches = Array.isArray(d.matches) ? d.matches : [];
+    matches = shortlistOf(Array.isArray(d.matches) ? d.matches : []);
     noMatch = !!d.no_match;
+    seekerPoint = d.seeker_point || null;
     picks = [];
     renderResults();
     reveal('step2');
+    renderMap();
     hide('step3');
     resetStep3();
     scrollTo('step2');
@@ -453,6 +466,50 @@
   }
 
   /* ══════════════ step 2: the shortlist ══════════════ */
+
+  /* The cards the worker marked as the shortlist. A worker from before plan
+     052 marks none, so the first three stand in: the ranking is the same. */
+  function shortlistOf(all) {
+    const marked = all.filter((c) => c && c.shortlist === true);
+    return (marked.length ? marked : all).slice(0, SHORTLIST);
+  }
+
+  /* The map above the cards. Made after step 2 is shown, because Leaflet
+     measures its box when it is made; remade on every search. */
+  function renderMap() {
+    const box = el('matchMap');
+    if (matchMap) { matchMap.destroy(); matchMap = null; }
+    if (!box) return;
+    box.hidden = true;
+    if (!window.NPMatchMap || !matches.length) return;
+    box.hidden = false;
+    matchMap = NPMatchMap.mount({
+      el: box,
+      assetBase: window.NP_APEX || '',
+      noun: siteNoun(),
+      seeker: seekerPoint,
+      sites: matches.map((c, i) => ({
+        listing_id: c.listing_id, position: i + 1, town: c.town, country: c.country,
+        point: c.point || null, lead: c.min_lead_time_days, distance: c.distance_km,
+      })),
+      onPick: chooseFromMap,
+    });
+    if (!matchMap) { box.hidden = true; return; }
+    matchMap.refresh();
+    matchMap.select(picks[0] || null);
+  }
+
+  /* Choose on the map ticks that card, exactly as a click on it would. */
+  function chooseFromMap(id) {
+    const box = document.querySelector('#capGrid input[data-pick="' + cssEscape(id) + '"]');
+    if (!box || box.disabled) return;
+    if (!box.checked) box.click();
+    const card = box.closest('.cap');
+    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  function cssEscape(v) {
+    return (window.CSS && CSS.escape) ? CSS.escape(String(v)) : String(v).replace(/["\\]/g, '\\$&');
+  }
 
   function renderResults() {
     renderMatchIntro();
@@ -490,9 +547,9 @@
     /* When nothing met the ask, the count is the size of the pool, not a
        claim that any of them fit: #noMatch says what these actually are. */
     box.textContent = noMatch
-      ? 'The nearest ' + siteNounPlural() + ' to you, wherever they are. ' + privacy
+      ? 'The nearest ' + siteNounPlural() + ' to you, wherever they are. Pick one. ' + privacy
       : (n === 1 ? 'One ' + siteNoun() + ' can take this. '
-                 : n + ' ' + siteNounPlural() + ' can take this, nearest first. ') + privacy;
+                 : 'The ' + n + ' ' + siteNounPlural() + ' that fit best, nearest first. Pick one. ') + privacy;
   }
 
   /* Two things can leave the shortlist without a card to tick: a search
@@ -506,7 +563,7 @@
     if (matches.length && !noMatch) { box.innerHTML = ''; box.hidden = true; return; }
     const line = matches.length
       ? 'No exact match yet. These are the nearest ' + esc(siteNounPlural()) +
-        '; tick any you would still like to meet, or tell the desk and we will route it by hand.'
+        '; pick one you would still like to meet, or tell the desk and we will route it by hand.'
       : 'No ' + esc(siteNounPlural()) + ' are listed on ' + esc(hubName()) +
         ' yet. Tell the desk what you need and we will route it by hand.';
     box.hidden = false;
@@ -583,43 +640,46 @@
       '</label></div>';
   }
 
+  /* One site (plan 052, item 24): ticking a second card moves the pick to
+     it rather than refusing, so the ticks behave as a choice of one. */
   function onPickChange(e) {
     const id = e.target.getAttribute('data-pick');
     if (e.target.checked) {
-      if (picks.length >= MAX_PICKS) { e.target.checked = false; updatePickState(); return; }
-      if (picks.indexOf(id) === -1) picks.push(id);
+      picks = picks.concat([id]).filter((p, i, a) => a.indexOf(p) === i).slice(-MAX_PICKS);
+      const grid = el('capGrid');
+      if (grid) grid.querySelectorAll('input[data-pick]').forEach((box) => {
+        if (picks.indexOf(box.getAttribute('data-pick')) === -1) box.checked = false;
+      });
     } else {
       picks = picks.filter((p) => p !== id);
     }
     updatePickState();
   }
 
-  /* One place decides what the cap looks like: the ticks that are still
-     available, the hint that explains why the rest are not, and the bar. */
+  /* One place decides what the pick looks like: the cards, the map's pins
+     and the bar. */
   function updatePickState() {
-    const full = picks.length >= MAX_PICKS;
     const grid = el('capGrid');
     if (grid) {
       grid.querySelectorAll('input[data-pick]').forEach((box) => {
-        const on = box.checked;
-        box.disabled = full && !on;
         const lab = box.closest('.pick');
         if (lab) {
-          lab.classList.toggle('is-on', on);
-          lab.classList.toggle('is-off', full && !on);
+          lab.classList.toggle('is-on', box.checked);
+          lab.classList.toggle('is-off', false);
         }
       });
     }
+    if (matchMap) matchMap.select(picks[0] || null);
     const hint = el('pickHint');
-    if (hint) {
-      hint.textContent = full ? 'Three is the limit, so each ' + siteNoun() + ' gets a real look.' : '';
-      hint.hidden = !full;
-    }
+    if (hint) { hint.textContent = ''; hint.hidden = true; }
     const bar = el('pickBar');
     if (bar) {
       bar.hidden = picks.length === 0;
       const count = el('pickCount');
-      if (count) count.textContent = picks.length + ' of ' + MAX_PICKS + ' picked';
+      if (count) {
+        const i = picks.length ? matches.findIndex((c) => String(c.listing_id) === picks[0]) : -1;
+        count.textContent = i === -1 ? 'Nothing picked' : siteNounTitle() + ' ' + (i + 1) + ' picked';
+      }
     }
     /* Step 3 is open on what was picked a moment ago, so it follows along
        rather than showing a list the seeker has since changed. */
@@ -660,9 +720,7 @@
       return { card: matches[i], position: i + 1 };
     }).filter((c) => c.card);
     box.innerHTML =
-      '<p class="body">' + esc(chosen.length === 1
-        ? 'One ' + siteNoun() + ', picked by you:'
-        : chosen.length + ' ' + siteNounPlural() + ', picked by you:') + '</p>' +
+      '<p class="body">' + esc('The ' + siteNoun() + ' you picked:') + '</p>' +
       '<ul class="pick-summary">' + chosen.map((c) =>
         '<li><b>' + esc(siteNounTitle()) + ' ' + c.position + '</b> ' +
         esc([c.card.town, c.card.country].filter(Boolean).join(', ')) + '</li>').join('') +
@@ -713,7 +771,7 @@
     clearRequestError();
     if (!spec) { showRequestError('Tell us what you need first.'); return; }
     if (!picks.length) {
-      showRequestError('Tick at least one ' + siteNoun() + ' before you send this.');
+      showRequestError('Pick a ' + siteNoun() + ' before you send this.');
       return;
     }
     if (!introTerms || !introTerms.id) {
@@ -818,9 +876,10 @@
     const e = d && d.error;
     const site = siteNoun();
     if (e === 'network') return 'That did not send. Check your connection and try again, or email hello@nexpoint.co.uk.';
-    if (e === 'too_many_picks') return 'Three ' + siteNounPlural() + ' is the limit. Untick one and send again.';
+    if (e === 'too_many_picks') return 'One ' + siteNoun() + ' per request. Keep one ticked and send again.';
+    if (e === 'listing_ids required') return 'Pick a ' + site + ' before you send this.';
     if (e === 'listing_not_matched' || e === 'listing_not_live') {
-      return 'One of the ' + siteNounPlural() + ' you picked is no longer on your shortlist. ' +
+      return 'The ' + site + ' you picked is no longer on your shortlist. ' +
         'Run the search again and pick from the new list.';
     }
     if (e === 'own_listing') {
@@ -830,7 +889,7 @@
       return 'We have already closed an introduction to that ' + site + ' for this request. Pick another one.';
     }
     if (e === 'picks_already_made') {
-      return 'Your picks are already in. You can follow this request on your account.';
+      return 'Your pick is already in. You can follow this request on your account.';
     }
     if (e === 'request_not_open') {
       return 'This request is no longer open. Tell the desk and we will pick it up by hand.';
@@ -857,7 +916,7 @@
       '<div class="success">' +
       '<div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>' +
       '<h2>Thank you.</h2>' +
-      '<p>Received. We check every request personally and put it to the ' + esc(siteNounPlural()) +
+      '<p>Received. We check every request personally and put it to the ' + esc(siteNoun()) +
       ' you picked. You can follow it on your account.</p>' +
       '<div class="modal-actions" style="justify-content:center">' +
       '<a class="btn btn-outline" href="' + esc(accountUrl()) + '">Go to your account</a></div>' +

@@ -614,6 +614,28 @@ button.notice-warn:hover,a.notice-warn:hover{background:rgba(245,166,35,.22)}
 .np-map-search[hidden]{display:none}
 @media(max-width:560px){.np-map{height:200px}}
 
+/* the match maps (plan 052, items 23 and 24): the seeker's shortlist above
+   its cards, and the provider's pair on an offer. Pins are numbered as the
+   cards are; a same-town pin shows how many sites are there; "You" is the
+   seeker's town (or, on an offer, the lab's own). */
+.np-map--match{height:340px;margin:0 0 20px}
+.np-map--pair{height:220px;margin:12px 0 4px}
+.np-map[hidden]{display:none}
+@media(max-width:560px){.np-map--match{height:260px}.np-map--pair{height:180px}}
+.np-pin-wrap{background:none;border:0}
+.np-pin{position:absolute;left:0;top:0;transform:translate(-50%,-50%);display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:0 9px;border-radius:9999px;background:var(--blue);color:#fff;border:2px solid #fff;box-shadow:0 2px 8px rgba(14,22,38,.28);font:700 13px/1 var(--font-display);white-space:nowrap;cursor:pointer}
+.np-pin--group{background:#fff;color:var(--blue);border:2px solid var(--blue)}
+.np-pin--you{background:#0E1626;font-size:11.5px;letter-spacing:.02em;cursor:default}
+.np-pin--ask{background:var(--green-deep);font-size:11.5px;letter-spacing:.02em;cursor:default}
+.np-pin--beside{transform:translate(calc(-100% - 20px),-50%)}
+.np-pin.is-on{background:var(--green);color:#0E1626;border-color:#fff}
+.leaflet-marker-icon:focus-visible .np-pin{outline:3px solid var(--blue-bright);outline-offset:2px}
+.np-pop{font-family:var(--font-body);color:#0E1626}
+.np-pop__head{margin:0 0 8px;font:600 13.5px/1.35 var(--font-body)}
+.np-pop__list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.np-pop__list li{display:grid;gap:6px;font-size:12.5px;line-height:1.4;color:var(--on-surface-var)}
+.np-pop__go{padding:8px 14px;font-size:12.5px;justify-self:start}
+
 /* the listing form: sections, a wrapping row of pick chips, and the
    read-only face a revision under review is shown in */
 .lsec{margin-top:28px}
