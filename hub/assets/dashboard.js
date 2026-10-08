@@ -19,18 +19,15 @@
      it, so the Go to the Global Hub button and this line land in one place. */
   var HUB_DOOR = '../index.html';
 
-  /* The five steps every introduction walks, in order. A stopped one keeps the
-     steps it actually reached and ends on the word for how it stopped. */
-  var CHAIN = ['Requested', 'Approved by NexPoint', 'Awaiting provider', 'Accepted', 'In progress'];
+  /* The four steps every introduction walks, in order, the same for seekers and
+     providers. CHAIN_AT is the step being waited on; introduced and every later
+     stage (see acceptedStage) have nothing left to wait for. A stopped one keeps
+     the steps it actually reached and ends on the word for how it stopped. */
+  var CHAIN = ['Requested', 'Approved by NexPoint', 'Awaiting provider', 'Introduced'];
   var CHAIN_AT = {
-    proposed: 0,
-    approved: 1,
+    proposed: 1,
+    approved: 2,
     awaiting_acceptance: 2,
-    introduced: 3,
-    in_discussion: 4,
-    deal_done: 4,
-    invoiced: 4,
-    paid: 4,
   };
 
   var CURRENCIES = ['GBP', 'EUR', 'USD'];
@@ -227,16 +224,19 @@
   /* ═══════════ 2. introductions ═══════════ */
   function statusChain(stage) {
     var steps = CHAIN.slice();
+    var last = steps.length - 1;
     var stop = stage === 'declined' ? 'Declined' : stage === 'expired' ? 'Expired' : '';
-    var now;
-    if (stop) { steps[4] = stop; now = 4; }
-    else if (CHAIN_AT[stage] != null) now = CHAIN_AT[stage];
-    else now = 4;
+    var done = 0;     /* steps 0..done-1 are complete */
+    var cur = -1;     /* the step being waited on, if any */
+    if (stop) { steps[last] = stop; done = last; }
+    else if (acceptedStage(stage)) done = steps.length;
+    else if (CHAIN_AT[stage] != null) { cur = CHAIN_AT[stage]; done = cur; }
     return '<ol class="status-chain" aria-label="Progress of this introduction">' + steps.map(function (label, i) {
       var cls = '';
-      if (i === now) cls = stop ? 'is-stop' : 'is-now';
-      else if (i < now && !(stop && i === 3)) cls = 'is-done';
-      return '<li' + (cls ? ' class="' + cls + '"' : '') + (i === now ? ' aria-current="step"' : '') + '>' + esc(label) + '</li>';
+      if (stop && i === last) cls = 'is-stop';
+      else if (i < done) cls = i === last ? 'is-done is-green' : 'is-done';
+      else if (i === cur) cls = 'is-current';
+      return '<li' + (cls ? ' class="' + cls + '"' : '') + (i === cur ? ' aria-current="step"' : '') + '>' + esc(label) + '</li>';
     }).join('') + '</ol>';
   }
 
@@ -309,9 +309,8 @@
     } else if (!picks.length) {
       body = empty('With NexPoint. Nothing has been put forward yet.', 'hourglass_top');
     } else {
-      body = '<details class="acct-detail"><summary>What we put forward (' + picks.length + ')</summary>' +
-        picks.map(function (p) { return pickBlock(p, byId[p.introduction_id], r.hub); }).join('') +
-      '</details>';
+      body = '<p class="hint">What we put forward (' + picks.length + ')</p>' +
+        picks.map(function (p) { return pickBlock(p, byId[p.introduction_id], r.hub); }).join('');
     }
     return '<div class="acct-card">' +
       '<h3>' + refLine(requestRefs(r), r.hub, 'Your request') + '</h3>' +
@@ -322,11 +321,11 @@
 
   function providerLine(i) {
     if (i.stage === 'awaiting_acceptance') return 'Answer from the email we sent you.';
-    if (i.stage === 'introduced') return 'Accepted.';
+    if (i.stage === 'approved') return 'Approved by NexPoint.';
     if (i.stage === 'declined') return 'Declined.';
     if (i.stage === 'expired') return 'Expired.';
     if (i.stage === 'proposed') return 'With NexPoint.';
-    return 'In progress.';
+    return 'Introduced.';
   }
 
   /* What a provider is being asked for, in the anonymised terms the offer

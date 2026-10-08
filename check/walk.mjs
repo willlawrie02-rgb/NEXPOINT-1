@@ -682,7 +682,9 @@ async function walkAccount() {
         { id: 3, ref: "PS-0046", hub: "print", material: "pa12_nylon12", quantity: 500, cadence: "recurring", status: "picked",
           created_at: new Date().toISOString(), no_match: false,
           picks: [{ introduction_id: 8, ref: "INTRO-0008", stage: "proposed", card: { town: "Leeds", country: "United Kingdom", materials: ["pa12_nylon12"], services: ["finishing_dyeing"],
-            machines: [{ name: "HP MJF 5200", materials: ["pa12_nylon12"], count: 2, lead_time_days: 5 }] } }] },
+            machines: [{ name: "HP MJF 5200", materials: ["pa12_nylon12"], count: 2, lead_time_days: 5 }] } },
+            { introduction_id: 9, ref: "INTRO-0009", stage: "introduced", card: { town: "Derby", country: "United Kingdom", materials: ["pa12_nylon12"] } },
+            { introduction_id: 10, ref: "INTRO-0010", stage: "awaiting_acceptance", card: { town: "Hull", country: "United Kingdom", materials: ["pa12_nylon12"] } }] },
         { id: 4, ref: "MS-0047", hub: "mill", material: "pa12_nylon12", quantity: 200, cadence: "once", status: "open",
           created_at: new Date().toISOString(), no_match: false, picks: [] },
       ],
@@ -720,6 +722,26 @@ async function walkAccount() {
     has(block, "HP MJF 5200", "the machine name");
     has(block, "PA12", "the labelled material");
     has(block, "Services", "the services row");
+  });
+  await step("the progress bar has four steps, filled when done, ringed when waited on, green once introduced, the same for both sides (plan 052, items 12-14)", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    const chains = await page.$$eval("#introductions .status-chain", (ols) => ols.map((ol) => ({
+      labels: [...ol.children].map((li) => li.textContent),
+      classes: [...ol.children].map((li) => li.className.trim()),
+      inDetails: !!ol.closest("details") })));
+    const want = ["Requested", "Approved by NexPoint", "Awaiting provider", "Introduced"];
+    if (chains.length !== 4) throw new Error(`expected 4 chains, saw ${chains.length}`);
+    for (const c of chains) {
+      eq(JSON.stringify(c.labels), JSON.stringify(want), "the step labels");
+      eq(c.inDetails, false, "the chain is collapsed");
+    }
+    const by = (cls) => chains.filter((c) => JSON.stringify(c.classes) === JSON.stringify(cls));
+    // proposed (seeker), awaiting_acceptance (seeker pick and provider row), introduced (seeker)
+    eq(by(["is-done", "is-current", "", ""]).length, 1, "a proposed chain");
+    eq(by(["is-done", "is-done", "is-current", ""]).length, 2, "the awaiting_acceptance chains, seeker and provider alike");
+    eq(by(["is-done", "is-done", "is-done", "is-done is-green"]).length, 1, "the introduced chain");
+    const text = await page.textContent("#introductions");
+    for (const gone of ["In progress", "Accepted"]) if (text.includes(gone)) throw new Error(`the page still says ${gone}`);
   });
   await step("an offer waiting on the provider shows, with a way to have it sent again", async () => {
     await page.waitForSelector("#introductions:not([hidden])");
