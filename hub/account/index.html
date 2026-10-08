@@ -149,6 +149,18 @@
   button.tile{text-align:left;font:inherit;cursor:pointer}
   button.tile:hover{border-color:var(--blue)}
   .acct-loading{color:var(--on-surface-var);font-size:14px;padding:40px 0;text-align:center}
+
+  /* ── you and the users of the account (plan 052, wave 3) ── */
+  .acct-facts{display:grid;grid-template-columns:96px minmax(0,1fr);gap:6px 14px;margin:0;font-size:14px;line-height:1.5}
+  .acct-facts dt{color:var(--on-surface-var)}
+  .acct-facts dd{color:#0E1626;margin:0;overflow-wrap:anywhere}
+  .acct-facts .muted{color:var(--outline)}
+  .acct-form{margin-top:18px;padding-top:18px;border-top:1px solid var(--border-soft)}
+  .acct-form .hint{margin-bottom:14px}
+  .acct-form[hidden]{display:none}
+  #users .acct-form{margin-top:0;padding-top:0;border-top:none}
+  .acct-invite{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+  .acct-invite .field{flex:1 1 260px}
   @media(max-width:560px){
     .acct-row{flex-direction:column;align-items:flex-start}
     .acct-row__meta,.acct-row__meta:has(.status-chain){flex:0 0 auto;width:100%}
@@ -215,6 +227,8 @@ the page. Nothing here renders from inline script.
     <section class="acct-section" id="declarations" hidden></section>
     <section class="acct-section" id="orders" hidden></section>
     <section class="acct-section" id="fees" hidden></section>
+    <section class="acct-section" id="you" hidden></section>
+    <section class="acct-section" id="users" hidden></section>
     <section class="acct-section" id="education" hidden></section>
   </div>
 </div>
@@ -254,6 +268,7 @@ the page. Nothing here renders from inline script.
 <script src="../assets/vendor/leaflet/leaflet.js" defer></script>
 <script src="../assets/site-map.js" defer></script>
 <script src="../assets/portal.js"></script>
+<script src="../assets/people.js"></script>
 <script src="../assets/dashboard.js"></script>
 <script>
 (function(){

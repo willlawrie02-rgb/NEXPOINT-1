@@ -176,6 +176,13 @@ const API = {
   "GET /listings/mine": () => [200, { ok: true, listing: null }],
   "GET /host/application": () => [200, { ok: true, application: null }],
   "GET /listings/search": () => [200, { ok: true, results: [] }],
+  // the account page's people sections (plan 052, wave 3): the user, the users, the invitations
+  "GET /account/profile": (w) => (w.user ? [200, { ok: true, profile: w.profile || { name: w.user.name, email: w.user.email,
+    phone: null, town: w.user.town, country: w.user.country, region: null, role: "owner", pending_email: null },
+    account: { name: w.user.company, website: null } }] : [401, { error: "sign in required" }]),
+  "GET /account/users": (w) => (w.user ? [200, { ok: true, users: w.users || [{ user_id: w.user.id, name: w.user.name,
+    email: w.user.email, role: "owner", confirmed: true, joined_at: "2026-10-01T09:00:00Z", you: true }] }] : [401, { error: "sign in required" }]),
+  "GET /account/invites": (w) => (w.user ? [200, { ok: true, invites: w.invites || [] }] : [401, { error: "sign in required" }]),
 };
 
 // ---------------------------------------------------------------- routing
@@ -1132,6 +1139,176 @@ async function walkReviewedBoards() {
   }
 }
 
+// ================================================================ the people (plan 052, wave 3)
+const INVITE_TOKEN = "a".repeat(64);
+async function walkPeople() {
+  area = "The account page: You and Users (plan 052, wave 3)";
+  {
+    const COLLEAGUE = { user_id: "00000000-0000-4000-8000-0000000000c1", name: "Cal League", email: "cal@example.com",
+      role: "member", confirmed: true, joined_at: "2026-10-08T09:00:00Z", you: false };
+    const world = newWorld({
+      user: USER,
+      summary: Object.assign({}, EMPTY_SUMMARY, { org: { id: 41, name: USER.company, role: "owner" } }),
+      users: [{ user_id: USER.id, name: USER.name, email: USER.email, role: "owner", confirmed: true,
+        joined_at: "2026-10-01T09:00:00Z", you: true }, COLLEAGUE],
+      invites: [{ id: 3, email: "pending@example.com", created_at: "2026-10-08T09:00:00Z", expires_at: "2026-10-15T09:00:00Z" }],
+    });
+    world.api["POST /account/profile"] = (w, req) => {
+      w.profile = Object.assign({ email: USER.email, role: "owner", pending_email: null }, req.body);
+      return [200, { ok: true, profile: w.profile }];
+    };
+    world.api["POST /account/email"] = (w, req) => (req.body.current_password === PASSWORD
+      ? [200, { ok: true, pending_email: req.body.new_email }] : [400, { error: "current_password_wrong" }]);
+    world.api["POST /account/invites"] = (w, req) => {
+      w.invites = w.invites.concat([{ id: 4, email: req.body.email, created_at: "2026-10-08T10:00:00Z", expires_at: "2026-10-15T10:00:00Z" }]);
+      return [200, { ok: true, invite: { id: 4, email: req.body.email } }];
+    };
+    world.api["POST /account/invites/withdraw"] = (w, req) => {
+      w.invites = w.invites.filter((i) => i.id !== req.body.id);
+      return [200, { ok: true }];
+    };
+    world.api["POST /account/users/remove"] = (w, req) => {
+      w.users = w.users.filter((u) => u.user_id !== req.body.user_id);
+      return [200, { ok: true }];
+    };
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/`);
+    await step("You shows the user's own details", async () => {
+      await page.waitForSelector("#you:not([hidden])");
+      const t = await page.textContent("#you");
+      has(t, USER.name, "the You section");
+      return has(t, USER.email, "the You section");
+    });
+    await step("Users lists everyone on the account, marks the reader, and offers Remove on the colleague only", async () => {
+      await page.waitForSelector("#users:not([hidden])");
+      const t = await page.textContent("#users");
+      has(t, "Cal League", "the Users section");
+      has(t, "pending@example.com", "the waiting invitation");
+      eq(await page.locator('#users [data-act="user-remove"]').count(), 1, "Remove buttons");
+      return eq(await page.getAttribute('#users [data-act="user-remove"]', "data-user"), COLLEAGUE.user_id, "whom Remove removes");
+    });
+    await step("the page's own links list You and Users", async () => {
+      await page.waitForFunction(() => /Users/.test(document.getElementById("acctNav").textContent));
+      return has(await page.textContent("#acctNav"), "You", "the nav");
+    });
+    await step("Edit your details posts the person's own fields, and the section shows them saved", async () => {
+      await page.click('[data-act="you-edit"]');
+      await page.fill("#youTown", "York");
+      await page.fill("#youPhone", "0113 222 2222");
+      await page.click("#youSave");
+      await page.waitForFunction(() => /Saved\./.test(document.getElementById("you").textContent));
+      const b = apiCalls(world, "POST /account/profile").pop().body;
+      eq([b.name, b.town, b.phone, b.country], [USER.name, "York", "0113 222 2222", USER.country], "the body");
+      eq("email" in b || "org_id" in b, false, "an email or account in the body");
+      return has(await page.textContent("#you"), "York", "the saved town");
+    });
+    await step("a wrong current password on the email change says so, and changes nothing", async () => {
+      await page.click('[data-act="you-email"]');
+      await page.fill("#youNewEmail", "walk.new@example.com");
+      await page.fill("#youPassword", "not-it");
+      await page.click("#youEmailSend");
+      await page.waitForSelector("#youEmailMsg:not([hidden])");
+      has(await page.textContent("#youEmailMsg"), "not your current password", "the message");
+      return eq(await page.locator("#youPending").count(), 0, "a pending line");
+    });
+    await step("Change your email address sends the new address and the current password, and says a link is waiting", async () => {
+      await page.fill("#youPassword", PASSWORD);
+      await page.click("#youEmailSend");
+      await page.waitForSelector("#youPending");
+      eq(apiCalls(world, "POST /account/email").pop().body, { new_email: "walk.new@example.com", current_password: PASSWORD }, "the body");
+      return has(await page.textContent("#youPending"), "walk.new@example.com", "the pending line");
+    });
+    await step("Send the invitation posts the address, and the waiting list shows it", async () => {
+      await page.fill("#inviteEmail", "new.colleague@example.com");
+      await page.click("#inviteSend");
+      await page.waitForFunction(() => /new\.colleague@example\.com/.test(document.getElementById("users").textContent));
+      eq(apiCalls(world, "POST /account/invites").pop().body, { email: "new.colleague@example.com" }, "the body");
+      return has(await page.textContent("#inviteMsg"), "Invitation sent", "the message");
+    });
+    await step("Withdraw takes an invitation back", async () => {
+      await page.click('[data-act="invite-withdraw"][data-invite="3"]');
+      await page.waitForFunction(() => !/pending@example\.com/.test(document.getElementById("users").textContent));
+      return eq(apiCalls(world, "POST /account/invites/withdraw").pop().body, { id: 3 }, "the body");
+    });
+    await step("Remove asks first, then removes the colleague", async () => {
+      world.dialogs = [];
+      await page.click('[data-act="user-remove"]');
+      await page.waitForFunction(() => !/Cal League/.test(document.getElementById("userList").textContent));
+      has((world.dialogs || []).join(" "), "Remove Cal League from", "the question asked");
+      eq(apiCalls(world, "POST /account/users/remove").pop().body, { user_id: COLLEAGUE.user_id }, "the body");
+      return has(await page.textContent("#usersMsg"), "Cal League has been removed.", "the message");
+    });
+    await step("the people sections fit a phone's width", async () => {
+      await page.setViewportSize({ width: 375, height: 800 });
+      const wide = await page.evaluate(() => document.documentElement.scrollWidth);
+      await page.setViewportSize({ width: 1280, height: 900 });
+      return eq(wide <= 375, true, `page width at 375px (${wide})`);
+    });
+    clean(world, errors, "the people sections");
+    await context.close();
+  }
+
+  area = "The invitation page (plan 052, wave 3)";
+  {
+    const world = newWorld();
+    world.api["POST /auth/invite"] = (w, req) => (req.body.token === INVITE_TOKEN
+      ? [200, { ok: true, email: "cal@example.com", company: "ZZ Walk Test Ltd", inviter: "Walk Tester" }]
+      : [400, { error: "invite_invalid" }]);
+    world.api["POST /auth/register-invited"] = () => [200, { ok: true, confirm_required: true }];
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/invite.html?t=${INVITE_TOKEN}`);
+    await step("the page names the account, who invited, and the address", async () => {
+      await page.waitForSelector("#invName");
+      has(await page.textContent("h1"), "Join ZZ Walk Test Ltd.", "the heading");
+      has(await page.textContent("#inviteBody"), "Walk Tester has invited you", "the line");
+      return has(await page.textContent("#invEmail"), "cal@example.com", "the address");
+    });
+    await step("Join stays refused until the Platform Terms are ticked", async () => {
+      await page.waitForSelector("#invTick");
+      await page.fill("#invName", "Cal League");
+      await page.fill("#invPass", "a-good-password");
+      await page.click("#joinBtn");
+      has(await page.textContent("#formErr"), "accept the Platform Terms", "the message");
+      return eq(apiCalls(world, "POST /auth/register-invited").length, 0, "registrations sent");
+    });
+    await step("Join posts the token, the name, the password and the terms version, then says check your inbox", async () => {
+      await page.check("#invTick");
+      await page.click("#joinBtn");
+      await page.waitForFunction(() => /Check your inbox/.test(document.body.textContent));
+      const b = apiCalls(world, "POST /auth/register-invited").pop().body;
+      return eq([b.token, b.name, b.password, b.terms_version_id], [INVITE_TOKEN, "Cal League", "a-good-password", 12], "the body");
+    });
+    await page.goto(`${APEX}/hub/invite.html?t=${"b".repeat(64)}`);
+    await step("a used or expired invitation says so", async () => {
+      await page.waitForFunction(() => /used or has expired/.test(document.body.textContent));
+      return true;
+    });
+    clean(world, errors, "the invitation page");
+    await context.close();
+  }
+
+  area = "The email-change page (plan 052, wave 3)";
+  {
+    const world = newWorld();
+    world.api["POST /account/email/confirm"] = (w, req) => (req.body.token === INVITE_TOKEN
+      ? [200, { ok: true, email: "walk.new@example.com" }] : [400, { error: "link_invalid" }]);
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/email.html?t=${INVITE_TOKEN}`);
+    await step("the link changes the address and says which one signs in now", async () => {
+      await page.waitForFunction(() => /Your email address is changed/.test(document.body.textContent));
+      has(await page.textContent("#emailBody"), "walk.new@example.com", "the new address");
+      return eq(new URL(await page.getAttribute("#emailBody a", "href"), page.url()).pathname, "/hub/account/", "where the button goes");
+    });
+    await page.goto(`${APEX}/hub/email.html?t=${"c".repeat(64)}`);
+    await step("a used or expired link says so", async () => {
+      await page.waitForFunction(() => /used or has expired/.test(document.body.textContent));
+      return true;
+    });
+    clean(world, errors, "the email-change page");
+    await context.close();
+  }
+}
+
 // ================================================================ run
 function findBrowser() {
   const tries = [process.env.WALK_BROWSER,
@@ -1153,6 +1330,8 @@ const started = Date.now();
 const parts = []
   .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkSignedIn, walkAccount, walkHomepage, walkLandings] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames] : []);
+/* The people sections (plan 052, wave 3) walk straight after the account page. */
+if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
 try {
   for (const part of parts) {
     try { await part(); } catch (e) {
