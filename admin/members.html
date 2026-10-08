@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>NexPoint Admin — Accounts</title>
+<title>NexPoint Admin — Users</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -23,15 +23,15 @@ no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
 OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
 ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
 accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
-STORY: the Global Hub's account register — every site that registered, where
-it is, what it's interested in, whether it has confirmed its email (the gate
-the worker holds every acting route behind), the Pipedrive person the account
-is tied to, and how many hub requests it has raised. An account with an
-approved listing is a host; the product never says "member" (the table name
-member_profiles is the one survivor, in code only). Read-only: accounts
-manage their own details, this board is for visibility only.
-FIRST VIEWPORT: brand bar, boards tabs, "Accounts", then the account register
-table.
+STORY: the Global Hub's user register — every person who registered or was
+invited, which account they belong to, where they are, what they're interested
+in, whether they have confirmed their email (the gate the worker holds every
+acting route behind), the Pipedrive person they are tied to, and how many hub
+requests they have raised. A user of an account with an approved listing is a
+host's user; the product never says "member" (the table name member_profiles is
+the one survivor, in code only). Users manage their own details; the one action
+here is Delete user (plan 052 task 3.3).
+FIRST VIEWPORT: brand bar, boards tabs, "Users", then the user register table.
 FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 -->
 
@@ -77,8 +77,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         </span>
         <span class="navgroup">
           <a href="introductions.html">Introductions</a>
-          <a href="members.html" aria-current="page">Accounts</a>
-          <a href="organisations.html">Organisations</a>
+          <a href="organisations.html">Accounts</a>
+          <a href="members.html" aria-current="page">Users</a>
           <a href="orders.html">Orders</a>
         </span>
         <span class="navgroup">
@@ -91,21 +91,25 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 
       <div class="arrive">
         <div class="intro">
-          <h1>Accounts</h1>
+          <h1>Users</h1>
           <span class="count" id="count"></span>
         </div>
         <p class="note">
-          Every site account registered on the Global Hub, with the date each confirmed its
-          email and the Pipedrive person it is tied to. Accounts with an approved listing are
-          hosts. Read-only: accounts manage their own details, this board is for visibility only.
+          Every user registered on the Global Hub, with the date each confirmed their
+          email and the Pipedrive person they are tied to. Users of an account with an approved
+          listing are hosts' users. Users manage their own details; there is nothing to edit here. Delete
+          user removes the person and their sign-in and cannot be undone. When it is the only user
+          of an account, the whole account goes too, with everything filed under it; when the account
+          has other users, only that user goes.
         </p>
+        <div id="banner"></div>
         <div class="register">
           <table>
             <thead><tr>
-              <th scope="col">Account</th><th scope="col">Company</th><th scope="col">Location</th><th scope="col">Interests</th><th scope="col">Joined</th>
-              <th scope="col">Confirmed</th><th scope="col">Pipedrive</th><th scope="col">Requests</th>
+              <th scope="col">User</th><th scope="col">Company</th><th scope="col">Location</th><th scope="col">Interests</th><th scope="col">Joined</th>
+              <th scope="col">Confirmed</th><th scope="col">Pipedrive</th><th scope="col">Requests</th><th scope="col">Terms</th><th scope="col">Manage</th>
             </tr></thead>
-            <tbody id="membersBody"><tr><td colspan="8" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+            <tbody id="membersBody"><tr><td colspan="10" style="color:var(--fg-2)">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -142,7 +146,8 @@ async function doLogin(){
   showAdmin(data.user);
 }
 async function signOut(){await sb.auth.signOut();location.reload();}
-function showAdmin(u){$('login').style.display='none';$('admin').style.display='block';$('who').textContent=u.email;loadMembers();}
+let me=null, people=[], pendingByUser={}, accountNames={};
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='block';$('who').textContent=u.email;me=u;loadMembers();}
 
 const fmtDate = v => v
   ? new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -150,19 +155,50 @@ const fmtDate = v => v
 
 async function loadMembers(){
   const { data: members, error } = await sb.from('member_profiles')
-    .select('user_id,name,company,email,region,country,town,interests,created_at,email_confirmed_at,pipedrive_person_id')
+    .select('user_id,org_id,name,company,email,region,country,town,interests,created_at,email_confirmed_at,pipedrive_person_id')
     .order('created_at', { ascending: false });
   if (error){
-    $('membersBody').innerHTML = `<tr><td colspan="8">Couldn't load accounts: ${esc(error.message)}.
+    $('membersBody').innerHTML = `<tr><td colspan="10">Couldn't load users: ${esc(error.message)}.
       If this says a column does not exist, migration 0029 may not be applied yet.</td></tr>`;
     return;
   }
+  people = members;
+  accountNames = {};
+  const { data: orgRows } = await sb.from('organisations').select('id,name');
+  (orgRows || []).forEach(o => { accountNames[o.id] = o.name; });
+  /* A queued delete replaces the button it came from; a failed one shows its
+     reason with Try again (the Accounts board's pattern). */
+  const { data: ints } = await sb.from('engine_intents').select('id,type,payload_json,status,result_note')
+    .in('status',['pending','claimed','failed','done']).eq('type','delete-user')
+    .order('id',{ascending:false}).limit(1000);
+  if ((ints || []).length === 1000)
+    $('banner').innerHTML = `<div class="banner">Showing the newest 1,000 intent rows; older rows are not on this page.</div>`;
+  pendingByUser = {};
+  (ints || []).slice().sort((a,b)=>a.id-b.id).forEach(i => {
+    const k = (i.payload_json || {}).user_id;
+    if (k == null) return;
+    if (i.status==='done') delete pendingByUser[k]; else pendingByUser[k] = i;
+  });
   const { data: reqs } = await sb.from('web_requests').select('member_id').not('member_id', 'is', null);
   const counts = {};
   (reqs || []).forEach(r => { counts[r.member_id] = (counts[r.member_id] || 0) + 1; });
+  /* The registration acceptance per account (plan 052, item 17): newest wins. */
+  const { data: accepts } = await sb.from('terms_acceptances').select('org_id,context,accepted_at,terms_version_id,user_id');
+  const { data: versions } = await sb.from('terms_versions').select('id,layer,version');
+  const verOf = {};
+  (versions || []).forEach(v => { verOf[v.id] = v; });
+  const termsOf = {};
+  (accepts || []).forEach(a => {
+    if (a.context === 'registration' && verOf[a.terms_version_id]
+        && (!termsOf[a.user_id] || new Date(a.accepted_at) > new Date(termsOf[a.user_id].accepted_at)))
+      termsOf[a.user_id] = a;
+  });
+  const termsCell = id => termsOf[id]
+    ? `${esc(verOf[termsOf[id].terms_version_id].version)} <span class="muted">${esc(fmtDate(termsOf[id].accepted_at))}</span>`
+    : '<span class="unconf">not accepted</span>';
   const unconfirmed = members.filter(m => !m.email_confirmed_at).length;
   $('count').textContent = members.length
-    ? `${members.length} account${members.length===1?'':'s'}${unconfirmed?` · ${unconfirmed} unconfirmed`:''}`
+    ? `${members.length} user${members.length===1?'':'s'}${unconfirmed?` · ${unconfirmed} unconfirmed`:''}`
     : '';
   $('membersBody').innerHTML = members.length ? members.map(m => `
     <tr>
@@ -176,7 +212,45 @@ async function loadMembers(){
         : '<span class="unconf">not confirmed</span>'}</td>
       <td class="pd">${m.pipedrive_person_id ? esc(m.pipedrive_person_id) : '<span class="muted">not linked</span>'}</td>
       <td>${counts[m.user_id] || 0}</td>
-    </tr>`).join('') : '<tr><td colspan="8">No accounts yet.</td></tr>';
+      <td>${termsCell(m.user_id)}</td>
+      <td>${manageCell(m)}</td>
+    </tr>`).join('') : '<tr><td colspan="10">No users yet.</td></tr>';
+}
+
+/* Delete user (Will, 8 Oct 2026, plan 052 task 3.3). The last-user rule lives
+   in the worker; this board only warns. */
+function usersOf(orgId){ return orgId ? people.filter(p => p.org_id === orgId).length : 0; }
+function manageCell(m){
+  const q = pendingByUser[m.user_id];
+  const btn = `<button class="btn btn-danger btn-sm" data-user-id="${esc(m.user_id)}" onclick="deleteUser(this.dataset.userId)">
+    <span class="material-symbols-outlined" aria-hidden="true">person_remove</span>Delete user</button>`;
+  if (q && q.status === 'failed')
+    return `<span class="unconf">Failed: ${esc(q.result_note || '')}</span>
+      <br><button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button> ${btn}`;
+  if (q) return '<span class="muted">Queued, moments away.</span>';
+  return btn;
+}
+async function raise(type, payload, verb){
+  const { error } = await sb.from('engine_intents').insert({ type, payload_json: payload, requested_by: me.email });
+  if (error){ $('banner').innerHTML = `<div class="banner">Could not queue it: ${esc(error.message)}</div>`; return; }
+  $('banner').innerHTML = `<div class="banner" style="border-color:var(--ok-line);color:var(--ok-ink)">${esc(verb)}, queued. The engine acts within a minute or two.</div>`;
+  setTimeout(loadMembers, 1200);
+}
+function deleteUser(userId){
+  const p = people.find(x => x.user_id === userId);
+  if (!p) return;
+  const last = p.org_id && usersOf(p.org_id) <= 1;
+  const who = p.name || p.email;
+  const acct = accountNames[p.org_id] || p.company || 'their account';
+  const msg = last
+    ? `Delete ${who} (${p.email})? They are the only user of ${acct}, so the whole account goes too, with every listing, request and introduction filed under it. This cannot be undone.`
+    : `Delete ${who} (${p.email})? Their sign-in is removed and ${p.org_id ? `the rest of ${acct}'s users stay` : 'they have no account to lose'}. This cannot be undone.`;
+  if (!confirm(msg)) return;
+  raise('delete-user',{user_id:userId},'Delete queued');
+}
+function retry(intentId){
+  const q = Object.values(pendingByUser).find(i => i.id === intentId);
+  if (q) raise(q.type, q.payload_json || {}, 'Sent again');
 }
 
 boot();
