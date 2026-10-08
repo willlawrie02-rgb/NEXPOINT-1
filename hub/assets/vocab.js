@@ -86,6 +86,7 @@
       t('sintratec_s2', 'Sintratec S2'),
       t('formlabs_form_4', 'Formlabs Form 4'),
       t('prusa_xl', 'Prusa XL'),
+      t('bambu_lab_h2_series', 'Bambu Lab H2 Series'),
     ],
     mill: [
       t('cnc_router_3axis', '3-axis CNC router'),
