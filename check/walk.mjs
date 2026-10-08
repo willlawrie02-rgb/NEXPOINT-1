@@ -170,6 +170,8 @@ const API = {
     title: "NexPoint terms (walk)", body_md: WRAPPED_TERMS }],
   "POST /requests": () => [200, { ok: true }],
   "GET /account/summary": (w) => (w.user ? [200, w.summary || EMPTY_SUMMARY] : [401, { error: "unauthenticated" }]),
+  // the profile picture (plan 052 task 3.5): none until a scenario says otherwise
+  "GET /account/avatar": (w) => (w.user ? [200, { ok: true, url: w.avatar || null }] : [401, { error: "unauthenticated" }]),
   "GET /opportunities/briefs": () => [200, { ok: true, briefs: [] }],
   "GET /vocab": () => [200, { ok: true, items: [] }],
   "GET /attributes": () => [200, { ok: true, attributes: [] }],
@@ -734,6 +736,74 @@ async function walkAccount() {
   }
 }
 
+/* The profile picture (plan 052 task 3.5, Will's item 19): the head's
+   monogram becomes the user's picture. The page crops to a square and sends
+   a JPEG; the worker answers a signed link, here a data: URL so the picture
+   really draws without reaching past the stubs. */
+const PIXEL_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+const PIXEL_URL = `data:image/png;base64,${PIXEL_PNG}`;
+async function walkAvatar() {
+  area = "The account page: the picture";
+  const world = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+    org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "none", host_print: "none", host_mill: "none" },
+    site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "none", host_mill: "none" },
+  }) });
+  const { context, page, errors } = await visit(world);
+  await page.goto(`${APEX}/hub/account/`);
+  await step("with no picture the head shows the monogram and offers Add a picture", async () => {
+    await page.waitForSelector("#profile:not([hidden])");
+    await until(() => apiCalls(world, "GET /account/avatar").length === 1, "the picture read");
+    eq((await page.textContent("#profile .acct-mono")).trim(), "ZW", "the monogram");
+    eq(await page.locator("#profile img.acct-mono").count(), 0, "pictures");
+    has(await page.textContent('[data-act="avatar-pick"]'), "Add a picture", "the button");
+    return await page.isHidden('[data-act="avatar-remove"]');
+  });
+  await step("a picture the worker refuses says so, and the monogram stays", async () => {
+    world.api["POST /account/avatar"] = () => [400, { error: "not_an_image" }];
+    await page.setInputFiles("#avatarFile", { name: "me.png", mimeType: "image/png", buffer: Buffer.from(PIXEL_PNG, "base64") });
+    await page.waitForSelector("#avatarMsg:not([hidden])");
+    has(await page.textContent("#avatarMsg"), "Choose a PNG or JPEG picture.", "the message");
+    return (await page.locator("#profile img.acct-mono").count()) === 0;
+  });
+  await step("a picture chosen is sent once, squared as a JPEG, and replaces the monogram", async () => {
+    world.api["POST /account/avatar"] = (w) => { w.avatar = PIXEL_URL; return [200, { ok: true, url: PIXEL_URL, expires_in: 60 }]; };
+    await page.setInputFiles("#avatarFile", { name: "me.png", mimeType: "image/png", buffer: Buffer.from(PIXEL_PNG, "base64") });
+    await page.waitForSelector("#profile img.acct-mono");
+    const sent = apiCalls(world, "POST /account/avatar");
+    eq(sent.length, 2, "uploads (the refused one and this one)");
+    has(String(sent[1].body && sent[1].body.image).slice(0, 23), "data:image/jpeg;base64,", "what was sent");
+    eq(await page.getAttribute("#profile img.acct-mono", "src"), PIXEL_URL, "the picture shown");
+    eq(await page.evaluate(() => document.querySelector("#profile img.acct-mono").naturalWidth), 1, "the picture drew");
+    has(await page.textContent('[data-act="avatar-pick"]'), "Change picture", "the button");
+    return await page.isVisible('[data-act="avatar-remove"]');
+  });
+  await step("Remove picture asks the worker once and puts the monogram back", async () => {
+    world.api["POST /account/avatar/remove"] = (w) => { w.avatar = null; return [200, { ok: true }]; };
+    await page.click('[data-act="avatar-remove"]');
+    await page.waitForSelector("#profile span.acct-mono");
+    eq(apiCalls(world, "POST /account/avatar/remove").length, 1, "removes");
+    eq((await page.textContent("#profile .acct-mono")).trim(), "ZW", "the monogram");
+    has(await page.textContent('[data-act="avatar-pick"]'), "Add a picture", "the button");
+    return await page.isHidden('[data-act="avatar-remove"]');
+  });
+  clean(world, errors, "the picture");
+  await context.close();
+
+  area = "The account page: a picture already there";
+  {
+    const world = newWorld({ user: USER, avatar: PIXEL_URL, summary: Object.assign({}, EMPTY_SUMMARY) });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/`);
+    await step("the page opens with the picture where the monogram was", async () => {
+      await page.waitForSelector("#profile img.acct-mono");
+      eq(await page.getAttribute("#profile img.acct-mono", "src"), PIXEL_URL, "the picture shown");
+      return has(await page.textContent('[data-act="avatar-pick"]'), "Change picture", "the button");
+    });
+    clean(world, errors, "the page with a picture");
+    await context.close();
+  }
+}
+
 async function walkHomepage() {
   area = "The homepage";
   const world = newWorld();
@@ -1151,7 +1221,7 @@ const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
 const parts = []
-  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkSignedIn, walkAccount, walkHomepage, walkLandings] : [])
+  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkSignedIn, walkAccount, walkAvatar, walkHomepage, walkLandings] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames] : []);
 try {
   for (const part of parts) {
