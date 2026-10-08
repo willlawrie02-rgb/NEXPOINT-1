@@ -316,7 +316,7 @@
         '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-accept-send" data-intro="' + id + '">Accept the introduction</button>' +
       '</div>' +
       '<div class="acct-answer" id="introDecline-' + id + '" hidden>' +
-        '<label class="hint" for="introReason-' + id + '">Why not, if you want to say (optional). This goes to the NexPoint desk, not to the seeker.</label>' +
+        '<label class="hint" for="introReason-' + id + '">Tell us why, if you like. This goes to the NexPoint desk, not to the seeker.</label>' +
         '<textarea id="introReason-' + id + '" rows="3" placeholder="Too far out, wrong material, no capacity that month"></textarea>' +
         '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-decline-send" data-intro="' + id + '">Send my decline</button>' +
       '</div>';
@@ -977,7 +977,7 @@
         });
         return;
       }
-      if (isNotBuilt(d)) { say(msg, 'Answer from the email we sent you for now.', true); return; }
+      if (isNotBuilt(d)) { say(msg, 'For now, answer from the email we sent you.', true); return; }
       say(msg, GENERIC_ERROR, true);
     });
   }
