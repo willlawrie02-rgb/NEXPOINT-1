@@ -708,17 +708,48 @@ async function walkDoorReturn() {
     });
     await context.close();
   }
+  {
+    /* Review, round 1: with sessionStorage refused, the way back carries
+       np_back=1, and a return that already has it is not followed again:
+       the sign-in box opens instead. */
+    const world = newWorld({ user: USER, api: { "GET /auth/me": (w, req) => (req.origin === PRINT
+      ? [200, { signed_in: null, retry: true }] : [200, { ok: true, signed_in: true, member: w.user }]) } });
+    const { context, page } = await visit(world);
+    await context.addInitScript(() => {
+      Object.defineProperty(window, "sessionStorage", { configurable: true, get() { throw new Error("storage refused"); } });
+    });
+    await step("with no session storage, the np_back marker stops a second trip back", async () => {
+      await page.goto(`${PRINT}/find.html`);
+      const fromPage = () => world.calls.filter((c) => c.path === "/auth/me" && c.origin === PRINT).length;
+      await until(() => fromPage() >= 4, "the second visit to the page", 12000);
+      await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/");
+      await page.waitForSelector("#signOverlay.open");
+      await page.waitForTimeout(3000);
+      eq(fromPage(), 4, "the page asked twice on each of two visits, no third");
+      eq(new URL(new URL(page.url()).searchParams.get("return")).searchParams.get("np_back"), "1", "the marker on the way back");
+    });
+    await context.close();
+  }
   /* The wall timer: 20 seconds, and gone once the account module is in. */
   {
     const world = newWorld({ user: USER, meHang: true });
     const { context, page } = await visit(world);
-    await step("once the account module has loaded, the wall timer never fires", async () => {
+    /* Review, round 1: with the wall timer gone once the module is in, a
+       hanging /auth/me must not leave the page blank for ever. The fetch
+       gives up after 8 s, asks once more after 1.5 s, then the door. */
+    await step("a hanging /auth/me gives up at 8 s, asks again, then the door", async () => {
       await page.clock.install();
       await page.goto(`${PRINT}/find.html`);
-      await until(() => apiCalls(world, "GET /auth/me").length, "the account module asking");
-      await page.clock.runFor(30000);
+      const fromPage = () => world.calls.filter((c) => c.path === "/auth/me" && c.origin === PRINT).length;
+      await until(() => fromPage() === 1, "the account module asking");
+      await page.clock.runFor(7000);
       await page.waitForTimeout(200);
-      eq(new URL(page.url()).hostname, "printhub.nexpoint.co.uk", "the host after 30 s");
+      eq([new URL(page.url()).hostname, fromPage()], ["printhub.nexpoint.co.uk", 1], "at 7 s: the page, asked once");
+      await page.clock.runFor(3000);
+      await until(() => fromPage() === 2, "the second ask");
+      await page.clock.runFor(9000);
+      await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/");
+      eq(fromPage(), 2, "times the page asked");
     });
     await context.close();
   }

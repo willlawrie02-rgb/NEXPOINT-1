@@ -23,14 +23,30 @@
   const ACCOUNT_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
     ? 'https://nexpoint.co.uk/hub/account/' : '/hub/account/';
 
+  /* `timeoutMs` (plan 052 item 1, review): a request that never answers
+     becomes a network error after that long. /auth/me uses it, since the
+     walled page's own fallback timer is cleared once this module loads and
+     a hang would otherwise leave the page blank. An AbortController with a
+     plain timer rather than AbortSignal.timeout: it works in every browser
+     that has fetch, and the walk's fake clock can drive it. */
   async function call(path, opts) {
-    let r;
+    let r, timer = null;
+    const o = Object.assign({ credentials: 'include' }, opts);
+    const ms = o.timeoutMs;
+    delete o.timeoutMs;
+    if (ms && typeof AbortController === 'function') {
+      const ctl = new AbortController();
+      o.signal = ctl.signal;
+      timer = setTimeout(() => ctl.abort(), ms);
+    }
     try {
-      r = await fetch(API + path, Object.assign({ credentials: 'include' }, opts));
+      r = await fetch(API + path, o);
+      return await r.json().catch(() => ({ error: 'bad response' }));
     } catch (e) {
       return { error: 'network' };
+    } finally {
+      if (timer) clearTimeout(timer);
     }
-    return r.json().catch(() => ({ error: 'bad response' }));
   }
 
   function postJson(path, body) {
@@ -92,10 +108,11 @@
            "signed out". Ask once more after a moment; a second miss falls
            through to the door as before, so nothing loops (plan 052 item 1). */
         const unsure = (r) => !r || r.error === 'network' || r.signed_in === null;
-        let d = await call('/auth/me', { method: 'GET' });
+        const ask = () => call('/auth/me', { method: 'GET', timeoutMs: 8000 });
+        let d = await ask();
         if (unsure(d)) {
           await new Promise((res) => setTimeout(res, 1500));
-          d = await call('/auth/me', { method: 'GET' });
+          d = await ask();
         }
         const signedIn = d.signed_in != null ? d.signed_in : !!(d.ok && d.member);
         A.user = signedIn ? normalise(d.member) : null;

@@ -569,24 +569,34 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); 
    /auth/me), so they go straight back to the page they asked for, through
    doorReturn()'s allow-list of NexPoint addresses only (plan 052 item 1).
    Once per address per half minute: should that page keep reading them as
-   signed out, the second bounce stays at the door rather than looping. */
+   signed out, the second bounce stays at the door rather than looping.
+   Without session storage the way back carries np_back=1 instead, and a
+   return that already has it is not followed again: the sign-in box opens.
+   Answers 'sent', 'held' (the guard stopped it) or '' (nothing to do). */
 function doorSendBack(){
-  const back = window.NPAccount && NPAccount.user && NPAccount.doorReturn && NPAccount.doorReturn();
-  if (!back) return false;
+  let back = window.NPAccount && NPAccount.user && NPAccount.doorReturn && NPAccount.doorReturn();
+  if (!back) return '';
+  const url = new URL(back);
+  if (url.searchParams.get('np_back') === '1') return 'held';
   const KEY = 'np-door-return';
   try {
     const last = JSON.parse(sessionStorage.getItem(KEY) || 'null');
-    if (last && last.to === back && Date.now() - last.at < 30000) return false;
+    if (last && last.to === back && Date.now() - last.at < 30000) return 'held';
     sessionStorage.setItem(KEY, JSON.stringify({ to: back, at: Date.now() }));
-  } catch (e) { /* no storage: still send them back; the walled page's own retry is the guard */ }
+  } catch (e) {
+    url.searchParams.set('np_back', '1');
+    back = url.href;
+  }
   location.replace(back);
-  return true;
+  return 'sent';
 }
 (function openDoorSignIn(){
   if (new URLSearchParams(location.search).get('signin') !== '1') return;
   const go = () => {
-    if (doorSendBack()) return;
-    if (!(window.NPAccount && NPAccount.user) && document.getElementById('signOverlay')) openSignIn();
+    const back = doorSendBack();
+    if (back === 'sent') return;
+    const box = document.getElementById('signOverlay');
+    if (box && (back === 'held' || !(window.NPAccount && NPAccount.user))) openSignIn();
   };
   if (window.NPAccount && NPAccount.ready && NPAccount.ready.then) NPAccount.ready.then(go, go);
   else go();
