@@ -681,7 +681,8 @@ async function walkAccount() {
       requests: [
         { id: 3, ref: "PS-0046", hub: "print", material: "pa12_nylon12", quantity: 500, cadence: "recurring", status: "picked",
           created_at: new Date().toISOString(), no_match: false,
-          picks: [{ introduction_id: 8, ref: "INTRO-0008", stage: "proposed", card: { town: "Leeds", country: "United Kingdom" } }] },
+          picks: [{ introduction_id: 8, ref: "INTRO-0008", stage: "proposed", card: { town: "Leeds", country: "United Kingdom", materials: ["pa12_nylon12"], services: ["finishing_dyeing"],
+            machines: [{ name: "HP MJF 5200", materials: ["pa12_nylon12"], count: 2, lead_time_days: 5 }] } }] },
         { id: 4, ref: "MS-0047", hub: "mill", material: "pa12_nylon12", quantity: 200, cadence: "once", status: "open",
           created_at: new Date().toISOString(), no_match: false, picks: [] },
       ],
@@ -710,6 +711,15 @@ async function walkAccount() {
     if (facts.length < 3) throw new Error(`expected the facts lines to render, saw ${JSON.stringify(lines)}`);
     for (const t of lines) if (t.includes("_")) throw new Error(`a facts line shows a raw term: ${t}`);
     has(facts.join(" | "), "One off", "the offer's cadence");
+  });
+  await step("the picks block reads in words: labelled materials, services and machines, no underscore, no [object Object]", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    await page.evaluate(() => document.querySelectorAll("#introductions details").forEach((d) => { d.open = true; }));
+    const block = await page.textContent("#introductions .acct-pick");
+    for (const bad of ["_", "[object Object]"]) if (block.includes(bad)) throw new Error(`the picks block shows ${bad}: ${block}`);
+    has(block, "HP MJF 5200", "the machine name");
+    has(block, "PA12", "the labelled material");
+    has(block, "Services", "the services row");
   });
   await step("an offer waiting on the provider shows, with a way to have it sent again", async () => {
     await page.waitForSelector("#introductions:not([hidden])");

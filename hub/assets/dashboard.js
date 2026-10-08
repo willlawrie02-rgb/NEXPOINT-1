@@ -275,15 +275,19 @@
     return '<div class="acct-released">' + bits.join('<br>') + '</div>';
   }
 
-  function pickBlock(p, intro) {
+  function pickBlock(p, intro, hub) {
     var card = p.card || {};
     var rows = [];
     var where = [card.town, card.country].filter(Boolean).join(', ');
     if (where) rows.push(['Where', where]);
-    if (card.machines && card.machines.length) rows.push(['Machines', list(card.machines)]);
-    if (card.materials && card.materials.length) rows.push(['Materials', list(card.materials)]);
+    var mats = function (a) { return (a || []).map(function (t) { return lab('material', hub, t); }); };
+    if (card.machines && card.machines.length) rows.push(['Machines', card.machines.map(function (m) {
+      if (!m || typeof m !== 'object') return String(m || '');
+      return [m.name, m.count > 1 ? 'x' + m.count : '', m.materials && m.materials.length ? '(' + mats(m.materials).join(', ') + ')' : ''].filter(Boolean).join(' ');
+    }).filter(Boolean).join('; ')]);
+    if (card.materials && card.materials.length) rows.push(['Materials', list(mats(card.materials))]);
     if (card.min_lead_time_days != null) rows.push(['Lead time', 'From ' + card.min_lead_time_days + ' days']);
-    if (card.services && card.services.length) rows.push(['Services', list(card.services)]);
+    if (card.services && card.services.length) rows.push(['Services', list(card.services.map(function (t) { return lab('service', hub, t); }))]);
 
     var accepted = acceptedStage(p.stage);
     return '<div class="acct-pick">' +
@@ -306,7 +310,7 @@
       body = empty('With NexPoint. Nothing has been put forward yet.', 'hourglass_top');
     } else {
       body = '<details class="acct-detail"><summary>What we put forward (' + picks.length + ')</summary>' +
-        picks.map(function (p) { return pickBlock(p, byId[p.introduction_id]); }).join('') +
+        picks.map(function (p) { return pickBlock(p, byId[p.introduction_id], r.hub); }).join('') +
       '</details>';
     }
     return '<div class="acct-card">' +
