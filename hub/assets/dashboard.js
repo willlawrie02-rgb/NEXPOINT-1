@@ -304,10 +304,12 @@
     var picks = Array.isArray(r.picks) ? r.picks : [];
     var facts = [lab('material', r.hub, r.material), r.quantity, lab('cadence', r.hub, r.cadence)].filter(Boolean).map(String).join(' · ');
     var body;
-    if (r.no_match) {
-      body = empty('No match yet. We are still looking, and will write the moment there is one.', 'travel_explore');
-    } else if (!picks.length) {
-      body = empty('With NexPoint. Nothing has been put forward yet.', 'hourglass_top');
+    /* Picks win over the flag: a request routed by hand keeps no_match, and its
+       pick must still show. The flag only words the empty state. */
+    if (!picks.length) {
+      body = r.no_match
+        ? empty('No match yet. We are still looking, and will write the moment there is one.', 'travel_explore')
+        : empty('With NexPoint. Nothing has been put forward yet.', 'hourglass_top');
     } else {
       body = '<p class="hint">What we put forward (' + picks.length + ')</p>' +
         picks.map(function (p) { return pickBlock(p, byId[p.introduction_id], r.hub); }).join('');

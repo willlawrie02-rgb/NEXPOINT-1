@@ -687,6 +687,10 @@ async function walkAccount() {
             { introduction_id: 10, ref: "INTRO-0010", stage: "awaiting_acceptance", card: { town: "Hull", country: "United Kingdom", materials: ["pa12_nylon12"] } }] },
         { id: 4, ref: "MS-0047", hub: "mill", material: "pa12_nylon12", quantity: 200, cadence: "once", status: "open",
           created_at: new Date().toISOString(), no_match: false, picks: [] },
+        // Plan 052, item 3: a hand-routed request still carries no_match; its pick must show.
+        { id: 5, ref: "PS-0048", hub: "print", material: "pa12_nylon12", quantity: 60, cadence: "once", status: "open",
+          created_at: new Date().toISOString(), no_match: true,
+          picks: [{ introduction_id: 11, ref: "INTRO-0011", stage: "awaiting_acceptance", card: { town: "Exeter", country: "United Kingdom", materials: ["pa12_nylon12"] } }] },
       ],
       hubs_used: ["print"],
     }),
@@ -705,6 +709,12 @@ async function walkAccount() {
     has(text, "INTRO-0008", "the introduced pick");
     for (const gone of ["REQ-", "PS-0046", "MS-0047"])
       if (text.includes(gone)) throw new Error(`the account page still shows ${gone}`);
+  });
+  await step("a request flagged no_match still shows the pick put forward by hand (plan 052, item 3)", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    const text = await page.textContent("#introductions");
+    has(text, "INTRO-0011", "the hand-routed pick");
+    if (text.includes("No match yet")) throw new Error("a request with a pick still says No match yet");
   });
   await step("facts lines read as English: no underscore in a request card or an offer line (plan 052, item 10)", async () => {
     await page.waitForSelector("#introductions:not([hidden])");
