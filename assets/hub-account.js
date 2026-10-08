@@ -33,6 +33,14 @@
     return call(path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body) });
   }
+  function getJson(path) { return call(path, { method: 'GET' }); }
+
+  /* Where the hub's own assets live for a page on a subdomain (plan 046): the
+     apex, as every hub page sets NP_APEX; empty on a local preview. */
+  function apexBase() {
+    if (typeof window.NP_APEX === 'string') return window.NP_APEX;
+    return /\.nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
+  }
 
   /* An account the worker has not told us about is treated as confirmed: an
      older worker that does not know the field yet must not lock everyone out
@@ -364,8 +372,11 @@
     const tsKey = turnstileSiteKey();
     content().innerHTML = stepDots(2) + `
       <h2>Where is this site?</h2>
-      <p class="body">Every hub answers by distance first. Tell us once and never again.</p>
+      <p class="body" style="margin-bottom:12px">Every hub answers by distance first. Search for your town or drop a pin, then check the three fields below. You can type over them.</p>
       <form data-np-step="2">
+        <div class="np-map-search"><input id="qPlace" type="text" placeholder="Town or city, country" aria-label="Find your town" autocomplete="off"><button class="btn btn-outline" type="button" id="qPlaceFind">Find on the map</button></div>
+        <div id="qMap" class="np-map" role="application" aria-label="Map: click to place your site"></div>
+        <p class="np-hint" id="qMapNote" hidden>We could not place that; type the town and country below.</p>
         <div class="form-grid">
           <div class="field"><label for="qRegion">Region</label><input id="qRegion" value="${esc(draft.region || l.region)}" placeholder="e.g. Europe"></div>
           <div class="field"><label for="qCountry">Country</label><input id="qCountry" required value="${esc(draft.country || l.country)}" placeholder="Country"></div>
@@ -381,7 +392,34 @@
           <button class="btn btn-primary" type="submit" disabled>Create my hub account</button>
         </div>
       </form>`;
-    content().querySelector('[data-np-back]').addEventListener('click', () => step1());
+    /* The site map (plan 046): a pin or a search fills the three fields, which
+       stay editable. Without Leaflet or the module the fields stand alone. */
+    let siteMap = null;
+    content().querySelector('[data-np-back]').addEventListener('click', () => {
+      if (siteMap) siteMap.destroy();
+      step1();
+    });
+    const mapEl = content().querySelector('#qMap');
+    if (window.NPSiteMap && window.L && mapEl) {
+      const q = (id) => content().querySelector(id);
+      siteMap = NPSiteMap.mount({ el: mapEl, api: getJson, assetBase: apexBase(),
+        onPlace: (p) => {
+          if (p.town) q('#qTown').value = p.town;
+          if (p.country) q('#qCountry').value = p.country;
+          if (p.region) q('#qRegion').value = p.region;
+          q('#qMapNote').hidden = true;
+        },
+        onMiss: () => { q('#qMapNote').hidden = false; } });
+      if (siteMap) {
+        siteMap.refresh();
+        const find = () => siteMap.search(q('#qPlace').value.trim());
+        q('#qPlaceFind').addEventListener('click', find);
+        q('#qPlace').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); find(); } });
+      }
+    } else if (mapEl) {
+      mapEl.parentNode.removeChild(mapEl);
+      content().querySelector('.np-map-search').hidden = true;
+    }
     renderTermsBlock();
     if (tsKey) renderTurnstile(tsKey);
     content().querySelector('form').addEventListener('submit', async (e) => {

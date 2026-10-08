@@ -20,7 +20,9 @@ function* walk(dir, ext) {
   }
 }
 const pages = ["index.html", ...PUBLIC_DIRS.flatMap((d) => [...walk(d, ".html")])].sort();
-const scripts = [...walk("assets", ".js"), ...walk(join("hub", "assets"), ".js")];
+// A vendored library (hub/assets/vendor, plan 046's Leaflet) is not our copy.
+const scripts = [...walk("assets", ".js"), ...walk(join("hub", "assets"), ".js")]
+  .filter((f) => !f.includes(`${join("assets", "vendor")}/`));
 
 // ---------------------------------------------------------------- copy
 const stripComments = (t) =>
@@ -107,6 +109,20 @@ for (const p of pages) {
     if (ha.includes(gone)) fail(`assets/hub-account.js: still says "${gone}" (plan 046)`);
   }
   if (!read("hub/reset.html").includes("np-eye")) fail("hub/reset.html: no show-password control (plan 046)");
+  // The site map (Task 8): wired in the account module, and Leaflet plus the
+  // map module loaded by every page that can open the questionnaire, from
+  // the same base that page uses for the hub stylesheet (vendored: no CDN in
+  // the loading path).
+  if (!ha.includes("NPSiteMap")) fail("the site map is not wired (plan 046)");
+  for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.html", "printhub/find.html",
+    "printhub/offer.html", "millhub/index.html", "millhub/find.html", "millhub/offer.html", "opportunities/index.html"]) {
+    const t = read(p);
+    for (const want of ["vendor/leaflet/leaflet.css", "vendor/leaflet/leaflet.js", "assets/site-map.js"]) {
+      if (!t.includes(want)) fail(`${p}: does not load ${want}; the questionnaire's map needs it (plan 046)`);
+    }
+  }
+  if (!read("hub/assets/site-map.js").includes("tile.openstreetmap.org")) fail("hub/assets/site-map.js: the tiles are OpenStreetMap's (plan 046)");
+  if (!read("hub/privacy.html").includes("tile.openstreetmap.org")) fail("hub/privacy.html: says nothing about the map's tile host (plan 046)");
   for (const p of pages) {
     const header = (read(p).match(/<header[\s\S]*?<\/header>/) || [""])[0];
     const slot = header.indexOf("<span data-np-account-slot");

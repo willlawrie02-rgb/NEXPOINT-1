@@ -605,6 +605,15 @@ button.notice-warn:hover,a.notice-warn:hover{background:rgba(245,166,35,.22)}
 .np-hint{display:block;margin-top:5px;font:400 12px/1.5 var(--font-body);letter-spacing:0;text-transform:none;color:var(--outline)}
 .np-hint[hidden]{display:none}
 
+/* the site map on account creation (plan 046): a search row, the map, then
+   the three fields it fills */
+.np-map{height:260px;border:1px solid var(--border-card);border-radius:var(--radius-lg);overflow:hidden;margin:0 0 14px;background:#e9edf2}
+.np-map-search{display:flex;gap:8px;margin:0 0 10px}
+.np-map-search input{flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14.5px;padding:12px 14px;outline:none}
+.np-map-search input:focus{border-color:var(--blue)}
+.np-map-search[hidden]{display:none}
+@media(max-width:560px){.np-map{height:200px}}
+
 /* the listing form: sections, a wrapping row of pick chips, and the
    read-only face a revision under review is shown in */
 .lsec{margin-top:28px}
