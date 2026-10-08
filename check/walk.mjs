@@ -675,7 +675,8 @@ async function walkAccount() {
       introductions: [{ id: 7, ref: "INT-0007", hub: "print", stage: "awaiting_acceptance", seeker_request_id: 3, accepted_a_at: null,
         accepted_b_at: null, acceptance_expires_at: soon, declined_at: null, created_at: new Date().toISOString(), role: "provider",
         introduced_at: null, counterpart: null }],
-      offers: [{ introduction_id: 7, ref: "INT-0007", hub: "print", acceptance_expires_at: soon, request: null }],
+      offers: [{ introduction_id: 7, ref: "INT-0007", hub: "print", acceptance_expires_at: soon,
+        request: { material: "pa12_nylon12", process: "fdm_fff", quantity: 40, cadence: "one_off", town: "Bristol", country: "United Kingdom" } }],
       // Plan 052, item 4: PS-/MS- codes are the worker's and the desk's; the seeker sees INTRO- only.
       requests: [
         { id: 3, ref: "PS-0046", hub: "print", material: "pa12_nylon12", quantity: 500, cadence: "recurring", status: "picked",
@@ -701,6 +702,14 @@ async function walkAccount() {
     has(text, "INTRO-0008", "the introduced pick");
     for (const gone of ["REQ-", "PS-0046", "MS-0047"])
       if (text.includes(gone)) throw new Error(`the account page still shows ${gone}`);
+  });
+  await step("facts lines read as English: no underscore in a request card or an offer line (plan 052, item 10)", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    const lines = await page.$$eval("#introductions .acct-card .hint, #introductions .acct-row__meta span", (els) => els.map((e) => e.textContent));
+    const facts = lines.filter((t) => /Recurring|One off|Once|PA12/.test(t));
+    if (facts.length < 3) throw new Error(`expected the facts lines to render, saw ${JSON.stringify(lines)}`);
+    for (const t of lines) if (t.includes("_")) throw new Error(`a facts line shows a raw term: ${t}`);
+    has(facts.join(" | "), "One off", "the offer's cadence");
   });
   await step("an offer waiting on the provider shows, with a way to have it sent again", async () => {
     await page.waitForSelector("#introductions:not([hidden])");

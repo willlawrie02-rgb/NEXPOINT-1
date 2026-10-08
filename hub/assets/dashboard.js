@@ -92,6 +92,26 @@
     node.innerHTML = '';
     node.hidden = true;
   }
+  /* Plan 052, item 10: stored terms (pa12_nylon12, one_off) read as the vocab's
+     words. `vocab` is filled before the first render (loadVocab) and, if the
+     list could not be read, label() still humanises the term. */
+  var vocab = {};
+  var VOCAB_LIST = { material: 'materials', process: 'processes', service: 'services' };
+  var CADENCE = { one_off: 'One off', recurring: 'Recurring' };
+  function lab(kind, hub, term) {
+    if (term == null || term === '') return '';
+    if (kind === 'cadence' && CADENCE[term]) return CADENCE[term];
+    var v = vocab[hub === 'mill' ? 'mill' : 'print'];
+    var list = v && VOCAB_LIST[kind] ? v[VOCAB_LIST[kind]] : [];
+    if (window.NPVocab && NPVocab.label) return NPVocab.label(list, term);
+    return String(term);
+  }
+  function loadVocab() {
+    if (!window.NPVocab) return Promise.resolve();
+    return Promise.all(['print', 'mill'].map(function (h) {
+      return NPVocab.load(h).then(function (v) { vocab[h] = v; }, function () {});
+    }));
+  }
   function icon(name) { return '<span class="material-symbols-outlined acct-ico" aria-hidden="true">' + name + '</span>'; }
   function empty(text, ico) { return '<div class="acct-empty">' + icon(ico || 'inbox') + '<span>' + esc(text) + '</span></div>'; }
   /* A section's heading: one icon, the title, and the line under it. */
@@ -278,7 +298,7 @@
 
   function requestCard(r, byId) {
     var picks = Array.isArray(r.picks) ? r.picks : [];
-    var facts = [r.material, r.quantity, r.cadence].filter(Boolean).map(String).join(' · ');
+    var facts = [lab('material', r.hub, r.material), r.quantity, lab('cadence', r.hub, r.cadence)].filter(Boolean).map(String).join(' · ');
     var body;
     if (r.no_match) {
       body = empty('No match yet. We are still looking, and will write the moment there is one.', 'travel_explore');
@@ -310,7 +330,7 @@
   function offerLine(o) {
     if (!o || !o.request) return '';
     var r = o.request;
-    return [r.material, r.process, r.quantity, r.cadence,
+    return [lab('material', o.hub, r.material), lab('process', o.hub, r.process), r.quantity, lab('cadence', o.hub, r.cadence),
       r.max_lead_time_days != null ? 'within ' + r.max_lead_time_days + ' days' : '',
       [r.town, r.country].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
   }
@@ -730,7 +750,7 @@
         return;
       }
       if (d.signed_in === false) { showSignedOut(); return; }
-      render(d);
+      loadVocab().then(function () { if (mine === seq) render(d); });
     });
   }
 
