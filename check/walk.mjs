@@ -744,6 +744,15 @@ async function walkAccount() {
       eq(new URL(await links[0].getAttribute("href"), page.url()).pathname, "/hub/index.html", "where the line goes");
       return has(await links[0].textContent(), "arrow_forward", "the trailing arrow");
     });
+    await step("the needs block is headed Next step, sits in the head level with the Go button, and reads large and bold (plan 052)", async () => {
+      has(await page.textContent("#acctNeeds h2"), "Next step", "the heading");
+      eq(await page.locator(".acct-head #acctNeeds").count(), 1, "the block is inside .acct-head");
+      const blockTop = (await page.locator("#acctNeeds").boundingBox()).y;
+      const btnTop = (await page.locator("#goHub").boundingBox()).y;
+      if (Math.abs(blockTop - btnTop) > 8) throw new Error(`block top ${blockTop} is not level with the button top ${btnTop}`);
+      const f = await page.$eval("#acctNeeds h2", (el) => { const c = getComputedStyle(el); return { size: parseFloat(c.fontSize), weight: parseInt(c.fontWeight, 10) }; });
+      if (f.size < 18 || f.weight < 700) throw new Error(`heading is ${f.size}px at weight ${f.weight}`);
+    });
     clean(world, errors, "the new account's page");
     await context.close();
   }

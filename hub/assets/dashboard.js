@@ -600,7 +600,7 @@
   function renderNeeds(needs) {
     if (!needs.length) { hide('acctNeeds'); return; }
     fill('acctNeeds',
-      '<h2>To do now</h2><ul>' + needs.map(function (n) {
+      '<h2>Next step</h2><ul>' + needs.map(function (n) {
         var open = n.href ? '<a href="' + esc(n.href) + '">' : '<a href="#' + n.to + '">';
         var arrow = n.href ? icon('arrow_forward') : icon('arrow_downward');
         return '<li>' + open + icon(n.icon) + '<span>' + esc(n.text) + '</span>' + arrow + '</a></li>';

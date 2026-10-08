@@ -350,7 +350,7 @@
       <form data-np-step="1">
         <div class="form-grid">
           <div class="field"><label for="qName">Your name</label><input id="qName" required value="${esc(draft.name)}" placeholder="Full name"></div>
-          <div class="field"><label for="qCompany">Company and site</label><input id="qCompany" required value="${esc(draft.company)}" placeholder="Held in confidence"></div>
+          <div class="field"><label for="qCompany">Company</label><input id="qCompany" required value="${esc(draft.company)}" placeholder="Held in confidence"></div>
           <div class="field"><label for="qEmail">Email</label><input id="qEmail" type="email" required value="${esc(draft.email)}" placeholder="you@company.com"></div>
           <div class="field"><label for="qPass">Choose a password</label><input id="qPass" type="password" required minlength="8" maxlength="72" placeholder="At least 8 characters"></div>
           <div class="field full"><label for="qWebsite">Website (optional)</label><input id="qWebsite" type="text" inputmode="url" autocomplete="url" value="${esc(draft.website || '')}" placeholder="yourlab.com"></div>
