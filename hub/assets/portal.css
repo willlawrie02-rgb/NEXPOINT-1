@@ -637,3 +637,8 @@ body[data-np-signed-in] .np-stranger{display:none}
    at their account instead. */
 .np-holder{display:none}
 body[data-np-signed-in] .np-holder{display:block}
+
+/* The map's OpenStreetMap credit: present, small and quiet (plan 046, Will's
+   ask of 8 Oct). The Leaflet badge is off in site-map.js. */
+.np-map .leaflet-control-attribution{font:10px/14px Inter,system-ui,sans-serif;color:#5b6573;background:rgba(255,255,255,.72);padding:1px 5px}
+.np-map .leaflet-control-attribution a{color:#5b6573;text-decoration:underline}
