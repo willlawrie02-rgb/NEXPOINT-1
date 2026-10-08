@@ -204,6 +204,8 @@ async function answerApi(world, route, request, url) {
      down) or never answer at all (meHang). */
   if (key === "GET /auth/me" && world.meFailures > 0) { world.meFailures--; return route.abort("failed"); }
   if (key === "GET /auth/me" && world.meHang) return;
+  /* A route named in world.hang is never answered (the vocabulary, in the account walk). */
+  if (world.hang && world.hang.has(key)) return;
   /* A path with an id in it is matched by its shape. */
   const shaped = key.replace(/\/\d+(\/|$)/g, "/:id$1");
   const fn = world.api[key] || world.api[shaped] || API[key] || API[shaped];
@@ -924,6 +926,49 @@ async function walkAccount() {
   });
   clean(world, errors, "the account page");
   await context.close();
+
+  area = "The account page (a closed introduction and a slow vocabulary)";
+  {
+    const closed = (id, ref, stage, role) => ({ id, ref, hub: "print", stage, seeker_request_id: 3, accepted_a_at: null, accepted_b_at: null,
+      acceptance_expires_at: null, declined_at: null, created_at: new Date().toISOString(), role, introduced_at: null, counterpart: null });
+    const world = newWorld({
+      user: USER,
+      hang: new Set(["GET /vocab", "GET /attributes"]),
+      summary: Object.assign({}, EMPTY_SUMMARY, {
+        org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", founding: true, host_print: "approved", host_mill: "none", fee_exempt_note: null },
+        site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
+          sub_status: "trial", founding: true, paused: false, removed: false, verified: true },
+        introductions: [closed(21, "INT-0021", "dead", "provider"), closed(22, "INT-0022", "mystery_stage", "provider")],
+        requests: [{ id: 3, ref: "PS-0050", hub: "print", material: "pa12_nylon12", quantity: 10, cadence: "once", status: "picked",
+          created_at: new Date().toISOString(), no_match: false,
+          picks: [{ introduction_id: 23, ref: "INTRO-0023", stage: "dead", card: { town: "Leeds", country: "United Kingdom", materials: ["pa12_nylon12"] } }] }],
+        hubs_used: ["print"],
+      }),
+    });
+    const { context, page, errors } = await visit(world);
+    const t0 = Date.now();
+    await page.goto(`${APEX}/hub/account/`);
+    await step("with the vocabulary never answering, the account page still draws within a few seconds", async () => {
+      await page.waitForSelector("#introductions .acct-card", { timeout: 6000 });
+      const ms = Date.now() - t0;
+      if (ms > 6000) throw new Error(`the page took ${ms} ms to draw`);
+      has(await page.textContent("#introductions"), "INTRO-0023", "the request card");
+      eq(apiCalls(world, "GET /vocab").filter((c) => c.query.hub === "mill").length, 0, "Mill vocabulary reads by a Print-only account");
+    });
+    await step("a closed introduction reads Closed: three steps done, the last a stop step, never Introduced (plan 052 review)", async () => {
+      const chains = await page.$$eval("#introductions .status-chain", (ols) => ols.map((ol) => ({
+        labels: [...ol.children].map((li) => li.textContent), classes: [...ol.children].map((li) => li.className.trim()) })));
+      const closedChains = chains.filter((c) => c.labels[3] === "Closed");
+      eq(closedChains.length, 2, "the closed chains (a provider row and a seeker pick)");
+      for (const c of closedChains) eq(JSON.stringify(c.classes), JSON.stringify(["is-done", "is-done", "is-done", "is-stop"]), "a closed chain's classes");
+      const rows = await page.$$eval("#introductions .acct-row__meta", (els) => els.map((e) => ({ ref: e.querySelector("b").textContent, line: e.querySelector(":scope > span").textContent })));
+      const line = (ref) => (rows.find((r) => r.ref.includes(ref)) || { line: null }).line;
+      eq(line("INT-0021"), "Closed.", "the closed provider row");
+      eq(line("INT-0022"), "", "an unknown stage's line");
+    });
+    clean(world, errors, "the closed-introduction page");
+    await context.close();
+  }
 
   area = "The account page (an account that has done nothing yet)";
   {

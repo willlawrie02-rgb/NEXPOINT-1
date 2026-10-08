@@ -103,9 +103,21 @@
     if (window.NPVocab && NPVocab.label) return NPVocab.label(list, term);
     return String(term);
   }
-  function loadVocab() {
+  /* Only the hubs this account touches are read: two per hub-kind round trip
+     each, so a Print-only account no longer waits on Mill's seven requests. */
+  function hubsOf(d) {
+    var seen = {};
+    [d.hubs_used, d.listings, d.requests, d.offers, d.introductions].forEach(function (x) {
+      (Array.isArray(x) ? x : []).forEach(function (r) {
+        var h = typeof r === 'string' ? r : r && r.hub;
+        if (h === 'print' || h === 'mill') seen[h] = true;
+      });
+    });
+    return Object.keys(seen);
+  }
+  function loadVocab(hubs) {
     if (!window.NPVocab) return Promise.resolve();
-    return Promise.all(['print', 'mill'].map(function (h) {
+    return Promise.all(hubs.map(function (h) {
       return NPVocab.load(h).then(function (v) { vocab[h] = v; }, function () {});
     }));
   }
@@ -225,7 +237,7 @@
   function statusChain(stage) {
     var steps = CHAIN.slice();
     var last = steps.length - 1;
-    var stop = stage === 'declined' ? 'Declined' : stage === 'expired' ? 'Expired' : '';
+    var stop = stage === 'declined' ? 'Declined' : stage === 'expired' ? 'Expired' : stage === 'dead' ? 'Closed' : '';
     var done = 0;     /* steps 0..done-1 are complete */
     var cur = -1;     /* the step being waited on, if any */
     if (stop) { steps[last] = stop; done = last; }
@@ -326,8 +338,11 @@
     if (i.stage === 'approved') return 'Approved by NexPoint.';
     if (i.stage === 'declined') return 'Declined.';
     if (i.stage === 'expired') return 'Expired.';
+    if (i.stage === 'dead') return 'Closed.';
     if (i.stage === 'proposed') return 'With NexPoint.';
-    return 'Introduced.';
+    /* Only the stages that mean a live introduction read as introduced; a stage
+       this page does not know says nothing rather than something untrue. */
+    return acceptedStage(i.stage) ? 'Introduced.' : '';
   }
 
   /* What a provider is being asked for, in the anonymised terms the offer
@@ -733,6 +748,7 @@
 
   /* ═══════════ loading ═══════════ */
   var seq = 0, queued = null;
+  var VOCAB_WAIT_MS = 3000;
   /* The account module both resolves its ready promise and fires
      npaccount:change for the same refresh, and this page listens for both, so
      a load is queued rather than fired: two triggers for one change fetch the
@@ -755,7 +771,15 @@
         return;
       }
       if (d.signed_in === false) { showSignedOut(); return; }
-      loadVocab().then(function () { if (mine === seq) render(d); });
+      /* Draw once the words are in, but never wait on them for long: after
+         VOCAB_WAIT_MS the page draws with humanised fallback labels, and draws
+         again when the vocabulary does arrive. */
+      var draw = function () { if (mine === seq) { render(d); } };
+      var timer = setTimeout(draw, VOCAB_WAIT_MS);
+      loadVocab(hubsOf(d)).then(function () {
+        clearTimeout(timer);
+        draw();
+      });
     });
   }
 
