@@ -22,7 +22,10 @@
     if (!box || !window.L) return null;
     var base = opts.assetBase || '';
     L.Icon.Default.imagePath = base + '/hub/assets/vendor/leaflet/images/';
-    var map = L.map(box, { zoomControl: true, attributionControl: true, worldCopyJump: true }).setView([30, 0], 2);
+    /* The OpenStreetMap credit stays on the map (its licence asks for it); the
+       Leaflet badge does not (Will, 8 Oct): the control carries no prefix. */
+    var map = L.map(box, { zoomControl: true, attributionControl: false, worldCopyJump: true }).setView([30, 0], 2);
+    L.control.attribution({ prefix: false }).addTo(map);
     L.tileLayer(TILES, { maxZoom: 18, attribution: ATTRIB }).addTo(map);
     var marker = null;
     function pin(lat, lng, zoom) {
