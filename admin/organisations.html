@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>NexPoint Admin — Organisations</title>
+<title>NexPoint Admin — Accounts</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="admin.css">
 <style>
   .muted { color: var(--fg-2); font-size: 12.5px; }
+  .terms-missing { color: var(--warn-ink); font-weight: 600; font-size: 12.5px; }
   .subb, .hostb, .founding {
     display: inline-block; border-radius: 999px; text-transform: uppercase;
     letter-spacing: 0.05em; white-space: nowrap;
@@ -50,6 +51,13 @@
   .listb { display: block; font-size: 12.5px; margin-bottom: 4px; white-space: nowrap; }
   .listb:last-child { margin-bottom: 0; }
   .pd { font-variant-numeric: tabular-nums; }
+  dialog.deldlg { border: 1px solid var(--line, #E3E7ED); border-radius: 12px; padding: 22px 24px; max-width: 460px;
+                  color: var(--fg-1, #0E1626); background: #fff; }
+  dialog.deldlg::backdrop { background: rgba(14, 22, 38, 0.45); }
+  dialog.deldlg h2 { margin: 0 0 10px; font-size: 18px; }
+  dialog.deldlg p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; }
+  dialog.deldlg input { width: 100%; box-sizing: border-box; margin: 6px 0 14px; padding: 9px 10px; font: inherit; }
+  dialog.deldlg .row { display: flex; gap: 8px; justify-content: flex-end; }
 </style>
 </head>
 <body>
@@ -59,7 +67,7 @@ no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
 OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
 ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
 accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
-STORY: every organisation on the Global Hub — the follow-through score and
+STORY: every account on the Global Hub — the follow-through score and
 its working, subscription standing (with the Founding badge honoured for
 life, spec §3), host status and listings per hub, open strikes with the
 source that opened them and the date they must cure by, the Pipedrive ids
@@ -68,7 +76,7 @@ orders. Three actions, all intents: record a payment, cure a strike, open
 an audit strike. The engine advances the billing period and lifts a
 subscription-hide (never a strike-hide — that clears only when the strikes
 themselves cure).
-FIRST VIEWPORT: brand bar, boards tabs, "Organisations", then the register.
+FIRST VIEWPORT: brand bar, boards tabs, "Accounts", then the register.
 FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 -->
 
@@ -86,6 +94,17 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
   </div>
   <div class="hint">Admin access only — the database admits the allowlist and nobody else.</div>
 </div>
+
+<dialog class="deldlg" id="delDlg" aria-labelledby="delTitle">
+  <h2 id="delTitle">Delete account</h2>
+  <p id="delBody"></p>
+  <label for="delName" class="muted">Type the account's name to confirm</label>
+  <input id="delName" type="text" autocomplete="off" oninput="delCheck()">
+  <div class="row">
+    <button type="button" class="btn btn-gh btn-sm" onclick="delCancel()">Keep account</button>
+    <button type="button" class="btn btn-danger btn-sm" id="delGo" disabled onclick="delConfirm()">Delete account</button>
+  </div>
+</dialog>
 
 <div id="admin" style="display:none">
   <header class="topbar">
@@ -114,8 +133,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         </span>
         <span class="navgroup">
           <a href="introductions.html">Introductions</a>
-          <a href="members.html">Accounts</a>
-          <a href="organisations.html" aria-current="page">Organisations</a>
+          <a href="organisations.html" aria-current="page">Accounts</a>
+          <a href="members.html">Users</a>
           <a href="orders.html">Orders</a>
         </span>
         <span class="navgroup">
@@ -128,11 +147,11 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 
       <div class="arrive">
         <div class="intro">
-          <h1>Organisations</h1>
+          <h1>Accounts</h1>
           <span class="count" id="count"></span>
         </div>
         <p class="note">
-          Every organisation on the Global Hub: the follow-through score and its working,
+          Every account on the Global Hub: the follow-through score and its working,
           subscription standing, host status and listings per hub, open strikes with their
           source and cure date, the Pipedrive ids, and fees owed on confirmed but uninvoiced
           orders. Recording a payment queues the engine to advance the billing period. A
@@ -141,7 +160,9 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           hub with its people unable to act, and both are reversible here. A removed company
           drops into the Archive below the register, out of the working list, until you
           restore it. The engine never changes a state itself; it tells you when a company
-          needs a decision.
+          needs a decision. Delete is different: it removes the account, every user and
+          everything filed under it, and cannot be undone, so Remove is the reversible
+          path and Delete asks you to type the account's name first.
           Curing a strike closes it in the requester's name; an audit strike is the manual
           way to open one.
         </p>
@@ -149,7 +170,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         <div class="register">
           <table>
             <thead><tr>
-              <th scope="col">Organisation</th><th scope="col">Score</th><th scope="col">Subscription</th><th scope="col">Host status</th>
+              <th scope="col">Account</th><th scope="col">Score</th><th scope="col">Subscription</th><th scope="col">Host status</th>
               <th scope="col">Listings</th><th scope="col">Strikes</th><th scope="col">Fees owed</th><th scope="col">State</th><th scope="col">Manage</th>
             </tr></thead>
             <tbody id="orgRows"><tr><td colspan="9" style="color:var(--fg-2)">Loading…</td></tr></tbody>
@@ -168,7 +189,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <div class="register">
             <table>
               <thead><tr>
-                <th scope="col">Organisation</th><th scope="col">Removed</th><th scope="col">Strikes</th>
+                <th scope="col">Account</th><th scope="col">Removed</th><th scope="col">Strikes</th>
                 <th scope="col">Fees owed</th><th scope="col">Manage</th>
               </tr></thead>
               <tbody id="archiveRows"><tr><td colspan="5" style="color:var(--fg-2)">Loading…</td></tr></tbody>
@@ -200,13 +221,13 @@ const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 let me=null, orgs=[], strikes=[], listings=[];
-let intentById={}, pendingByOrg={}, pendingByStrike={}, townByOrg={};
+let intentById={}, pendingByOrg={}, pendingByStrike={}, townByOrg={}, termsByOrg={};
 
 /* The score's bands, verbatim from the engine's own constants
    (statements.SCORE_BAND_GREEN = 80, statements.SCORE_BAND_AMBER = 60):
    80 and over is green, 60 to 79 amber, below 60 red. */
 const SCORE_BAND_GREEN=80, SCORE_BAND_AMBER=60;
-const ORG_INTENTS=['record-sub-paid','open-audit-strike','cure-strike','pause-org','resume-org','remove-org','restore-org'];
+const ORG_INTENTS=['record-sub-paid','open-audit-strike','cure-strike','pause-org','resume-org','remove-org','restore-org','delete-account'];
 const STRIKE_SOURCE={seeker_check:'seeker check',audit:'audit',
                      no_declaration:'no declaration',undeclared_evidence:'undeclared evidence'};
 const LISTING_BADGE={pending:'PENDING',live:'LIVE',declined:'DECLINED',hidden:'HIDDEN'};
@@ -254,7 +275,7 @@ async function load(){
   $('banner').innerHTML='';
   const oq=await sb.from('organisations').select('*').order('name',{ascending:true});
   if(oq.error){
-    $('banner').innerHTML=`<div class="banner">Could not read organisations: ${esc(oq.error.message)}.
+    $('banner').innerHTML=`<div class="banner">Could not read accounts: ${esc(oq.error.message)}.
       If this says the table does not exist or permission is denied, migration 0024 (schema) and
       0025 (engine_worker grants) may not be applied yet.</div>`;
     $('orgRows').innerHTML='';
@@ -263,13 +284,16 @@ async function load(){
   }
   orgs=oq.data||[];
 
-  const [strikesQ, listQ, ordersQ, intentsQ] = await Promise.all([
+  const [strikesQ, listQ, ordersQ, intentsQ, acceptQ, versionQ, whoQ] = await Promise.all([
     sb.from('strikes').select('*'),
     sb.from('listings').select('id,org_id,hub,status,live_revision_id'),
     sb.from('orders').select('org_provider,value,fee_rate,currency,confirmed_at,invoiced_at'),
     sb.from('engine_intents').select('id,type,payload_json,status,result_note')
       .in('status',['pending','claimed','failed','done']).in('type',ORG_INTENTS)
       .order('id',{ascending:false}).limit(1000),
+    sb.from('terms_acceptances').select('org_id,context,accepted_at,terms_version_id,user_id'),
+    sb.from('terms_versions').select('id,layer,version'),
+    sb.from('member_profiles').select('user_id,email'),
   ]);
   if(strikesQ.error)
     $('banner').innerHTML+=`<div class="banner">Could not read strikes: ${esc(strikesQ.error.message)}.</div>`;
@@ -278,6 +302,11 @@ async function load(){
       If this says the table does not exist, migration 0029 may not be applied yet.</div>`;
   strikes=strikesQ.data||[];
   listings=listQ.data||[];
+  if(acceptQ.error||versionQ.error||whoQ.error)
+    $('banner').innerHTML+=`<div class="banner">Could not read the terms acceptances: ${esc((acceptQ.error||versionQ.error||whoQ.error).message)}.</div>`;
+  /* member_profiles only names who accepted; without it a line still shows,
+     read as "an account". */
+  indexTerms(acceptQ.data||[],versionQ.data||[],whoQ.data||[]);
 
   /* organisations has no town column (0029 put the address on the listing
      revision), so a site's town is read off its live revision, else its
@@ -327,6 +356,40 @@ async function load(){
     $('banner').innerHTML+=`<div class="banner">Showing the newest 1,000 intent rows; older rows are not on this page.</div>`;
 
   render(feesByOrg);
+  await showDeleteFailures();
+}
+
+/* A delete that half-failed can leave no account row and no profile to hang
+   a message on, so failed delete-account and delete-user intents from the
+   last 14 days get a banner of their own, read from the intents. The newest
+   intent per target decides (a later success clears it), as elsewhere. */
+function deleteFailures(rows,now,liveOrgIds){
+  const cutoff=(now||Date.now())-14*24*3600*1000;
+  const latest={};
+  (rows||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    const p=i.payload_json||{};
+    const key=i.type+':'+(i.type==='delete-account'?p.org_id:p.user_id);
+    latest[key]=i;
+  });
+  /* A failed delete-account whose account row still exists shows on that
+     row (manageFor); the banner is for the ones with no row left. */
+  const live=liveOrgIds||new Set();
+  return Object.values(latest).filter(i=>i.status==='failed'&&new Date(i.requested_at).getTime()>=cutoff
+      &&!(i.type==='delete-account'&&live.has((i.payload_json||{}).org_id)))
+    .sort((a,b)=>b.id-a.id).map(i=>{
+      const p=i.payload_json||{};
+      const what=i.type==='delete-account'?`account "${p.confirm_name||'(unnamed)'}"`:`user ${p.user_id||''}`;
+      return {id:i.id,text:`Delete failed for ${what}: ${i.result_note||'no reason recorded'} (${fmtDate(i.requested_at)})`};
+    });
+}
+async function showDeleteFailures(){
+  const q=await sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at')
+    .in('status',['pending','claimed','failed','done']).in('type',['delete-account','delete-user'])
+    .order('id',{ascending:false}).limit(1000);
+  if(q.error)return;
+  deleteFailures(q.data,Date.now(),new Set(orgs.map(o=>o.id))).forEach(f=>{
+    $('banner').innerHTML+=`<div class="banner">${esc(f.text)}</div>`;
+  });
 }
 
 function subBadge(o){
@@ -428,6 +491,42 @@ const nameKey=o=>(o.name||'').trim().toLowerCase();
 function sameName(rows){
   const n={};rows.forEach(o=>{const k=nameKey(o);n[k]=(n[k]||0)+1;});return n;
 }
+/* The company's website (plan 052, item 15), given at registration and stored
+   as an origin. A link only when it is an http(s) address; anything else is
+   shown as plain escaped text. */
+function websiteLine(o){
+  const w=o.website;if(!w)return'';
+  const shown=esc(String(w).replace(/^https?:\/\//i,'').replace(/\/$/,''));
+  return /^https?:\/\//i.test(w)
+    ?`<br><a href="${esc(w)}" target="_blank" rel="noopener noreferrer">${shown}</a>`
+    :`<br><span class="muted">${shown}</span>`;
+}
+/* Terms acceptances (plan 052, item 17): the newest acceptance per layer for
+   each company, by accepted_at, with the accepting account's email when
+   member_profiles names it. */
+const TERMS_LAYERS=[['platform','Platform'],['host','Host'],['introduction','Introduction']];
+function indexTerms(accepts,versions,people){
+  termsByOrg={};
+  const layerOf={},mail={};
+  versions.forEach(v=>{layerOf[v.id]=v;});
+  people.forEach(p=>{mail[p.user_id]=p.email;});
+  accepts.forEach(a=>{
+    const v=layerOf[a.terms_version_id];if(!a.org_id||!v)return;
+    const byLayer=termsByOrg[a.org_id]||(termsByOrg[a.org_id]={});
+    const cur=byLayer[v.layer];
+    if(!cur||new Date(a.accepted_at)>new Date(cur.at))
+      byLayer[v.layer]={version:v.version,at:a.accepted_at,email:mail[a.user_id]||''};
+  });
+}
+function termsLines(orgId){
+  const by=termsByOrg[orgId]||{};
+  const out=TERMS_LAYERS.filter(([k])=>by[k]).map(([k,label])=>{
+    const t=by[k];
+    return `<br><span class="muted">${esc(label)} ${esc(t.version)} accepted ${esc(fmtDate(t.at))} by ${esc(t.email||'a user')}</span>`;
+  });
+  if(!by.platform)out.unshift('<br><span class="terms-missing">Platform terms: not accepted</span>');
+  return out.join('');
+}
 function nameCell(o,counts){
   const town=counts[nameKey(o)]>1?townByOrg[o.id]:'';
   return `<strong>${esc(o.name||'(unnamed)')}</strong>${town?` <span class="muted">\u00b7 ${esc(town)}</span>`:''}`;
@@ -441,7 +540,7 @@ function render(feesByOrg){
   const active=orgs.filter(o=>orgState(o)!=='removed');
   const archived=orgs.filter(o=>orgState(o)==='removed');
   const activeNames=sameName(active), archivedNames=sameName(archived);
-  $('count').textContent=active.length?`${active.length} organisation${active.length===1?'':'s'}`:'';
+  $('count').textContent=active.length?`${active.length} account${active.length===1?'':'s'}`:'';
   $('orgRows').innerHTML = active.length ? active.map(o=>{
     const q=pendingByOrg[o.id];
     const state=orgState(o);
@@ -459,9 +558,11 @@ function render(feesByOrg){
         <span class="material-symbols-outlined" aria-hidden="true">gavel</span>Open audit strike</button>`,
       `<button class="btn btn-danger btn-sm" data-org-id="${esc(o.id)}" onclick="removeOrg(this.dataset.orgId)">
         <span class="material-symbols-outlined" aria-hidden="true">delete</span>Remove from the hub</button>`,
+      `<button class="btn btn-danger btn-sm" data-org-id="${esc(o.id)}" onclick="deleteOrg(this.dataset.orgId)">
+        <span class="material-symbols-outlined" aria-hidden="true">delete_forever</span>Delete account</button>`,
     ].join('');
     return `<tr>
-      <td>${nameCell(o,activeNames)}${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}
+      <td>${nameCell(o,activeNames)}${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}${websiteLine(o)}${termsLines(o.id)}
         ${o.fee_exempt_note?`<br><span class="muted">${esc(o.fee_exempt_note)}</span>`:''}${pipedriveCell(o)}</td>
       <td>${scoreCell(o)}</td>
       <td>${subBadge(o)}</td>
@@ -475,7 +576,7 @@ function render(feesByOrg){
   }).join('')
     : orgs.length
       ? `<tr><td colspan="9">Nothing on the hub; ${archived.length} in the archive below.</td></tr>`
-      : '<tr><td colspan="9">No organisations yet.</td></tr>';
+      : '<tr><td colspan="9">No accounts yet.</td></tr>';
   $('archiveCount').textContent=archived.length?`\u00b7 ${archived.length} removed`:'\u00b7 nothing removed';
   $('archiveRows').innerHTML = archived.length
     ? archived.map(o=>archiveRow(o,feesByOrg,archivedNames)).join('')
@@ -490,7 +591,8 @@ function render(feesByOrg){
    the one way back. */
 function archiveRow(o,feesByOrg,counts){
   const q=pendingByOrg[o.id];
-  const restore=`<button class="btn btn-gh btn-sm" data-org-id="${esc(o.id)}" onclick="restoreOrg(this.dataset.orgId)">Restore to the hub</button>`;
+  const restore=`<button class="btn btn-gh btn-sm" data-org-id="${esc(o.id)}" onclick="restoreOrg(this.dataset.orgId)">Restore to the hub</button>`
+    +`<button class="btn btn-danger btn-sm" data-org-id="${esc(o.id)}" onclick="deleteOrg(this.dataset.orgId)">Delete account</button>`;
   return `<tr>
     <td>${nameCell(o,counts)}${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}${pipedriveCell(o)}</td>
     <td>${stateCell(o)}${o.removed_reason?`<br><span class="muted">${esc(o.removed_reason)}</span>`:''}</td>
@@ -534,7 +636,7 @@ function stateCell(o){
     state!=='on'?`<br><span class="muted">${esc(String(when||'').slice(0,10))} · ${esc(who||'unknown')}</span>`:''}`;
 }
 function pauseOrg(orgId){
-  const reason=prompt(`Why is "${orgName(orgId)}" being paused? Seekers stop seeing it and the desk stops routing to it; the record and its listings stay. (kept on the organisation)`,'');
+  const reason=prompt(`Why is "${orgName(orgId)}" being paused? Seekers stop seeing it and the desk stops routing to it; the record and its listings stay. (kept on the account)`,'');
   if(reason===null)return;
   if(!reason.trim()){alert('A pause carries its reason.');return;}
   raise('pause-org',{org_id:orgId,reason:reason.trim()},'Paused');
@@ -544,7 +646,7 @@ function resumeOrg(orgId){
   raise('resume-org',{org_id:orgId},'Resumed');
 }
 function removeOrg(orgId){
-  const reason=prompt(`Why is "${orgName(orgId)}" being removed from the hub? Its people can still sign in to read, and can no longer act; the record is kept and you can restore it. (kept on the organisation)`,'');
+  const reason=prompt(`Why is "${orgName(orgId)}" being removed from the hub? Its people can still sign in to read, and can no longer act; the record is kept and you can restore it. (kept on the account)`,'');
   if(reason===null)return;
   if(!reason.trim()){alert('A removal carries its reason.');return;}
   if(!confirm(`Remove "${orgName(orgId)}" from the hub now?`))return;
@@ -553,6 +655,30 @@ function removeOrg(orgId){
 function restoreOrg(orgId){
   if(!confirm(`Restore "${orgName(orgId)}" to the hub? A pause recorded before the removal stands until you resume it.`))return;
   raise('restore-org',{org_id:orgId},'Restored');
+}
+/* Delete (Will, 8 Oct 2026, plan 052 task 3.3): the irreversible twin of
+   Remove. The button stays disabled until the account's name is typed; the
+   handler checks the same rule again. The name is read from orgs, never
+   carried through an attribute. */
+let delOrgId=null;
+function delMatches(typed,name){
+  const t=String(typed||'').trim().toLowerCase(),n=String(name||'').trim().toLowerCase();
+  return t!==''&&t===n;
+}
+function delCheck(){$('delGo').disabled=!delMatches($('delName').value,orgName(delOrgId));}
+function deleteOrg(orgId){
+  delOrgId=orgId;
+  $('delTitle').textContent=`Delete "${orgName(orgId)}"?`;
+  $('delBody').textContent='This deletes the account, every user and everything filed under it: listings, requests, introductions, orders and statements. Their sign-ins go too. It cannot be undone. To keep the record, use Remove from the hub instead.';
+  $('delName').value='';$('delGo').disabled=true;
+  $('delDlg').showModal();
+}
+function delCancel(){$('delDlg').close();delOrgId=null;}
+function delConfirm(){
+  if(!delOrgId||!delMatches($('delName').value,orgName(delOrgId)))return;
+  const typed=$('delName').value.trim();
+  raise('delete-account',{org_id:delOrgId,confirm_name:typed},'Delete queued');
+  $('delDlg').close();delOrgId=null;
 }
 function retry(intentId){
   const i=intentById[intentId];

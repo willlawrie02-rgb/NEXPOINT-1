@@ -148,8 +148,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         </span>
         <span class="navgroup">
           <a href="introductions.html">Introductions</a>
-          <a href="members.html">Accounts</a>
-          <a href="organisations.html">Organisations</a>
+          <a href="organisations.html">Accounts</a>
+          <a href="members.html">Users</a>
           <a href="orders.html" aria-current="page">Orders</a>
         </span>
         <span class="navgroup">
@@ -418,7 +418,7 @@ async function load(){
   if(introQ.error)warn('introductions',introQ.error,'');
   if(ordQ.error)warn('the legacy order ledger',ordQ.error,
     'Migration 0024 (schema) and 0025 (engine_worker grants) may not be applied yet.');
-  if(orgQ.error)warn('organisations',orgQ.error,
+  if(orgQ.error)warn('accounts',orgQ.error,
     'Party names show as their ids until this read succeeds.');
   introError=!!introQ.error;
 

@@ -86,6 +86,7 @@
       t('sintratec_s2', 'Sintratec S2'),
       t('formlabs_form_4', 'Formlabs Form 4'),
       t('prusa_xl', 'Prusa XL'),
+      t('bambu_lab_h2_series', 'Bambu Lab H2 Series'),
     ],
     mill: [
       t('cnc_router_3axis', '3-axis CNC router'),
@@ -197,7 +198,10 @@
      term has since left the live vocabulary. */
   function label(list, term) {
     const hit = (list || []).find((o) => o.term === term);
-    return hit ? hit.label : String(term == null ? '' : term);
+    if (hit) return hit.label;
+    /* Plan 052, item 10: a term the list lacks still reads as words. */
+    const s = String(term == null ? '' : term).replace(/_/g, ' ');
+    return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
   window.NPVocab = {

@@ -37,12 +37,14 @@
     };
   });
 
-  /* The wall (one-door register): if the account module never answers, this
-     page must not stay blank. Ten seconds, then the door. */
-  setTimeout(function () {
+  /* The wall (one-door register): if the account module never loads, this
+     page must not stay blank. 20 seconds, then the door; hub-account.js
+     clears the timer the moment it loads and answers for itself (plan 052
+     item 1: ten seconds sent signed-in visitors on slow links to the door). */
+  window.NP_WALL_TIMER = setTimeout(function () {
     if (!document.body || !document.body.hasAttribute('data-np-open'))
       location.replace((window.NP_APEX || '') + '/hub/?signin=1&return=' + encodeURIComponent(location.href));
-  }, 10000);
+  }, 20000);
 </script>
 </head>
 <body data-hub="mill" data-np-wall>
