@@ -1075,6 +1075,83 @@ async function walkAvatar() {
   }
 }
 
+/* Plan 052 wave 2: a provider answers an introduction on its account page
+   (items 21, 22), through the session routes the worker already has, and an
+   introduced row says the introduction is in the inbox rather than showing
+   the other side's details (item 26). */
+async function walkAccountAnswers() {
+  area = "The account page (answering an introduction)";
+  const soon = new Date(Date.now() + 3 * 864e5).toISOString();
+  const intro = (id, over) => Object.assign({ id, ref: `INTRO-000${id}`, hub: "print", stage: "awaiting_acceptance",
+    seeker_request_id: id, accepted_a_at: null, accepted_b_at: "2026-10-08T09:00:00Z", acceptance_expires_at: soon,
+    declined_at: null, created_at: "2026-10-08T09:00:00Z", role: "provider", introduced_at: null }, over);
+  const offer = (id) => ({ introduction_id: id, ref: `INTRO-000${id}`, hub: "print", acceptance_expires_at: soon,
+    request: { material: "pa12_nylon12", quantity: 40, town: "Bristol", country: "United Kingdom" } });
+  const summary = (intros, offers) => Object.assign({}, EMPTY_SUMMARY, {
+    org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", founding: true, host_print: "approved", host_mill: "none", fee_exempt_note: null },
+    site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
+      sub_status: "trial", founding: true, paused: false, removed: false, verified: true },
+    introductions: intros, offers, hubs_used: ["print"],
+  });
+  const world = newWorld({
+    user: USER,
+    summary: summary([intro(7), intro(9), intro(8, { stage: "introduced", accepted_a_at: "2026-10-07T10:00:00Z",
+      introduced_at: "2026-10-07T10:00:00Z", acceptance_expires_at: null })], [offer(7), offer(9)]),
+  });
+  world.api["POST /introductions/accept"] = (w) => {
+    w.summary = summary([intro(7, { stage: "introduced", accepted_a_at: "2026-10-08T12:00:00Z",
+      introduced_at: "2026-10-08T12:00:00Z" }), intro(9)], [offer(9)]);
+    return [200, { ok: true, stage: "introduced", ref: "INTRO-0007" }];
+  };
+  world.api["POST /introductions/decline"] = () => [200, { ok: true, stage: "declined", ref: "INTRO-0009" }];
+  const { context, page, errors } = await visit(world);
+  await page.goto(`${APEX}/hub/account/`);
+
+  await step("an open offer shows Accept and Decline, and no longer says to answer from the email", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    eq(await page.locator('[data-act="intro-accept-open"][data-intro="7"]').count(), 1, "accept buttons for 7");
+    eq(await page.locator('[data-act="intro-decline-open"][data-intro="7"]').count(), 1, "decline buttons for 7");
+    eq(await page.locator('[data-act="intro-accept-open"][data-intro="8"]').count(), 0, "accept buttons on an introduced row");
+    eq((await page.textContent("#introductions")).includes("Answer from the email"), false, "the old line");
+  });
+  await step("an introduced row says the introduction is in the inbox, with its INTRO ref, and no address", async () => {
+    const text = await page.textContent("#introductions");
+    has(text, "The introduction is in your inbox", "the inbox line");
+    has(text, "INTRO-0008", "the ref");
+    eq(/@/.test(text.replace(/introductions@nexpoint\.co\.uk/g, "")), false, "an email address on the page");
+    eq(await page.locator("#introductions a[href^='mailto:']").count(), 0, "mail links");
+  });
+  await step("Accept opens the introduction terms with an unticked box; accepting unticked asks for the tick", async () => {
+    await page.click('[data-act="intro-accept-open"][data-intro="7"]');
+    await page.waitForSelector("#introAnswer-7 .terms-scroll");
+    has(await page.textContent("#introAnswer-7"), "I accept the introduction terms, version 1.0", "the tick's label");
+    eq(await page.isChecked("#introTick-7"), false, "the tick");
+    eq(apiCalls(world, "GET /terms/current").at(-1).query.layer, "introduction", "the terms layer read");
+    await page.click('[data-act="intro-accept-send"][data-intro="7"]');
+    await page.waitForSelector("#introMsg-7:not([hidden])");
+    has(await page.textContent("#introMsg-7"), "tick to accept", "the message");
+    eq(apiCalls(world, "POST /introductions/accept").length, 0, "accepts sent unticked");
+  });
+  await step("ticked, Accept posts the introduction and the terms version, and the row re-renders as introduced", async () => {
+    await page.check("#introTick-7");
+    await page.click('[data-act="intro-accept-send"][data-intro="7"]');
+    await until(() => apiCalls(world, "POST /introductions/accept").length === 1, "the accept post");
+    eq(apiCalls(world, "POST /introductions/accept")[0].body, { introduction_id: 7, terms_version_id: 12 }, "the body");
+    await page.waitForFunction(() => document.querySelectorAll('[data-act="intro-accept-open"][data-intro="7"]').length === 0, null, { timeout: 5000 });
+    has(await page.textContent("#introductions"), "The introduction is in your inbox", "the inbox line after accepting");
+  });
+  await step("Decline opens a reason box; sending it posts the introduction and the reason", async () => {
+    await page.click('[data-act="intro-decline-open"][data-intro="9"]');
+    await page.waitForSelector("#introDecline-9:not([hidden])");
+    await page.fill("#introReason-9", "No capacity that month");
+    await page.click('[data-act="intro-decline-send"][data-intro="9"]');
+    await until(() => apiCalls(world, "POST /introductions/decline").length === 1, "the decline post");
+    eq(apiCalls(world, "POST /introductions/decline")[0].body, { introduction_id: 9, reason: "No capacity that month" }, "the body");
+  });
+  clean(world, errors, "answering on the account page");
+  await context.close();
+}
+
 async function walkHomepage() {
   area = "The homepage";
   const world = newWorld();
@@ -1492,7 +1569,7 @@ const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
 const parts = []
-  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkAccount, walkAvatar, walkHomepage, walkLandings] : [])
+  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkAccount, walkAvatar, walkAccountAnswers, walkHomepage, walkLandings] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames] : []);
 try {
   for (const part of parts) {

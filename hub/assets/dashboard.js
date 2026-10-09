@@ -161,7 +161,7 @@
     var site = d.site || {};
     var pick = function (a, b) { return a != null && a !== '' ? a : b; };
     return {
-      name: pick(site.name, org.name) || 'Your organisation',
+      name: pick(site.name, org.name) || 'Your account',
       town: site.town || '',
       country: site.country || '',
       host_print: pick(site.host_print, org.host_print) || 'none',
@@ -356,26 +356,13 @@
     return i.introduced_at || i.accepted_b_at || i.accepted_a_at || '';
   }
 
-  /* The sentence an accepted introduction ends on. Contact details go out by
-     email, so this says where to look and how to keep the order trail whole. */
-  function releasedLine(ref, date) {
-    return date
-      ? 'Contact details were emailed on ' + fmtDate(date) + ', ref ' + ref + '. Copy introductions@nexpoint.co.uk on every order email.'
-      : 'Contact details were emailed to you, ref ' + ref + '. Copy introductions@nexpoint.co.uk on every order email.';
-  }
-
-  function counterpartBlock(c, ref, date) {
-    var bits = [];
-    if (c) {
-      if (c.company) bits.push('<b>' + esc(c.company) + '</b>');
-      var line = [];
-      if (c.name) line.push(esc(c.name));
-      if (c.email) line.push('<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>');
-      if (c.phone) line.push(esc(c.phone));
-      if (line.length) bits.push('<span>' + line.join(' · ') + '</span>');
-    }
-    bits.push('<span>' + esc(releasedLine(ref, date)) + '</span>');
-    return '<div class="acct-released">' + bits.join('<br>') + '</div>';
+  /* The one line an introduced row ends on (plan 052 item 26). The other
+     side's details travel in the plain-text introduction email only, so the
+     page says where it is and how to carry on, and shows no address. */
+  function inboxLine(ref, date) {
+    return '<div class="acct-released"><span>' + esc(
+      (date ? 'Introduced on ' + fmtDate(date) + ', ref ' + ref + '. ' : 'Introduced, ref ' + ref + '. ') +
+      'The introduction is in your inbox; reply to all to carry on.') + '</span></div>';
   }
 
   function pickBlock(p, intro, hub) {
@@ -399,7 +386,7 @@
         return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>';
       }).join('') + '</dl>' : '') +
       statusChain(p.stage) +
-      (accepted ? counterpartBlock(intro && intro.counterpart, p.ref || (intro && intro.ref) || '', introDate(intro)) : '') +
+      (accepted ? inboxLine(p.ref || (intro && intro.ref) || '', introDate(intro)) : '') +
     '</div>';
   }
 
@@ -425,8 +412,9 @@
   }
 
   function providerLine(i) {
-    if (i.stage === 'awaiting_acceptance') return 'Answer from the email we sent you.';
+    if (i.stage === 'awaiting_acceptance') return 'Waiting for your answer.';
     if (i.stage === 'approved') return 'Approved by NexPoint.';
+    if (i.stage === 'introduced') return 'Introduced.';
     if (i.stage === 'declined') return 'Declined.';
     if (i.stage === 'expired') return 'Expired.';
     if (i.stage === 'dead') return 'Closed.';
@@ -446,24 +434,58 @@
       [r.town, r.country].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
   }
 
+  /* Can the provider answer this one here? The worker's own gate
+     (notAnswerable) in the page's terms: awaiting, with a window, not past it. */
+  function answerable(i) {
+    return i.stage === 'awaiting_acceptance' && !!i.acceptance_expires_at &&
+      new Date(i.acceptance_expires_at).getTime() > Date.now();
+  }
+
+  /* Accept or decline in the account (plan 052 items 21, 22): the same
+     choice the emailed link offers, through POST /introductions/accept and
+     /decline. Accept opens the introduction terms and the tick; Decline
+     opens an optional reason for the desk. Both panels start closed. */
+  function answerPanel(i) {
+    var id = esc(i.id);
+    return '<div class="acct-answer" id="introAnswer-' + id + '" hidden>' +
+        '<p class="hint">Accept and the introduction goes to you both by email, with each other\'s details. ' +
+        'Decline and the seeker is told a site said no, and nothing else.</p>' +
+        '<div class="acct-answer__terms" id="introTerms-' + id + '"></div>' +
+        '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-accept-send" data-intro="' + id + '">Accept the introduction</button>' +
+      '</div>' +
+      '<div class="acct-answer" id="introDecline-' + id + '" hidden>' +
+        '<label class="hint" for="introReason-' + id + '">Tell us why, if you like. This goes to the NexPoint desk, not to the seeker.</label>' +
+        '<textarea id="introReason-' + id + '" rows="3" placeholder="Too far out, wrong material, no capacity that month"></textarea>' +
+        '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-decline-send" data-intro="' + id + '">Send my decline</button>' +
+      '</div>';
+  }
+
   function introRow(i, showResend, offer) {
     var extra = [];
     var asked = offerLine(offer);
     if (asked) extra.push(asked);
     if (i.stage === 'awaiting_acceptance' && i.acceptance_expires_at) extra.push('Open until ' + fmtDate(i.acceptance_expires_at) + '.');
     var accepted = acceptedStage(i.stage);
+    var canAnswer = showResend && answerable(i);
     return '<div class="acct-row">' +
       '<div class="acct-row__meta">' +
         '<b>' + refLine(i.ref, i.hub) + '</b>' +
         '<span>' + esc(providerLine(i)) + '</span>' +
         extra.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') +
         statusChain(i.stage) +
-        (accepted ? counterpartBlock(i.counterpart, i.ref || '', introDate(i)) : '') +
+        (accepted ? inboxLine(i.ref || '', introDate(i)) : '') +
+        (canAnswer ? answerPanel(i) : '') +
       '</div>' +
       '<div class="acct-row__actions">' +
+        (canAnswer
+          ? '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-accept-open" data-intro="' + esc(i.id) + '">Review and accept</button>' +
+            '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-decline-open" data-intro="' + esc(i.id) + '">Decline</button>'
+          : '') +
         (showResend && i.stage === 'awaiting_acceptance'
-          ? '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Resend the link</button>' +
-            '<span class="acct-msg" id="introMsg-' + esc(i.id) + '" hidden></span>'
+          ? '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Resend the link</button>'
+          : '') +
+        (showResend && i.stage === 'awaiting_acceptance'
+          ? '<span class="acct-msg" id="introMsg-' + esc(i.id) + '" hidden></span>'
           : '') +
       '</div>' +
     '</div>';
@@ -506,7 +528,7 @@
     if (!blocks.length) blocks.push(empty('No introductions yet.', 'handshake'));
 
     fill('introductions',
-      head('handshake', 'Introductions', 'Contact details are exchanged only once both sides have accepted.') +
+      head('handshake', 'Introductions', 'Once both sides have accepted, the introduction arrives in your inbox.') +
       blocks.join(''));
   }
 
@@ -992,13 +1014,118 @@
          "Try again" was the wrong advice for every one of them. */
       var code = d && d.error;
       if (code === 'too_soon') { say(msg, 'Sent in the last two minutes. Check your spam folder before asking again.'); return; }
-      if (code === 'no owner address for this organisation') { say(msg, 'Your organisation has no owner address on file. Email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
+      if (code === 'no owner address for this organisation') { say(msg, 'Your account has no user address on file. Email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
       if (code === 'this introduction is no longer open') { say(msg, 'This introduction is no longer open, so there is nothing to send again. If that looks wrong, email hello@nexpoint.co.uk.'); return; }
       /* The email provider refused the message (code review, 4 October
          2026). The worker counts the attempt towards its two-minute wait,
          so the advice is a few minutes, not "try again" at once. */
       if (code === 'send_failed') { say(msg, 'We could not send that just now. Try again in a few minutes, or email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
       say(msg, 'That did not go through. Try again, or email hello@nexpoint.co.uk.', true);
+    });
+  }
+
+  /* The introduction terms, read once per page and on demand: only a
+     provider with an open offer ever opens them. The id ticked here is the
+     id the worker checks against the current version. */
+  var introTerms = null;
+  function loadIntroTerms(force) {
+    if (introTerms && !force) return Promise.resolve(introTerms);
+    return api('/terms/current?layer=introduction').then(function (d) {
+      introTerms = (d && !d.error && d.id) ? d : null;
+      return introTerms;
+    });
+  }
+  function renderIntroTerms(id) {
+    var box = el('introTerms-' + id);
+    if (!box) return;
+    if (!introTerms) {
+      box.innerHTML = '<p class="hint">We could not load the introduction terms, so there is nothing to accept yet. ' +
+        'Refresh and try again, or email hello@nexpoint.co.uk.</p>';
+      return;
+    }
+    var md = (window.NP && NP.markdownLite) ? NP.markdownLite(introTerms.body_md || '') : '<p>' + esc(introTerms.body_md || '') + '</p>';
+    box.innerHTML = '<div class="terms-scroll">' + md + '</div>' +
+      '<label class="np-terms-tick"><input type="checkbox" id="introTick-' + esc(id) + '"> ' +
+      esc('I accept the introduction terms, version ' + introTerms.version) + '</label>';
+  }
+
+  function openAnswer(btn, which) {
+    var id = btn.getAttribute('data-intro');
+    var accept = el('introAnswer-' + id);
+    var decline = el('introDecline-' + id);
+    /* One accept button on screen at a time: the panel's own replaces the
+       Review button while the panel is open. */
+    var review = document.querySelector('[data-act="intro-accept-open"][data-intro="' + CSS.escape(id) + '"]');
+    if (which === 'decline') {
+      if (accept) accept.hidden = true;
+      if (review) review.hidden = false;
+      if (decline) { decline.hidden = false; var r = el('introReason-' + id); if (r) r.focus(); }
+      return;
+    }
+    if (decline) decline.hidden = true;
+    if (!accept) return;
+    accept.hidden = false;
+    if (review) review.hidden = true;
+    var box = el('introTerms-' + id);
+    if (box && !box.innerHTML) box.innerHTML = '<p class="hint">Loading the introduction terms…</p>';
+    loadIntroTerms().then(function () { renderIntroTerms(id); });
+  }
+
+  /* The worker's refusals for an answer, in the provider's words. A closed
+     or answered introduction is not a fault to retry: the page reloads to
+     show where it now stands. */
+  var ANSWER_CLOSED = {
+    'this introduction is no longer open': 'This introduction is no longer open.',
+    'the acceptance window has expired': 'The window to answer this introduction has closed.',
+    'this introduction has already been answered': 'This introduction has already been answered.',
+    'this introduction has no acceptance window': 'This introduction is no longer open.',
+    'this introduction is not yet approved': 'This introduction is still with NexPoint.',
+  };
+
+  function sendAnswer(btn, action) {
+    var id = btn.getAttribute('data-intro');
+    var msg = el('introMsg-' + id);
+    var body = { introduction_id: /^\d+$/.test(id) ? Number(id) : id };
+    if (action === 'accept') {
+      var tick = el('introTick-' + id);
+      if (!introTerms || !introTerms.id) {
+        say(msg, 'We could not load the introduction terms, so we cannot record an acceptance yet. Refresh and try again, or email hello@nexpoint.co.uk.', true);
+        return;
+      }
+      if (!tick || !tick.checked) {
+        say(msg, 'Read the introduction terms and tick to accept them.', true);
+        if (tick) tick.focus();
+        return;
+      }
+      body.terms_version_id = introTerms.id;
+    } else {
+      var reason = el('introReason-' + id);
+      var text = reason ? reason.value.trim() : '';
+      if (text) body.reason = text;
+    }
+    var done = busy(btn, 'Sending…');
+    post('/introductions/' + action, body).then(function (d) {
+      if (d && d.ok) {
+        say(msg, action === 'accept'
+          ? 'Accepted. The introduction is on its way to your inbox.'
+          : 'Declined. The seeker is told a site said no, and nothing else.');
+        load();
+        return;
+      }
+      done();
+      var code = d && d.error;
+      if (ANSWER_CLOSED[code]) { say(msg, ANSWER_CLOSED[code]); reload(); return; }
+      if (code === 'invalid terms_version_id') {
+        /* The terms rolled over while the box was open: the tick was for a
+           version that is no longer current, so the new text goes up unticked. */
+        loadIntroTerms(true).then(function () {
+          renderIntroTerms(id);
+          say(msg, 'The introduction terms have been updated. Read them again and tick to accept them.', true);
+        });
+        return;
+      }
+      if (isNotBuilt(d)) { say(msg, 'For now, answer from the email we sent you.', true); return; }
+      say(msg, GENERIC_ERROR, true);
     });
   }
 
@@ -1018,6 +1145,10 @@
     if (act === 'line-confirm') { gate(function () { answerLine(btn, 'confirm'); }); return; }
     if (act === 'line-query-send') { gate(function () { answerLine(btn, 'dispute'); }); return; }
     if (act === 'intro-resend') { gate(function () { resendIntro(btn); }); return; }
+    if (act === 'intro-accept-open') { openAnswer(btn, 'accept'); return; }
+    if (act === 'intro-decline-open') { openAnswer(btn, 'decline'); return; }
+    if (act === 'intro-accept-send') { gate(function () { sendAnswer(btn, 'accept'); }); return; }
+    if (act === 'intro-decline-send') { gate(function () { sendAnswer(btn, 'decline'); }); return; }
     if (act === 'avatar-pick') { var file = el('avatarFile'); if (file) file.click(); return; }
     if (act === 'avatar-remove') { gate(function () { removeAvatar(btn); }); return; }
   }

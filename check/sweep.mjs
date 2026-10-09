@@ -279,6 +279,37 @@ for (const p of pages.filter((x) => x.startsWith("printhub/") || x.startsWith("m
   if (!/window\.NP_APEX\s*=/.test(t)) fail(`${p}: window.NP_APEX is gone (portal.js needs it)`);
 }
 
+// ---------------------------------------------------------------- the names people read
+// Will's ruling, 8 October 2026 (plan 052 task 3.1): the Account is the company
+// and a User is a person signed in. Words people read never say "member(s)" or
+// "organisation(s)"; tables, worker error codes, identifiers and classes keep
+// their names. Pages: text outside comments, scripts, styles and tags. Scripts:
+// string literals that read as copy (they contain a space), except a literal
+// compared against a worker error code, which must match the worker exactly.
+{
+  const WORD = /\b(members?|organisations?)\b/i;
+  for (const p of pages) {
+    const text = read(p)
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]*>/g, " ");
+    const m = text.match(WORD);
+    if (m) fail(`${p}: visible copy says "${m[0]}" (Will's ruling, 8 Oct 2026: Account and User)`);
+  }
+  for (const p of scripts) {
+    const src = read(p).replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const line of src.split("\n")) {
+      if (/^\s*\/\//.test(line)) continue;
+      // A code comparison: `x === 'organisation required'` or `code !== "..."`.
+      const code = line.replace(/[!=]==?\s*(['"`])[^'"`]*\1/g, "");
+      for (const lit of code.match(/(['"`])(?:(?!\1)[^\\\n]|\\.)*\1/g) || []) {
+        if (lit.includes(" ") && WORD.test(lit)) fail(`${p}: copy says "${lit.match(WORD)[0]}" in ${lit.slice(0, 60)} (Will's ruling, 8 Oct 2026: Account and User)`);
+      }
+    }
+  }
+}
+
 if (fails.length) {
   console.error(`sweep: ${fails.length} problem(s)`);
   for (const f of fails) console.error("  " + f);
