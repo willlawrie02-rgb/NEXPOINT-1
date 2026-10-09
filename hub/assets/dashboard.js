@@ -153,7 +153,10 @@
     node.hidden = false;
   }
 
-  var SECTIONS = ['profile', 'introductions', 'declarations', 'orders', 'fees', 'education'];
+  /* `you` and `users` (plan 052, wave 3) are drawn by people.js from their
+     own routes; they are listed here so the nav and the signed-out state
+     treat them like every other section. */
+  var SECTIONS = ['profile', 'introductions', 'declarations', 'orders', 'fees', 'you', 'users', 'education'];
 
   /* ── the account, as this page reads it ─────────────────────────── */
   function siteOf(d) {
@@ -761,7 +764,7 @@
   }
 
   var NAV_LABEL = { profile: 'Your site', introductions: 'Introductions', declarations: 'Declarations',
-    orders: 'Waiting on you', fees: 'Fees and standing', education: 'Education' };
+    orders: 'Waiting on you', fees: 'Fees and standing', you: 'You', users: 'Users', education: 'Education' };
 
   function renderNav(needs) {
     var flagged = {};
@@ -857,6 +860,9 @@
     var needs = needsOf(d, s);
     renderNeeds(needs);
     renderNav(needs);
+    /* The two people sections arrive on their own reads; the nav is drawn
+       again once they have, so it lists them. */
+    if (window.NPPeople) NPPeople.render().then(function () { renderNav(needs); });
   }
 
   /* ═══════════ loading ═══════════ */

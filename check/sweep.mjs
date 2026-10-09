@@ -160,7 +160,7 @@ for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.htm
 // and the old portal redirect are left out. And a link or button that carries
 // an aria-label hides its icon from assistive technology, or a screen reader
 // user hears "lock Global Hub" where the label says "Global Hub".
-const NO_DESCRIPTION = new Set(["hub/accept.html", "hub/check.html", "hub/confirm.html", "hub/reset.html", "portal/index.html"]);
+const NO_DESCRIPTION = new Set(["hub/accept.html", "hub/check.html", "hub/confirm.html", "hub/email.html", "hub/invite.html", "hub/reset.html", "portal/index.html"]);
 const unescape = (t) => t.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
 for (const p of pages) {
   const t = read(p);
