@@ -80,6 +80,11 @@
   .acct-id h2{font:700 clamp(20px,2.2vw,24px)/1.2 var(--font-display);letter-spacing:-.015em}
   .acct-id .hint{margin:4px 0 0}
   .acct-mono{flex-shrink:0;display:grid;place-items:center;width:52px;height:52px;border-radius:var(--radius-lg);background:rgba(0,92,200,.10);border:1px solid rgba(0,92,200,.20);color:var(--blue);font:700 17px/1 var(--font-display);letter-spacing:.02em}
+  .acct-pic{flex-shrink:0;display:block;align-self:flex-start}
+  .acct-mono--pic{display:block;object-fit:cover;background:#FFFFFF}
+  .acct-pic-acts{display:flex;flex-wrap:wrap;gap:16px;margin:8px 0 0}
+  .acct-pic-acts .acct-link{background:none;border:0;padding:0;cursor:pointer}
+  .acct-pic-acts .acct-link:disabled{color:var(--on-surface-var);cursor:default;text-decoration:none}
   .acct-badges{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0}
   .acct-badge{display:inline-flex;align-items:center;gap:6px;font:600 11.5px/1 var(--font-body);letter-spacing:.03em;padding:7px 12px;border-radius:9999px;border:1px solid var(--border-card);color:var(--on-surface-var);background:var(--surface)}
   .acct-badge.is-applied{color:var(--blue);border-color:rgba(0,92,200,.25);background:rgba(0,92,200,.08)}

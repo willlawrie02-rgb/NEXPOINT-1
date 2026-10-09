@@ -195,14 +195,105 @@
 
     var html =
       '<div class="acct-id">' +
-        '<span class="acct-mono" aria-hidden="true">' + esc(initials(s.name)) + '</span>' +
+        '<span class="acct-pic" id="acctPic" data-initials="' + esc(initials(s.name)) + '">' + monogram(initials(s.name)) + '</span>' +
         '<div class="acct-id__text"><h2>' + esc(s.name) + '</h2>' +
-        '<p class="hint">Site account' + (where ? ' · ' + esc(where) : '') + '</p></div>' +
+        '<p class="hint">Site account' + (where ? ' · ' + esc(where) : '') + '</p>' +
+        '<p class="acct-pic-acts">' +
+          '<button class="acct-link" type="button" data-act="avatar-pick">Add a picture</button>' +
+          '<button class="acct-link" type="button" data-act="avatar-remove" hidden>Remove picture</button>' +
+          '<input type="file" id="avatarFile" accept="image/*" hidden aria-label="Your picture">' +
+        '</p>' +
+        '<p class="acct-msg" id="avatarMsg" hidden></p></div>' +
       '</div>' +
       (badges.length ? '<div class="acct-badges">' + badges.join('') + '</div>' : '') +
       (s.hidden ? '<div class="acct-notice">Your listing is hidden, so nobody searching the hub can see it. Email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a> and we will put it back.</div>' : '') +
       listingRows(d, s);
     fill('profile', html);
+    loadAvatar();
+  }
+
+  /* ── the picture (plan 052 task 3.5) ─────────────────────────────
+     The user's own picture takes the monogram's place when there is one.
+     The worker keeps it in a private bucket and answers a link that works
+     for a minute, read fresh on every render. The page crops to a square
+     and shrinks it before it is sent, so the worker does no image work. */
+  var AVATAR_SIDE = 320;
+  function monogram(text) {
+    return '<span class="acct-mono" aria-hidden="true">' + esc(text) + '</span>';
+  }
+  function showAvatar(url) {
+    var pic = el('acctPic');
+    if (!pic) return;
+    if (url) {
+      pic.innerHTML = '<img class="acct-mono acct-mono--pic" alt="Your picture">';
+      var img = pic.firstChild;
+      img.onerror = function () { showAvatar(null); };
+      img.src = url;
+    } else {
+      pic.innerHTML = monogram(pic.getAttribute('data-initials'));
+    }
+    var pick = document.querySelector('[data-act="avatar-pick"]');
+    var remove = document.querySelector('[data-act="avatar-remove"]');
+    if (pick) pick.textContent = url ? 'Change picture' : 'Add a picture';
+    if (remove) remove.hidden = !url;
+  }
+  function loadAvatar() {
+    api('/account/avatar').then(function (d) { showAvatar(d && !d.error ? d.url : null); });
+  }
+  /* Any picture the browser can read, centre-cropped to a square on white
+     (a transparent PNG would otherwise turn black) and sent as a JPEG. */
+  function squareJpeg(file) {
+    return new Promise(function (resolve, reject) {
+      var src = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var w = img.naturalWidth, h = img.naturalHeight, side = Math.min(w, h);
+        URL.revokeObjectURL(src);
+        if (!side) { reject(new Error('empty')); return; }
+        var out = Math.min(AVATAR_SIDE, side);
+        var c = document.createElement('canvas');
+        c.width = out; c.height = out;
+        var g = c.getContext('2d');
+        g.fillStyle = '#FFFFFF';
+        g.fillRect(0, 0, out, out);
+        g.drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, out, out);
+        resolve(c.toDataURL('image/jpeg', 0.88));
+      };
+      img.onerror = function () { URL.revokeObjectURL(src); reject(new Error('unreadable')); };
+      img.src = src;
+    });
+  }
+  var AVATAR_ERRORS = {
+    not_an_image: 'Choose a PNG or JPEG picture.',
+    'too large': 'That picture is too large. Choose one under 2 MB.',
+  };
+  function uploadAvatar(input) {
+    var file = input.files && input.files[0];
+    var msg = el('avatarMsg');
+    var pick = document.querySelector('[data-act="avatar-pick"]');
+    if (!file) return;
+    if (msg) msg.hidden = true;
+    var done = busy(pick, 'Saving');
+    squareJpeg(file).then(function (image) {
+      return post('/account/avatar', { image: image });
+    }, function () {
+      return { error: 'not_an_image' };
+    }).then(function (d) {
+      done();
+      input.value = '';
+      if (!d || d.error) { say(msg, AVATAR_ERRORS[d && d.error] || 'We could not save that picture just now. Try again.', true); return; }
+      showAvatar(d.url);
+    });
+  }
+  function removeAvatar(btn) {
+    var msg = el('avatarMsg');
+    if (msg) msg.hidden = true;
+    var done = busy(btn, 'Removing');
+    post('/account/avatar/remove', {}).then(function (d) {
+      done();
+      if (!d || d.error) { say(msg, 'We could not remove that picture just now. Try again.', true); return; }
+      showAvatar(null);
+    });
   }
 
   function listingRows(d, s) {
@@ -1058,12 +1149,18 @@
     if (act === 'intro-decline-open') { openAnswer(btn, 'decline'); return; }
     if (act === 'intro-accept-send') { gate(function () { sendAnswer(btn, 'accept'); }); return; }
     if (act === 'intro-decline-send') { gate(function () { sendAnswer(btn, 'decline'); }); return; }
+    if (act === 'avatar-pick') { var file = el('avatarFile'); if (file) file.click(); return; }
+    if (act === 'avatar-remove') { gate(function () { removeAvatar(btn); }); return; }
+  }
+  function onChange(e) {
+    if (e.target && e.target.id === 'avatarFile') gate(function () { uploadAvatar(e.target); });
   }
 
   /* ═══════════ boot ═══════════ */
   function init() {
     var wrap = document.querySelector('.acct-wrap');
     if (wrap) wrap.addEventListener('click', onClick);
+    if (wrap) wrap.addEventListener('change', onChange);
     if (!window.NPAccount) { showSignedOut(); return; }
     document.addEventListener('npaccount:change', load);
     NPAccount.ready.then(load);
