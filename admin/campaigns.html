@@ -106,8 +106,8 @@ data but can never press these buttons: that split is the design.
         </span>
         <span class="navgroup">
           <a href="introductions.html">Introductions</a>
-          <a href="members.html">Accounts</a>
-          <a href="organisations.html">Organisations</a>
+          <a href="organisations.html">Accounts</a>
+          <a href="members.html">Users</a>
           <a href="orders.html">Orders</a>
         </span>
         <span class="navgroup">
@@ -148,7 +148,7 @@ data but can never press these buttons: that split is the design.
         <details class="legacy" id="nxArchive">
           <summary>Archive <span class="count" id="nxArchiveCount"></span></summary>
           <p class="note">Switched off: out of the Campaign dropdown on the Prospects page and out of the
-            working list above, with every version, approval and member kept. Switch on brings a
+            working list above, with every version, approval and prospect kept. Switch on brings a
             campaign back; one that is still empty can be deleted from here.</p>
           <div id="nxArchiveRows"></div>
         </details>
@@ -405,7 +405,7 @@ function switchCampaign(campaignId,active){
   const c=nx.find(x=>String(x.id)===String(campaignId));
   const name=c?c.name:'this campaign';
   if(!confirm(active?`Switch "${name}" back on? It returns to the Campaign dropdown on the Prospects page and to the working list here.`
-    :`Switch "${name}" off? It leaves the Campaign dropdown on the Prospects page and the working list here; every version, approval and member is kept, and you can switch it back on.`))return;
+    :`Switch "${name}" off? It leaves the Campaign dropdown on the Prospects page and the working list here; every version, approval and prospect is kept, and you can switch it back on.`))return;
   raiseIntent('switch-campaign',{campaign_id:Number(campaignId),active},null,active?'Switched on':'Switched off');
 }
 function newCampaign(){
