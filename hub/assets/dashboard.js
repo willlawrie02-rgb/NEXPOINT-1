@@ -161,7 +161,7 @@
     var site = d.site || {};
     var pick = function (a, b) { return a != null && a !== '' ? a : b; };
     return {
-      name: pick(site.name, org.name) || 'Your organisation',
+      name: pick(site.name, org.name) || 'Your account',
       town: site.town || '',
       country: site.country || '',
       host_print: pick(site.host_print, org.host_print) || 'none',
@@ -923,7 +923,7 @@
          "Try again" was the wrong advice for every one of them. */
       var code = d && d.error;
       if (code === 'too_soon') { say(msg, 'Sent in the last two minutes. Check your spam folder before asking again.'); return; }
-      if (code === 'no owner address for this organisation') { say(msg, 'Your organisation has no owner address on file. Email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
+      if (code === 'no owner address for this organisation') { say(msg, 'Your account has no user address on file. Email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
       if (code === 'this introduction is no longer open') { say(msg, 'This introduction is no longer open, so there is nothing to send again. If that looks wrong, email hello@nexpoint.co.uk.'); return; }
       /* The email provider refused the message (code review, 4 October
          2026). The worker counts the attempt towards its two-minute wait,
