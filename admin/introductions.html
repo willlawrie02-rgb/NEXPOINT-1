@@ -75,8 +75,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         </span>
         <span class="navgroup">
           <a href="introductions.html" aria-current="page">Introductions</a>
-          <a href="members.html">Accounts</a>
-          <a href="organisations.html">Organisations</a>
+          <a href="organisations.html">Accounts</a>
+          <a href="members.html">Users</a>
           <a href="orders.html">Orders</a>
         </span>
         <span class="navgroup">
@@ -188,7 +188,11 @@ const introRef=i=>i.ref||('INTRO-'+String(i.id).padStart(4,'0'));
 const SIDE_PREFIX={offer_capacity:'H',request_capacity:'S',list_opportunity:'L',request_intro:'I'};
 /* A website enquiry's ref carries its OWN hub's letter: this page mixes hubs. */
 const reqRef=r=>`${String(r.hub||'r')[0].toUpperCase()}${SIDE_PREFIX[r.side]||'R'}-${String(r.id).padStart(4,'0')}`;
-const seekRef=r=>`REQ-${String(r.id).padStart(4,'0')}`;
+/* The PS-/MS- code of the request's web_requests mirror; REQ- is retired. */
+function seekRef(r){
+  if(r.web_request_id==null)return `Request #${r.id}`;
+  return `${String(r.hub||'r')[0].toUpperCase()}S-${String(r.web_request_id).padStart(4,'0')}`;
+}
 const day=v=>v?String(v).slice(0,10):'—';
 
 /* ── Data ──────────────────────────────────────────────────────────── */
@@ -213,7 +217,7 @@ async function load(){
   const [rq,lq,sq]=await Promise.all([
     reqIds.length?sb.from('web_requests').select('id,hub,side,company').in('id',reqIds):none,
     listingIds.length?sb.from('listings').select('id,org_id').in('id',listingIds):none,
-    seekIds.length?sb.from('seeker_requests').select('id,org_id').in('id',seekIds):none,
+    seekIds.length?sb.from('seeker_requests').select('id,org_id,hub,web_request_id').in('id',seekIds):none,
   ]);
   reqById={};(rq.data||[]).forEach(r=>{reqById[r.id]=r;});
   listingById={};(lq.data||[]).forEach(l=>{listingById[l.id]=l;});
@@ -226,7 +230,7 @@ async function load(){
   const oq=orgIds.length?await sb.from('organisations').select('id,name').in('id',orgIds):none;
   (oq.data||[]).forEach(o=>{orgById[o.id]=o.name;});
   /* A failed lookup is said, and the ids stand in for the names. */
-  [['website enquiries',rq],['listings',lq],['seeker requests',sq],['organisations',oq]]
+  [['website enquiries',rq],['listings',lq],['seeker requests',sq],['accounts',oq]]
     .filter(([,q])=>q.error)
     .forEach(([what,q])=>{$('banner').innerHTML+=`<div class="banner">Could not read ${esc(what)}: ${
       esc(q.error.message)}. Party names fall back to their ids until this read succeeds.</div>`;});

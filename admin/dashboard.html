@@ -79,8 +79,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         </span>
         <span class="navgroup">
           <a href="introductions.html">Introductions</a>
-          <a href="members.html">Accounts</a>
-          <a href="organisations.html">Organisations</a>
+          <a href="organisations.html">Accounts</a>
+          <a href="members.html">Users</a>
           <a href="orders.html">Orders</a>
         </span>
         <span class="navgroup">
@@ -244,7 +244,7 @@ async function load(){
     sb.from('organisations').select('id,name,sub_status,sub_due_at,hidden_at,removed_at'),
   ]);
   if(strQ.error||orgQ.error)
-    $('banner').innerHTML+=`<div class="banner">Could not read strikes/organisations: ${esc((strQ.error||orgQ.error).message)} (migration 0034 may not be applied yet).</div>`;
+    $('banner').innerHTML+=`<div class="banner">Could not read strikes/accounts: ${esc((strQ.error||orgQ.error).message)} (migration 0034 may not be applied yet).</div>`;
   const notYet='migration 0029 not applied yet';
   const toReview=(lstQ.data||[]).filter(l=>l.status==='pending'||l.pending_revision_id);
   $('t_lst').textContent=lstQ.error?'—':toReview.length;
@@ -307,14 +307,14 @@ async function load(){
     <span class="t"><strong>${esc(o.name)}</strong> has ${openStrikes[o.id]} uncured strikes and needs a decision
       <span class="sub">pause it, cure a strike, or leave it on: your call, the engine will not act</span></span>
     <span class="spacer"></span>
-    <a class="btn btn-gh btn-sm" href="organisations.html">Decide on the Organisations board</a>
+    <a class="btn btn-gh btn-sm" href="organisations.html">Decide on the Accounts board</a>
   </div>`));
   onHub.filter(o=>o.sub_status==='active'&&o.sub_due_at&&days(o.sub_due_at)>=30).forEach(o=>rows.push(`<div class="row attn">
     <span class="material-symbols-outlined" aria-hidden="true">payments</span>
     <span class="t"><strong>${esc(o.name)}</strong> is ${days(o.sub_due_at)} days overdue and needs a decision
       <span class="sub">record the payment, pause it, or leave it on: your call, the engine will not act</span></span>
     <span class="spacer"></span>
-    <a class="btn btn-gh btn-sm" href="organisations.html">Decide on the Organisations board</a>
+    <a class="btn btn-gh btn-sm" href="organisations.html">Decide on the Accounts board</a>
   </div>`));
   if(homeless.length)rows.push(`<div class="row attn">
     <span class="material-symbols-outlined" aria-hidden="true">mark_email_unread</span>

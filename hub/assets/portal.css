@@ -557,16 +557,17 @@ a.door:hover .go svg{transform:translateX(3px)}
 .pickbar__dot{color:var(--outline);font-weight:400}
 
 /* where an introduction has got to */
-.status-chain{list-style:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:18px 0 2px;padding:0;width:100%}
+.status-chain{list-style:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:18px 0 2px;padding:0;width:100%}
 .status-chain li{position:relative;display:flex;flex-direction:column;gap:9px;padding-right:12px;font:600 11px/1.35 var(--font-body);letter-spacing:.04em;text-transform:uppercase;color:rgba(14,22,38,.62)}
 .status-chain li::before{content:"";position:relative;z-index:1;width:13px;height:13px;border-radius:50%;border:2px solid rgba(14,22,38,.22);background:var(--surface)}
 .status-chain li::after{content:"";position:absolute;top:5.5px;left:13px;right:0;height:2px;background:rgba(14,22,38,.10)}
 .status-chain li:last-child::after{display:none}
 .status-chain li.is-done{color:var(--on-surface)}
-.status-chain li.is-done::before{background:var(--green);border-color:var(--green)}
-.status-chain li.is-done::after{background:var(--green)}
-.status-chain li.is-now{color:var(--blue)}
-.status-chain li.is-now::before{border-color:var(--blue);box-shadow:0 0 0 4px rgba(0,92,200,.14)}
+.status-chain li.is-done::before{background:var(--blue);border-color:var(--blue)}
+.status-chain li.is-done::after{background:var(--blue)}
+.status-chain li.is-current{color:var(--blue)}
+.status-chain li.is-current::before{background:#fff;border-color:var(--blue)}
+.status-chain li.is-green::before{background:var(--green);border-color:var(--green)}
 .status-chain li.is-stop{color:#C2363B}
 .status-chain li.is-stop::before{background:#E5484D;border-color:#E5484D}
 @media(max-width:640px){
