@@ -818,6 +818,97 @@ async function walkSignedIn() {
   }
 }
 
+/* The seeker's shortlist and its map (plan 052, items 23 and 24): the best
+   three cards, a map with the seeker's town and the sites' towns, two sites
+   in one town sharing one numbered pin, and one pick, on the map or a card. */
+const MATCH_CARD = (id, town, lat, lng, lead, km, shortlist) => ({
+  listing_id: id, town, country: "United Kingdom", point: lat === null ? null : { lat, lng },
+  machines: [{ name: "HP MJF 5200", materials: ["pa12_nylon12"], count: 1, lead_time_days: lead }],
+  materials: ["pa12_nylon12"], processes: ["mjf"], services: [], min_lead_time_days: lead,
+  verified: true, distance_km: km, meets_lead_time: true, no_match_flag: false, shortlist,
+});
+const MATCHES = [
+  MATCH_CARD("listing-a", "Leeds", 53.8, -1.55, 3, 5, true),
+  MATCH_CARD("listing-b", "Leeds", 53.8, -1.55, 6, 5, true),
+  MATCH_CARD("listing-c", "Bristol", 51.45, -2.59, 4, 270, true),
+  MATCH_CARD("listing-d", "Glasgow", 55.86, -4.25, 2, 300, false),
+];
+
+async function walkFindMap() {
+  area = "Finding capacity: the best three and the map";
+  const world = newWorld({ user: USER });
+  world.api["GET /listings/search"] = () => [200, { matches: MATCHES, no_match: false,
+    seeker_point: { lat: 53.8, lng: -1.55 }, region: "uk", region_unknown: false }];
+  world.api["POST /seeker-requests"] = () => [200, { ok: true, request_id: 501, ref: "PS-0501" }];
+  world.api["POST /seeker-requests/picks"] = (w, req) => [200, { ok: true,
+    introductions: req.body.listing_ids.map((id, i) => ({ id: 900 + i, ref: `INTRO-090${i}`, stage: "proposed" })) }];
+  const { context, page, errors } = await visit(world);
+  await page.goto(`${PRINT}/find.html`);
+  await page.waitForSelector("body[data-np-open]");
+  await page.waitForSelector("#findForm");
+
+  await step("a search shows the three the worker marked, not the fourth", async () => {
+    await page.fill("#fMaterial", "PA12"); await page.press("#fMaterial", "Enter");
+    await page.fill("#fQuantity", "200");
+    await page.fill("#fMaxLead", "10");
+    await page.click("#findSubmit");
+    await page.waitForSelector("#step2:not([hidden]) #capGrid .cap");
+    eq(await page.locator("#capGrid .cap").count(), 3, "cards");
+    eq(await page.locator('#capGrid [data-card="listing-d"]').count(), 0, "the fourth card");
+    const q = apiCalls(world, "GET /listings/search")[0].query;
+    return eq([q.town, q.country, q.max_lead_time_days], ["Leeds", "United Kingdom", "10"], "the search's town, country and lead time");
+  });
+  await step("the map shows the seeker's town and one pin per town, two Leeds sites on one pin", async () => {
+    await page.waitForSelector("#matchMap:not([hidden]) .leaflet-container, #matchMap.leaflet-container");
+    const pins = await page.$$eval("#matchMap .np-pin", (els) => els.map((e) => ({ text: e.textContent.trim(), cls: e.className })));
+    eq(pins.length, 3, "pins (You, Leeds, Bristol)");
+    eq(pins.filter((p) => /np-pin--you/.test(p.cls)).map((p) => p.text), ["You"], "the seeker's pin");
+    eq(pins.filter((p) => /np-pin--group/.test(p.cls)).map((p) => p.text), ["2"], "the Leeds pin shows how many");
+    eq(pins.filter((p) => !/np-pin--(you|group)/.test(p.cls)).map((p) => p.text), ["3"], "Bristol's pin is Site 3");
+    const titles = await page.$$eval("#matchMap .leaflet-marker-icon", (els) => els.map((e) => e.getAttribute("title")));
+    has(titles.join(" | "), "2 sites in Leeds, United Kingdom", "the Leeds pin's name");
+  });
+  await step("the shared pin opens a short anonymous list, and Choose ticks that card", async () => {
+    await page.click("#matchMap .np-pin--group");
+    await page.waitForSelector("#matchMap .np-pop");
+    const pop = await page.textContent("#matchMap .np-pop");
+    has(pop, "2 sites in Leeds, United Kingdom", "the list's head");
+    has(pop, "Site 2", "the second Leeds site");
+    for (const leak of ["listing-", "HP MJF", "Ltd"]) if (pop.includes(leak)) throw new Error(`the list shows ${leak}`);
+    eq(await page.locator("#matchMap .np-pop [data-choose]").count(), 2, "Choose buttons");
+    await page.click('#matchMap .np-pop [data-choose="listing-b"]');
+    eq(await page.isChecked("#pick-listing-b"), true, "card 2 ticked");
+    eq(await page.locator("#matchMap .np-pin.is-on").count(), 1, "lit pins");
+    return has(await page.textContent("#pickCount"), "Site 2 picked", "the bar");
+  });
+  await step("one pick only: ticking another card moves the pick", async () => {
+    await page.click('#capGrid [data-card="listing-c"] .cap__tick');
+    eq(await page.isChecked("#pick-listing-c"), true, "card 3 ticked");
+    eq(await page.isChecked("#pick-listing-b"), false, "card 2 unticked");
+    eq(await page.locator("#capGrid input[data-pick]:checked").count(), 1, "ticks");
+    const lit = await page.$$eval("#matchMap .np-pin.is-on", (els) => els.map((e) => e.textContent.trim()));
+    return eq(lit, ["3"], "the lit pin");
+  });
+  await step("the request goes with the one site picked", async () => {
+    await page.click("#pickContinue");
+    await page.waitForSelector("#introTick");
+    has(await page.textContent("#pickSummary"), "Bristol", "the summary");
+    await page.check("#introTick");
+    await page.click("#requestSubmit");
+    await page.waitForSelector("#step3Body .success");
+    return eq(apiCalls(world, "POST /seeker-requests/picks")[0].body.listing_ids, ["listing-c"], "the picks sent");
+  });
+  await step("at phone width the map and the cards fit the screen", async () => {
+    await page.setViewportSize({ width: 375, height: 740 });
+    await page.waitForTimeout(150);
+    const m = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth,
+      map: Math.round(document.getElementById("matchMap").getBoundingClientRect().right) }));
+    if (m.map > m.inner) throw new Error(`the map ends at ${m.map}px in a ${m.inner}px window`);
+  });
+  clean(world, errors, "the find map");
+  await context.close();
+}
+
 async function walkAccount() {
   area = "The account page";
   const soon = new Date(Date.now() + 3 * 864e5).toISOString();
@@ -1569,7 +1660,7 @@ const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
 const parts = []
-  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkAccount, walkAvatar, walkAccountAnswers, walkHomepage, walkLandings] : [])
+  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkAvatar, walkAccountAnswers, walkHomepage, walkLandings] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames] : []);
 try {
   for (const part of parts) {
