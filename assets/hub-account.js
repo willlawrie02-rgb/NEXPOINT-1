@@ -11,6 +11,10 @@
    a stranger to the door and back. Nothing is held for later. */
 (function () {
   'use strict';
+  /* The walled page's own fallback timer (its inline head script) is only
+     for a module that never arrives. It has arrived: from here on this
+     module decides, after /auth/me has answered (plan 052 item 1). */
+  if (window.NP_WALL_TIMER) { clearTimeout(window.NP_WALL_TIMER); window.NP_WALL_TIMER = null; }
   const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   const API = local ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
 
@@ -19,14 +23,30 @@
   const ACCOUNT_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
     ? 'https://nexpoint.co.uk/hub/account/' : '/hub/account/';
 
+  /* `timeoutMs` (plan 052 item 1, review): a request that never answers
+     becomes a network error after that long. /auth/me uses it, since the
+     walled page's own fallback timer is cleared once this module loads and
+     a hang would otherwise leave the page blank. An AbortController with a
+     plain timer rather than AbortSignal.timeout: it works in every browser
+     that has fetch, and the walk's fake clock can drive it. */
   async function call(path, opts) {
-    let r;
+    let r, timer = null;
+    const o = Object.assign({ credentials: 'include' }, opts);
+    const ms = o.timeoutMs;
+    delete o.timeoutMs;
+    if (ms && typeof AbortController === 'function') {
+      const ctl = new AbortController();
+      o.signal = ctl.signal;
+      timer = setTimeout(() => ctl.abort(), ms);
+    }
     try {
-      r = await fetch(API + path, Object.assign({ credentials: 'include' }, opts));
+      r = await fetch(API + path, o);
+      return await r.json().catch(() => ({ error: 'bad response' }));
     } catch (e) {
       return { error: 'network' };
+    } finally {
+      if (timer) clearTimeout(timer);
     }
-    return r.json().catch(() => ({ error: 'bad response' }));
   }
 
   function postJson(path, body) {
@@ -83,7 +103,17 @@
     ready: null,
     async refresh() {
       try {
-        const d = await call('/auth/me', { method: 'GET' });
+        /* A dropped request, or the worker saying it could not tell
+           (signed_in null: the sign-in service gave no answer), is not
+           "signed out". Ask once more after a moment; a second miss falls
+           through to the door as before, so nothing loops (plan 052 item 1). */
+        const unsure = (r) => !r || r.error === 'network' || r.signed_in === null;
+        const ask = () => call('/auth/me', { method: 'GET', timeoutMs: 8000 });
+        let d = await ask();
+        if (unsure(d)) {
+          await new Promise((res) => setTimeout(res, 1500));
+          d = await ask();
+        }
         const signedIn = d.signed_in != null ? d.signed_in : !!(d.ok && d.member);
         A.user = signedIn ? normalise(d.member) : null;
       } catch (e) { A.user = null; }
@@ -350,7 +380,7 @@
       <form data-np-step="1">
         <div class="form-grid">
           <div class="field"><label for="qName">Your name</label><input id="qName" required value="${esc(draft.name)}" placeholder="Full name"></div>
-          <div class="field"><label for="qCompany">Company and site</label><input id="qCompany" required value="${esc(draft.company)}" placeholder="Held in confidence"></div>
+          <div class="field"><label for="qCompany">Company</label><input id="qCompany" required value="${esc(draft.company)}" placeholder="Held in confidence"></div>
           <div class="field"><label for="qEmail">Email</label><input id="qEmail" type="email" required value="${esc(draft.email)}" placeholder="you@company.com"></div>
           <div class="field"><label for="qPass">Choose a password</label><input id="qPass" type="password" required minlength="8" maxlength="72" placeholder="At least 8 characters"></div>
           <div class="field full"><label for="qWebsite">Website (optional)</label><input id="qWebsite" type="text" inputmode="url" autocomplete="url" value="${esc(draft.website || '')}" placeholder="yourlab.com"></div>

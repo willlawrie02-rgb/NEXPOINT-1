@@ -197,8 +197,15 @@ const jsonBody = (request) => {
 async function answerApi(world, route, request, url) {
   if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors(request) });
   const key = `${request.method()} ${url.pathname}`;
-  const req = { method: request.method(), path: url.pathname, query: Object.fromEntries(url.searchParams), body: jsonBody(request) };
+  const req = { method: request.method(), path: url.pathname, query: Object.fromEntries(url.searchParams), body: jsonBody(request),
+    origin: request.headers().origin || "" };
   world.calls.push(req);
+  /* Plan 052 item 1: /auth/me can fail at the network (meFailures, counted
+     down) or never answer at all (meHang). */
+  if (key === "GET /auth/me" && world.meFailures > 0) { world.meFailures--; return route.abort("failed"); }
+  if (key === "GET /auth/me" && world.meHang) return;
+  /* A route named in world.hang is never answered (the vocabulary, in the account walk). */
+  if (world.hang && world.hang.has(key)) return;
   /* A path with an id in it is matched by its shape. */
   const shaped = key.replace(/\/\d+(\/|$)/g, "/:id$1");
   const fn = world.api[key] || world.api[shaped] || API[key] || API[shaped];
@@ -619,6 +626,152 @@ async function walkWall() {
   await context.close();
 }
 
+/* Plan 052 item 1: a signed-in visitor sent to the door by mistake (a slow
+   page, a dropped /auth/me, a busy sign-in service) was left on the Global
+   Hub's front page with ?return= ignored. */
+async function walkDoorReturn() {
+  area = "The door sends a signed-in visitor back (plan 052 item 1)";
+  const doorWith = (ret) => `${APEX}/hub/?signin=1&return=${encodeURIComponent(ret)}`;
+  {
+    const world = newWorld({ user: USER });
+    const { context, page, errors } = await visit(world);
+    await step("a signed-in visitor at the door with ?return= goes straight back, page open", async () => {
+      await page.goto(doorWith(`${PRINT}/find.html`));
+      await page.waitForURL(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-open]");
+      return !(await page.isVisible("#signOverlay.open"));
+    });
+    clean(world, errors, "the door's way back");
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER });
+    const { context, page, errors } = await visit(world);
+    /* A real page there, so a navigation would land (the catch-all's 204
+       would leave the browser where it was and hide one). */
+    let foreign = 0;
+    await context.route("https://evil.example/**", (route) => { foreign++; return route.fulfill({ status: 200, contentType: "text/html", body: "<p>elsewhere</p>" }); });
+    await step("a ?return= to another site is not followed", async () => {
+      await page.goto(doorWith("https://evil.example/phish"));
+      await settled(page);
+      await page.waitForTimeout(300);
+      const u = new URL(page.url());
+      eq([u.origin, u.pathname], [APEX, "/hub/"], "where the visitor is");
+      eq(foreign, 0, "requests to the other site");
+    });
+    clean(world, errors, "a foreign return");
+    await context.close();
+  }
+  /* A dropped /auth/me is asked again, not read as signed out. The browser
+     logs its own line for the aborted request, so `clean` is not used. */
+  for (const [what, over] of [
+    ["a network failure", { meFailures: 1 }],
+    ["an unsure answer (signed_in null)", { api: { "GET /auth/me": (w) => {
+      w.meAsked = (w.meAsked || 0) + 1;
+      return w.meAsked === 1 ? [200, { signed_in: null, retry: true }] : [200, { ok: true, signed_in: true, member: w.user }];
+    } } }],
+  ]) {
+    const world = newWorld(Object.assign({ user: USER }, over));
+    const { context, page } = await visit(world);
+    await step(`a first /auth/me ${what} then success keeps the page`, async () => {
+      await page.goto(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-open]");
+      eq(page.url(), `${PRINT}/find.html`, "the page");
+      eq(apiCalls(world, "GET /auth/me").length, 2, "times /auth/me was asked");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER, meFailures: 2 });
+    const { context, page } = await visit(world);
+    await step("two network failures in a row go to the door, which sends the visitor back once it can tell", async () => {
+      await page.goto(`${PRINT}/find.html`);
+      await until(() => apiCalls(world, "GET /auth/me").length >= 3, "the door asking");
+      await page.waitForURL(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-open]");
+      eq(apiCalls(world, "GET /auth/me").length, 4, "asked twice on the page, once at the door, once back on the page");
+    });
+    await context.close();
+  }
+  {
+    /* The page can never tell, the door always can: one trip back, then the
+       visitor stays at the door rather than bouncing for ever. */
+    const world = newWorld({ user: USER, api: { "GET /auth/me": (w, req) => (req.origin === PRINT
+      ? [200, { signed_in: null, retry: true }] : [200, { ok: true, signed_in: true, member: w.user }]) } });
+    const { context, page } = await visit(world);
+    await step("a page that never tells sends the visitor back once, then the door holds", async () => {
+      await page.goto(`${PRINT}/find.html`);
+      const fromPage = () => world.calls.filter((c) => c.path === "/auth/me" && c.origin === PRINT).length;
+      await until(() => fromPage() >= 4, "the second visit to the page", 12000);
+      await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/");
+      await page.waitForTimeout(3000);
+      eq(fromPage(), 4, "the page asked twice on each of two visits, no third");
+      eq(new URL(page.url()).pathname, "/hub/", "where the visitor is");
+    });
+    await context.close();
+  }
+  {
+    /* Review, round 1: with sessionStorage refused, the way back carries
+       np_back=1, and a return that already has it is not followed again:
+       the sign-in box opens instead. */
+    const world = newWorld({ user: USER, api: { "GET /auth/me": (w, req) => (req.origin === PRINT
+      ? [200, { signed_in: null, retry: true }] : [200, { ok: true, signed_in: true, member: w.user }]) } });
+    const { context, page } = await visit(world);
+    await context.addInitScript(() => {
+      Object.defineProperty(window, "sessionStorage", { configurable: true, get() { throw new Error("storage refused"); } });
+    });
+    await step("with no session storage, the np_back marker stops a second trip back", async () => {
+      await page.goto(`${PRINT}/find.html`);
+      const fromPage = () => world.calls.filter((c) => c.path === "/auth/me" && c.origin === PRINT).length;
+      await until(() => fromPage() >= 4, "the second visit to the page", 12000);
+      await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/");
+      await page.waitForSelector("#signOverlay.open");
+      await page.waitForTimeout(3000);
+      eq(fromPage(), 4, "the page asked twice on each of two visits, no third");
+      eq(new URL(new URL(page.url()).searchParams.get("return")).searchParams.get("np_back"), "1", "the marker on the way back");
+    });
+    await context.close();
+  }
+  /* The wall timer: 20 seconds, and gone once the account module is in. */
+  {
+    const world = newWorld({ user: USER, meHang: true });
+    const { context, page } = await visit(world);
+    /* Review, round 1: with the wall timer gone once the module is in, a
+       hanging /auth/me must not leave the page blank for ever. The fetch
+       gives up after 8 s, asks once more after 1.5 s, then the door. */
+    await step("a hanging /auth/me gives up at 8 s, asks again, then the door", async () => {
+      await page.clock.install();
+      await page.goto(`${PRINT}/find.html`);
+      const fromPage = () => world.calls.filter((c) => c.path === "/auth/me" && c.origin === PRINT).length;
+      await until(() => fromPage() === 1, "the account module asking");
+      await page.clock.runFor(7000);
+      await page.waitForTimeout(200);
+      eq([new URL(page.url()).hostname, fromPage()], ["printhub.nexpoint.co.uk", 1], "at 7 s: the page, asked once");
+      await page.clock.runFor(3000);
+      await until(() => fromPage() === 2, "the second ask");
+      await page.clock.runFor(9000);
+      await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/");
+      eq(fromPage(), 2, "times the page asked");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER });
+    const { context, page } = await visit(world);
+    await context.route("https://nexpoint.co.uk/assets/hub-account.js", (route) => route.fulfill({ status: 404, body: "" }));
+    await step("with no account module the wall waits 20 seconds, not 10, then goes to the door", async () => {
+      await page.clock.install();
+      await page.goto(`${PRINT}/find.html`);
+      await page.clock.runFor(15000);
+      await page.waitForTimeout(200);
+      eq(new URL(page.url()).hostname, "printhub.nexpoint.co.uk", "the host after 15 s");
+      await page.clock.runFor(6000);
+      await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/");
+    });
+    await context.close();
+  }
+}
+
 async function walkSignedIn() {
   area = "The hub pages (a signed-in account)";
   const pages = [["the door", `${APEX}/hub/`]].concat(WALLED.filter(([n]) => n !== "the account page"));
@@ -675,7 +828,23 @@ async function walkAccount() {
       introductions: [{ id: 7, ref: "INT-0007", hub: "print", stage: "awaiting_acceptance", seeker_request_id: 3, accepted_a_at: null,
         accepted_b_at: null, acceptance_expires_at: soon, declined_at: null, created_at: new Date().toISOString(), role: "provider",
         introduced_at: null, counterpart: null }],
-      offers: [{ introduction_id: 7, ref: "INT-0007", hub: "print", acceptance_expires_at: soon, request: null }],
+      offers: [{ introduction_id: 7, ref: "INT-0007", hub: "print", acceptance_expires_at: soon,
+        request: { material: "pa12_nylon12", process: "fdm_fff", quantity: 40, cadence: "one_off", town: "Bristol", country: "United Kingdom" } }],
+      // Plan 052, item 4: PS-/MS- codes are the worker's and the desk's; the seeker sees INTRO- only.
+      requests: [
+        { id: 3, ref: "PS-0046", hub: "print", material: "pa12_nylon12", quantity: 500, cadence: "recurring", status: "picked",
+          created_at: new Date().toISOString(), no_match: false,
+          picks: [{ introduction_id: 8, ref: "INTRO-0008", stage: "proposed", card: { town: "Leeds", country: "United Kingdom", materials: ["pa12_nylon12"], services: ["finishing_dyeing"],
+            machines: [{ name: "HP MJF 5200", materials: ["pa12_nylon12"], count: 2, lead_time_days: 5 }] } },
+            { introduction_id: 9, ref: "INTRO-0009", stage: "introduced", card: { town: "Derby", country: "United Kingdom", materials: ["pa12_nylon12"] } },
+            { introduction_id: 10, ref: "INTRO-0010", stage: "awaiting_acceptance", card: { town: "Hull", country: "United Kingdom", materials: ["pa12_nylon12"] } }] },
+        { id: 4, ref: "MS-0047", hub: "mill", material: "pa12_nylon12", quantity: 200, cadence: "once", status: "open",
+          created_at: new Date().toISOString(), no_match: false, picks: [] },
+        // Plan 052, item 3: a hand-routed request still carries no_match; its pick must show.
+        { id: 5, ref: "PS-0048", hub: "print", material: "pa12_nylon12", quantity: 60, cadence: "once", status: "open",
+          created_at: new Date().toISOString(), no_match: true,
+          picks: [{ introduction_id: 11, ref: "INTRO-0011", stage: "awaiting_acceptance", card: { town: "Exeter", country: "United Kingdom", materials: ["pa12_nylon12"] } }] },
+      ],
       hubs_used: ["print"],
     }),
   });
@@ -686,6 +855,56 @@ async function walkAccount() {
     await page.waitForSelector("#profile:not([hidden])");
     has(await page.textContent("#profile"), "ZZ Walk Test Ltd", "the profile section");
     eq(apiCalls(world, "GET /account/summary").length, 1, "summary reads");
+  });
+  await step("a request is known by INTRO- once it has one, and the page never shows REQ- or the PS- code", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    const text = await page.textContent("#introductions");
+    has(text, "INTRO-0008", "the introduced pick");
+    for (const gone of ["REQ-", "PS-0046", "MS-0047"])
+      if (text.includes(gone)) throw new Error(`the account page still shows ${gone}`);
+  });
+  await step("a request flagged no_match still shows the pick put forward by hand (plan 052, item 3)", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    const text = await page.textContent("#introductions");
+    has(text, "INTRO-0011", "the hand-routed pick");
+    if (text.includes("No match yet")) throw new Error("a request with a pick still says No match yet");
+  });
+  await step("facts lines read as English: no underscore in a request card or an offer line (plan 052, item 10)", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    const lines = await page.$$eval("#introductions .acct-card .hint, #introductions .acct-row__meta span", (els) => els.map((e) => e.textContent));
+    const facts = lines.filter((t) => /Recurring|One off|Once|PA12/.test(t));
+    if (facts.length < 3) throw new Error(`expected the facts lines to render, saw ${JSON.stringify(lines)}`);
+    for (const t of lines) if (t.includes("_")) throw new Error(`a facts line shows a raw term: ${t}`);
+    has(facts.join(" | "), "One off", "the offer's cadence");
+  });
+  await step("the picks block reads in words: labelled materials, services and machines, no underscore, no [object Object]", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    await page.evaluate(() => document.querySelectorAll("#introductions details").forEach((d) => { d.open = true; }));
+    const block = await page.textContent("#introductions .acct-pick");
+    for (const bad of ["_", "[object Object]"]) if (block.includes(bad)) throw new Error(`the picks block shows ${bad}: ${block}`);
+    has(block, "HP MJF 5200", "the machine name");
+    has(block, "PA12", "the labelled material");
+    has(block, "Services", "the services row");
+  });
+  await step("the progress bar has four steps, filled when done, ringed when waited on, green once introduced, the same for both sides (plan 052, items 12-14)", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    const chains = await page.$$eval("#introductions .status-chain", (ols) => ols.map((ol) => ({
+      labels: [...ol.children].map((li) => li.textContent),
+      classes: [...ol.children].map((li) => li.className.trim()),
+      inDetails: !!ol.closest("details") })));
+    const want = ["Requested", "Approved by NexPoint", "Awaiting provider", "Introduced"];
+    if (chains.length !== 5) throw new Error(`expected 5 chains, saw ${chains.length}`);
+    for (const c of chains) {
+      eq(JSON.stringify(c.labels), JSON.stringify(want), "the step labels");
+      eq(c.inDetails, false, "the chain is collapsed");
+    }
+    const by = (cls) => chains.filter((c) => JSON.stringify(c.classes) === JSON.stringify(cls));
+    // proposed (seeker), awaiting_acceptance (seeker pick and provider row), introduced (seeker)
+    eq(by(["is-done", "is-current", "", ""]).length, 1, "a proposed chain");
+    eq(by(["is-done", "is-done", "is-current", ""]).length, 3, "the awaiting_acceptance chains, seeker and provider alike, and the hand-routed pick");
+    eq(by(["is-done", "is-done", "is-done", "is-done is-green"]).length, 1, "the introduced chain");
+    const text = await page.textContent("#introductions");
+    for (const gone of ["In progress", "Accepted"]) if (text.includes(gone)) throw new Error(`the page still says ${gone}`);
   });
   await step("an offer waiting on the provider shows, with a way to have it sent again", async () => {
     await page.waitForSelector("#introductions:not([hidden])");
@@ -708,6 +927,49 @@ async function walkAccount() {
   clean(world, errors, "the account page");
   await context.close();
 
+  area = "The account page (a closed introduction and a slow vocabulary)";
+  {
+    const closed = (id, ref, stage, role) => ({ id, ref, hub: "print", stage, seeker_request_id: 3, accepted_a_at: null, accepted_b_at: null,
+      acceptance_expires_at: null, declined_at: null, created_at: new Date().toISOString(), role, introduced_at: null, counterpart: null });
+    const world = newWorld({
+      user: USER,
+      hang: new Set(["GET /vocab", "GET /attributes"]),
+      summary: Object.assign({}, EMPTY_SUMMARY, {
+        org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", founding: true, host_print: "approved", host_mill: "none", fee_exempt_note: null },
+        site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
+          sub_status: "trial", founding: true, paused: false, removed: false, verified: true },
+        introductions: [closed(21, "INT-0021", "dead", "provider"), closed(22, "INT-0022", "mystery_stage", "provider")],
+        requests: [{ id: 3, ref: "PS-0050", hub: "print", material: "pa12_nylon12", quantity: 10, cadence: "once", status: "picked",
+          created_at: new Date().toISOString(), no_match: false,
+          picks: [{ introduction_id: 23, ref: "INTRO-0023", stage: "dead", card: { town: "Leeds", country: "United Kingdom", materials: ["pa12_nylon12"] } }] }],
+        hubs_used: ["print"],
+      }),
+    });
+    const { context, page, errors } = await visit(world);
+    const t0 = Date.now();
+    await page.goto(`${APEX}/hub/account/`);
+    await step("with the vocabulary never answering, the account page still draws within a few seconds", async () => {
+      await page.waitForSelector("#introductions .acct-card", { timeout: 6000 });
+      const ms = Date.now() - t0;
+      if (ms > 6000) throw new Error(`the page took ${ms} ms to draw`);
+      has(await page.textContent("#introductions"), "INTRO-0023", "the request card");
+      eq(apiCalls(world, "GET /vocab").filter((c) => c.query.hub === "mill").length, 0, "Mill vocabulary reads by a Print-only account");
+    });
+    await step("a closed introduction reads Closed: three steps done, the last a stop step, never Introduced (plan 052 review)", async () => {
+      const chains = await page.$$eval("#introductions .status-chain", (ols) => ols.map((ol) => ({
+        labels: [...ol.children].map((li) => li.textContent), classes: [...ol.children].map((li) => li.className.trim()) })));
+      const closedChains = chains.filter((c) => c.labels[3] === "Closed");
+      eq(closedChains.length, 2, "the closed chains (a provider row and a seeker pick)");
+      for (const c of closedChains) eq(JSON.stringify(c.classes), JSON.stringify(["is-done", "is-done", "is-done", "is-stop"]), "a closed chain's classes");
+      const rows = await page.$$eval("#introductions .acct-row__meta", (els) => els.map((e) => ({ ref: e.querySelector("b").textContent, line: e.querySelector(":scope > span").textContent })));
+      const line = (ref) => (rows.find((r) => r.ref.includes(ref)) || { line: null }).line;
+      eq(line("INT-0021"), "Closed.", "the closed provider row");
+      eq(line("INT-0022"), "", "an unknown stage's line");
+    });
+    clean(world, errors, "the closed-introduction page");
+    await context.close();
+  }
+
   area = "The account page (an account that has done nothing yet)";
   {
     const world = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY) });
@@ -728,6 +990,15 @@ async function walkAccount() {
       eq(links.length, 1, "to-do lines");
       eq(new URL(await links[0].getAttribute("href"), page.url()).pathname, "/hub/index.html", "where the line goes");
       return has(await links[0].textContent(), "arrow_forward", "the trailing arrow");
+    });
+    await step("the needs block is headed Next step, sits in the head level with the Go button, and reads large and bold (plan 052)", async () => {
+      has(await page.textContent("#acctNeeds h2"), "Next step", "the heading");
+      eq(await page.locator(".acct-head #acctNeeds").count(), 1, "the block is inside .acct-head");
+      const blockTop = (await page.locator("#acctNeeds").boundingBox()).y;
+      const btnTop = (await page.locator("#goHub").boundingBox()).y;
+      if (Math.abs(blockTop - btnTop) > 8) throw new Error(`block top ${blockTop} is not level with the button top ${btnTop}`);
+      const f = await page.$eval("#acctNeeds h2", (el) => { const c = getComputedStyle(el); return { size: parseFloat(c.fontSize), weight: parseInt(c.fontWeight, 10) }; });
+      if (f.size < 18 || f.weight < 700) throw new Error(`heading is ${f.size}px at weight ${f.weight}`);
     });
     clean(world, errors, "the new account's page");
     await context.close();
@@ -1151,7 +1422,7 @@ const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
 const parts = []
-  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkSignedIn, walkAccount, walkHomepage, walkLandings] : [])
+  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkAccount, walkHomepage, walkLandings] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames] : []);
 try {
   for (const part of parts) {

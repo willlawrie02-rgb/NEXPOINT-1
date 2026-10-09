@@ -19,18 +19,15 @@
      it, so the Go to the Global Hub button and this line land in one place. */
   var HUB_DOOR = '../index.html';
 
-  /* The five steps every introduction walks, in order. A stopped one keeps the
-     steps it actually reached and ends on the word for how it stopped. */
-  var CHAIN = ['Requested', 'Approved by NexPoint', 'Awaiting provider', 'Accepted', 'In progress'];
+  /* The four steps every introduction walks, in order, the same for seekers and
+     providers. CHAIN_AT is the step being waited on; introduced and every later
+     stage (see acceptedStage) have nothing left to wait for. A stopped one keeps
+     the steps it actually reached and ends on the word for how it stopped. */
+  var CHAIN = ['Requested', 'Approved by NexPoint', 'Awaiting provider', 'Introduced'];
   var CHAIN_AT = {
-    proposed: 0,
-    approved: 1,
+    proposed: 1,
+    approved: 2,
     awaiting_acceptance: 2,
-    introduced: 3,
-    in_discussion: 4,
-    deal_done: 4,
-    invoiced: 4,
-    paid: 4,
   };
 
   var CURRENCIES = ['GBP', 'EUR', 'USD'];
@@ -92,6 +89,38 @@
     node.innerHTML = '';
     node.hidden = true;
   }
+  /* Plan 052, item 10: stored terms (pa12_nylon12, one_off) read as the vocab's
+     words. `vocab` is filled before the first render (loadVocab) and, if the
+     list could not be read, label() still humanises the term. */
+  var vocab = {};
+  var VOCAB_LIST = { material: 'materials', process: 'processes', service: 'services' };
+  var CADENCE = { one_off: 'One off', recurring: 'Recurring' };
+  function lab(kind, hub, term) {
+    if (term == null || term === '') return '';
+    if (kind === 'cadence' && CADENCE[term]) return CADENCE[term];
+    var v = vocab[hub === 'mill' ? 'mill' : 'print'];
+    var list = v && VOCAB_LIST[kind] ? v[VOCAB_LIST[kind]] : [];
+    if (window.NPVocab && NPVocab.label) return NPVocab.label(list, term);
+    return String(term);
+  }
+  /* Only the hubs this account touches are read: two per hub-kind round trip
+     each, so a Print-only account no longer waits on Mill's seven requests. */
+  function hubsOf(d) {
+    var seen = {};
+    [d.hubs_used, d.listings, d.requests, d.offers, d.introductions].forEach(function (x) {
+      (Array.isArray(x) ? x : []).forEach(function (r) {
+        var h = typeof r === 'string' ? r : r && r.hub;
+        if (h === 'print' || h === 'mill') seen[h] = true;
+      });
+    });
+    return Object.keys(seen);
+  }
+  function loadVocab(hubs) {
+    if (!window.NPVocab) return Promise.resolve();
+    return Promise.all(hubs.map(function (h) {
+      return NPVocab.load(h).then(function (v) { vocab[h] = v; }, function () {});
+    }));
+  }
   function icon(name) { return '<span class="material-symbols-outlined acct-ico" aria-hidden="true">' + name + '</span>'; }
   function empty(text, ico) { return '<div class="acct-empty">' + icon(ico || 'inbox') + '<span>' + esc(text) + '</span></div>'; }
   /* A section's heading: one icon, the title, and the line under it. */
@@ -104,6 +133,12 @@
   function refLine(ref, hub, fallback) {
     var r = ref ? '<span class="acct-ref">' + esc(ref) + '</span>' : '';
     return (r + hubPill(hub)) || esc(fallback || '');
+  }
+  /* A request is known by its INTRO- code once an introduction exists, and by
+     nothing before (plan 052, item 4): the PS-/MS- code is the desk's and the
+     email's, and REQ- is retired. One code per pick, in rank order. */
+  function requestRefs(r) {
+    return (Array.isArray(r.picks) ? r.picks : []).map(function (p) { return p.ref; }).filter(Boolean).join(' \u00b7 ');
   }
   /* Plain rows that belong together share one surface, ruled off by hairlines. */
   function group(rows) { return '<div class="acct-list">' + rows + '</div>'; }
@@ -201,16 +236,19 @@
   /* ═══════════ 2. introductions ═══════════ */
   function statusChain(stage) {
     var steps = CHAIN.slice();
-    var stop = stage === 'declined' ? 'Declined' : stage === 'expired' ? 'Expired' : '';
-    var now;
-    if (stop) { steps[4] = stop; now = 4; }
-    else if (CHAIN_AT[stage] != null) now = CHAIN_AT[stage];
-    else now = 4;
+    var last = steps.length - 1;
+    var stop = stage === 'declined' ? 'Declined' : stage === 'expired' ? 'Expired' : stage === 'dead' ? 'Closed' : '';
+    var done = 0;     /* steps 0..done-1 are complete */
+    var cur = -1;     /* the step being waited on, if any */
+    if (stop) { steps[last] = stop; done = last; }
+    else if (acceptedStage(stage)) done = steps.length;
+    else if (CHAIN_AT[stage] != null) { cur = CHAIN_AT[stage]; done = cur; }
     return '<ol class="status-chain" aria-label="Progress of this introduction">' + steps.map(function (label, i) {
       var cls = '';
-      if (i === now) cls = stop ? 'is-stop' : 'is-now';
-      else if (i < now && !(stop && i === 3)) cls = 'is-done';
-      return '<li' + (cls ? ' class="' + cls + '"' : '') + (i === now ? ' aria-current="step"' : '') + '>' + esc(label) + '</li>';
+      if (stop && i === last) cls = 'is-stop';
+      else if (i < done) cls = i === last ? 'is-done is-green' : 'is-done';
+      else if (i === cur) cls = 'is-current';
+      return '<li' + (cls ? ' class="' + cls + '"' : '') + (i === cur ? ' aria-current="step"' : '') + '>' + esc(label) + '</li>';
     }).join('') + '</ol>';
   }
 
@@ -249,15 +287,19 @@
     return '<div class="acct-released">' + bits.join('<br>') + '</div>';
   }
 
-  function pickBlock(p, intro) {
+  function pickBlock(p, intro, hub) {
     var card = p.card || {};
     var rows = [];
     var where = [card.town, card.country].filter(Boolean).join(', ');
     if (where) rows.push(['Where', where]);
-    if (card.machines && card.machines.length) rows.push(['Machines', list(card.machines)]);
-    if (card.materials && card.materials.length) rows.push(['Materials', list(card.materials)]);
+    var mats = function (a) { return (a || []).map(function (t) { return lab('material', hub, t); }); };
+    if (card.machines && card.machines.length) rows.push(['Machines', card.machines.map(function (m) {
+      if (!m || typeof m !== 'object') return String(m || '');
+      return [m.name, m.count > 1 ? 'x' + m.count : '', m.materials && m.materials.length ? '(' + mats(m.materials).join(', ') + ')' : ''].filter(Boolean).join(' ');
+    }).filter(Boolean).join('; ')]);
+    if (card.materials && card.materials.length) rows.push(['Materials', list(mats(card.materials))]);
     if (card.min_lead_time_days != null) rows.push(['Lead time', 'From ' + card.min_lead_time_days + ' days']);
-    if (card.services && card.services.length) rows.push(['Services', list(card.services)]);
+    if (card.services && card.services.length) rows.push(['Services', list(card.services.map(function (t) { return lab('service', hub, t); }))]);
 
     var accepted = acceptedStage(p.stage);
     return '<div class="acct-pick">' +
@@ -272,19 +314,20 @@
 
   function requestCard(r, byId) {
     var picks = Array.isArray(r.picks) ? r.picks : [];
-    var facts = [r.material, r.quantity, r.cadence].filter(Boolean).map(String).join(' · ');
+    var facts = [lab('material', r.hub, r.material), r.quantity, lab('cadence', r.hub, r.cadence)].filter(Boolean).map(String).join(' · ');
     var body;
-    if (r.no_match) {
-      body = empty('No match yet. We are still looking, and will write the moment there is one.', 'travel_explore');
-    } else if (!picks.length) {
-      body = empty('With NexPoint. Nothing has been put forward yet.', 'hourglass_top');
+    /* Picks win over the flag: a request routed by hand keeps no_match, and its
+       pick must still show. The flag only words the empty state. */
+    if (!picks.length) {
+      body = r.no_match
+        ? empty('No match yet. We are still looking, and will write the moment there is one.', 'travel_explore')
+        : empty('With NexPoint. Nothing has been put forward yet.', 'hourglass_top');
     } else {
-      body = '<details class="acct-detail"><summary>What we put forward (' + picks.length + ')</summary>' +
-        picks.map(function (p) { return pickBlock(p, byId[p.introduction_id]); }).join('') +
-      '</details>';
+      body = '<p class="hint">What we put forward (' + picks.length + ')</p>' +
+        picks.map(function (p) { return pickBlock(p, byId[p.introduction_id], r.hub); }).join('');
     }
     return '<div class="acct-card">' +
-      '<h3>' + refLine(r.ref, r.hub) + '</h3>' +
+      '<h3>' + refLine(requestRefs(r), r.hub, 'Your request') + '</h3>' +
       '<p class="hint">' + esc([facts, r.created_at ? 'Requested ' + fmtDate(r.created_at) : ''].filter(Boolean).join(' · ')) + '</p>' +
       body +
     '</div>';
@@ -292,11 +335,14 @@
 
   function providerLine(i) {
     if (i.stage === 'awaiting_acceptance') return 'Answer from the email we sent you.';
-    if (i.stage === 'introduced') return 'Accepted.';
+    if (i.stage === 'approved') return 'Approved by NexPoint.';
     if (i.stage === 'declined') return 'Declined.';
     if (i.stage === 'expired') return 'Expired.';
+    if (i.stage === 'dead') return 'Closed.';
     if (i.stage === 'proposed') return 'With NexPoint.';
-    return 'In progress.';
+    /* Only the stages that mean a live introduction read as introduced; a stage
+       this page does not know says nothing rather than something untrue. */
+    return acceptedStage(i.stage) ? 'Introduced.' : '';
   }
 
   /* What a provider is being asked for, in the anonymised terms the offer
@@ -304,7 +350,7 @@
   function offerLine(o) {
     if (!o || !o.request) return '';
     var r = o.request;
-    return [r.material, r.process, r.quantity, r.cadence,
+    return [lab('material', o.hub, r.material), lab('process', o.hub, r.process), r.quantity, lab('cadence', o.hub, r.cadence),
       r.max_lead_time_days != null ? 'within ' + r.max_lead_time_days + ' days' : '',
       [r.town, r.country].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
   }
@@ -594,7 +640,7 @@
   function renderNeeds(needs) {
     if (!needs.length) { hide('acctNeeds'); return; }
     fill('acctNeeds',
-      '<h2>To do now</h2><ul>' + needs.map(function (n) {
+      '<h2>Next step</h2><ul>' + needs.map(function (n) {
         var open = n.href ? '<a href="' + esc(n.href) + '">' : '<a href="#' + n.to + '">';
         var arrow = n.href ? icon('arrow_forward') : icon('arrow_downward');
         return '<li>' + open + icon(n.icon) + '<span>' + esc(n.text) + '</span>' + arrow + '</a></li>';
@@ -702,6 +748,7 @@
 
   /* ═══════════ loading ═══════════ */
   var seq = 0, queued = null;
+  var VOCAB_WAIT_MS = 3000;
   /* The account module both resolves its ready promise and fires
      npaccount:change for the same refresh, and this page listens for both, so
      a load is queued rather than fired: two triggers for one change fetch the
@@ -724,7 +771,15 @@
         return;
       }
       if (d.signed_in === false) { showSignedOut(); return; }
-      render(d);
+      /* Draw once the words are in, but never wait on them for long: after
+         VOCAB_WAIT_MS the page draws with humanised fallback labels, and draws
+         again when the vocabulary does arrive. */
+      var draw = function () { if (mine === seq) { render(d); } };
+      var timer = setTimeout(draw, VOCAB_WAIT_MS);
+      loadVocab(hubsOf(d)).then(function () {
+        clearTimeout(timer);
+        draw();
+      });
     });
   }
 
