@@ -32,6 +32,8 @@ const $=id=>document.getElementById(id);
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
 let me=null,requests=[],intros=[],pendingByReq={},pendingByIntro={},intentById={},filter='all';
 let orgById={};
+/* Plan 052, item 10: vocab_terms as {kind:{term:label}}, filled by load(). */
+let vocabMap={};
 /* Hub v2: the listing review queue and the seeker request queue. */
 let listings=[],revById={},machinesByRev={},seekReqs=[];
 let pendingByListing={},pendingBySeekReq={};
@@ -129,7 +131,19 @@ const LISTING_INTENTS=['approve-listing','decline-listing',
 const SEEKER_INTENTS=['approve-intro-request','add-provider','decline-intro-request'];
 const LISTING_BADGE={pending:'PENDING',live:'LIVE',declined:'DECLINED',hidden:'HIDDEN'};
 const SREQ_BADGE={open:'OPEN',picked:'PICKED',desk:'DESK RE-ROUTE',declined:'DECLINED',closed:'CLOSED'};
-const seekRef=r=>`REQ-${String(r.id).padStart(4,'0')}`;
+/* A seeker request is known by the PS-/MS- code of its web_requests mirror
+   until an introduction exists (REQ- is retired, plan 052 item 4). The link
+   is seeker_requests.web_request_id, or the mirror's payload when only that
+   side was written; a legacy request with neither has no code. */
+function seekRef(r){
+  let wid=r.web_request_id;
+  if(wid==null){
+    const m=requests.find(q=>(q.payload||{}).seeker_request_id!=null&&String(q.payload.seeker_request_id)===String(r.id));
+    wid=m?m.id:null;
+  }
+  if(wid==null)return `Request #${r.id}`;
+  return `${String(r.hub||HUB.hub)[0].toUpperCase()}S-${String(wid).padStart(4,'0')}`;
+}
 const introRef=i=>i.ref||('INTRO-'+String(i.id).padStart(4,'0'));
 const SIDE_PREFIX={offer_capacity:'H',request_capacity:'S',list_opportunity:'L',request_intro:'I'};
 const reqRef=r=>`${HUB.hub[0].toUpperCase()}${SIDE_PREFIX[r.side]||'R'}-${String(r.id).padStart(4,'0')}`;
@@ -210,6 +224,12 @@ async function load(){
     $('banner').innerHTML=`<div class="banner">Could not read introductions: ${esc(iq.error.message)}.</div>`;
   }
   intros=iq.data||[];
+
+  /* One read of the vocabulary so every card reads in words. A failed read
+     leaves the map empty and lab() humanises the term instead. */
+  vocabMap={};
+  const vq=await sb.from('vocab_terms').select('kind,term,label');
+  (vq.data||[]).forEach(v=>{(vocabMap[v.kind]=vocabMap[v.kind]||{})[v.term]=v.label;});
 
   orgById={};listings=[];revById={};machinesByRev={};seekReqs=[];
   if(HOSTS_HUB()){
@@ -408,7 +428,7 @@ function render(){
        the left, open seeker requests and other enquiries on the right. */
     const toReview=listings.filter(l=>l.status==='pending'||l.pending_revision_id).length;
     const open=seekReqs.filter(r=>r.status==='open'||r.status==='picked'||r.status==='desk').length;
-    const other=requests.filter(r=>sidesOf(HUB.right).includes(r.side)&&(r.status==='new'||r.status==='reviewing')).length;
+    const other=requests.filter(r=>sidesOf(HUB.right).includes(r.side)&&!isSeekerMirror(r)&&(r.status==='new'||r.status==='reviewing')).length;
     $('count').textContent=[
       toReview?`${toReview} listing${toReview===1?'':'s'} to review`:'',
       open?`${open} open seeker request${open===1?'':'s'}`:'',
@@ -466,6 +486,17 @@ function listingMatches(l){
   return false;
 }
 
+/* The worker mirrors every seeker request into web_requests (the engine's
+   lead filing and 7-day sweep read that row), so a request on the board
+   would show twice. The mirror stays in the table and leaves the board:
+   a web_requests row is skipped when its seeker request is loaded, linked
+   from either side. */
+function isSeekerMirror(r){
+  const sid=(r.payload||{}).seeker_request_id;
+  return seekReqs.some(q=>(q.web_request_id!=null&&String(q.web_request_id)===String(r.id))
+    ||(sid!=null&&String(q.id)===String(sid)));
+}
+
 function renderCol(which){
   const col=HUB[which];
   /* The worker files one web_requests row per SUBMISSION, so a resubmitted
@@ -474,7 +505,7 @@ function renderCol(which){
      dropped, one card per listing. A row with no listing behind it is a
      legacy enquiry and keeps its own card. */
   const seen=new Set();
-  const all=requests.filter(r=>sidesOf(col).includes(r.side)).map(r=>{
+  const all=requests.filter(r=>sidesOf(col).includes(r.side)&&!isSeekerMirror(r)).map(r=>{
     const l=HOSTS_HUB()&&r.side==='offer_capacity'?listingById((r.payload||{}).listing_id):null;
     return {r,l};
   }).filter(({l})=>{
@@ -515,11 +546,12 @@ function renderCol(which){
     +archive;
 }
 
+const PAYLOAD_KIND={material:'material',process:'process',cadence:'cadence',services:'service'};
 function payloadDetails(r){
   const p=r.payload||{};
   const lines=Object.entries(p)
     .filter(([k,v])=>v!=null&&String(v).trim()!=='')
-    .map(([k,v])=>`<strong>${esc(k.replace(/_/g,' '))}:</strong> ${esc(Array.isArray(v)?v.join(', '):v)}`);
+    .map(([k,v])=>`<strong>${esc(humanise(k))}:</strong> ${esc(PAYLOAD_KIND[k]?fmtVal(v,PAYLOAD_KIND[k]):Array.isArray(v)?v.join(', '):v)}`);
   if(!lines.length)return '';
   return `<details class="pl"><summary><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>What they submitted</summary><p>${lines.join('<br>')}</p></details>`;
 }
@@ -533,14 +565,14 @@ function payloadDetails(r){
 function offerControl(l){
   /* A Paused or Removed host is not shown to seekers or the desk's pickers
      (Will's 2026-09-10 ruling), so it is not offered from its own card either. */
-  if(!orgVisible(orgById[l.org_id]))return `<span style="color:var(--fg-2);font-size:12.5px">Paused or removed on the Organisations board: not offered to seekers</span>`;
+  if(!orgVisible(orgById[l.org_id]))return `<span style="color:var(--fg-2);font-size:12.5px">Paused or removed on the Accounts board: not offered to seekers</span>`;
   const taken=new Set(intros.filter(i=>String(i.listing_id)===String(l.id)).map(i=>i.seeker_request_id));
   const open=seekReqs.filter(r=>(r.status==='open'||r.status==='picked'||r.status==='desk')&&!taken.has(r.id));
   if(!open.length)return `<span style="color:var(--fg-2);font-size:12.5px">No open seeker request to offer this host to</span>`;
   return `<select id="offer-${esc(l.id)}" aria-label="Offer ${esc((orgById[l.org_id]||{}).name||'this host')} to a seeker">
       <option value="">Offer to a seeker…</option>
       ${open.map(r=>`<option value="${r.id}">${esc(seekRef(r))} · ${esc((orgById[r.org_id]||{}).name||'(seeker)')}${
-        r.material?' · '+esc(r.material):''}</option>`).join('')}
+        r.material?' · '+esc(lab('material',r.material)):''}</option>`).join('')}
     </select>
     <button class="btn btn-gh btn-sm" onclick="offerToSeeker('${esc(l.id)}')">Offer</button>`;
 }
@@ -683,7 +715,7 @@ function introManage(i){
      these, not a dropdown. A spent one may be re-routed to another host. */
   let manage=`<span style="color:var(--fg-2);font-size:12.5px">With the provider</span>`;
   if(SPENT_STAGES.includes(i.stage))manage=rerouteControl(i)
-    ||`<span style="color:var(--fg-2);font-size:12.5px">No other visible listing to re-route to (hidden organisations are left out)</span>`;
+    ||`<span style="color:var(--fg-2);font-size:12.5px">No other visible listing to re-route to (hidden accounts are left out)</span>`;
   if(REISSUABLE_STAGES.includes(i.stage))manage+=`
     <button class="btn btn-gh btn-sm" onclick="reissueAcceptance(${i.id})">Reissue acceptance link</button>`;
   return failed+manage;
@@ -731,7 +763,7 @@ function orgStateMarker(o){
   if(!o||orgVisible(o))return '';
   const state=o.removed_at?'removed':'paused';
   const why=state==='removed'?o.removed_reason:o.paused_reason;
-  const help=`${state==='removed'?'Removed from the hub':'Paused'} by a person on the Organisations board${why?': '+why:''}. Not shown to seekers.`;
+  const help=`${state==='removed'?'Removed from the hub':'Paused'} by a person on the Accounts board${why?': '+why:''}. Not shown to seekers.`;
   return ` <span class="stg stg-${esc(state)}" title="${esc(help)}">${state.toUpperCase()}</span>`;
 }
 const listingById=id=>listings.find(l=>String(l.id)===String(id))||null;
@@ -772,12 +804,26 @@ const REV_FIELDS=[['address_line','Address'],['town','Town'],['postcode','Postco
   ['quality_notes','Quality notes'],['monthly_capacity','Monthly capacity'],
   ['attributes','Attributes']];
 
-const fmtVal=v=>{
+/* A stored term (pa12_nylon12, one_off) read as words: the vocabulary's label,
+   or, for a term it lacks, the term with underscores as spaces and a capital. */
+function humanise(t){
+  const s=String(t).replace(/_/g,' ');
+  return s.charAt(0).toUpperCase()+s.slice(1);
+}
+const CADENCE_LABEL={one_off:'One off',recurring:'Recurring'};
+function lab(kind,term){
+  if(term==null||term==='')return '';
+  if(kind==='cadence'&&CADENCE_LABEL[term])return CADENCE_LABEL[term];
+  return ((vocabMap[kind]||{})[term])||humanise(term);
+}
+/* Which vocabulary kind a field's terms belong to. */
+const KIND_OF={material:'material',process:'process',cadence:'cadence',services:'service',ships_to:'region'};
+function fmtVal(v,kind){
   if(v==null||v==='')return '—';
-  if(Array.isArray(v))return v.length?v.join(', '):'—';
-  if(typeof v==='object')return Object.entries(v).map(([k,x])=>`${k}: ${x}`).join(', ')||'—';
-  return String(v);
-};
+  if(Array.isArray(v))return v.length?v.map(x=>kind?lab(kind,x):x).join(', '):'—';
+  if(typeof v==='object')return Object.entries(v).map(([k,x])=>`${humanise(k)}: ${x}`).join(', ')||'—';
+  return kind?lab(kind,v):String(v);
+}
 /* Arrays compare as sets: a host reordering "ships to" is not a change. */
 const sameSet=(a,b)=>JSON.stringify((a||[]).map(String).sort())===JSON.stringify((b||[]).map(String).sort());
 const sameVal=(a,b)=>Array.isArray(a)||Array.isArray(b)?sameSet(a,b)
@@ -786,7 +832,7 @@ const sameVal=(a,b)=>Array.isArray(a)||Array.isArray(b)?sameSet(a,b)
 function machineList(rev){
   return ((rev&&machinesByRev[rev.id])||[]).map(m=>[
     m.name,m.count>1?`x${m.count}`:'',
-    (m.materials||[]).length?`(${m.materials.join(', ')})`:'',
+    (m.materials||[]).length?`(${m.materials.map(t=>lab('material',t)).join(', ')})`:'',
     m.lead_time_days!=null?`${m.lead_time_days}d`:'',
   ].filter(Boolean).join(' '));
 }
@@ -795,7 +841,7 @@ function revisionDiff(oldRev,newRev){
   const rows=[];
   REV_FIELDS.forEach(([f,label])=>{
     if(!sameVal((oldRev||{})[f],(newRev||{})[f]))
-      rows.push([label,fmtVal((oldRev||{})[f]),fmtVal((newRev||{})[f])]);
+      rows.push([label,fmtVal((oldRev||{})[f],KIND_OF[f]),fmtVal((newRev||{})[f],KIND_OF[f])]);
   });
   const om=machineList(oldRev),nm=machineList(newRev);
   if(om.join(' | ')!==nm.join(' | '))
@@ -810,7 +856,7 @@ function diffTable(rows){
 }
 
 function submittedTable(rev){
-  const rows=REV_FIELDS.map(([f,label])=>[label,fmtVal((rev||{})[f])]);
+  const rows=REV_FIELDS.map(([f,label])=>[label,fmtVal((rev||{})[f],KIND_OF[f])]);
   const machines=machineList(rev);
   rows.push(['Machines',machines.length?machines.join('; '):'—']);
   return `<table class="diff"><tbody>${rows.map(([f,v])=>
@@ -861,9 +907,15 @@ function cardSummary(intro){
   return [
     l?((orgById[l.org_id]||{}).name||'(host)'):'(listing withdrawn)',
     [rev.town,rev.country].filter(Boolean).join(', '),
-    (rev.services||[]).join(', '),
+    (rev.services||[]).map(t=>lab('service',t)).join(', '),
     rev.monthly_capacity!=null?`${rev.monthly_capacity} a month`:'',
   ].filter(Boolean).join(' · ');
+}
+
+function needLines(r){
+  return NEED_FIELDS
+    .filter(([f])=>r[f]!=null&&String(r[f]).trim()!==''&&!(Array.isArray(r[f])&&!r[f].length))
+    .map(([f,label])=>`<strong>${esc(label)}:</strong> ${esc(fmtVal(r[f],KIND_OF[f]))}`).join('<br>');
 }
 
 function seekerCard(r){
@@ -871,9 +923,7 @@ function seekerCard(r){
   const mine=intros.filter(i=>i.seeker_request_id===r.id);
   const picks=mine.filter(i=>i.stage==='proposed');
   const running=mine.filter(i=>i.stage!=='proposed');
-  const need=NEED_FIELDS
-    .filter(([f])=>r[f]!=null&&String(r[f]).trim()!==''&&!(Array.isArray(r[f])&&!r[f].length))
-    .map(([f,label])=>`<strong>${esc(label)}:</strong> ${esc(fmtVal(r[f]))}`).join('<br>');
+  const need=needLines(r);
   const where=[r.town,r.country].filter(Boolean).join(', ');
 
   const pickList=picks.length
@@ -897,7 +947,7 @@ function seekerCard(r){
           shipsToUnset(l)?' · ships-to unset':''}</option>`).join('')}
       </select>
       <button class="btn btn-gh btn-sm" onclick="addProvider(${r.id})">Add</button>`
-    :`<span style="color:var(--fg-2);font-size:12.5px">No other visible listing to add (hidden organisations are left out)</span>`;
+    :`<span style="color:var(--fg-2);font-size:12.5px">No other visible listing to add (hidden accounts are left out)</span>`;
 
   /* The request's own status decides the buttons; the intent decorates.
      A declined or closed request has settled: its failure is shown, Try
@@ -928,7 +978,7 @@ function seekerCard(r){
   return `<div class="row req s-${esc(r.status==='open'?'new':r.status)}">
     <div class="row-top">
       <span class="ref">${esc(seekRef(r))}</span>
-      <span class="company">${esc((orgById[r.org_id]||{}).name||'(no organisation)')}</span>
+      <span class="company">${esc((orgById[r.org_id]||{}).name||'(no account)')}</span>
       ${stg('seeker',r.status,SREQ_BADGE[r.status]||r.status)}
     </div>
     <div class="meta">${[where?`<span>${esc(where)}</span>`:'',
