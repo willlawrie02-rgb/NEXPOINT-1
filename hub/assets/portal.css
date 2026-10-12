@@ -678,3 +678,12 @@ body[data-np-signed-in] .np-holder{display:block}
 .door--row .door__body{padding:clamp(20px,2.2vw,28px)}
 .door--row h3{font-size:clamp(20px,1.9vw,24px)}
 .door--row p{max-width:none}
+/* The world map (hub/assets/world-map.js, plan 055): the card it sits in and
+   the two pills under the pick-mode map. index.html carries the same rules
+   inline, as it does not load this sheet. */
+.wm-card{background:#fff;border:1px solid rgba(14,22,38,.08);border-radius:20px;padding:14px;box-shadow:0 8px 24px rgba(14,22,38,.06)}
+.wm-card svg{display:block;width:100%;height:auto}
+.wm-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.wm-pill{font:600 12px/1 var(--font-body);padding:8px 14px;border-radius:999px;color:var(--blue);background:#fff;border:1px solid rgba(0,92,200,.35);cursor:pointer;transition:background var(--dur) var(--ease),color var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+.wm-pill:hover{border-color:var(--blue)}
+.wm-pill.is-on{background:var(--blue);color:#fff;border-color:var(--blue)}

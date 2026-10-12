@@ -342,6 +342,24 @@ for (const p of pages.filter((x) => x.startsWith("printhub/") || x.startsWith("m
       }
     }
   }
+// ---------------------------------------------------------------- the land mask
+// Plan 055: hub/assets/world-map.js carries its own copy of portal.js's land
+// mask (the pair map and the world map are drawn from the same coastline),
+// so a correction to one must land in both. The two LAND literals are
+// compared byte for byte.
+{
+  const landOf = (rel) => {
+    const t = read(rel);
+    const i = t.indexOf("const LAND = [");
+    if (i < 0) return null;
+    // the matching "];" : the first "\n];" after the opening, since the rows are one per line
+    const j = t.indexOf("\n];", i);
+    return j < 0 ? null : t.slice(i, j + 3);
+  };
+  const a = landOf("hub/assets/portal.js"), b = landOf("hub/assets/world-map.js");
+  if (!a) fail("hub/assets/portal.js: the LAND array was not found (plan 055)");
+  if (!b) fail("hub/assets/world-map.js: the LAND array was not found (plan 055)");
+  if (a && b && a !== b) fail("hub/assets/world-map.js: its LAND mask differs from hub/assets/portal.js's; the two copies must stay identical (plan 055)");
 }
 
 if (fails.length) {
