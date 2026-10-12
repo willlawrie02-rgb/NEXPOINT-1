@@ -463,6 +463,39 @@
       '</div>';
   }
 
+  /* The provider's pair map (plan 052, item 24, task 3.6): on an open offer,
+     the request's town and the provider's own site, two pins and nothing to
+     choose. Only a town's point ever reaches it; the box stays hidden until
+     the map script has drawn into it, and never appears without points. */
+  function pairMapBox(i, offer) {
+    if (!offer) return '';
+    var r = offer.request || {};
+    var any = (r.point && typeof r.point.lat === 'number') || (offer.site && offer.site.point);
+    if (!any) return '';
+    return '<div class="np-map np-map--pair" id="pairMap-' + esc(i.id) + '" aria-label="Where the request and your site are" hidden></div>';
+  }
+  var pairMaps = [];
+  function mountPairMaps(intros, offerBy) {
+    pairMaps.forEach(function (m) { m.destroy(); });
+    pairMaps = [];
+    if (!window.NPMatchMap) return;
+    intros.forEach(function (i) {
+      var o = offerBy[i.id];
+      var box = el('pairMap-' + i.id);
+      if (!o || !box) return;
+      var r = o.request || {};
+      box.hidden = false;
+      var handle = NPMatchMap.mountPair({
+        el: box,
+        seeker: r.point ? { town: r.town || '', country: r.country || '', point: r.point } : null,
+        site: o.site || null,
+      });
+      if (!handle) { box.hidden = true; return; }
+      handle.refresh();
+      pairMaps.push(handle);
+    });
+  }
+
   function introRow(i, showResend, offer) {
     var extra = [];
     var asked = offerLine(offer);
@@ -475,6 +508,7 @@
         '<b>' + refLine(i.ref, i.hub) + '</b>' +
         '<span>' + esc(providerLine(i)) + '</span>' +
         extra.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') +
+        (showResend ? pairMapBox(i, offer) : '') +
         statusChain(i.stage) +
         (accepted ? inboxLine(i.ref || '', introDate(i)) : '') +
         (canAnswer ? answerPanel(i) : '') +
@@ -533,6 +567,7 @@
     fill('introductions',
       head('handshake', 'Introductions', 'Once both sides have accepted, the introduction arrives in your inbox.') +
       blocks.join(''));
+    mountPairMaps(provider, offerBy);
   }
 
   /* ═══════════ 3. declarations (host) ═══════════ */

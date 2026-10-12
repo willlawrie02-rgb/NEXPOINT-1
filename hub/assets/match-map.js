@@ -154,13 +154,15 @@
       });
     }
 
+    var dead = false;
     return {
       map: map,
       groups: groups,
       select: select,
-      /* The step was hidden when the map was made, so Leaflet measures again. */
-      refresh: function () { setTimeout(function () { map.invalidateSize(); frame(map, points); }, 50); },
-      destroy: function () { try { map.remove(); } catch (e) { /* already gone */ } },
+      /* The step was hidden when the map was made, so Leaflet measures again;
+         not if the map has gone in the meantime (a re-render inside 50 ms). */
+      refresh: function () { setTimeout(function () { if (dead) return; map.invalidateSize(); frame(map, points); }, 50); },
+      destroy: function () { dead = true; try { map.remove(); } catch (e) { /* already gone */ } },
     };
   }
 
@@ -190,10 +192,11 @@
       points.push(seeker.point);
     }
     frame(map, points);
+    var dead = false;
     return {
       map: map,
-      refresh: function () { setTimeout(function () { map.invalidateSize(); frame(map, points); }, 50); },
-      destroy: function () { try { map.remove(); } catch (e) { /* already gone */ } },
+      refresh: function () { setTimeout(function () { if (dead) return; map.invalidateSize(); frame(map, points); }, 50); },
+      destroy: function () { dead = true; try { map.remove(); } catch (e) { /* already gone */ } },
     };
   }
 
