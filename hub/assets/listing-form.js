@@ -1,7 +1,7 @@
 /* NexPoint Global Hub - the per-site listing form (spec 2026-09-03).
    The offer page's own module. One listing per site per hub: an address,
    the regions it ships to, services, quality notes, monthly capacity, the
-   host's choice of billing period, and an unlimited list of machines. Nothing a host writes goes live on its
+   an unlimited list of machines. Nothing a host writes goes live on its
    own; every submission is a pending revision an admin approves, so the
    page has five faces (signed out, unconfirmed, none, pending, live) and a
    sixth for a declined one.
@@ -144,7 +144,7 @@
 
   function renderSignedOut() {
     body().innerHTML =
-      '<p class="body">Sign in or create your hub account to list your site. Chris or Will checks every listing personally, and nothing is listed until we have approved it.</p>' +
+      '<p class="body">Sign in or create your hub account to list your site. NexPoint checks every listing personally, and nothing is listed until we have approved it.</p>' +
       '<div class="modal-actions">' +
       '<button class="btn btn-primary" type="button" data-l-signin>Sign in</button>' +
       '<button class="btn btn-outline" type="button" data-l-join>Create your hub account</button>' +
@@ -230,7 +230,6 @@
     const services = (rev.services || []).map((t) => termLabel(vocab && vocab.services, t));
     if (services.length) rows.push(['Services', services.join(', ')]);
     if (rev.monthly_capacity != null) rows.push(['Monthly capacity', String(rev.monthly_capacity) + ' units']);
-    if (rev.billing_period) rows.push(['Hosting', rev.billing_period === 'monthly' ? 'Monthly, 100 a month' : 'Annual, 1,000 a year']);
     if (rev.quality_notes) rows.push(['Quality systems', rev.quality_notes]);
     Object.keys(rev.attributes || {}).forEach((k) => {
       const text = attrValueText(rev.attributes[k]);
@@ -250,7 +249,7 @@
       : '';
     body().innerHTML =
       '<div class="notice-warn notice-warn--block" id="listingLockNotice">' +
-      '<span>Under review. Chris or Will checks every listing personally; you can edit again once it is approved.</span>' +
+      '<span>Under review. NexPoint checks every listing personally; you can edit again once it is approved.</span>' +
       '</div>' +
       liveBlock +
       '<div class="lsec"><div class="lsec__h">' +
@@ -457,26 +456,18 @@
       (u.email ? ' (' + esc(u.email) + ')' : '') + '. ' +
       (editing
         ? 'Your listing is live. Any change is reviewed before it replaces what is showing.'
-        : 'Chris or Will checks every listing personally; nothing appears until we have approved it.') +
+        : 'NexPoint checks every listing personally; nothing appears until we have approved it.') +
       '</p>' +
       '<form id="listingForm" novalidate>' +
 
-      /* The cost comes first (Will, 5 Oct): a host knows the commercial
-         structure before filling anything in, and picks the period here with
-         no default. Supersedes the 4 September rule for this page only. */
-      '<div class="lsec lcost" id="hostCost"><div class="lsec__h">What hosting costs</div>' +
-      '<p class="body">Hosting on the Global Hub is <strong>1,000 a year or 100 a month</strong>, the same number in ' +
-      'pounds, US dollars or euros, and one membership covers both the Print Hub and the Mill Hub. ' +
-      'On the work the hub brings you we charge a percentage of what you invoice that customer: ' +
-      '<strong>6% in their first year, then 5%, 4%, 3% and 2%, and nothing from year six</strong>. ' +
-      'If you sell your business inside those five years you can close it out for 5% of the previous ' +
-      'twelve months. You price it in; your customer pays you, never us.</p>' +
-      '<div class="lgroup" id="billingPeriod" role="radiogroup" aria-label="Billing period">' +
-      pickRadio('billing', 'annual', 'Annual: 1,000 a year', (rev && rev.billing_period) === 'annual') +
-      pickRadio('billing', 'monthly', 'Monthly: 100 a month', (rev && rev.billing_period) === 'monthly') +
-      '</div><span class="np-hint">Choose one. Nothing is charged until we approve your listing.</span></div>' +
+      /* No price and no period on the form (Will, 12 Oct 2026, plan 055): the
+         commercial conversation is had in person after the application, and
+         the desk chooses the period when it approves. Supersedes the 5 Oct
+         cost-first rule. */
+      '<p class="body lnote" style="margin-bottom:20px">Nothing is listed or charged until we have approved your listing. ' +
+      'We will talk through the commercial side with you personally first.</p>' +
 
-      '<div class="lsec"><div class="lsec__h">Your site</div><div class="form-grid">' +
+'<div class="lsec"><div class="lsec__h">Your site</div><div class="form-grid">' +
       /* Not an input, so not a `for`: the site name is read off the account
          and shown, and a label pointing at a paragraph labels nothing. */
       '<div class="field full"><label>Site name' +
@@ -523,7 +514,7 @@
       esc(rev && rev.monthly_capacity != null ? String(rev.monthly_capacity) : '') + '"></div>' +
       fieldsFor(orderDefs(listingDefs, ['min_order_units', 'certifications']), (k) => 'attr-' + k) +
       '<div class="field full"><label for="qualityNotes">Quality systems and standards' +
-      '<span class="np-hint">How you inspect, calibrate and package. Written for Chris and Will, not published.</span></label>' +
+      '<span class="np-hint">How you inspect, calibrate and package. Read by the NexPoint desk, not published.</span></label>' +
       '<textarea id="qualityNotes">' + esc((rev && rev.quality_notes) || '') + '</textarea></div>' +
       '</div></div>' +
 
@@ -541,7 +532,7 @@
 
     /* chips toggle their own class; one delegated listener per group. A
        radio in the billing group moves the class to the one chosen. */
-    ['shipsTo', 'services', 'billingPeriod'].forEach((groupId) => {
+    ['shipsTo', 'services'].forEach((groupId) => {
       const group = el(groupId);
       if (!group) return;
       group.addEventListener('change', (e) => {
@@ -747,13 +738,6 @@
       }
     }
 
-    /* The period is the host's own choice, with no default (Will, 6 Oct):
-       a first listing does not leave without one. An edit of a live listing
-       already has one on file, so it is sent only if ticked. */
-    const period = (document.querySelector('#billingPeriod input:checked') || {}).value || '';
-    if (!editingLive && period !== 'annual' && period !== 'monthly') {
-      return { error: 'Choose annual or monthly hosting.', focus: 'billingPeriod' };
-    }
     const line1 = [val('siteAddress1'), val('siteAddress2')].filter(Boolean).join(', ');
     /* Required since 6 Oct (Will): a listing says what it can make. */
     const capacity = wholeNumber(val('monthlyCapacity'));
@@ -775,7 +759,6 @@
       machines: machines,
       monthly_capacity: capacity,
     };
-    if (period) payload.billing_period = period;
     if (termsRequired && hostTerms && hostTerms.id) payload.terms_version_id = hostTerms.id;
     return { payload: payload };
   }
@@ -874,7 +857,7 @@
       capacityPlaceholder: 'e.g. 400',
       notesLabel: 'Anything else you think is useful?',
       notesPlaceholder: 'Plans, standards, current volumes',
-      signedOut: 'Sign in or create your hub account to apply. Chris or Will reviews every application personally, and nothing is listed or charged until approved.',
+      signedOut: 'Sign in or create your hub account to apply. The NexPoint desk reviews every application personally, and nothing is listed or charged until approved.',
       pending: 'Application received. We review personally; nothing is listed or charged until approved.',
       approved: 'You are an approved host on the Print Hub. Your dashboard has your introductions, orders and order log.',
     },
@@ -885,7 +868,7 @@
       capacityPlaceholder: 'e.g. 4,000',
       notesLabel: 'What do you make today?',
       notesPlaceholder: 'Direct-milled or moulded insoles, top covers, coating and packaging, current volumes',
-      signedOut: 'Sign in or create your hub account to apply. Chris or Will reviews every application personally, and nothing is contracted or introduced until approved.',
+      signedOut: 'Sign in or create your hub account to apply. The NexPoint desk reviews every application personally, and nothing is contracted or introduced until approved.',
       pending: 'Application received. We review personally; nothing is contracted or introduced until approved.',
       approved: 'You are an approved host on the Mill Hub. Your dashboard has your introductions, orders and order log.',
     },

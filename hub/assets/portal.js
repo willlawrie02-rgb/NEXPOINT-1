@@ -400,7 +400,7 @@ function introSubmit(e){
       <div class="success">
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>Received, in confidence.</h2>
-        <p>Chris or Will reads every request personally. Expect to hear from one of us within two working days.</p>
+        <p>The NexPoint desk reads every request personally. Expect to hear from us within two working days.</p>
         <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
       </div>`;
   }, () => {
@@ -597,6 +597,19 @@ function doorSendBack(){
     if (back === 'sent') return;
     const box = document.getElementById('signOverlay');
     if (box && (back === 'held' || !(window.NPAccount && NPAccount.user))) openSignIn();
+  };
+  if (window.NPAccount && NPAccount.ready && NPAccount.ready.then) NPAccount.ready.then(go, go);
+  else go();
+})();
+
+/* ?join=1 (plan 055): the main site's "Join our network" and its header's
+   Create your hub account land here with the questionnaire already open.
+   A signed-in visitor sees the welcome line instead; nothing opens. */
+(function openDoorJoin(){
+  if (new URLSearchParams(location.search).get('join') !== '1') return;
+  const go = () => {
+    if (window.NPAccount && NPAccount.user) return;
+    if (window.NPAccount && NPAccount.openQuestionnaire) NPAccount.openQuestionnaire({});
   };
   if (window.NPAccount && NPAccount.ready && NPAccount.ready.then) NPAccount.ready.then(go, go);
   else go();

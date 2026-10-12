@@ -394,6 +394,20 @@ async function walkDoor() {
     await page.keyboard.press("Escape");
     await page.waitForSelector("#signOverlay.open", { state: "detached" });
   });
+  // Plan 055: the hero's account-holder line is a button now, and ?join=1
+  // (the main site's Join our network) lands with the questionnaire open.
+  await step("the hero offers Create your hub account as a button, with Sign in underneath", async () => {
+    has(await page.textContent(".hero-join button.btn-primary"), "Create your hub account", "the button");
+    has(await page.textContent(".hero-join"), "Already have an account?", "the sign-in line");
+    eq(await page.locator(".hero-join [data-np-join]").count(), 0, "a second data-np-join");
+  });
+  await step("?join=1 opens the create-account box for a stranger", async () => {
+    await page.goto(`${APEX}/hub/?join=1`);
+    await page.waitForSelector('form[data-np-step="1"]');
+    await page.keyboard.press("Escape");
+    await page.goto(`${APEX}/hub/`);
+    await settled(page);
+  });
 
   // --- the desk form
   const fillDesk = async () => {
@@ -1271,6 +1285,22 @@ async function walkHomepage() {
   const { context, page, errors } = await visit(world);
   await page.goto(`${APEX}/`);
   await page.waitForSelector("#bookForm");
+  // Plan 055 (Will, 12 Oct 2026): the main site's header carries the hub's
+  // controls, as links to the door; the hero sends people to the hub.
+  await step("the header offers Talk to the desk, then Sign in and Create your hub account as links to the door", async () => {
+    await page.waitForSelector("[data-np-account-slot] a[data-np-join]");
+    const header = await page.innerHTML("header.navbar");
+    has(header, ">Talk to the desk</button>", "the desk button");
+    eq(header.indexOf("Talk to the desk") < header.indexOf("data-np-account-slot"), true, "the desk button comes before the slot");
+    eq(await page.getAttribute("[data-np-account-slot] a[data-np-join]", "href"), "/hub/?join=1", "the join link");
+    has(await page.getAttribute("[data-np-account-slot] a[data-np-signin]", "href"), "/hub/?signin=1&return=", "the sign-in link");
+    eq(await page.locator("header.navbar .navbar__portal").count(), 0, "lock links left");
+    eq(await page.locator("header.navbar >> text=Get in touch").count(), 0, "Get in touch buttons left");
+  });
+  await step("the hero sends people to the hub, and Join our network opens the create-account box there", async () => {
+    eq(await page.getAttribute(".hero__ctas a.btn--primary-lg", "href"), "https://nexpoint.co.uk/hub/", "Explore the Global Hub");
+    eq(await page.getAttribute(".hero__ctas a.btn--ghost-lg", "href"), "https://nexpoint.co.uk/hub/?join=1", "Join our network");
+  });
   await step("the intro-call form asks for a name and a work email before it sends", async () => {
     await page.click("#confirmBtn");
     await page.waitForSelector("#bookForm .form-error");
@@ -1307,6 +1337,18 @@ async function walkHomepage() {
     eq(bot.copies.length, 0, "copies sent");
   });
   await second.context.close();
+
+  const holder = newWorld({ user: USER });
+  const third = await visit(holder);
+  await third.page.goto(`${APEX}/`);
+  await step("a signed-in visitor sees their name and Sign out in the homepage header, right of Talk to the desk", async () => {
+    await third.page.waitForSelector("[data-np-account-slot] .np-chip__name");
+    has(await third.page.textContent("[data-np-account-slot] .np-chip__name"), "Walk Tester", "the chip");
+    has(await third.page.textContent("[data-np-account-slot]"), "Sign out", "the slot");
+    eq(await third.page.locator("[data-np-account-slot] [data-np-join]").count(), 0, "Create your hub account buttons");
+  });
+  clean(holder, third.errors, "the homepage, signed in");
+  await third.context.close();
 }
 
 async function walkLandings() {

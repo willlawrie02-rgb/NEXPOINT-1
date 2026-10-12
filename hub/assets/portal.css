@@ -528,12 +528,10 @@ a.door:hover .go svg{transform:translateX(3px)}
    cost panel that opens the listing form */
 .pick.is-fixed{cursor:default;border-style:solid;background:rgba(0,92,200,.12);color:var(--blue);font-weight:700}
 .pick.is-fixed input{display:none}
-.lcost{border:1px solid rgba(0,92,200,.20);background:rgba(0,92,200,.05);border-radius:var(--radius-xl);padding:18px 20px 16px}
-.lcost .body{margin:0 0 14px;font-size:14px;line-height:1.55}
-/* The form panel sits level with the first line of the benefits list
-   (Will, 5 Oct): the list takes the panel's own top padding. */
-.offer-split > .enter--left{padding-top:clamp(24px,3.2vw,40px)}
-@media(max-width:960px){.offer-split > .enter--left{padding-top:0}}
+/* The form panel's top edge sits level with the first lede, which opens the
+   left column under the full-width heading (Will, 12 Oct 2026, plan 055). */
+.offer-split .lede{margin:0 0 14px}
+.offer-split .lede + .benefits,.offer-split .lede + .lede + .benefits{margin-top:22px}
 /* a whole shortlist card is the control: .pick's pill shape and row layout
    are undone here, so the card keeps .cap's column and the hidden checkbox
    still drives .is-on */
@@ -665,3 +663,18 @@ body[data-np-signed-in] .np-holder{display:block}
    ask of 8 Oct). The Leaflet badge is off in site-map.js. */
 .np-map .leaflet-control-attribution{font:10px/14px Inter,system-ui,sans-serif;color:#5b6573;background:rgba(255,255,255,.72);padding:1px 5px}
 .np-map .leaflet-control-attribution a{color:#5b6573;text-decoration:underline}
+
+/* The door's account-holder line is a button (Will, 12 Oct 2026, plan 055):
+   Create your hub account first, the caption beside it, Sign in as a line
+   underneath. .np-stranger still hides it for a signed-in visitor. */
+.hero-join{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:22px}
+.hero-join .btn-lg{font-size:15px;padding:15px 24px}
+.hero-join .np-hint{display:inline;margin:0;font-size:13.5px;color:var(--on-surface-var)}
+.hero-join p{flex-basis:100%;margin:0;font-size:13.5px;color:var(--on-surface-var)}
+
+/* Hub landing hero: the two choice cards (plan 055). The door keeps its
+   white card and hover; without a picture the body carries it all. */
+.hero-choice{display:grid;gap:16px}
+.door--row .door__body{padding:clamp(20px,2.2vw,28px)}
+.door--row h3{font-size:clamp(20px,1.9vw,24px)}
+.door--row p{max-width:none}
