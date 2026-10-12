@@ -15,7 +15,7 @@
 <script src="https://nexpoint.co.uk/hub/assets/site-map.js" defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,lan,layers,local_shipping,lock,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,lan,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=swap" rel="stylesheet">
 <script>
   /* One portal.css for the whole hub, served from the apex and linked statically
      above, before the fonts, so the page is styled without waiting for this
@@ -91,124 +91,27 @@ capacity CTAs collapsed into one door · logo path fixed.
         <span class="eyebrow"><span class="live-dot"></span>Global Mill Hub</span>
         <h1>Your production line.<br><em>Inside someone else's factory.</em></h1>
         <p class="lede">The world's biggest sportswear brands haven't owned their factories for decades. What they own is a dedicated line, a team and a quality standard inside someone else's. The Mill Hub brings that model to milled orthotics.</p>
-        <div class="ctas">
-          <a class="btn btn-primary" href="find.html">Find milled capacity</a>
-          <a class="btn btn-outline" href="offer.html">Offer milling capacity</a>
-        </div>
       </div>
-      <div class="hero-media">
-        <!-- The mill-to-door sequence, drawn instead of photographed: the previous hero image
-             showed the wrong process (milling around the block). Here the cutter traces the
-             contour INSIDE the blank, the surround is milled away, the part stays on uncut
-             tabs until release, then packs, travels the lane, and lands at the seeker's door.
-             Self-contained SVG + CSS, 12s loop, brand tokens only. Reduced motion (and any
-             browser with animations off) gets the finished diagram: milled blank on the left,
-             delivered carton on the right. -->
-        <svg id="millAnim" viewBox="0 0 800 500" role="img" style="display:block;width:100%;height:auto;background:#fff"
-             aria-label="An insole is milled inside a partner facility, packed, and delivered to the door of the lab that asked for capacity">
-          <title>From the mill to your door</title>
-          <style>
-            #millAnim .albl{font:600 11px var(--font-body,Inter,sans-serif);letter-spacing:.09em;fill:rgba(14,22,38,.55)}
-            #millAnim .apill{font:600 10px var(--font-body,Inter,sans-serif);letter-spacing:.08em;fill:#5a8f1d}
-            @keyframes maDyn{0%,95%{opacity:1}98%,99%{opacity:0}100%{opacity:1}}
-            #maDyn{animation:maDyn 12s linear infinite}
-            @keyframes maCutO{0%,3%{opacity:0}5%,30%{opacity:1}33%,100%{opacity:0}}
-            @keyframes maCutD{0%,4%{offset-distance:0%}30%,100%{offset-distance:100%}}
-            #maCutter{offset-path:path('M 123,298 C 123,274 145,264 169,266 C 205,268 233,274 263,270 C 287,267 305,276 306,296 C 305,316 287,326 261,322 C 233,318 211,308 181,314 C 153,320 123,318 123,298 Z');offset-rotate:0deg;
-              animation:maCutO 12s linear infinite,maCutD 12s cubic-bezier(.45,.1,.55,.9) infinite}
-            @keyframes maDraw{0%,4%{stroke-dashoffset:100}30%,97%{stroke-dashoffset:0}99%,100%{stroke-dashoffset:100}}
-            @keyframes maOutO{0%,33%{opacity:1}36%,98%{opacity:0}100%{opacity:1}}
-            #maOutline{animation:maDraw 12s cubic-bezier(.45,.1,.55,.9) infinite,maOutO 12s linear infinite}
-            @keyframes maWipe{0%,10%{transform:scaleX(0)}32%,98%{transform:scaleX(1)}99.5%,100%{transform:scaleX(0)}}
-            #maWipeRect{transform-box:fill-box;transform-origin:left center;animation:maWipe 12s cubic-bezier(.3,.1,.7,.9) infinite}
-            @keyframes maPins{0%,24%{opacity:0}27%,32%{opacity:1}35%,100%{opacity:0}}
-            #maPins{animation:maPins 12s linear infinite}
-            @keyframes maVoid{0%,34%{opacity:0}37%,96%{opacity:.55}98.5%,100%{opacity:0}}
-            #maVoid{animation:maVoid 12s linear infinite}
-            @keyframes maPart{0%,33%{opacity:0;transform:translate(0,0) scale(1)}
-              34.5%{opacity:1}
-              40%{transform:translate(95px,-10px) scale(.78)}
-              46%{opacity:1;transform:translate(190px,39px) scale(.46)}
-              48.5%,100%{opacity:0;transform:translate(190px,39px) scale(.46)}}
-            #maPart{transform-box:fill-box;transform-origin:center;animation:maPart 12s cubic-bezier(.3,.1,.4,1) infinite}
-            @keyframes maTape{0%,48%{opacity:0}51%,95%{opacity:1}98%,100%{opacity:0}}
-            #maTape{animation:maTape 12s linear infinite}
-            @keyframes maParcel{0%,52.5%{transform:translateX(0)}69.5%{transform:translateX(249px)}71%,98.5%{transform:translateX(246px)}100%{transform:translateX(0)}}
-            #maParcel{animation:maParcel 12s cubic-bezier(.35,.05,.25,1) infinite}
-            @keyframes maLane{0%,52.5%{stroke-dashoffset:0}71%,100%{stroke-dashoffset:-64}}
-            #maLane{animation:maLane 12s cubic-bezier(.35,.05,.25,1) infinite}
-            @keyframes maHalo{0%,72%{opacity:0;transform:scale(.5)}74.5%{opacity:.45}79%{opacity:0;transform:scale(1.3)}
-              80%{opacity:0;transform:scale(.5)}82.5%{opacity:.3}87%,100%{opacity:0;transform:scale(1.3)}}
-            #maHalo{transform-box:fill-box;transform-origin:center;animation:maHalo 12s linear infinite}
-            @keyframes maPill{0%,73%{opacity:0;transform:translateY(5px)}76.5%,94%{opacity:1;transform:translateY(0)}97%,100%{opacity:0;transform:translateY(0)}}
-            #maPillG{animation:maPill 12s cubic-bezier(.2,.8,.2,1) infinite}
-            @media (prefers-reduced-motion:reduce){#millAnim *{animation:none !important}}
-          </style>
-
-          <g transform="translate(0,-50)"><!-- scene, centred in the panel -->
-          <!-- static furniture -->
-          <line x1="70" y1="360" x2="350" y2="360" stroke="rgba(14,22,38,.16)" stroke-width="1.5"/>
-          <line x1="560" y1="360" x2="740" y2="360" stroke="rgba(14,22,38,.16)" stroke-width="1.5"/>
-          <line id="maLane" x1="356" y1="360" x2="552" y2="360" stroke="rgba(0,92,200,.30)" stroke-width="1.5" stroke-dasharray="2 8"/>
-          <polyline points="546,354 554,360 546,366" fill="none" stroke="rgba(0,92,200,.35)" stroke-width="1.5"/>
-          <!-- the blank -->
-          <rect x="90" y="230" width="240" height="130" rx="10" fill="#fff" stroke="#E3E7ED" stroke-width="1.5"/>
-          <!-- the door -->
-          <line x1="618" y1="258" x2="618" y2="360" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
-          <line x1="682" y1="258" x2="682" y2="360" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
-          <line x1="608" y1="258" x2="692" y2="258" stroke="rgba(44,52,68,.45)" stroke-width="2"/>
-          <text class="albl" x="210" y="394" text-anchor="middle">THE MILL</text>
-          <text class="albl" x="650" y="394" text-anchor="middle">YOUR DOOR</text>
-
-          <g id="maDyn">
-            <!-- milled-out surround, revealed left-to-right as the cutter works -->
-            <mask id="maWipeMask"><rect id="maWipeRect" x="104" y="244" width="212" height="102" fill="#fff"/></mask>
-            <g mask="url(#maWipeMask)">
-              <path id="maMoat" fill-rule="evenodd" fill="rgba(14,22,38,.07)"
-                d="M104,244 H316 V346 H104 Z
-                   M 123,298 C 123,274 145,264 169,266 C 205,268 233,274 263,270 C 287,267 305,276 306,296 C 305,316 287,326 261,322 C 233,318 211,308 181,314 C 153,320 123,318 123,298 Z"/>
-            </g>
-            <!-- uncut tabs holding the part, cut at release -->
-            <g id="maPins" opacity="1" stroke="#fff" stroke-width="6">
-              <line x1="104" y1="298" x2="123" y2="298"/>
-              <line x1="306" y1="294" x2="316" y2="294"/>
-              <line x1="215" y1="244" x2="215" y2="267"/>
-              <line x1="235" y1="320" x2="235" y2="346"/>
-            </g>
-            <g transform="translate(115,258)">
-              <!-- the contour the cutter traces -->
-              <path id="maOutline" pathLength="100" stroke-dasharray="100" fill="none" stroke="var(--blue,#005CC8)" stroke-width="2.5" stroke-linecap="round"
-                d="M 8,40 C 8,16 30,6 54,8 C 90,10 118,16 148,12 C 172,9 190,18 191,38 C 190,58 172,68 146,64 C 118,60 96,50 66,56 C 38,62 8,60 8,40 Z"/>
-              <!-- the hole the part leaves behind -->
-              <path id="maVoid" opacity="0" fill="rgba(14,22,38,.09)"
-                d="M 8,40 C 8,16 30,6 54,8 C 90,10 118,16 148,12 C 172,9 190,18 191,38 C 190,58 172,68 146,64 C 118,60 96,50 66,56 C 38,62 8,60 8,40 Z"/>
-              <!-- the released part, off to be packed -->
-              <path id="maPart" opacity="0" fill="#fff" stroke="var(--blue,#005CC8)" stroke-width="2.5"
-                d="M 8,40 C 8,16 30,6 54,8 C 90,10 118,16 148,12 C 172,9 190,18 191,38 C 190,58 172,68 146,64 C 118,60 96,50 66,56 C 38,62 8,60 8,40 Z"/>
-            </g>
-            <!-- the cutter -->
-            <g id="maCutter" opacity="0">
-              <line x1="0" y1="-10" x2="0" y2="-48" stroke="rgba(14,22,38,.28)" stroke-width="4" stroke-linecap="round"/>
-              <circle r="8" fill="#fff" stroke="var(--blue,#005CC8)" stroke-width="2.5"/>
-              <circle r="2.2" fill="var(--blue,#005CC8)"/>
-            </g>
-            <!-- the carton: waits at the end of the mill platform, then travels the lane -->
-            <g id="maParcel" transform="translate(246,0)">
-              <rect x="372" y="308" width="64" height="52" rx="5" fill="#fff" stroke="#E3E7ED" stroke-width="1.5"/>
-              <line x1="372" y1="319" x2="436" y2="319" stroke="#E3E7ED" stroke-width="1.5"/>
-              <line id="maTape" x1="404" y1="308" x2="404" y2="360" stroke="var(--blue,#005CC8)" stroke-width="3" opacity="1"/>
-            </g>
-            <!-- arrival -->
-            <circle id="maHalo" cx="650" cy="334" r="30" fill="none" stroke="var(--green,#8BC53F)" stroke-width="2" opacity="0"/>
-            <g id="maPillG" opacity="1">
-              <rect x="597" y="210" width="106" height="26" rx="13" fill="#fff" stroke="rgba(14,22,38,.12)"/>
-              <circle cx="613" cy="223" r="4" fill="var(--green,#8BC53F)"/>
-              <text class="apill" x="624" y="227">RECEIVED</text>
-            </g>
-          </g>
-          </g>
-        </svg>
-        <span class="tag"><span class="live-dot"></span>Accepting introductions</span>
+      <!-- The two sides of the network, in the first screen (Will, 12 Oct 2026,
+           plan 055): the choice is the whole point of the page, so it replaces
+           the illustration and the hero buttons, and the doors section below. -->
+      <div class="hero-choice">
+        <a class="door door--row enter enter--right" style="--d:0ms" href="find.html">
+          <div class="door__body">
+            <span class="door__kicker">I need capacity</span>
+            <h3>Find milled capacity</h3>
+            <p>Tell us the material, quantity and lead time. We show you the sites that fit and make the introduction.</p>
+            <span class="go">Find milled capacity <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          </div>
+        </a>
+        <a class="door door--row enter enter--right" style="--d:70ms" href="offer.html">
+          <div class="door__body">
+            <span class="door__kicker">I have capacity</span>
+            <h3>Offer milling capacity</h3>
+            <p>Own machines? The sites that join first shape the network they will profit from.</p>
+            <span class="go">Offer milling capacity <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          </div>
+        </a>
       </div>
     </div>
   </div>
@@ -230,35 +133,6 @@ capacity CTAs collapsed into one door · logo path fixed.
 
 <!-- WHO IT'S FOR: the triggers Chris singled out as the main reason -->
 
-<!-- PRIORITY TWO: the action. Same two doors as the Print Hub. -->
-<section class="section">
-  <div class="container">
-    <div class="enter enter--up">
-      <h2>Which side of the network are you on?</h2>
-      <p class="sub">The two journeys are different, so they get different pages. Pick yours.</p>
-    </div>
-    <div class="doors">
-      <a class="door enter enter--up" style="--d:0ms" href="find.html">
-        <div class="door__media"><img src="assets/img/mill-find.jpg" alt="" width="1600" height="893" loading="lazy" style="height:auto"></div>
-        <div class="door__body">
-          <span class="door__kicker">I need capacity</span>
-          <h3>Find milled capacity</h3>
-          <p>Tell us the material, quantity and lead time. Pick up to three verified sites and we make the introduction.</p>
-          <span class="go">Find capacity <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </div>
-      </a>
-      <a class="door enter enter--up" style="--d:70ms" href="offer.html">
-        <div class="door__media"><img src="assets/img/mill-offer.jpg" alt="" width="1600" height="893" loading="lazy" style="height:auto"></div>
-        <div class="door__body">
-          <span class="door__kicker">List your cell</span>
-          <h3>Offer milling capacity</h3>
-          <p>Run a milling facility? The hub needs nodes in Europe and Australia next. List your cell.</p>
-          <span class="go">Start your listing <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </div>
-      </a>
-    </div>
-  </div>
-</section>
 <section class="section alt">
   <div class="container">
     <div class="enter enter--up">
@@ -315,7 +189,7 @@ capacity CTAs collapsed into one door · logo path fixed.
     </div>
     <div class="steps three">
       <div class="step enter enter--up" style="--d:0ms"><span class="n">01</span><h3>Tell the desk what you make</h3><p>Volumes, materials, systems, and what's changing in your business. Two minutes, in confidence.</p></div>
-      <div class="step enter enter--up" style="--d:70ms"><span class="n">02</span><h3>We weigh the fit personally</h3><p>Chris or Will reviews every request against capacity we have seen first-hand, usually within two working days.</p></div>
+      <div class="step enter enter--up" style="--d:70ms"><span class="n">02</span><h3>We weigh the fit personally</h3><p>The NexPoint desk reviews every request against capacity we have seen first-hand, usually within two working days.</p></div>
       <div class="step enter enter--up" style="--d:140ms"><span class="n">03</span><h3>Meet the manufacturer</h3><p>Names, faces, facilities and the exact per-pair number, shared once both sides choose to meet.</p></div>
     </div>
   </div>

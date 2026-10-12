@@ -241,10 +241,20 @@
         (onAccountPage ? ' aria-current="page"' : '') + '>' + escapeText(A.user.name || A.user.email) + '</a> ' +
         '<button type="button" class="np-chip__out">Sign out</button>' + fail + '</span>';
       slot.querySelector('.np-chip__out').addEventListener('click', () => A.signOut());
+    } else if (window.NP_ACCOUNT_LINKS && typeof window.NP_ACCOUNT_LINKS === 'object') {
+      /* A page without the sign-in box or the questionnaire (the main site,
+         plan 055) names where the two controls go: the hub door. */
+      const L = window.NP_ACCOUNT_LINKS;
+      slot.innerHTML = '<a href="' + escapeText(L.signin || DOOR_URL + '?signin=1') + '" data-np-signin>Sign in</a> ' +
+        '<a class="btn btn-primary" href="' + escapeText(L.join || DOOR_URL + '?join=1') + '" data-np-join>Create your hub account</a>';
     } else {
       slot.innerHTML = '<a href="#" data-np-signin>Sign in</a> ' +
         '<button class="btn btn-primary" data-np-join>Create your hub account</button>';
-      slot.querySelector('[data-np-signin]').addEventListener('click', (e) => { e.preventDefault(); openSignIn(); });
+      slot.querySelector('[data-np-signin]').addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof openSignIn === 'function') openSignIn();
+        else location.href = DOOR_URL + '?signin=1&return=' + encodeURIComponent(location.href);
+      });
       slot.querySelector('[data-np-join]').addEventListener('click', () => A.openQuestionnaire({}));
     }
   }
@@ -651,7 +661,7 @@
       const sent = Object.assign({}, action, { payload: payload });
       const d = await A.submitRequest(sent);
       if (d.ok) {
-        successCard('Chris or Will reads every request personally. Expect to hear within two working days.');
+        successCard('The NexPoint desk reads every request personally. Expect to hear within two working days.');
         return;
       }
       btn.disabled = false; btn.textContent = action.heading || 'Request the introduction';

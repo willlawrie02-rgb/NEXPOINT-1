@@ -23,7 +23,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,lan,layers,local_shipping,lock,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,lan,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=swap" rel="stylesheet">
 <style>
   :root{
     --font-display:'Montserrat',system-ui,sans-serif;--font-body:'Inter',system-ui,sans-serif;
@@ -552,7 +552,7 @@
     <div class="wall" id="wall">
       <span class="eyebrow eyebrow--green">Signed-in only · a hub account takes two minutes</span>
       <h3>Two minutes of questions. Then the board opens, already matched to you.</h3>
-      <p>Tell us who you are and what you're after. The board opens with the opportunities that fit you flagged, new opportunities reach you before they're widely seen, and Chris or Will reads every profile personally, where there's an obvious fit, you'll hear from one of us directly.</p>
+      <p>Tell us who you are and what you're after. The board opens with the opportunities that fit you flagged, new opportunities reach you before they're widely seen, and The NexPoint desk reads every profile personally, where there's an obvious fit, you'll hear from one of us directly.</p>
       <button class="btn btn-primary" onclick="openGate()">Introduce yourself, 2 minutes</button>
       <div class="note"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CD850" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg> Seen by NexPoint only. Never shared without your say-so.</div>
     </div>
@@ -577,7 +577,7 @@
     <h2>From opportunity to introduction, quietly</h2>
     <div class="steps">
       <div class="step"><span class="n">01</span><h3>Read the opportunity</h3><p>Each opportunity describes a real, current opportunity, anonymised, but verified by us first-hand, usually across a table or on a call. Enough to know if it fits. Never enough to identify anyone.</p></div>
-      <div class="step"><span class="n">02</span><h3>Introduce yourself</h3><p>Two minutes at the desk, who you are, your volumes, your systems, what you're after. Chris or Will reads every profile personally. Nobody else sees it.</p></div>
+      <div class="step"><span class="n">02</span><h3>Introduce yourself</h3><p>Two minutes at the desk, who you are, your volumes, your systems, what you're after. The NexPoint desk reads every profile personally. Nobody else sees it.</p></div>
       <div class="step"><span class="n">03</span><h3>A person weighs the fit</h3><p>Not an algorithm's guess. One of us reviews every request, usually within two working days. If it isn't right, we'll tell you why, and keep looking on your behalf.</p></div>
       <div class="step"><span class="n">04</span><h3>A personal introduction</h3><p>When both sides agree, we introduce you directly, names, faces, facilities. From there the conversation is yours; we stay close to help it land.</p></div>
     </div>
@@ -645,7 +645,7 @@
     <button class="close" onclick="closeAll()">✕</button>
     <div class="chat-head">
       <div class="chat-avatar"><span></span></div>
-      <div><h4>The NexPoint Desk</h4><div class="sub">Read personally by Chris &amp; Will · confidential</div></div>
+      <div><h4>The NexPoint Desk</h4><div class="sub">Read personally by the NexPoint desk · confidential</div></div>
       <span class="chat-prog" id="chatProg"></span>
     </div>
     <div class="chat-msgs" id="chatMsgs"></div>
@@ -1130,7 +1130,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
 const seekingOrBoth=()=>['Seeking New Opportunities','Both'].includes(profile.direction);
 const hasType=(t)=>(profile.productTypes||[]).includes(t);
 const steps=[
- {key:'type',type:'single',q:"Welcome to the NexPoint Global Opportunities Hub. Before the board opens, we'd like to know who we're connecting, a few questions, about two minutes. Every profile is read personally by Chris or Will, and nothing you tell us is ever published. First: what best describes your operation?",
+ {key:'type',type:'single',q:"Welcome to the NexPoint Global Opportunities Hub. Before the board opens, we'd like to know who we're connecting, a few questions, about two minutes. Every profile is read personally by the NexPoint desk, and nothing you tell us is ever published. First: what best describes your operation?",
   chips:['Custom Lab / O&P Group','Clinic / Clinician','Distributor / Wholesaler','Technology Developer','Materials / Equipment Creator','Something else']},
  {key:'region',type:'single',other:true,otherLabel:'Or tell us what country you are in',
   q:"Good to meet you. Where are you based?",
@@ -1346,7 +1346,7 @@ function finishGate(){
   matches=computeMatches();
   const first=(profile.name||'').split(' ')[0];
   const n=matches.size;
-  botSay(`Thank you, ${first}. Chris or Will will read your profile personally, if there's an obvious fit, expect a short note from one of us within two working days, and we'll email you whenever a new opportunity matches.${n?` Against the live board right now: <b style="color:var(--green)">${n} opportunit${n>1?'ies':'y'} look${n>1?'':'s'} like a genuine fit.</b> ${n>1?'They\'re':'It\'s'} flagged for you.`:` The board is open, and as new opportunities arrive, we'll already know which ones belong in front of you.`}`,()=>{
+  botSay(`Thank you, ${first}. The NexPoint desk will read your profile personally, if there's an obvious fit, expect a short note from us within two working days, and we'll email you whenever a new opportunity matches.${n?` Against the live board right now: <b style="color:var(--green)">${n} opportunit${n>1?'ies':'y'} look${n>1?'':'s'} like a genuine fit.</b> ${n>1?'They\'re':'It\'s'} flagged for you.`:` The board is open, and as new opportunities arrive, we'll already know which ones belong in front of you.`}`,()=>{
     const b=document.createElement('button');b.className='chip confirm';b.textContent='Enter the Network →';
     b.onclick=()=>unlock();
     const chips=document.createElement('div');chips.className='chips';chips.appendChild(b);

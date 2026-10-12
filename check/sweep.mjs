@@ -65,9 +65,15 @@ for (const p of pages) {
   const lf = read("hub/assets/listing-form.js");
   for (const want of ['Business address', 'Other services', 'Print +',
     'Select from the list or type your own', 'Material(s) on this ',
-    'Monthly capacity (units/pairs)', 'What hosting costs', 'billing_period']) {
+    'Monthly capacity (units/pairs)']) {
     if (!lf.includes(want)) fail(`hub/assets/listing-form.js: missing "${want}" (plan 045)`);
   }
+  // Plan 055 (Will, 12 Oct 2026): no price and no period on the form; the
+  // desk chooses the period when it approves.
+  for (const gone of ['What hosting costs', 'billing_period', 'pickRadio(\'billing\'']) {
+    if (lf.includes(gone)) fail(`hub/assets/listing-form.js: still carries "${gone}"; the cost box and the period choice left the form (plan 055)`);
+  }
+  if (!lf.includes('We will talk through the commercial side with you personally first.')) fail('hub/assets/listing-form.js: the one line that replaced the cost box is missing (plan 055)');
   for (const gone of ['Services you offer', '(pairs), optional', 'Type and press Enter', 'Add a service we have not listed']) {
     if (lf.includes(gone)) fail(`hub/assets/listing-form.js: still says "${gone}" (plan 045)`);
   }
@@ -308,6 +314,54 @@ for (const p of pages.filter((x) => x.startsWith("printhub/") || x.startsWith("m
       }
     }
   }
+}
+
+// ---------------------------------------------------------------- no person's name
+// Will's ruling, 12 October 2026 (plan 055): never Chris or Will in anything a
+// client reads; say NexPoint, or "the NexPoint desk". Same reach as the rule
+// above: visible page copy, and the string literals that read as copy in the
+// shared scripts. The admin app is internal and outside `pages`. A sentence
+// that opens with the verb "Will" trips this too: reword it.
+{
+  const NAME = /\b(Chris|Will)\b/;
+  for (const p of pages) {
+    const text = read(p)
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]*>/g, " ");
+    const m = text.match(NAME);
+    if (m) fail(`${p}: visible copy names "${m[0]}" (Will's ruling, 12 Oct 2026: NexPoint, never a person)`);
+  }
+  for (const p of scripts) {
+    const src = read(p).replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const line of src.split("\n")) {
+      if (/^\s*\/\//.test(line)) continue;
+      for (const lit of line.match(/(['"`])(?:(?!\1)[^\\\n]|\\.)*\1/g) || []) {
+        if (lit.includes(" ") && NAME.test(lit)) fail(`${p}: copy names "${lit.match(NAME)[0]}" in ${lit.slice(0, 60)} (Will's ruling, 12 Oct 2026: NexPoint, never a person)`);
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------- the land mask
+// Plan 055: hub/assets/world-map.js carries its own copy of portal.js's land
+// mask (the pair map and the world map are drawn from the same coastline),
+// so a correction to one must land in both. The two LAND literals are
+// compared byte for byte.
+{
+  const landOf = (rel) => {
+    const t = read(rel);
+    const i = t.indexOf("const LAND = [");
+    if (i < 0) return null;
+    // the matching "];" : the first "\n];" after the opening, since the rows are one per line
+    const j = t.indexOf("\n];", i);
+    return j < 0 ? null : t.slice(i, j + 3);
+  };
+  const a = landOf("hub/assets/portal.js"), b = landOf("hub/assets/world-map.js");
+  if (!a) fail("hub/assets/portal.js: the LAND array was not found (plan 055)");
+  if (!b) fail("hub/assets/world-map.js: the LAND array was not found (plan 055)");
+  if (a && b && a !== b) fail("hub/assets/world-map.js: its LAND mask differs from hub/assets/portal.js's; the two copies must stay identical (plan 055)");
 }
 
 if (fails.length) {
