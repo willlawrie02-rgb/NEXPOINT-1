@@ -342,6 +342,8 @@ for (const p of pages.filter((x) => x.startsWith("printhub/") || x.startsWith("m
       }
     }
   }
+}
+
 // ---------------------------------------------------------------- the land mask
 // Plan 055: hub/assets/world-map.js carries its own copy of portal.js's land
 // mask (the pair map and the world map are drawn from the same coastline),
