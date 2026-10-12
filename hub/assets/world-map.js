@@ -294,9 +294,10 @@ function isLand(lat, lon){
       svg.appendChild(g);
       byTerm[term] = g;
     });
-    /* region labels, above the dots of every group */
+    /* region labels, above the dots of every group; in show mode the pins
+       carry the names, so the region names stay off (they collided). */
     const labels = node('g', { class: 'wm-labels' });
-    REGIONS.forEach((r) => {
+    if (opts.mode !== 'show') REGIONS.forEach((r) => {
       const w = labelWidth(r.label);
       labels.appendChild(node('text', { class: 'wm-label', x: f1(clampX(px(r.labelAt.lon), w)), y: f1(py(r.labelAt.lat)), 'text-anchor': 'middle' }, r.label));
     });
