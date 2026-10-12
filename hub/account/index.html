@@ -29,8 +29,12 @@
   .acct-head > h1,.acct-head > p,.acct-head > .acct-go{grid-column:1}
   .acct-head > .acct-needs{grid-column:1;margin:22px 0 0}
   @media(min-width:760px){
-    .acct-head{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-    .acct-head > .acct-go{justify-self:start}
+    /* Will (9 Oct 2026): the Next step card is the same width as the Go to
+       the Global Hub button, side by side. Two equal tracks, the button
+       stretched to fill its own, the title and line across both. */
+    .acct-head{grid-template-columns:minmax(0,300px) minmax(0,300px)}
+    .acct-head > h1,.acct-head > p{grid-column:1/-1}
+    .acct-head > .acct-go{justify-self:stretch;justify-content:center}
     /* the block sits level with the button: row 3, right-hand column */
     .acct-head > .acct-needs{grid-column:2;grid-row:3;margin:16px 0 0}
   }
@@ -286,6 +290,7 @@ the page. Nothing here renders from inline script.
 <script src="../../assets/hub-account.js"></script>
 <script src="../assets/vendor/leaflet/leaflet.js" defer></script>
 <script src="../assets/site-map.js" defer></script>
+<script src="../assets/match-map.js" defer></script>
 <script src="../assets/portal.js"></script>
 <script src="../assets/vocab.js"></script>
 <script src="../assets/people.js"></script>

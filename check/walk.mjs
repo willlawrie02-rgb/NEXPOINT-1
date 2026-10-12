@@ -1094,9 +1094,12 @@ async function walkAccount() {
     await step("the needs block is headed Next step, sits in the head level with the Go button, and reads large and bold (plan 052)", async () => {
       has(await page.textContent("#acctNeeds h2"), "Next step", "the heading");
       eq(await page.locator(".acct-head #acctNeeds").count(), 1, "the block is inside .acct-head");
-      const blockTop = (await page.locator("#acctNeeds").boundingBox()).y;
-      const btnTop = (await page.locator("#goHub").boundingBox()).y;
-      if (Math.abs(blockTop - btnTop) > 8) throw new Error(`block top ${blockTop} is not level with the button top ${btnTop}`);
+      const blockBox = await page.locator("#acctNeeds").boundingBox();
+      const btnBox = await page.locator("#goHub").boundingBox();
+      if (Math.abs(blockBox.y - btnBox.y) > 8) throw new Error(`block top ${blockBox.y} is not level with the button top ${btnBox.y}`);
+      // Will (9 Oct 2026): the card is the same width as the button, side by side.
+      if (Math.abs(blockBox.width - btnBox.width) > 2) throw new Error(`block width ${blockBox.width} is not the button's ${btnBox.width}`);
+      if (blockBox.x <= btnBox.x + btnBox.width) throw new Error(`the block (x ${blockBox.x}) is not to the right of the button (right edge ${btnBox.x + btnBox.width})`);
       const f = await page.$eval("#acctNeeds h2", (el) => { const c = getComputedStyle(el); return { size: parseFloat(c.fontSize), weight: parseInt(c.fontWeight, 10) }; });
       if (f.size < 18 || f.weight < 700) throw new Error(`heading is ${f.size}px at weight ${f.weight}`);
     });
@@ -1184,7 +1187,8 @@ async function walkAccountAnswers() {
     seeker_request_id: id, accepted_a_at: null, accepted_b_at: "2026-10-08T09:00:00Z", acceptance_expires_at: soon,
     declined_at: null, created_at: "2026-10-08T09:00:00Z", role: "provider", introduced_at: null }, over);
   const offer = (id) => ({ introduction_id: id, ref: `INTRO-000${id}`, hub: "print", acceptance_expires_at: soon,
-    request: { material: "pa12_nylon12", quantity: 40, town: "Bristol", country: "United Kingdom" } });
+    request: { material: "pa12_nylon12", quantity: 40, town: "Bristol", country: "United Kingdom", point: { lat: 51.45, lng: -2.59 } },
+    site: { town: "Leeds", country: "United Kingdom", point: { lat: 53.8, lng: -1.55 } } });
   const summary = (intros, offers) => Object.assign({}, EMPTY_SUMMARY, {
     org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", founding: true, host_print: "approved", host_mill: "none", fee_exempt_note: null },
     site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
@@ -1211,6 +1215,17 @@ async function walkAccountAnswers() {
     eq(await page.locator('[data-act="intro-decline-open"][data-intro="7"]').count(), 1, "decline buttons for 7");
     eq(await page.locator('[data-act="intro-accept-open"][data-intro="8"]').count(), 0, "accept buttons on an introduced row");
     eq((await page.textContent("#introductions")).includes("Answer from the email"), false, "the old line");
+  });
+  await step("an open offer carries the pair map: the request's town and your site, two pins, nothing to choose (plan 052, item 24)", async () => {
+    await page.waitForSelector("#pairMap-7:not([hidden]) .np-pin");
+    const pins = await page.$$eval("#pairMap-7 .np-pin", (els) => els.map((e) => ({ text: e.textContent.trim(), cls: e.className })));
+    eq(pins.filter((p) => /np-pin--you/.test(p.cls)).map((p) => p.text), ["You"], "the provider's pin");
+    eq(pins.filter((p) => /np-pin--ask/.test(p.cls)).map((p) => p.text), ["Request"], "the request's pin");
+    const titles = await page.$$eval("#pairMap-7 .leaflet-marker-icon", (els) => els.map((e) => e.getAttribute("title") || ""));
+    has(titles.join(" | "), "Leeds", "the site's town in a pin title");
+    has(titles.join(" | "), "Bristol", "the request's town in a pin title");
+    eq(await page.locator("#pairMap-7 [data-choose]").count(), 0, "Choose buttons on the pair map");
+    eq(await page.locator("#pairMap-8").count(), 0, "a map on an introduced row");
   });
   await step("an introduced row says the introduction is in the inbox, with its INTRO ref, and no address", async () => {
     const text = await page.textContent("#introductions");
