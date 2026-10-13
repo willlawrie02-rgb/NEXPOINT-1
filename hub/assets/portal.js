@@ -880,7 +880,7 @@ function bootPageModules(){
   if (window.NPFind) NPFind.init();
   if (window.NPListing) NPListing.init();
   if (window.NPDashboard) NPDashboard.init();
-  if (window.NPAccept) NPAccept.init();
+  if (window.NPPeople && NPPeople.boot) NPPeople.boot();
 }
 document.addEventListener('np:modules', bootPageModules, { once: true });
 

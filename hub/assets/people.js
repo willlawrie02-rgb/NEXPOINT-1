@@ -1,15 +1,17 @@
-/* NexPoint Global Hub - the people on the account page (plan 052, wave 3).
-   Two sections the dashboard draws in beside its own: "You", the signed-in
-   user's own details with an edit form and the email change, and "Users",
-   everyone who signs in to the account, the invitations waiting, and a way
-   to invite a colleague or remove one. Will's ruling of 8 October: the
-   Account sits above its Users, and every user can do everything the
+/* NexPoint Global Hub - the account settings page (plan 052, wave 3; plan
+   055, decisions 25 and 26). Three sections: "Logo", the account's mark,
+   shown on the account page to everyone who signs in to it; "You", the
+   signed-in user's own details with an edit form and the email change; and
+   "Users", everyone who signs in to the account, the invitations waiting,
+   and a way to invite a colleague or remove one. The ruling of 8 October:
+   the Account sits above its Users, and every user can do everything the
    account can.
 
-   They read their own three routes (GET /account/profile, /account/users,
-   /account/invites) rather than the summary, so a worker without them yet
-   (a 404) leaves both sections hidden instead of breaking the page.
-   dashboard.js calls NPPeople.render() after it has drawn the summary.   */
+   They read their own routes (GET /account/logo, /account/profile,
+   /account/users, /account/invites) rather than the summary, so a worker
+   without one of them yet (a 404) leaves that section hidden instead of
+   breaking the page. The page boots itself on np:modules when <body>
+   carries data-np-settings (NPPeople.boot, called by portal.js).          */
 (function () {
   'use strict';
 
@@ -61,7 +63,119 @@
   var GENERIC = 'That did not go through. Try again, or email ' + HELLO + '.';
 
   /* What the page last read, so a form can be redrawn without asking again. */
-  var state = { profile: null, account: null, users: null, invites: null };
+  var state = { profile: null, account: null, users: null, invites: null, logo: undefined };
+
+  /* ═══════════ Logo ═══════════ */
+  /* The account's logo takes the monogram's place when there is one. The
+     worker keeps it in a private bucket and answers a link that works for a
+     minute, read fresh on every render. The page crops to a square and
+     shrinks it before it is sent, so the worker does no image work. */
+  var LOGO_SIDE = 320;
+  function initials(name) {
+    var w = String(name || '').replace(/[^A-Za-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+    return ((w[0] || '').charAt(0) + (w[1] || '').charAt(0)).toUpperCase() || 'N';
+  }
+  function monogram(text) {
+    return '<span class="acct-mono" aria-hidden="true">' + esc(text) + '</span>';
+  }
+  function renderLogo() {
+    if (state.logo === undefined) { hide('logo'); return; }
+    var name = (state.account && state.account.name) || 'this account';
+    fill('logo',
+      head('storefront', 'Logo', 'Shown on your account for everyone who signs in to it.') +
+      '<div class="acct-card"><div class="acct-id">' +
+        '<span class="acct-pic" id="logoPic" data-initials="' + esc(initials(name)) + '">' + monogram(initials(name)) + '</span>' +
+        '<div class="acct-id__text">' +
+          '<p class="hint" style="margin:0 0 10px">' + esc(name) + '</p>' +
+          '<div class="acct-row__actions">' +
+            '<button class="btn btn-primary acct-btn-sm" type="button" data-act="logo-pick">Add a logo</button>' +
+            '<button class="btn btn-outline acct-btn-sm" type="button" data-act="logo-remove" hidden>Remove logo</button>' +
+            '<input type="file" id="logoFile" accept="image/*" hidden aria-label="Your logo">' +
+          '</div>' +
+          '<p class="acct-msg" id="logoMsg" hidden></p>' +
+        '</div>' +
+      '</div></div>');
+    showLogo(state.logo);
+  }
+  function showLogo(url) {
+    state.logo = url || null;
+    var pic = el('logoPic');
+    if (!pic) return;
+    if (url) {
+      pic.innerHTML = '<img class="acct-mono acct-mono--pic" alt="Your logo">';
+      var img = pic.firstChild;
+      img.onerror = function () { showLogo(null); };
+      img.src = url;
+    } else {
+      pic.innerHTML = monogram(pic.getAttribute('data-initials'));
+    }
+    var pick = document.querySelector('[data-act="logo-pick"]');
+    var remove = document.querySelector('[data-act="logo-remove"]');
+    if (pick) pick.textContent = url ? 'Change logo' : 'Add a logo';
+    if (remove) remove.hidden = !url;
+  }
+  /* The route not shipped yet (a 404) hides the section; a signed-out
+     answer is caught by the page state before this runs. */
+  function loadLogo() {
+    return api('/account/logo').then(function (d) {
+      state.logo = (d && !d.error) ? (d.url || null) : (d && d.error === 'http_404' ? undefined : null);
+    });
+  }
+  /* Any picture the browser can read, centre-cropped to a square on white
+     (a transparent PNG would otherwise turn black) and sent as a JPEG. */
+  function squareJpeg(file) {
+    return new Promise(function (resolve, reject) {
+      var src = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var w = img.naturalWidth, h = img.naturalHeight, side = Math.min(w, h);
+        URL.revokeObjectURL(src);
+        if (!side) { reject(new Error('empty')); return; }
+        var out = Math.min(LOGO_SIDE, side);
+        var c = document.createElement('canvas');
+        c.width = out; c.height = out;
+        var g = c.getContext('2d');
+        g.fillStyle = '#FFFFFF';
+        g.fillRect(0, 0, out, out);
+        g.drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, out, out);
+        resolve(c.toDataURL('image/jpeg', 0.88));
+      };
+      img.onerror = function () { URL.revokeObjectURL(src); reject(new Error('unreadable')); };
+      img.src = src;
+    });
+  }
+  var LOGO_ERRORS = {
+    not_an_image: 'Choose a PNG or JPEG picture.',
+    'too large': 'That picture is too large. Choose one under 2 MB.',
+  };
+  function uploadLogo(input) {
+    var file = input.files && input.files[0];
+    var msg = el('logoMsg');
+    var pick = document.querySelector('[data-act="logo-pick"]');
+    if (!file) return;
+    if (msg) msg.hidden = true;
+    var done = busy(pick, 'Saving');
+    squareJpeg(file).then(function (image) {
+      return post('/account/logo', { image: image });
+    }, function () {
+      return { error: 'not_an_image' };
+    }).then(function (d) {
+      done();
+      input.value = '';
+      if (!d || d.error) { say(msg, LOGO_ERRORS[d && d.error] || 'We could not save that logo just now. Try again.', true); return; }
+      showLogo(d.url);
+    });
+  }
+  function removeLogo(btn) {
+    var msg = el('logoMsg');
+    if (msg) msg.hidden = true;
+    var done = busy(btn, 'Removing');
+    post('/account/logo/remove', {}).then(function (d) {
+      done();
+      if (!d || d.error) { say(msg, 'We could not remove that logo just now. Try again.', true); return; }
+      showLogo(null);
+    });
+  }
 
   /* ═══════════ You ═══════════ */
   function renderYou() {
@@ -269,18 +383,81 @@
         state.profile = d && d.ok ? d.profile : null;
         state.account = d && d.ok ? d.account : null;
       }),
-      loadUsers(), loadInvites(),
+      loadUsers(), loadInvites(), loadLogo(),
     ]).then(function () {
+      renderLogo();
       renderYou();
       renderUsers();
     });
   }
-  function clear() { hide('you'); hide('users'); }
+  function clear() { hide('logo'); hide('you'); hide('users'); }
 
+  /* ═══════════ page states (the settings page) ═══════════ */
+  function showLoading() {
+    if (el('acctLoading')) el('acctLoading').hidden = false;
+    if (el('acctError')) el('acctError').hidden = true;
+    if (el('signInPrompt')) el('signInPrompt').hidden = true;
+  }
+  function showSignedOut() {
+    if (el('acctLoading')) el('acctLoading').hidden = true;
+    if (el('acctError')) el('acctError').hidden = true;
+    clear();
+    fill('signInPrompt',
+      '<div class="panel" style="max-width:480px;margin:24px auto;text-align:center">' +
+        '<h2 style="margin-bottom:10px">Sign in to see your account settings</h2>' +
+        '<p class="body" style="margin-bottom:22px">The logo, your own details and who signs in, once you are signed in.</p>' +
+        '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">' +
+          '<button class="btn btn-primary" type="button" data-act="signin">Sign in</button>' +
+        '</div>' +
+      '</div>');
+  }
+  function showError() {
+    if (el('acctLoading')) el('acctLoading').hidden = true;
+    if (el('signInPrompt')) el('signInPrompt').hidden = true;
+    clear();
+    var e = el('acctError');
+    if (!e) return;
+    e.innerHTML = 'That did not load. Check your connection and try again, or email <a href="mailto:' + HELLO + '">' + HELLO + '</a>.';
+    e.hidden = false;
+  }
+  /* The account module both resolves its ready promise and fires
+     npaccount:change for the same refresh, and this page listens for both,
+     so a load is queued rather than fired: two triggers, one read. */
+  var seq = 0, queued = null;
+  function load() {
+    clearTimeout(queued);
+    queued = setTimeout(doLoad, 0);
+  }
+  function doLoad() {
+    if (!window.NPAccount || !NPAccount.user) { showSignedOut(); return; }
+    var mine = ++seq;
+    showLoading();
+    wire();
+    render().then(function () {
+      if (mine !== seq) return;
+      if (el('acctLoading')) el('acctLoading').hidden = true;
+      /* Every route refused: the sign-in has lapsed, or nothing loads. */
+      if (state.profile === null && state.users === null && state.logo === null) {
+        api('/auth/me').then(function (d) {
+          if (mine !== seq) return;
+          if (d && d.signed_in === false) { if (window.NPAccount && NPAccount.sessionLapsed) NPAccount.sessionLapsed(); showSignedOut(); }
+          else showError();
+        });
+      }
+    });
+  }
+
+  function gate(fn) {
+    if (window.NPAccount && NPAccount.requireConfirmed) NPAccount.requireConfirmed(fn);
+    else fn();
+  }
   function onClick(e) {
     var btn = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
     if (!btn) return;
     var act = btn.getAttribute('data-act');
+    if (act === 'signin') { if (window.openSignIn) openSignIn(); return; }
+    if (act === 'logo-pick') { var file = el('logoFile'); if (file) file.click(); return; }
+    if (act === 'logo-remove') { gate(function () { removeLogo(btn); }); return; }
     if (act === 'you-edit') { openForm('youEdit'); return; }
     if (act === 'you-email') { openForm('youEmail'); return; }
     if (act === 'you-cancel') { openForm(''); return; }
@@ -293,17 +470,31 @@
     else if (id === 'youEmail') { e.preventDefault(); changeEmail(); }
     else if (id === 'inviteForm') { e.preventDefault(); sendInvite(); }
   }
+  function onChange(e) {
+    if (e.target && e.target.id === 'logoFile') gate(function () { uploadLogo(e.target); });
+  }
   function wire() {
-    ['you', 'users'].forEach(function (id) {
+    ['logo', 'you', 'users', 'signInPrompt'].forEach(function (id) {
       var n = el(id);
       if (!n || n.dataset.npWired) return;
       n.dataset.npWired = '1';
       n.addEventListener('click', onClick);
       n.addEventListener('submit', onSubmit);
+      n.addEventListener('change', onChange);
     });
   }
 
+  /* ═══════════ boot ═══════════ */
+  function boot() {
+    if (!document.body || !document.body.hasAttribute('data-np-settings')) return;
+    wire();
+    if (!window.NPAccount) { showSignedOut(); return; }
+    document.addEventListener('npaccount:change', load);
+    NPAccount.ready.then(load);
+  }
+
   window.NPPeople = {
+    boot: boot,
     render: function () { wire(); return render(); },
     clear: clear,
   };
