@@ -930,6 +930,69 @@ async function walkFindMap() {
   await context.close();
 }
 
+/* The host's "where you ship" picker (plan 055, decision 17): the world map
+   above the region chips on both offer pages, a click on a region ticking
+   its chip, the chips still the truth, Worldwide and Own country only as
+   pills on the card and nowhere else. The vocabulary stub answers nothing,
+   so this also proves the picker on the seed regions. */
+async function walkOfferMap() {
+  area = "Offering capacity: where you ship";
+  for (const [hub, url] of [["Print Hub", `${PRINT}/offer.html`], ["Mill Hub", `${MILL}/offer.html`]]) {
+    const world = newWorld({ user: USER });
+    const { context, page, errors } = await visit(world);
+    await page.goto(url);
+    await page.waitForSelector("body[data-np-open]");
+    await page.waitForSelector("#listingForm");
+    const region = (term) => `#shipsTo input[data-region="${term}"]`;
+    const lit = (term) => page.$eval(region(term), (b) => b.closest(".pick").classList.contains("is-on"));
+    const onMap = (term) => page.$eval(`#shipsToMap g[data-region="${term}"]`, (g) => g.hasAttribute("data-on"));
+
+    await step(`${hub}: the picker card sits above the chips, with its two pills and no second button`, async () => {
+      await page.waitForSelector('#shipsToMap svg[data-mode="pick"]');
+      const order = await page.evaluate(() => {
+        const map = document.getElementById("shipsToMap"), chips = document.getElementById("shipsTo");
+        return map.parentElement === chips.parentElement && !!(map.compareDocumentPosition(chips) & Node.DOCUMENT_POSITION_FOLLOWING);
+      });
+      eq(order, true, "the card comes first in the section");
+      eq(await page.locator("#shipsTo input[data-region]").count(), 10, "the region chips");
+      eq(await page.$$eval("#shipsToMap .wm-pill", (els) => els.map((e) => e.textContent.trim())), ["Worldwide", "Own country only"], "the pills");
+      eq(await page.locator("#shipsToOwn").count(), 0, "the old Own country only button");
+      return eq(await page.locator("#shipsTo input[data-region]:checked").count(), 0, "nothing ticked yet");
+    });
+    await step(`${hub}: a click on Europe ticks its chip, a second click unticks it`, async () => {
+      await page.dispatchEvent('#shipsToMap g[data-region="europe"] path.wm-hit', "click");
+      eq(await page.isChecked(region("europe")), true, "the Europe chip");
+      eq(await lit("europe"), true, "the chip lights");
+      eq(await onMap("europe"), true, "the region lights");
+      await page.dispatchEvent('#shipsToMap g[data-region="europe"] path.wm-hit', "click");
+      eq(await page.isChecked(region("europe")), false, "the Europe chip after the second click");
+      eq(await lit("europe"), false, "the chip goes out");
+      return eq(await onMap("europe"), false, "the region goes out");
+    });
+    await step(`${hub}: a chip ticked by hand lights its region, and Worldwide ticks everything`, async () => {
+      await page.click(`${region("asia")} + span`);
+      eq(await page.isChecked(region("asia")), true, "the Asia chip");
+      eq(await onMap("asia"), true, "Asia on the map");
+      await page.click('#shipsToMap .wm-pill:has-text("Worldwide")');
+      eq(await page.locator("#shipsTo input[data-region]:checked").count(), 10, "every chip ticked");
+      eq(await page.$eval('#shipsToMap .wm-pill:has-text("Worldwide")', (e) => e.classList.contains("is-on")), true, "the pill lit");
+      await page.click(`${region("africa")} + span`);
+      eq(await page.isChecked(region("africa")), false, "Africa unticked");
+      eq(await page.isChecked(region("worldwide")), false, "Worldwide unticked with it");
+      return eq(await page.$eval('#shipsToMap .wm-pill:has-text("Worldwide")', (e) => e.classList.contains("is-on")), false, "the pill goes out");
+    });
+    await step(`${hub}: Own country only leaves the account's own region ticked`, async () => {
+      await page.click('#shipsToMap .wm-pill:has-text("Own country only")');
+      const on = await page.$$eval("#shipsTo input[data-region]:checked", (els) => els.map((e) => e.getAttribute("data-region")));
+      eq(on, ["uk"], "the chips ticked for United Kingdom");
+      eq(await onMap("uk"), true, "the UK lit on the map");
+      return eq(await onMap("europe"), false, "Europe not lit");
+    });
+    clean(world, errors, `${hub}: the ship picker`);
+    await context.close();
+  }
+}
+
 async function walkAccount() {
   area = "The account page";
   const soon = new Date(Date.now() + 3 * 864e5).toISOString();
@@ -1898,6 +1961,8 @@ const parts = []
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames] : []);
 /* The people sections (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
+/* The listing form's ship picker (plan 055) walks straight after the find map. */
+if (ONLY !== "boards") parts.splice(parts.indexOf(walkFindMap) + 1, 0, walkOfferMap);
 try {
   for (const part of parts) {
     try { await part(); } catch (e) {
