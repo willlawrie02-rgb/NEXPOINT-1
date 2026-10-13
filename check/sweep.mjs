@@ -364,6 +364,21 @@ for (const p of pages.filter((x) => x.startsWith("printhub/") || x.startsWith("m
   if (a && b && a !== b) fail("hub/assets/world-map.js: its LAND mask differs from hub/assets/portal.js's; the two copies must stay identical (plan 055)");
 }
 
+// ---------------------------------------------------------------- the door asks for its sheet and script by version
+// 13 October 2026: the hub door's hero was rebuilt (the globe gives way to the
+// film) and a browser that still held the four-hour-old stylesheet drew the
+// new markup unstyled. The door therefore names a version on portal.css and
+// portal.js, the same one on both, so the page and the files it was written
+// against always arrive together.
+{
+  const door = read("hub/index.html");
+  const css = door.match(/href="assets\/portal\.css\?v=([\w.-]+)"/);
+  const js = door.match(/src="assets\/portal\.js\?v=([\w.-]+)"/);
+  if (!css) fail("hub/index.html: portal.css is not asked for by version (assets/portal.css?v=...)");
+  if (!js) fail("hub/index.html: portal.js is not asked for by version (assets/portal.js?v=...)");
+  if (css && js && css[1] !== js[1]) fail(`hub/index.html: portal.css is at version ${css[1]} and portal.js at ${js[1]}; they move together`);
+}
+
 if (fails.length) {
   console.error(`sweep: ${fails.length} problem(s)`);
   for (const f of fails) console.error("  " + f);
