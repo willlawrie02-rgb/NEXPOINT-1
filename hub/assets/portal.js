@@ -619,6 +619,12 @@ function doorSendBack(){
 (function initGlobe() {
   const canvas = document.getElementById('globeCanvas');
   if (!canvas) return;
+  /* On the hub door the globe is the opening of the film reveal (plan 055,
+     point 6): with no reveal (reduced motion) it is not drawn at all, and
+     once it has risen away its loop is stopped for good. */
+  const leaving = canvas.closest('.hero-globe');
+  if (leaving && !document.documentElement.classList.contains('np-reveal')) return;
+  let gone = false;
   const ctx = canvas.getContext('2d');
   const reduce = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false;
 
@@ -813,8 +819,9 @@ function doorSendBack(){
     frame(ts, rotation);
     if (running) raf = requestAnimationFrame(loop);
   }
-  function start() { if (running) return; running = true; lastT = null; raf = requestAnimationFrame(loop); }
+  function start() { if (running || gone) return; running = true; lastT = null; raf = requestAnimationFrame(loop); }
   function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; }
+  if (leaving) leaving.addEventListener('animationend', () => { gone = true; stop(); });
 
   window.addEventListener('resize', resize);
   if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
@@ -884,6 +891,31 @@ function bootPageModules(){
 }
 document.addEventListener('np:modules', bootPageModules, { once: true });
 
+/* ═══════════ the hero film (plan 055, point 6) ═══════════
+   One play button on the poster: pressed, the film plays with its sound on and
+   the browser's own controls take over. It pauses when it leaves the screen,
+   so the narration never carries on behind the page. */
+(function initHeroFilm(){
+  const film = document.getElementById('heroFilm');
+  const play = document.getElementById('heroFilmPlay');
+  if (!film || !play) return;
+  const frame = film.closest('.hero-film');
+  play.addEventListener('click', () => {
+    film.controls = true;
+    const p = film.play();
+    if (p && p.catch) p.catch(() => {});
+    film.focus();
+  });
+  film.addEventListener('play',  () => frame.classList.add('is-playing'));
+  film.addEventListener('ended', () => { frame.classList.remove('is-playing'); film.controls = false; });
+  if (window.IntersectionObserver) {
+    new IntersectionObserver((ents) => {
+      ents.forEach(e => { if (!e.isIntersecting && !film.paused) film.pause(); });
+    }, { threshold: 0.2 }).observe(frame);
+  }
+  window.NPHeroFilm = { pause: () => { if (!film.paused) film.pause(); } };
+})();
+
 /* ═══════════ hero handoff: the globe launches, the doors take the frame ═══════════
    Progress is derived from scrollY alone (no per-frame layout reads), written once per
    rAF into custom properties that CSS turns into transform/opacity/filter. Nothing here
@@ -926,6 +958,9 @@ document.addEventListener('np:modules', bootPageModules, { once: true });
     /* Only what is in frame when the hero gives way belongs to the handoff. Bands further
        down earn their own entrance from the scroll observer, or they would play unseen. */
     if (p >= .5) nextSection.querySelectorAll('[data-enter-handoff]').forEach(fireEnterGroup);
+    /* the hero is pinned while it fades, so the film is still "on screen" to
+       an observer: stop it here once it has mostly gone */
+    if (p >= .6 && window.NPHeroFilm) NPHeroFilm.pause();
 
     const flying = p > 0 && p < 1;
     if (flying !== wasFlying){ stage.classList.toggle('is-flight', flying); wasFlying = flying; }

@@ -15,6 +15,10 @@
 <link rel="stylesheet" href="assets/portal.css">
 <link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="assets/explainer.css">
+<!-- The globe-to-film reveal is switched on here, before the hero paints, so the
+     film never flashes ahead of the globe. Without this class (reduced motion,
+     or no script) the hero shows the film alone. -->
+<script>if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches))document.documentElement.classList.add('np-reveal');</script>
 </head>
 <body>
 <!--
@@ -69,8 +73,25 @@ until the scenes are remade with Chris.
         </div>
         <p class="np-holder" style="margin-top:18px;font-size:13.5px;color:var(--on-surface-var)">Welcome back. <a href="https://nexpoint.co.uk/hub/account/" style="color:var(--blue);font-weight:600">Go to your account</a> for your requests, introductions and listings.</p>
       </div>
-      <div class="hero-media" style="border:none;box-shadow:none;background:#0d1424;border-radius:9999px;aspect-ratio:1/1;max-width:520px;margin-inline:auto">
-        <canvas id="globeCanvas" style="display:block;width:100%;height:100%" aria-hidden="true"></canvas>
+      <!-- The globe gives way to the film (Will, 12 and 13 October 2026, plan 055
+           point 6): on load the globe rises and fades and the Global Hub film is
+           revealed where it stood, as a poster with one play button; sound is on
+           when it is played. The film is the frame's size from the start, so
+           nothing below moves. Reduced motion, or no script: the film alone. -->
+      <div class="hero-reveal">
+        <figure class="film__frame hero-film">
+          <video class="film__video" id="heroFilm" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film-poster.jpg" aria-label="The NexPoint Global Hub in ninety seconds: four hubs and how an introduction actually happens, with captions">
+            <source src="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film.mp4" type="video/mp4">
+            Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film.mp4">Download it instead</a>.
+          </video>
+          <button class="hero-film__play" id="heroFilmPlay" type="button" aria-label="Play the film: the Global Hub in ninety seconds">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+            <span>Play the film</span>
+          </button>
+        </figure>
+        <div class="hero-globe" aria-hidden="true">
+          <canvas id="globeCanvas"></canvas>
+        </div>
       </div>
     </div>
   </div>
@@ -145,14 +166,8 @@ until the scenes are remade with Chris.
   <div class="container">
     <div class="enter enter--up">
       <h2>How an introduction actually happens.</h2>
-      <p class="sub">The Global Hub shows you what exists. People decide what meets. Ninety seconds on the four hubs and the way an introduction is made, then the four steps beneath.</p>
+      <p class="sub">The Global Hub shows you what exists. People decide what meets.</p>
     </div>
-    <figure class="film__frame enter enter--up" style="margin-top:0;margin-bottom:clamp(36px,5vh,56px)">
-      <video class="film__video" controls preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film-poster.jpg" aria-label="The NexPoint Global Hub in ninety seconds: four hubs and how an introduction actually happens, with captions">
-        <source src="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film.mp4" type="video/mp4">
-        Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film.mp4">Download it instead</a>.
-      </video>
-    </figure>
     <div id="explainer" class="xp-mount enter enter--up" aria-label="How the Global Hub works">
       <div class="xp-board">
         <div class="xp-panel"><span class="n">01</span><h3>The need</h3><p>You have the work, a scan ready to make, but not the machine.</p></div>
