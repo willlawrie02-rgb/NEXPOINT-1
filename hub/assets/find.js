@@ -590,14 +590,16 @@
     const extra = n - k;
     const more = extra > 0
       ? words(extra, true) + ' more ' + (extra === 1 ? siteNoun() : siteNounPlural()) + ' on the map. ' : '';
-    const privacy = 'Names and addresses stay private until both sides accept an introduction.';
     box.style.display = 'block';
-    /* When nothing met the ask, the count is the size of the pool, not a
-       claim that any of them fit: #noMatch says what these actually are. */
-    box.textContent = noMatch
-      ? 'The nearest ' + siteNounPlural() + ' to you, wherever they are. ' + more + 'Pick one. ' + privacy
+    /* The page's own hint already says "ranked by fit, pick one" and the
+       privacy line; this line carries only what the numbers say. When
+       nothing met the ask, the count is the size of the pool, not a claim
+       that any of them fit: #noMatch says what these actually are. */
+    box.textContent = (noMatch
+      ? 'The nearest ' + siteNounPlural() + ' to you, wherever they are. '
       : (n === 1 ? 'One ' + siteNoun() + ' can take this. '
-                 : 'The ' + words(k) + ' ' + siteNounPlural() + ' that fit best, nearest first. ' + more + 'Pick one. ') + privacy;
+                 : 'The ' + words(k) + ' ' + siteNounPlural() + ' that fit best. ')) + more;
+    box.textContent = box.textContent.trim();
   }
 
   /* Two things can leave the shortlist without a card to tick: a search
