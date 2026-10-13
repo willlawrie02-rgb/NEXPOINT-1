@@ -3,11 +3,13 @@
    leaflet, 1.9.4, BSD-2).
 
    The seeker's map, after Find capacity: the seeker's own town and one pin
-   per shortlisted site, numbered as the cards are. Sites in the same town
-   share one pin, which shows how many are there and opens a short anonymous
-   list ("Site 2", "Site 3", with lead time and distance), each with its own
-   Choose button. Choosing on the map ticks the card; ticking a card lights
-   its pin.
+   per ranked site, numbered as the cards are (plan 055: every ranked site
+   is on the map, the best three filled, the rest outlined; a pin opens the
+   card of a site outside the three). Sites in the same town share one pin,
+   which shows how many are there and opens a short anonymous list ("Site
+   2", "Site 3", with lead time and distance), each with its own Choose
+   button. Choosing on the map ticks the card; ticking a card lights its
+   pin.
 
    The provider's map, on an offer: the seeker's town and the lab's own.
 
@@ -106,8 +108,13 @@
   }
 
   /* The seeker's map. opts: {el, seeker: {lat,lng}|null, sites: [{listing_id,
-     position, town, country, point, lead, distance}], onPick(id), noun,
-     assetBase}. Returns {select(id), refresh(), destroy(), groups} or null. */
+     position, town, country, point, lead, distance, best}], onPick(id),
+     onReveal(id), noun, assetBase}. Every ranked site is a pin, numbered by
+     rank; a site flagged `best` (one of the three shown as cards) gets a
+     filled pin, the rest are outlined (plan 055, decision 15). A click on a
+     pin calls onReveal for each site under it before its popup opens, so a
+     site outside the three gets its card. Returns {select(id), refresh(),
+     destroy(), groups} or null. */
   function mount(opts) {
     var box = opts && opts.el;
     if (!box || !window.L) return null;
@@ -134,10 +141,19 @@
       var label = one
         ? noun.charAt(0).toUpperCase() + noun.slice(1) + ' ' + g.sites[0].position + ', ' + placeOf(g.sites[0])
         : g.sites.length + ' ' + noun + 's in ' + placeOf(g.sites[0]);
+      /* a town with one of the best three in it is a filled pin; a town
+         with none is outlined, as the shared count pins always were */
+      var best = g.sites.some(function (s) { return s.best === true; });
+      var cls = (one ? '' : 'np-pin--group') + (best ? ' np-pin--best' : ' np-pin--more');
       var m = L.marker([g.at.lat, g.at.lng], {
-        icon: pinIcon(one ? String(g.sites[0].position) : String(g.sites.length), one ? '' : 'np-pin--group'),
+        icon: pinIcon(one ? String(g.sites[0].position) : String(g.sites.length), cls.trim()),
         title: label, alt: label, riseOnHover: true,
       }).addTo(map);
+      /* registered before bindPopup, so the cards are on the page before
+         Leaflet's own click handler opens the popup */
+      if (typeof opts.onReveal === 'function') m.on('click', function () {
+        g.sites.forEach(function (s) { opts.onReveal(String(s.listing_id)); });
+      });
       m.bindPopup(popupFor(g, { noun: noun, onPick: function (id) { m.closePopup(); opts.onPick(id); } }),
         { minWidth: 200, maxWidth: 280 });
       points.push(g.at);

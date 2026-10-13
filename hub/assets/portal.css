@@ -687,3 +687,13 @@ body[data-np-signed-in] .np-holder{display:block}
 .wm-pill{font:600 12px/1 var(--font-body);padding:8px 14px;border-radius:999px;color:var(--blue);background:#fff;border:1px solid rgba(0,92,200,.35);cursor:pointer;transition:background var(--dur) var(--ease),color var(--dur) var(--ease),border-color var(--dur) var(--ease)}
 .wm-pill:hover{border-color:var(--blue)}
 .wm-pill.is-on{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* Plan 055, batch C: the listing form's ship map sits above its chips; the
+   find page tags its best three cards, and every ranked site is a pin, the
+   best three filled, the rest outlined (the shared count pins keep their
+   outline unless one of the three is under them). .np-pin.is-on, above,
+   still wins for the pin that is picked. */
+#shipsToMap{margin-bottom:14px}
+.badge-best{display:inline-flex;align-items:center;font:600 10px/1 var(--font-body);letter-spacing:.06em;text-transform:uppercase;color:#5a8f1d;background:rgba(139,197,63,.10);border:1px solid rgba(139,197,63,.20);border-radius:9999px;padding:5px 10px;white-space:nowrap}
+.np-pin--more{background:#fff;color:var(--blue);border-color:var(--blue)}
+.np-pin--best{background:var(--blue);color:#fff;border-color:#fff}
