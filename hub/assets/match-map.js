@@ -63,11 +63,22 @@
       title: label, alt: label, zIndexOffset: -100 }).addTo(map);
   }
 
+  /* A frame is set, never animated. These maps are remade whenever the list
+     they sit in is redrawn (an accept, a decline, a new search), and a map
+     removed in the middle of Leaflet's fly-to left the animation's last
+     frame reading a pane that had gone: "Cannot read properties of
+     undefined (reading '_leaflet_pos')", seen now and then on the account
+     page when the machine was busy (12 and 13 October). */
   function frame(map, points) {
     if (!points.length) return;
-    if (points.length === 1) { map.setView([points[0].lat, points[0].lng], 9); return; }
+    if (points.length === 1) { map.setView([points[0].lat, points[0].lng], 9, { animate: false }); return; }
     map.fitBounds(L.latLngBounds(points.map(function (p) { return [p.lat, p.lng]; })),
-      { padding: [36, 36], maxZoom: 10 });
+      { padding: [36, 36], maxZoom: 10, animate: false });
+  }
+  /* Taking a map down: stop whatever it is doing first, then remove it. */
+  function takeDown(map) {
+    try { map.stop(); } catch (e) { /* nothing running */ }
+    try { map.remove(); } catch (e) { /* already gone */ }
   }
 
   /* The popup is built as nodes, not a string, so the Choose buttons are
@@ -178,7 +189,7 @@
       /* The step was hidden when the map was made, so Leaflet measures again;
          not if the map has gone in the meantime (a re-render inside 50 ms). */
       refresh: function () { setTimeout(function () { if (dead) return; map.invalidateSize(); frame(map, points); }, 50); },
-      destroy: function () { dead = true; try { map.remove(); } catch (e) { /* already gone */ } },
+      destroy: function () { dead = true; takeDown(map); },
     };
   }
 
@@ -257,7 +268,7 @@
     return {
       map: map,
       refresh: function () { setTimeout(function () { if (dead) return; map.invalidateSize(); openBox(); framePair(); }, 50); },
-      destroy: function () { dead = true; try { map.remove(); } catch (e) { /* already gone */ } },
+      destroy: function () { dead = true; takeDown(map); },
     };
   }
 
