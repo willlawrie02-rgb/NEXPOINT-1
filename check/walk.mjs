@@ -40,7 +40,7 @@ const MIME = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8", ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".webp": "image/webp", ".ico": "image/x-icon",
-  ".txt": "text/plain; charset=utf-8", ".xml": "application/xml", ".woff2": "font/woff2",
+  ".txt": "text/plain; charset=utf-8", ".xml": "application/xml", ".woff2": "font/woff2", ".mp4": "video/mp4",
 };
 
 // ---------------------------------------------------------------- results
@@ -400,6 +400,30 @@ async function walkDoor() {
     has(await page.textContent(".hero-join button.btn-primary"), "Create your hub account", "the button");
     has(await page.textContent(".hero-join"), "Already have an account?", "the sign-in line");
     eq(await page.locator(".hero-join [data-np-join]").count(), 0, "a second data-np-join");
+  });
+  // Plan 055, point 6 (Will, 13 October 2026): the globe rises and fades on
+  // load and the Global Hub film is revealed where it stood.
+  await step("the globe gives way to the film: the film stands in the hero with one play button", async () => {
+    await page.waitForFunction(() => {
+      const g = document.querySelector(".hero-reveal .hero-globe");
+      return g && getComputedStyle(g).visibility === "hidden";
+    });
+    const got = await page.evaluate(() => {
+      const film = document.querySelector(".hero-reveal .hero-film"), v = document.getElementById("heroFilm");
+      const r = film.getBoundingClientRect();
+      return { opacity: getComputedStyle(film).opacity, ratio: Math.round(r.width / r.height * 100) / 100, controls: v.controls,
+        play: getComputedStyle(document.getElementById("heroFilmPlay")).display !== "none",
+        elsewhere: document.querySelectorAll("#how video").length, films: document.querySelectorAll("video").length };
+    });
+    eq([got.opacity, got.controls, got.play, got.elsewhere, got.films], ["1", false, true, 0, 1], "film opacity, controls, play button, films under How, films on the page");
+    eq(got.ratio > 1.7 && got.ratio < 1.85, true, "the frame is 16 by 9");
+  });
+  await step("Play the film starts it and hands over to the browser's controls", async () => {
+    await page.click("#heroFilmPlay");
+    await page.waitForSelector(".hero-film.is-playing");
+    eq(await page.evaluate(() => document.getElementById("heroFilm").controls), true, "controls after play");
+    eq(await page.evaluate(() => getComputedStyle(document.getElementById("heroFilmPlay")).display), "none", "the play button");
+    await page.evaluate(() => document.getElementById("heroFilm").pause());
   });
   await step("?join=1 opens the create-account box for a stranger", async () => {
     await page.goto(`${APEX}/hub/?join=1`);

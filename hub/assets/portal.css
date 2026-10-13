@@ -387,14 +387,14 @@ a.door:hover .go svg{transform:translateX(3px)}
     position:relative;z-index:2;background:var(--bg)}
 
   html.js-motion .hero-stage .hero-copy{opacity:var(--copy-o,1)}
-  html.js-motion .hero-stage .hero-media{
+  html.js-motion .hero-stage .hero-reveal{
     transform:translate3d(0,var(--globe-y,0),0) scale(var(--globe-s,1));
     opacity:var(--globe-o,1);
     filter:blur(var(--globe-b,0px))}
 
   /* compositor hints only while the sequence is actually mid-flight */
   html.js-motion .hero-stage.is-flight .hero-copy{will-change:opacity}
-  html.js-motion .hero-stage.is-flight .hero-media{will-change:transform,opacity,filter}
+  html.js-motion .hero-stage.is-flight .hero-reveal{will-change:transform,opacity,filter}
 }
 
 /* preference can change after load, so unwind rather than rely on the js-motion gate */
@@ -403,7 +403,7 @@ a.door:hover .go svg{transform:translateX(3px)}
   html.js-motion .hero-stage .hub-hero{position:static}
   html.js-motion .hero-next{margin-top:0}
   html.js-motion .hero-stage .hero-copy,
-  html.js-motion .hero-stage .hero-media{opacity:1;transform:none;filter:none;will-change:auto}
+  html.js-motion .hero-stage .hero-reveal{opacity:1;transform:none;filter:none;will-change:auto}
 }
 
 /* ═══════════ the four doors ═══════════
@@ -726,3 +726,39 @@ body[data-np-signed-in] .np-holder{display:block}
 .film__frame{margin:clamp(20px,3vh,28px) auto 0;max-width:min(860px,calc((100vh - 300px) * 16 / 9));border:1px solid #E3E7ED;border-radius:12px;overflow:hidden;background:#F5F7FA;box-shadow:0 24px 64px rgba(14,22,38,.14)}
 .film__video{display:block;width:100%;aspect-ratio:16/9;background:#F5F7FA}
 .film__note{margin:12px auto 0;max-width:min(860px,calc((100vh - 300px) * 16 / 9));font-size:13px;line-height:1.5;color:#4A5462;text-align:center}
+
+/* The globe gives way to the film (plan 055, point 6; Will, 12 and 13 October
+   2026). The film's frame is the hero's right-hand column from the start, so
+   the page never moves; the globe sits over it at the frame's own height,
+   then rises and fades, and the film arrives where it stood. Pure CSS, so the
+   film is revealed even if the scripts never load; html.np-reveal is set in
+   the head, and without it (reduced motion, no script) there is no globe and
+   the film simply stands there. One play button: sound is on when it is
+   pressed, and the browser's own controls take over from there. */
+.hero-reveal{position:relative}
+.hero-film{position:relative;margin:0 auto;max-width:none}
+.hero-film .film__video{background:#0d1424}
+.hero-film__play{position:absolute;inset:0;margin:auto;width:max-content;height:max-content;display:inline-flex;align-items:center;gap:10px;
+  padding:14px 22px 14px 18px;border:0;border-radius:9999px;cursor:pointer;background:var(--blue);color:#fff;
+  font:600 15px/1 var(--font-body);box-shadow:0 12px 32px rgba(0,92,200,.35);
+  transition:background var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.hero-film__play:hover{background:var(--blue-hover)}
+.hero-film__play:active{transform:scale(.97)}
+.hero-film__play:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.hero-film.is-playing .hero-film__play{display:none}
+.hero-globe{display:none}
+html.np-reveal .hero-globe{display:block;position:absolute;inset:0;margin:auto;height:100%;max-height:520px;aspect-ratio:1/1;
+  border-radius:9999px;background:#0d1424;overflow:hidden;pointer-events:none;
+  animation:np-globe-leave 1.2s cubic-bezier(.5,0,.2,1) .7s forwards}
+html.np-reveal .hero-globe canvas{display:block;width:100%;height:100%}
+html.np-reveal .hero-film{animation:np-film-arrive .9s cubic-bezier(.2,.8,.2,1) 1.25s both}
+@keyframes np-globe-leave{
+  from{opacity:1;transform:none;visibility:visible}
+  to{opacity:0;transform:translate3d(0,-70%,0) scale(.9);visibility:hidden}}
+@keyframes np-film-arrive{
+  from{opacity:0;transform:translate3d(0,14px,0);visibility:hidden}
+  to{opacity:1;transform:none;visibility:visible}}
+@media (prefers-reduced-motion:reduce){
+  html.np-reveal .hero-globe{display:none;animation:none}
+  html.np-reveal .hero-film{animation:none}
+}
