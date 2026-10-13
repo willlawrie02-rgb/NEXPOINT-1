@@ -113,6 +113,10 @@
      already on file, so the form does not insist on it again (plan 045). */
   let editingLive = false;
   const TA = {};           /* type-ahead handles by input id */
+  /* The "where you ship" map (hub/assets/world-map.js, plan 055): a handle
+     with sync(), or null while the form has no map. The chips under the map
+     stay the source of truth; the map only toggles them and repaints. */
+  let shipMap = null;
   let rowSeq = 0;
   let bootQueued = false;
   /* A submit that has to refresh the account mid-flight fires
@@ -127,6 +131,7 @@
      machine row of any render is m-1. */
   function resetPanelState() {
     Object.keys(TA).forEach((k) => { delete TA[k]; });
+    shipMap = null;
     rowSeq = 0;
   }
 
@@ -505,11 +510,17 @@
       '<input id="siteCountry" placeholder="Start typing"></div>' +
       '</div></div>' +
 
+      /* The map first (decision 17, plan 055): a click on a region ticks its
+         chip below, and the chips stay as the accessible, keyboard-reachable
+         truth. The map card carries its own Worldwide and Own country only
+         pills, so the old Own country only button is drawn only when the map
+         module is missing: never two controls for one thing. */
       '<div class="lsec"><div class="lsec__h">Where you ship</div>' +
+      '<div class="wm-card" id="shipsToMap"></div>' +
       '<div class="lgroup" id="shipsTo" role="group" aria-label="Where you ship">' +
       regions.map((r) => pickChip('region', r.term, r.label, chosenRegions.indexOf(r.term) !== -1)).join('') +
       extraRegions.map((t) => pickChip('region', t, termLabel(regions, t), true)).join('') +
-      '<button class="pick" type="button" id="shipsToOwn">Own country only</button>' +
+      (window.NPWorldMap ? '' : '<button class="pick" type="button" id="shipsToOwn">Own country only</button>') +
       '</div></div>' +
 
       /* The base service is fixed (Will, 6 Oct): every host prints, so the
@@ -562,7 +573,16 @@
       });
     });
 
-    el('shipsToOwn').addEventListener('click', ownCountryOnly);
+    /* The map mounts once the chips are in the DOM, so its first sync()
+       reads them as rendered: a live revision's regions arrive already
+       ticked. Without the module the card stays empty and the old button
+       stands in. */
+    const mapBox = el('shipsToMap');
+    shipMap = (window.NPWorldMap && mapBox)
+      ? NPWorldMap.mount({ el: mapBox, mode: 'pick', group: el('shipsTo'), onOwn: ownCountryOnly })
+      : null;
+    if (!shipMap && mapBox) mapBox.remove();
+    if (el('shipsToOwn')) el('shipsToOwn').addEventListener('click', ownCountryOnly);
     el('addMachineRow').addEventListener('click', () => addMachineRow(null, true));
     el('listingForm').addEventListener('submit', onSubmit);
     el('machineRows').addEventListener('input', updateRemoveButtons);
@@ -591,6 +611,7 @@
       if (lab) lab.classList.toggle('is-on', box.checked);
     });
     clearError();
+    if (shipMap) shipMap.sync();
   }
 
   /* ── the Host Agreement ────────────────────────────────────────────
