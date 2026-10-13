@@ -1142,7 +1142,7 @@ async function walkAccount() {
   });
   await step("Waiting on you heads the reading column beside the rail and names the one open action, Answer 1 introduction, lit (plan 055, decision 10)", async () => {
     await page.waitForSelector("#waiting:not([hidden])");
-    eq(await page.evaluate(() => document.getElementById("profile").previousElementSibling.className), "acct-head", "the banner sits under the heading, in line with the button");
+    eq(await page.evaluate(() => document.getElementById("profile").previousElementSibling.id), "goHub", "the banner sits beside the Go to the Global Hub button");
     eq(await page.evaluate(() => document.querySelector(".acct-main .acct-section:not([hidden])").id), "waiting", "the first section of the reading column");
     has(await page.textContent("#waiting .hint"), "What needs your answer.", "the hint");
     const acts = await page.$$eval("#waiting .acct-action", (els) => els.map((e) => ({ text: e.textContent.replace(/\s+/g, " ").trim(), top: e.classList.contains("is-top"), href: e.getAttribute("href") })));
@@ -1243,7 +1243,7 @@ async function walkAccount() {
     });
     await step("Waiting on you is its one open action, List your site or ask a hub, lit, and it leaves the page for the door (plan 046, plan 055)", async () => {
       await page.waitForSelector("#waiting:not([hidden])");
-      eq(await page.evaluate(() => document.getElementById("profile").previousElementSibling.className), "acct-head", "the banner sits under the heading, in line with the button");
+      eq(await page.evaluate(() => document.getElementById("profile").previousElementSibling.id), "goHub", "the banner sits beside the Go to the Global Hub button");
       eq(await page.evaluate(() => document.querySelector(".acct-main .acct-section:not([hidden])").id), "waiting", "the first section of the reading column");
       eq(await page.locator("#acctNeeds").count(), 0, "the old Next step block");
       const links = await page.locator("#waiting .acct-action").all();
