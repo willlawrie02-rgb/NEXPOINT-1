@@ -408,6 +408,7 @@ async function walkDoor() {
       const g = document.querySelector(".hero-reveal .hero-globe");
       return g && getComputedStyle(g).visibility === "hidden";
     });
+    await page.waitForFunction(() => getComputedStyle(document.querySelector(".hero-reveal .hero-film")).opacity === "1");
     const got = await page.evaluate(() => {
       const film = document.querySelector(".hero-reveal .hero-film"), v = document.getElementById("heroFilm");
       const r = film.getBoundingClientRect();
@@ -1632,6 +1633,32 @@ async function walkHomepage() {
   await step("the hero sends people to the hub, and Join our network opens the create-account box there", async () => {
     eq(await page.getAttribute(".hero__ctas a.btn--primary-lg", "href"), "https://nexpoint.co.uk/hub/", "Explore the Global Hub");
     eq(await page.getAttribute(".hero__ctas a.btn--ghost-lg", "href"), "https://nexpoint.co.uk/hub/?join=1", "Join our network");
+  });
+  // 13 October 2026 (Will): the hub door's reveal, repeated on the home page.
+  await step("the globe shows first, at the size it always was, then gives way to the film", async () => {
+    const got = await page.evaluate(() => {
+      const film = document.querySelector(".hero-reveal .hero-film"), v = document.getElementById("heroFilm");
+      const box = document.querySelector(".hero-reveal").getBoundingClientRect(), g = document.querySelector(".hero-reveal .globe-stage").getBoundingClientRect();
+      return { globeFillsItsBox: Math.round(g.width) === Math.round(box.width) && Math.round(g.height) === Math.round(box.height) && g.width > 300,
+        films: document.querySelectorAll("video").length, sections: document.querySelectorAll("section#film").length, controls: v.controls };
+    });
+    eq([got.globeFillsItsBox, got.films, got.sections, got.controls], [true, 1, 0, false], "the globe fills its box, films on the page, a film section, controls before play");
+    await page.waitForFunction(() => getComputedStyle(document.querySelector(".hero-reveal .globe-stage")).visibility === "hidden");
+    // the film finishes arriving a moment after the globe has gone
+    await page.waitForFunction(() => getComputedStyle(document.querySelector(".hero-reveal .hero-film")).opacity === "1");
+    const after = await page.evaluate(() => {
+      const film = document.querySelector(".hero-reveal .hero-film"), r = film.getBoundingClientRect();
+      return { opacity: getComputedStyle(film).opacity, ratio: Math.round(r.width / r.height * 100) / 100,
+        play: getComputedStyle(document.getElementById("heroFilmPlay")).display !== "none" };
+    });
+    eq([after.opacity, after.play], ["1", true], "film opacity, play button");
+    eq(after.ratio > 1.7 && after.ratio < 1.85, true, "the frame is 16 by 9");
+  });
+  await step("Play the film starts it and hands over to the browser's controls", async () => {
+    await page.click("#heroFilmPlay");
+    await page.waitForSelector(".hero-film.is-playing");
+    eq(await page.evaluate(() => document.getElementById("heroFilm").controls), true, "controls after play");
+    await page.evaluate(() => document.getElementById("heroFilm").pause());
   });
   await step("the intro-call form asks for a name and a work email before it sends", async () => {
     await page.click("#confirmBtn");

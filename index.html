@@ -624,7 +624,61 @@
   .film__frame{margin:clamp(20px,3vh,28px) auto 0;max-width:min(860px,calc((100vh - 300px) * 16 / 9));border:1px solid #E3E7ED;border-radius:12px;overflow:hidden;background:#F5F7FA;box-shadow:0 24px 64px rgba(14,22,38,.14)}
   .film__video{display:block;width:100%;aspect-ratio:16/9;background:#F5F7FA}
   .film__note{margin:12px auto 0;max-width:min(860px,calc((100vh - 300px) * 16 / 9));font-size:13px;line-height:1.5;color:#4A5462;text-align:center}
+
+  /* ─── The globe gives way to the film (13 October 2026) ───
+     The reveal box is the globe stage's own box, so the hero is exactly as
+     tall as it was; the film is centred in it and the globe lies over the
+     film until it rises and fades. Pure CSS, switched on by html.np-reveal
+     (set in the head); without it there is no globe and the film stands
+     there. Below 1100px the hero stacks, the box takes the film's shape and
+     the globe is drawn at the film's height, so nothing overlaps the copy. */
+  /* A column that centres the film on its main axis only: an alignment
+     keyword on the box itself (place-items) would also shrink the globe's
+     absolutely placed stage to nothing. */
+  .hero-reveal { position: relative; width: min(108%, 640px); aspect-ratio: 1 / 1; justify-self: end; display: flex; flex-direction: column; justify-content: center; }
+  .hero-film { position: relative; width: 100%; margin: 0; max-width: none; z-index: 1; }
+  .hero-film .film__video { background: #0d1728; }
+  .hero-film__play {
+    position: absolute; inset: 0; margin: auto; width: max-content; height: max-content;
+    display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px 14px 18px;
+    border: 0; border-radius: 9999px; cursor: pointer; background: var(--np-blue); color: #fff;
+    font: 600 15px/1 var(--font-body); box-shadow: 0 12px 32px rgba(0, 92, 200, 0.35);
+    transition: background var(--duration) var(--ease), transform var(--duration) var(--ease);
+  }
+  .hero-film__play:hover { background: var(--np-blue-hover); }
+  .hero-film__play:active { transform: scale(0.97); }
+  .hero-film__play:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  .hero-film.is-playing .hero-film__play { display: none; }
+  .hero-reveal .globe-stage { display: none; }
+  html.np-reveal .hero-reveal .globe-stage {
+    /* sized outright: an absolutely placed child of a flex box is not
+       stretched to its insets, so nothing is left to the box's alignment */
+    display: block; position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; aspect-ratio: auto;
+    z-index: 2; pointer-events: none;
+    animation: np-globe-leave 1.2s cubic-bezier(0.5, 0, 0.2, 1) 0.7s forwards;
+  }
+  html.np-reveal .hero-film { animation: np-film-arrive 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 1.25s both; }
+  @keyframes np-globe-leave {
+    from { opacity: 1; transform: none; visibility: visible; }
+    to   { opacity: 0; transform: translate3d(0, -42%, 0) scale(0.92); visibility: hidden; }
+  }
+  @keyframes np-film-arrive {
+    from { opacity: 0; transform: translate3d(0, 14px, 0); visibility: hidden; }
+    to   { opacity: 1; transform: none; visibility: visible; }
+  }
+  @media (max-width: 1100px) {
+    .hero-reveal { width: min(100%, 520px); aspect-ratio: auto; margin: 0 auto; justify-self: center; }
+    html.np-reveal .hero-reveal .globe-stage { inset: 0; margin: auto; height: 100%; width: auto; aspect-ratio: 1 / 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html.np-reveal .hero-reveal .globe-stage { display: none; }
+    html.np-reveal .hero-film { animation: none; }
+  }
 </style>
+<!-- The globe-to-film reveal is switched on here, before the hero paints, so the
+     film never flashes ahead of the globe. Without this class (reduced motion,
+     or no script) the hero shows the film alone. -->
+<script>if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches))document.documentElement.classList.add('np-reveal');</script>
 <!-- Lead Forensics tracking -->
 <script type="text/javascript" src="https://www.365-syndicate.com/js/818863.js"></script>
 <noscript><img src="https://www.365-syndicate.com/818863.png" style="display:none;" alt="" width="1" height="1" /></noscript>
@@ -686,8 +740,26 @@
       </div>
     </div>
 
-    <div class="globe-stage">
-      <canvas class="globe-canvas" id="globeCanvas" role="img" aria-label="A rotating, realistically lit globe showing NexPoint's live commercial connections arcing between markets in the UK, Europe, North America, the Middle East, Asia, Australia and New Zealand"></canvas>
+    <!-- The globe gives way to the film (Will, 13 October 2026; the hub door's
+         reveal, repeated here): on load the globe rises and fades and the home
+         film is revealed where it stood, as a poster with one play button;
+         sound is on when it is played. The box is the globe's own, so the hero
+         keeps its height and nothing below moves. Reduced motion, or no
+         script: the film alone. -->
+    <div class="hero-reveal" id="film">
+      <figure class="film__frame hero-film">
+        <video class="film__video" id="heroFilm" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-home-film-poster.jpg" aria-label="NexPoint in seventy-five seconds: the industry, the match and the Global Hub, with captions">
+          <source src="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4" type="video/mp4">
+          Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4">Download it instead</a>.
+        </video>
+        <button class="hero-film__play" id="heroFilmPlay" type="button" aria-label="Play the film: NexPoint in seventy-five seconds">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+          <span>Play the film</span>
+        </button>
+      </figure>
+      <div class="globe-stage" aria-hidden="true">
+        <canvas class="globe-canvas" id="globeCanvas"></canvas>
+      </div>
     </div>
   </div>
 </section>
@@ -707,26 +779,6 @@
       <div class="proof__num">Global</div>
       <div class="proof__label">Market reach</div>
     </div>
-  </div>
-</section>
-
-<!-- ───── The film: NexPoint in seventy-five seconds ───── -->
-<section id="film" class="section" aria-label="NexPoint in seventy-five seconds">
-  <div class="container">
-    <div class="sec-head enter enter--up">
-      <span class="eyebrow">Watch</span>
-      <h2 class="h2">NexPoint in seventy-five seconds.</h2>
-      <p class="lede" style="margin-top:20px;">
-        A global industry made up of local businesses, the match we make between them, and the Global Hub where the network sees what is being offered and sought.
-      </p>
-    </div>
-    <figure class="film__frame enter enter--up">
-      <video class="film__video" controls preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-home-film-poster.jpg" aria-label="NexPoint in seventy-five seconds: the industry, the match and the Global Hub, with captions">
-        <source src="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4" type="video/mp4">
-        Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4">Download it instead</a>.
-      </video>
-    </figure>
-    <p class="film__note">Captions are built in. Sound on for the narration.</p>
   </div>
 </section>
 
@@ -1219,6 +1271,12 @@
   (function initGlobe() {
     const canvas = document.getElementById('globeCanvas');
     if (!canvas) return;
+    // The globe is the opening of the film reveal: with no reveal (reduced
+    // motion) it is not drawn at all, and once it has risen away its loop
+    // is stopped for good.
+    const leaving = canvas.closest('.hero-reveal') ? canvas.closest('.globe-stage') : null;
+    if (leaving && !document.documentElement.classList.contains('np-reveal')) return;
+    let gone = false;
     const ctx = canvas.getContext('2d');
 
     // Land mask: 24 rows (N->S) x 60 cols (lon -180..+180); [colStart,colEnd] land runs.
@@ -1463,8 +1521,9 @@
       frame(ts, rotation);
       if (running) raf = requestAnimationFrame(loop);
     }
-    function start() { if (running) return; running = true; lastT = null; raf = requestAnimationFrame(loop); }
+    function start() { if (running || gone) return; running = true; lastT = null; raf = requestAnimationFrame(loop); }
     function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; }
+    if (leaving) leaving.addEventListener('animationend', () => { gone = true; stop(); });
 
     window.addEventListener('resize', resize);
     if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
@@ -1472,6 +1531,30 @@
       new IntersectionObserver((ents) => { ents.forEach(e => e.isIntersecting ? start() : stop()); }, { threshold: 0.05 }).observe(canvas);
     } else { start(); }
     document.addEventListener('visibilitychange', () => { document.hidden ? stop() : start(); });
+  })();
+
+  // ─── The hero film: one play button on the poster ───
+  // Pressed, the film plays with its sound on and the browser's own controls
+  // take over. It pauses when it leaves the screen, so the narration never
+  // carries on behind the page.
+  (function initHeroFilm() {
+    const film = document.getElementById('heroFilm');
+    const play = document.getElementById('heroFilmPlay');
+    if (!film || !play) return;
+    const frame = film.closest('.hero-film');
+    play.addEventListener('click', () => {
+      film.controls = true;
+      const p = film.play();
+      if (p && p.catch) p.catch(() => {});
+      film.focus();
+    });
+    film.addEventListener('play',  () => frame.classList.add('is-playing'));
+    film.addEventListener('ended', () => { frame.classList.remove('is-playing'); film.controls = false; });
+    if (window.IntersectionObserver) {
+      new IntersectionObserver((ents) => {
+        ents.forEach(e => { if (!e.isIntersecting && !film.paused) film.pause(); });
+      }, { threshold: 0.2 }).observe(frame);
+    }
   })();
 
   // ─── Contact form ───
