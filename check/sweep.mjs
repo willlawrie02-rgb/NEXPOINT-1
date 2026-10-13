@@ -43,9 +43,13 @@ for (const p of pages) {
 }
 {
   const home = read("index.html");
-  if (/Two services/.test(home)) fail('index.html: still says "Two services" (there are three service lines)');
-  if (!/Three services/.test(home)) fail('index.html: the services heading does not say "Three services"');
-  if (!/Hub Management &amp; Development/.test(home)) fail("index.html: the third service line, Hub Management & Development, is missing");
+  // Will, 13 October 2026: the Hub Management & Development row came off the
+  // home page, so the Services section has two rows and says so. (Until then
+  // this rule held the page to three.)
+  if (/Three services/.test(home)) fail('index.html: still says "Three services" (there are two service rows since 13 Oct 2026)');
+  if (!/Two services/.test(home)) fail('index.html: the services heading does not say "Two services"');
+  if (/Hub Management &amp; Development/.test(home)) fail("index.html: the Hub Management & Development row is back; Will removed it on 13 Oct 2026");
+  if ((home.match(/<li class="svc-row/g) || []).length !== 2) fail("index.html: the Services section should hold exactly two rows");
   const priv = read("hub/privacy.html");
   if ((priv.match(/hosted in the UK/g) || []).length !== 1) fail('hub/privacy.html: the database line must say "hosted in the UK" exactly once');
   const print = read("printhub/index.html");
