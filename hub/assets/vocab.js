@@ -103,11 +103,15 @@
     listing: [
       { key: 'certifications', label: 'Certifications', type: 'multiselect',
         options: ['ISO 13485', 'ISO 9001', 'MDR'], required: false },
-      { key: 'min_order_units', label: 'Minimum order units/pairs per month', type: 'number',
+    ],
+    /* Plan 055 (12 Oct 2026): capacity and the minimum order are machine
+       attributes; the listing-level min_order_units is retired (0062). */
+    machine: [
+      { key: 'monthly_capacity', label: 'Monthly capacity (units/pairs)', type: 'number',
+        options: null, required: false },
+      { key: 'min_order', label: 'Minimum order units/pairs per month', type: 'number',
         options: null, required: false },
     ],
-    /* no machine attributes since plan 045 retired the one there was */
-    machine: [],
   };
 
   const KINDS = ['material', 'process', 'service', 'machine', 'region'];

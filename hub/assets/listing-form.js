@@ -200,7 +200,10 @@
     if (proc) bits.push(termLabel(vocab && vocab.processes, proc));
     if (m.count != null && Number(m.count) > 1) bits.push(String(m.count) + ' units');
     if (m.lead_time_days != null) bits.push(String(m.lead_time_days) + ' day lead time');
+    if (attrs.monthly_capacity != null) bits.push(String(attrs.monthly_capacity) + ' a month');
+    if (attrs.min_order != null) bits.push('minimum order ' + String(attrs.min_order));
     const extra = Object.keys(attrs)
+      .filter((k) => ROW_ATTRS.indexOf(k) === -1)
       .map((k) => attrLabel('machine', k) + ': ' + attrValueText(attrs[k]))
       .filter(Boolean);
     return '<div class="lmach"><b>' + esc(m.name || '') + '</b>' +
@@ -229,7 +232,8 @@
     if (ships.length) rows.push(['Ships to', ships.join(', ')]);
     const services = (rev.services || []).map((t) => termLabel(vocab && vocab.services, t));
     if (services.length) rows.push(['Services', services.join(', ')]);
-    if (rev.monthly_capacity != null) rows.push(['Monthly capacity', String(rev.monthly_capacity) + ' units']);
+    /* Old revisions (before plan 055) carried a listing-level capacity. */
+    if (rev.monthly_capacity != null && !(rev.machines || []).some((m) => m.attributes && m.attributes.monthly_capacity != null)) rows.push(['Monthly capacity', String(rev.monthly_capacity) + ' units']);
     if (rev.quality_notes) rows.push(['Quality systems', rev.quality_notes]);
     Object.keys(rev.attributes || {}).forEach((k) => {
       const text = attrValueText(rev.attributes[k]);
@@ -349,8 +353,18 @@
       .concat(defs.filter((d) => first.indexOf(d.key) === -1));
   }
 
+  /* Capacity and minimum order live on each machine row (Will, 12 Oct 2026,
+     plan 055, decision 14), as the worker's machine attributes
+     monthly_capacity and min_order. They are drawn here by hand so the row
+     carries them even when the vocabulary answers no machine definitions,
+     and the matching definitions are skipped so they do not appear twice. */
+  const ROW_ATTRS = ['monthly_capacity', 'min_order'];
+  function rowDefs() {
+    return ((vocab && vocab.attributes && vocab.attributes.machine) || []).filter((d) => ROW_ATTRS.indexOf(d.key) === -1);
+  }
   function machineRowHtml(n, m) {
-    const defs = (vocab && vocab.attributes && vocab.attributes.machine) || [];
+    const defs = rowDefs();
+    const attrs = (m && m.attributes) || {};
     return '<div class="mrow" data-mrow="' + n + '">' +
       '<button class="mrow__rm" type="button" id="m-' + n + '-remove">Remove</button>' +
       '<div class="field full"><label for="m-' + n + '-machine">' + esc(machineNounTitle()) + '</label>' +
@@ -365,6 +379,12 @@
       '<div class="field"><label for="m-' + n + '-lead">Lead time to shipping (days)</label>' +
       '<input id="m-' + n + '-lead" type="number" min="0" step="1" inputmode="numeric" value="' +
       esc(m && m.lead_time_days != null ? String(m.lead_time_days) : '') + '"></div>' +
+      '<div class="field"><label for="m-' + n + '-capacity">Monthly capacity (units/pairs)</label>' +
+      '<input id="m-' + n + '-capacity" type="number" min="0" step="1" inputmode="numeric" value="' +
+      esc(attrs.monthly_capacity != null ? String(attrs.monthly_capacity) : '') + '"></div>' +
+      '<div class="field"><label for="m-' + n + '-minorder">Minimum order units/pairs per month (optional)</label>' +
+      '<input id="m-' + n + '-minorder" type="number" min="0" step="1" inputmode="numeric" value="' +
+      esc(attrs.min_order != null ? String(attrs.min_order) : '') + '"></div>' +
       '<div class="field full"><label for="m-' + n + '-notes">Notes (optional)</label>' +
       '<input id="m-' + n + '-notes" value="' + esc((m && m.notes) || '') + '"></div>' +
       fieldsFor(defs, (k) => 'm-' + n + '-attr-' + k) +
@@ -506,13 +526,11 @@
       '<button class="btn btn-outline" type="button" id="addMachineRow">Add another ' + esc(machineNoun()) + '</button>' +
       '</div>' +
 
-      /* Capacity, then minimum order, then certifications (Will, 5 Oct);
-         the quality notes, written for Chris and Will, close the section. */
-      '<div class="lsec"><div class="lsec__h">Capacity and quality</div><div class="form-grid">' +
-      '<div class="field"><label for="monthlyCapacity">Monthly capacity (units/pairs)</label>' +
-      '<input id="monthlyCapacity" type="number" min="0" step="1" inputmode="numeric" value="' +
-      esc(rev && rev.monthly_capacity != null ? String(rev.monthly_capacity) : '') + '"></div>' +
-      fieldsFor(orderDefs(listingDefs, ['min_order_units', 'certifications']), (k) => 'attr-' + k) +
+      /* Certifications, then the quality notes (Will, 12 Oct 2026, plan 055):
+         capacity and the minimum order moved into each machine row, and the
+         listing-level minimum order definition is retired. */
+      '<div class="lsec"><div class="lsec__h">Quality</div><div class="form-grid">' +
+      fieldsFor(orderDefs(listingDefs.filter((d) => d.key !== 'min_order_units'), ['certifications']), (k) => 'attr-' + k) +
       '<div class="field full"><label for="qualityNotes">Quality systems and standards' +
       '<span class="np-hint">How you inspect, calibrate and package. Read by the NexPoint desk, not published.</span></label>' +
       '<textarea id="qualityNotes">' + esc((rev && rev.quality_notes) || '') + '</textarea></div>' +
@@ -671,7 +689,7 @@
      complete row still needs. */
   function readRow(row) {
     const n = row.getAttribute('data-mrow');
-    const defs = (vocab && vocab.attributes && vocab.attributes.machine) || [];
+    const defs = rowDefs();
     /* The machine name is the one field the worker stores exactly as it is
        given (it is what an anonymised card shows), so this is the label the
        host picked, not the vocabulary term behind it. */
@@ -682,10 +700,12 @@
     const notes = val('m-' + n + '-notes');
     const leadRaw = val('m-' + n + '-lead');
     const countRaw = val('m-' + n + '-count');
+    const capRaw = val('m-' + n + '-capacity');
+    const minRaw = val('m-' + n + '-minorder');
     const attributes = readAttrFields(defs, (k) => 'm-' + n + '-attr-' + k);
 
     const empty = !name && !materials.length && !process && !notes && leadRaw === '' &&
-      !Object.keys(attributes).length;
+      capRaw === '' && minRaw === '' && !Object.keys(attributes).length;
     if (empty) return { empty: true };
 
     if (!name) return { missing: 'm-' + n + '-machine', why: 'Name the ' + machineNoun() + ' on every row you fill in.' };
@@ -698,6 +718,19 @@
     if (count === null) count = 1;
     if (!Number.isFinite(count) || count < 1) {
       return { missing: 'm-' + n + '-count', why: 'How many of the ' + name + ' do you have? Whole numbers only.' };
+    }
+    /* Required (Will, 12 Oct 2026): a row says what it can make in a month. */
+    const capacity = wholeNumber(capRaw);
+    if (capacity === null || !Number.isFinite(capacity) || capacity < 0) {
+      return { missing: 'm-' + n + '-capacity', why: 'Give the monthly capacity for ' + name + ' in whole units or pairs.' };
+    }
+    attributes.monthly_capacity = capacity;
+    if (minRaw !== '') {
+      const minOrder = wholeNumber(minRaw);
+      if (minOrder === null || !Number.isFinite(minOrder) || minOrder < 0) {
+        return { missing: 'm-' + n + '-minorder', why: 'The minimum order for ' + name + ' is a whole number of units or pairs.' };
+      }
+      attributes.min_order = minOrder;
     }
 
     return { machine: {
@@ -739,15 +772,7 @@
     }
 
     const line1 = [val('siteAddress1'), val('siteAddress2')].filter(Boolean).join(', ');
-    /* Required since 6 Oct (Will): a listing says what it can make. */
-    const capacity = wholeNumber(val('monthlyCapacity'));
-    if (capacity === null) {
-      return { error: 'How many units or pairs can this site make in a month? A whole number.', focus: 'monthlyCapacity' };
-    }
-    if (!Number.isFinite(capacity) || capacity < 0) {
-      return { error: 'Monthly capacity is a whole number of units or pairs.', focus: 'monthlyCapacity' };
-    }
-    const listingDefs = (vocab && vocab.attributes && vocab.attributes.listing) || [];
+    const listingDefs = ((vocab && vocab.attributes && vocab.attributes.listing) || []).filter((d) => d.key !== 'min_order_units');
 
     const payload = {
       hub: HUB,
@@ -757,7 +782,6 @@
       quality_notes: val('qualityNotes'),
       attributes: readAttrFields(listingDefs, (k) => 'attr-' + k),
       machines: machines,
-      monthly_capacity: capacity,
     };
     if (termsRequired && hostTerms && hostTerms.id) payload.terms_version_id = hostTerms.id;
     return { payload: payload };
