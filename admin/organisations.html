@@ -293,7 +293,7 @@ async function load(){
       .order('id',{ascending:false}).limit(1000),
     sb.from('terms_acceptances').select('org_id,context,accepted_at,terms_version_id,user_id'),
     sb.from('terms_versions').select('id,layer,version'),
-    sb.from('member_profiles').select('user_id,email'),
+    sb.from('member_profiles').select('user_id,name,email'),
   ]);
   if(strikesQ.error)
     $('banner').innerHTML+=`<div class="banner">Could not read strikes: ${esc(strikesQ.error.message)}.</div>`;
@@ -304,8 +304,9 @@ async function load(){
   listings=listQ.data||[];
   if(acceptQ.error||versionQ.error||whoQ.error)
     $('banner').innerHTML+=`<div class="banner">Could not read the terms acceptances: ${esc((acceptQ.error||versionQ.error||whoQ.error).message)}.</div>`;
-  /* member_profiles only names who accepted; without it a line still shows,
-     read as "an account". */
+  /* member_profiles names who accepted, by user id: the person's name, else
+     their current address (queue AU3). Without a profile the line still
+     shows, and says the user is no longer on the account. */
   indexTerms(acceptQ.data||[],versionQ.data||[],whoQ.data||[]);
 
   /* organisations has no town column (0029 put the address on the listing
@@ -502,27 +503,30 @@ function websiteLine(o){
     :`<br><span class="muted">${shown}</span>`;
 }
 /* Terms acceptances (plan 052, item 17): the newest acceptance per layer for
-   each company, by accepted_at, with the accepting account's email when
-   member_profiles names it. */
+   each company, by accepted_at, with the signer resolved by user id (queue
+   AU3, Will's ruling at the 12 October walk): the person's name, else the
+   address they sign in with today, never the address the acceptance was
+   made under. A signer whose profile is gone (the user was deleted) is
+   said to be so, rather than left as "a user". */
 const TERMS_LAYERS=[['platform','Platform'],['host','Host'],['introduction','Introduction']];
 function indexTerms(accepts,versions,people){
   termsByOrg={};
-  const layerOf={},mail={};
+  const layerOf={},who={};
   versions.forEach(v=>{layerOf[v.id]=v;});
-  people.forEach(p=>{mail[p.user_id]=p.email;});
+  people.forEach(p=>{who[p.user_id]=(p.name||'').trim()||(p.email||'').trim();});
   accepts.forEach(a=>{
     const v=layerOf[a.terms_version_id];if(!a.org_id||!v)return;
     const byLayer=termsByOrg[a.org_id]||(termsByOrg[a.org_id]={});
     const cur=byLayer[v.layer];
     if(!cur||new Date(a.accepted_at)>new Date(cur.at))
-      byLayer[v.layer]={version:v.version,at:a.accepted_at,email:mail[a.user_id]||''};
+      byLayer[v.layer]={version:v.version,at:a.accepted_at,by:who[a.user_id]||''};
   });
 }
 function termsLines(orgId){
   const by=termsByOrg[orgId]||{};
   const out=TERMS_LAYERS.filter(([k])=>by[k]).map(([k,label])=>{
     const t=by[k];
-    return `<br><span class="muted">${esc(label)} ${esc(t.version)} accepted ${esc(fmtDate(t.at))} by ${esc(t.email||'a user')}</span>`;
+    return `<br><span class="muted">${esc(label)} ${esc(t.version)} accepted ${esc(fmtDate(t.at))} by ${esc(t.by||'a user no longer on the account')}</span>`;
   });
   if(!by.platform)out.unshift('<br><span class="terms-missing">Platform terms: not accepted</span>');
   return out.join('');
