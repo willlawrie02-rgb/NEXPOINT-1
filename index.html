@@ -256,6 +256,10 @@
     gap: clamp(24px, 4vw, 64px); align-items: center;
     padding: clamp(32px, 4.5vh, 56px) 0; border-bottom: 1px solid var(--border);
   }
+  /* A flipped row swaps its columns as well as its contents, so the photo
+     keeps the narrow column and every row's photo is the same size (Will,
+     13 October 2026: the flipped row's photo had landed in the wide one). */
+  .svc-row--flip { grid-template-columns: minmax(0, 0.6fr) minmax(0, 1fr); }
   .svc-row--flip .svc-row__body { grid-column: 2; grid-row: 1; }
   .svc-row--flip .svc-row__media { grid-column: 1; grid-row: 1; }
   .svc-row__icon { color: var(--np-blue); margin-bottom: 14px; display: block; }
