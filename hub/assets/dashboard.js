@@ -1,5 +1,7 @@
 /* NexPoint Global Hub - the account dashboard.
-   One page, six sections, one GET /account/summary. Every section owns its
+   One page, six sections, one GET /account/summary. The logo, the reader's
+   own details and the account's users live on the settings page
+   (hub/account/settings/, people.js); this page only reads the logo. Every section owns its
    own empty copy, so a key the worker has not shipped yet leaves that section
    saying something sensible rather than breaking the page: a missing key is
    never an error. Started by portal.js's np:modules boot, like every other
@@ -153,10 +155,9 @@
     node.hidden = false;
   }
 
-  /* `you` and `users` (plan 052, wave 3) are drawn by people.js from their
-     own routes; they are listed here so the nav and the signed-out state
-     treat them like every other section. */
-  var SECTIONS = ['profile', 'introductions', 'declarations', 'orders', 'fees', 'you', 'users', 'education'];
+  /* In page order. Waiting on you sits directly under the banner (plan 055,
+     decision 10); the logo, You and Users moved to the settings page. */
+  var SECTIONS = ['profile', 'waiting', 'introductions', 'declarations', 'fees', 'education'];
 
   /* ── the account, as this page reads it ─────────────────────────── */
   function siteOf(d) {
@@ -201,102 +202,38 @@
         '<span class="acct-pic" id="acctPic" data-initials="' + esc(initials(s.name)) + '">' + monogram(initials(s.name)) + '</span>' +
         '<div class="acct-id__text"><h2>' + esc(s.name) + '</h2>' +
         '<p class="hint">Site account' + (where ? ' · ' + esc(where) : '') + '</p>' +
-        '<p class="acct-pic-acts">' +
-          '<button class="acct-link" type="button" data-act="avatar-pick">Add a picture</button>' +
-          '<button class="acct-link" type="button" data-act="avatar-remove" hidden>Remove picture</button>' +
-          '<input type="file" id="avatarFile" accept="image/*" hidden aria-label="Your picture">' +
-        '</p>' +
-        '<p class="acct-msg" id="avatarMsg" hidden></p></div>' +
+        '<a class="btn btn-outline acct-btn-sm acct-edit" href="settings/">Edit account or add users</a></div>' +
       '</div>' +
       (badges.length ? '<div class="acct-badges">' + badges.join('') + '</div>' : '') +
       (s.hidden ? '<div class="acct-notice">Your listing is hidden, so nobody searching the hub can see it. Email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a> and we will put it back.</div>' : '') +
       listingRows(d, s);
     fill('profile', html);
-    loadAvatar();
+    loadLogo();
   }
 
-  /* ── the picture (plan 052 task 3.5) ─────────────────────────────
-     The user's own picture takes the monogram's place when there is one.
-     The worker keeps it in a private bucket and answers a link that works
-     for a minute, read fresh on every render. The page crops to a square
-     and shrinks it before it is sent, so the worker does no image work. */
-  var AVATAR_SIDE = 320;
+  /* ── the logo (plan 055, decision 25) ─────────────────────────────
+     The account's logo takes the monogram's place when there is one. It is
+     added, changed and removed on the settings page (people.js); this page
+     only reads it. The worker keeps it in a private bucket and answers a
+     link that works for a minute, read fresh on every render; a 401, a 404
+     (the route not shipped yet) or no logo at all leaves the monogram. */
   function monogram(text) {
     return '<span class="acct-mono" aria-hidden="true">' + esc(text) + '</span>';
   }
-  function showAvatar(url) {
+  function showLogo(url) {
     var pic = el('acctPic');
     if (!pic) return;
     if (url) {
-      pic.innerHTML = '<img class="acct-mono acct-mono--pic" alt="Your picture">';
+      pic.innerHTML = '<img class="acct-mono acct-mono--pic" alt="Your logo">';
       var img = pic.firstChild;
-      img.onerror = function () { showAvatar(null); };
+      img.onerror = function () { showLogo(null); };
       img.src = url;
     } else {
       pic.innerHTML = monogram(pic.getAttribute('data-initials'));
     }
-    var pick = document.querySelector('[data-act="avatar-pick"]');
-    var remove = document.querySelector('[data-act="avatar-remove"]');
-    if (pick) pick.textContent = url ? 'Change picture' : 'Add a picture';
-    if (remove) remove.hidden = !url;
   }
-  function loadAvatar() {
-    api('/account/avatar').then(function (d) { showAvatar(d && !d.error ? d.url : null); });
-  }
-  /* Any picture the browser can read, centre-cropped to a square on white
-     (a transparent PNG would otherwise turn black) and sent as a JPEG. */
-  function squareJpeg(file) {
-    return new Promise(function (resolve, reject) {
-      var src = URL.createObjectURL(file);
-      var img = new Image();
-      img.onload = function () {
-        var w = img.naturalWidth, h = img.naturalHeight, side = Math.min(w, h);
-        URL.revokeObjectURL(src);
-        if (!side) { reject(new Error('empty')); return; }
-        var out = Math.min(AVATAR_SIDE, side);
-        var c = document.createElement('canvas');
-        c.width = out; c.height = out;
-        var g = c.getContext('2d');
-        g.fillStyle = '#FFFFFF';
-        g.fillRect(0, 0, out, out);
-        g.drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, out, out);
-        resolve(c.toDataURL('image/jpeg', 0.88));
-      };
-      img.onerror = function () { URL.revokeObjectURL(src); reject(new Error('unreadable')); };
-      img.src = src;
-    });
-  }
-  var AVATAR_ERRORS = {
-    not_an_image: 'Choose a PNG or JPEG picture.',
-    'too large': 'That picture is too large. Choose one under 2 MB.',
-  };
-  function uploadAvatar(input) {
-    var file = input.files && input.files[0];
-    var msg = el('avatarMsg');
-    var pick = document.querySelector('[data-act="avatar-pick"]');
-    if (!file) return;
-    if (msg) msg.hidden = true;
-    var done = busy(pick, 'Saving');
-    squareJpeg(file).then(function (image) {
-      return post('/account/avatar', { image: image });
-    }, function () {
-      return { error: 'not_an_image' };
-    }).then(function (d) {
-      done();
-      input.value = '';
-      if (!d || d.error) { say(msg, AVATAR_ERRORS[d && d.error] || 'We could not save that picture just now. Try again.', true); return; }
-      showAvatar(d.url);
-    });
-  }
-  function removeAvatar(btn) {
-    var msg = el('avatarMsg');
-    if (msg) msg.hidden = true;
-    var done = busy(btn, 'Removing');
-    post('/account/avatar/remove', {}).then(function (d) {
-      done();
-      if (!d || d.error) { say(msg, 'We could not remove that picture just now. Try again.', true); return; }
-      showAvatar(null);
-    });
+  function loadLogo() {
+    api('/account/logo').then(function (d) { showLogo(d && !d.error ? d.url : null); });
   }
 
   function listingRows(d, s) {
@@ -393,7 +330,7 @@
     '</div>';
   }
 
-  function requestCard(r, byId) {
+  function requestCard(r, byId, tag) {
     var picks = Array.isArray(r.picks) ? r.picks : [];
     var facts = [lab('material', r.hub, r.material), r.quantity, lab('cadence', r.hub, r.cadence)].filter(Boolean).map(String).join(' · ');
     var body;
@@ -408,7 +345,7 @@
         picks.map(function (p) { return pickBlock(p, byId[p.introduction_id], r.hub); }).join('');
     }
     return '<div class="acct-card">' +
-      '<h3>' + refLine(requestRefs(r), r.hub, 'Your request') + '</h3>' +
+      '<h3>' + refLine(requestRefs(r), r.hub, 'Your request') + tagHtml(tag) + '</h3>' +
       '<p class="hint">' + esc([facts, r.created_at ? 'Requested ' + fmtDate(r.created_at) : ''].filter(Boolean).join(' · ')) + '</p>' +
       body +
     '</div>';
@@ -463,16 +400,47 @@
       '</div>';
   }
 
-  /* The provider's pair map (plan 052, item 24, task 3.6): on an open offer,
-     the request's town and the provider's own site, two pins and nothing to
-     choose. Only a town's point ever reaches it; the box stays hidden until
-     the map script has drawn into it, and never appears without points. */
+  /* The need box (plan 055, decision 7): what the seeker asked for, in the
+     rows the offer email uses, pinned open on the Request pin of the pair
+     map. Nobody is named: a request is a specification. */
+  function needBoxHtml(r, hub) {
+    if (!r) return '';
+    var rows = [];
+    var one = function (n, s, p) { return Number(n) === 1 ? n + ' ' + s : n + ' ' + p; };
+    var material = lab('material', hub, r.material);
+    if (material) rows.push(['Material', material]);
+    var process = lab('process', hub, r.process);
+    if (process) rows.push(['Process', process]);
+    if (r.quantity != null && r.quantity !== '') rows.push(['Quantity', one(r.quantity, 'unit', 'units')]);
+    var cadence = lab('cadence', hub, r.cadence);
+    if (cadence) rows.push(['Cadence', cadence]);
+    if (r.max_lead_time_days != null && r.max_lead_time_days !== '') rows.push(['Lead time', 'within ' + one(r.max_lead_time_days, 'day', 'days')]);
+    if (r.needed_by) rows.push(['Needed by', fmtDate(r.needed_by)]);
+    var services = (Array.isArray(r.services) ? r.services : []).map(function (s) { return lab('service', hub, s); }).filter(Boolean);
+    if (services.length) rows.push(['Services', services.join(', ')]);
+    var where = [r.town, r.country].filter(Boolean).join(', ');
+    return '<div class="np-need">' +
+      '<b class="np-need__head">What they need</b>' +
+      (where ? '<span class="np-need__where">' + esc(where) + '</span>' : '') +
+      (rows.length ? '<dl>' + rows.map(function (row) {
+        return '<dt>' + esc(row[0]) + '</dt><dd>' + esc(row[1]) + '</dd>';
+      }).join('') + '</dl>' : '') +
+      (r.notes ? '<p class="np-need__notes"><b>Notes</b>' + esc(r.notes) + '</p>' : '') +
+    '</div>';
+  }
+
+  /* The provider's pair map (plan 052, item 24; plan 055, decision 7): on
+     every provider row that carries an offer, whatever its stage, the
+     request's town and the provider's own site, two pins and nothing to
+     choose, with the need box open on the Request pin. Only a town's point
+     ever reaches it; the box stays hidden until the map script has drawn
+     into it, and never appears without points. */
   function pairMapBox(i, offer) {
     if (!offer) return '';
     var r = offer.request || {};
     var any = (r.point && typeof r.point.lat === 'number') || (offer.site && offer.site.point);
     if (!any) return '';
-    return '<div class="np-map np-map--pair" id="pairMap-' + esc(i.id) + '" aria-label="Where the request and your site are" hidden></div>';
+    return '<div class="np-map np-map--pair np-map--need" id="pairMap-' + esc(i.id) + '" aria-label="Where the request and your site are" hidden></div>';
   }
   var pairMaps = [];
   function mountPairMaps(intros, offerBy) {
@@ -489,6 +457,7 @@
         el: box,
         seeker: r.point ? { town: r.town || '', country: r.country || '', point: r.point } : null,
         site: o.site || null,
+        popup: needBoxHtml(r, o.hub || i.hub),
       });
       if (!handle) { box.hidden = true; return; }
       handle.refresh();
@@ -496,19 +465,23 @@
     });
   }
 
-  function introRow(i, showResend, offer) {
+  /* The small tag on a card when the account has both kinds of introduction
+     (plan 055, decision 8): which side of it the reader is on. */
+  function tagHtml(tag) { return tag ? '<span class="acct-tag">' + esc(tag) + '</span>' : ''; }
+
+  function introRow(i, showResend, offer, tag) {
     var extra = [];
     var asked = offerLine(offer);
     if (asked) extra.push(asked);
     if (i.stage === 'awaiting_acceptance' && i.acceptance_expires_at) extra.push('Open until ' + fmtDate(i.acceptance_expires_at) + '.');
     var accepted = acceptedStage(i.stage);
     var canAnswer = showResend && answerable(i);
-    return '<div class="acct-row">' +
+    return '<div class="acct-row" id="intro-' + esc(i.id) + '">' +
       '<div class="acct-row__meta">' +
-        '<b>' + refLine(i.ref, i.hub) + '</b>' +
+        '<b>' + refLine(i.ref, i.hub) + tagHtml(tag) + '</b>' +
         '<span>' + esc(providerLine(i)) + '</span>' +
         extra.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') +
-        (showResend ? pairMapBox(i, offer) : '') +
+        pairMapBox(i, offer) +
         statusChain(i.stage) +
         (accepted ? inboxLine(i.ref || '', introDate(i)) : '') +
         (canAnswer ? answerPanel(i) : '') +
@@ -519,7 +492,7 @@
             '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-decline-open" data-intro="' + esc(i.id) + '">Decline</button>'
           : '') +
         (showResend && i.stage === 'awaiting_acceptance'
-          ? '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Resend the link</button>'
+          ? '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Send the email again</button>'
           : '') +
         (showResend && i.stage === 'awaiting_acceptance'
           ? '<span class="acct-msg" id="introMsg-' + esc(i.id) + '" hidden></span>'
@@ -528,14 +501,21 @@
     '</div>';
   }
 
+  /* One list (plan 055, decision 8): the seeker's request cards and the
+     provider's rows together, newest first. A side tag only when the account
+     is on both sides of the hub. */
+  function when(iso) {
+    var ms = iso ? new Date(iso).getTime() : 0;
+    return isNaN(ms) ? 0 : ms;
+  }
   function renderIntroductions(d) {
     var intros = Array.isArray(d.introductions) ? d.introductions : [];
-    var requests = Array.isArray(d.requests) ? d.requests : null;
+    var requests = Array.isArray(d.requests) ? d.requests : [];
     var byId = {};
     intros.forEach(function (i) { byId[i.id] = i; });
 
     var pickIds = {};
-    (requests || []).forEach(function (r) {
+    requests.forEach(function (r) {
       (Array.isArray(r.picks) ? r.picks : []).forEach(function (p) { pickIds[p.introduction_id] = true; });
     });
 
@@ -543,31 +523,39 @@
     (Array.isArray(d.offers) ? d.offers : []).forEach(function (o) { offerBy[o.introduction_id] = o; });
 
     var provider = intros.filter(function (i) { return i.role === 'provider'; });
-    /* Anything on this side that no request card already shows: an older
-       summary's flat list, or a seeker introduction with no request behind it.
-       It still renders, on the same chain, rather than going missing. */
+    /* Anything on the seeker's side that no request card already shows: an
+       older summary's flat list, or a seeker introduction with no request
+       behind it. It still renders, on the same chain, rather than going
+       missing. */
     var other = intros.filter(function (i) { return i.role !== 'provider' && !pickIds[i.id]; });
 
-    var blocks = [];
-    if (requests) {
-      blocks.push('<h3 class="acct-sub">What you asked for</h3>' +
-        (requests.length ? requests.map(function (r) { return requestCard(r, byId); }).join('')
-                         : empty('No requests yet. Ask a hub for what you need and it appears here.', 'add_circle')));
-    }
-    if (provider.length) {
-      blocks.push('<h3 class="acct-sub">Asked of you</h3>' +
-        provider.map(function (i) { return introRow(i, true, offerBy[i.id]); }).join(''));
-    }
-    if (other.length) {
-      blocks.push((requests || provider.length ? '<h3 class="acct-sub">Everything else</h3>' : '') +
-        other.map(function (i) { return introRow(i, false); }).join(''));
-    }
-    if (!blocks.length) blocks.push(empty('No introductions yet.', 'handshake'));
+    var both = (requests.length || other.length) && provider.length;
+    var items = [];
+    requests.forEach(function (r) { items.push({ at: when(r.created_at), html: requestCard(r, byId, both ? 'You asked' : '') }); });
+    provider.forEach(function (i) { items.push({ at: when(i.created_at), html: introRow(i, true, offerBy[i.id], both ? 'Asked of you' : '') }); });
+    other.forEach(function (i) { items.push({ at: when(i.created_at), html: introRow(i, false, null, both ? 'You asked' : '') }); });
+    items.sort(function (a, b) { return b.at - a.at; });
 
     fill('introductions',
-      head('handshake', 'Introductions', 'Once both sides have accepted, the introduction arrives in your inbox.') +
-      blocks.join(''));
+      head('handshake', 'Introductions', 'Once both sides have accepted, the introduction arrives in your inbox, and is listed below.') +
+      (items.length ? items.map(function (x) { return x.html; }).join('')
+        : empty('No introductions yet. Ask a hub for what you need, or list your site, and they appear here.', 'add_circle')));
     mountPairMaps(provider, offerBy);
+    attend();
+  }
+
+  /* The row the reader was sent to: #intro-<id> in the address (the offer
+     email links to it; so does Answer in Waiting on you) scrolls to that
+     row and marks it. Only one row is marked at a time. */
+  function attend() {
+    var m = /^#intro-(\d+)$/.exec(location.hash || '');
+    var row = m ? el('intro-' + m[1]) : null;
+    Array.prototype.forEach.call(document.querySelectorAll('.acct-row.is-attention'), function (r) {
+      if (r !== row) r.classList.remove('is-attention');
+    });
+    if (!row) return;
+    row.classList.add('is-attention');
+    try { row.scrollIntoView({ block: 'center' }); } catch (e) { row.scrollIntoView(); }
   }
 
   /* ═══════════ 3. declarations (host) ═══════════ */
@@ -648,7 +636,12 @@
       body + declHistory(dec));
   }
 
-  /* ═══════════ 4. orders awaiting confirmation (seeker) ═══════════ */
+  /* ═══════════ 4. waiting on you ═══════════ */
+  /* Every open action on the account, directly under the banner (plan 055,
+     decision 10), the top one highlighted. It reads the same summary the
+     sections read and adds nothing of its own: declared orders are
+     confirmed or queried here, and the rest links down to the section that
+     holds the button, or out to the door. Never empty. */
   function confirmRow(o) {
     var id = o.id;
     var facts = [];
@@ -674,21 +667,69 @@
     '</div>';
   }
 
-  function renderOrders(d) {
+  /* The other side's declared lines waiting on this account. Older summaries
+     carried the same idea under orders_awaiting_confirm. */
+  function confirmLines(d) {
     var dec = d.declarations;
-    var lines = (dec && Array.isArray(dec.awaiting_my_confirmation)) ? dec.awaiting_my_confirmation.map(function (l) {
-      return { kind: 'line', id: l.line_id, ref: l.ref, period: l.period, units: l.units, value: l.value, currency: l.currency, declared_at: l.declared_at };
-    }) : null;
-    /* Older summaries carried the same idea under orders_awaiting_confirm. */
-    if (!lines && Array.isArray(d.orders_awaiting_confirm)) {
-      lines = d.orders_awaiting_confirm.map(function (o) {
+    if (dec && Array.isArray(dec.awaiting_my_confirmation)) {
+      return dec.awaiting_my_confirmation.map(function (l) {
+        return { kind: 'line', id: l.line_id, ref: l.ref, period: l.period, units: l.units, value: l.value, currency: l.currency, declared_at: l.declared_at };
+      });
+    }
+    if (Array.isArray(d.orders_awaiting_confirm)) {
+      return d.orders_awaiting_confirm.map(function (o) {
         return { kind: 'order', id: o.id, ref: o.ref || hubLabel(o.hub), period: o.period, units: o.units, value: o.value, currency: o.currency, declared_at: o.logged_at };
       });
     }
-    fill('orders',
-      head('pending_actions', 'Waiting on you', 'Confirm what matches your records, or query what does not.') +
-      ((lines && lines.length) ? lines.map(confirmRow).join('') : empty('Nothing to confirm.', 'task_alt')));
-    if (el('orders')) el('orders').classList.toggle('is-attention', !!(lines && lines.length));
+    return [];
+  }
+
+  function renderWaiting(d, s) {
+    var dec = d.declarations || null;
+    var intros = Array.isArray(d.introductions) ? d.introductions : [];
+    var lines = confirmLines(d);
+    var asked = intros.filter(function (i) { return i.role === 'provider' && i.stage === 'awaiting_acceptance'; });
+    var due = isHost(s) && dec && ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
+      Array.isArray(dec.items) && dec.items.length;
+    /* An account that is not a host and has listed, asked and been
+       introduced to nothing yet has one thing to do: choose a hub. The
+       line goes to the door, not to a section (plan 046, record B2). */
+    var nothingYet = !isHost(s) && !(Array.isArray(d.listings) && d.listings.length) &&
+      !(Array.isArray(d.requests) && d.requests.length) && !intros.length;
+
+    var acts = [];
+    if (asked.length) acts.push({ href: '#intro-' + asked[0].id, icon: 'handshake',
+      text: asked.length === 1 ? 'Answer 1 introduction' : 'Answer ' + asked.length + ' introductions' });
+    if (lines.length) acts.push({ act: 'waiting-confirm', icon: 'pending_actions',
+      text: lines.length === 1 ? 'Confirm 1 declared order' : 'Confirm ' + lines.length + ' declared orders' });
+    if (due) acts.push({ href: '#declarations', icon: 'fact_check',
+      text: 'Send your declaration for ' + (fmtPeriod(dec.period_open) || 'this period') + (dec.due_state === 'overdue' ? ', now overdue' : '') });
+    if (nothingYet) acts.push({ href: HUB_DOOR, icon: 'hub', leaves: true,
+      text: 'List your site, or ask a hub for what you need' });
+
+    var body;
+    if (!acts.length) {
+      body = '<p class="acct-quiet">' + esc(isHost(s)
+        ? 'Nothing waiting on you. Your listing is live; introductions appear below as they arrive.'
+        : 'Nothing waiting on you. Ask a hub for what you need when you are ready.') + '</p>';
+    } else {
+      /* The trailing arrow points down to a section, or on to the door. */
+      var down = icon('arrow_downward'), on = icon('arrow_forward');
+      body = '<div class="acct-actions">' + acts.map(function (a, n) {
+        var cls = 'acct-action' + (n === 0 ? ' is-top' : '');
+        var inner = icon(a.icon) + '<span>' + esc(a.text) + '</span>' + (a.leaves ? on : down);
+        return a.href
+          ? '<a class="' + cls + '" href="' + esc(a.href) + '">' + inner + '</a>'
+          : '<button class="' + cls + '" type="button" data-act="' + a.act + '">' + inner + '</button>';
+      }).join('') + '</div>' +
+      (lines.length
+        ? '<h3 class="acct-sub">Declared orders to confirm</h3>' +
+          '<p class="hint">Confirm what matches your records, or query what does not.</p>' +
+          lines.map(confirmRow).join('')
+        : '');
+    }
+    fill('waiting', head('pending_actions', 'Waiting on you', 'What needs your answer.') + body);
+    return acts.length;
   }
 
   /* ═══════════ 5. fees and standing (host) ═══════════ */
@@ -737,8 +778,27 @@
         }).join(''))
       : empty('No open strikes.', 'verified');
 
+    /* Introduced customers (plan 055, decision 20): each relationship and the
+       day it began, which is the day the five fee years run from. Older
+       summaries carry no relationships; the provider rows say the same. */
+    var rels = Array.isArray(d.relationships) ? d.relationships
+      : (Array.isArray(d.introductions) ? d.introductions : []).filter(function (i) {
+          return i.role === 'provider' && i.introduced_at;
+        }).map(function (i) { return { introduction_id: i.id, ref: i.ref, hub: i.hub, since: i.introduced_at }; });
+    var relBody = rels.length
+      ? '<h3 class="acct-sub">Introduced customers</h3>' +
+        group(rels.map(function (r) {
+          return '<div class="acct-row"><div class="acct-row__meta">' +
+            '<b>' + refLine(r.ref, r.hub, 'Introduction') + '</b>' +
+            '<span>' + esc('Relationship since ' + fmtDate(r.since)) + '</span>' +
+          '</div></div>';
+        }).join('')) +
+        '<h3 class="acct-sub">Statements</h3>'
+      : '';
+
     fill('fees',
       head('receipt_long', 'Fees and standing', scoreLine) +
+      relBody +
       feesBody +
       '<h3 class="acct-sub">Open strikes</h3>' +
       strikesBody);
@@ -757,64 +817,25 @@
       '</div>');
   }
 
-  /* ═══════════ what needs the reader, and where things are ═══════════ */
-  /* Both read the same summary the sections read, and add nothing of their
-     own: every line here is a link down to the section that already holds
-     the button. */
-  function needsOf(d, s) {
-    var dec = d.declarations || null;
-    var intros = Array.isArray(d.introductions) ? d.introductions : [];
-    var lines = (dec && Array.isArray(dec.awaiting_my_confirmation)) ? dec.awaiting_my_confirmation
-      : (Array.isArray(d.orders_awaiting_confirm) ? d.orders_awaiting_confirm : []);
-    var asked = intros.filter(function (i) { return i.role === 'provider' && i.stage === 'awaiting_acceptance'; }).length;
-    var due = isHost(s) && dec && ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
-      Array.isArray(dec.items) && dec.items.length;
-    var out = [];
-    if (lines.length) out.push({ to: 'orders', icon: 'pending_actions',
-      text: lines.length === 1 ? 'Confirm 1 declared order' : 'Confirm ' + lines.length + ' declared orders' });
-    if (due) out.push({ to: 'declarations', icon: 'fact_check',
-      text: 'Send your declaration for ' + (fmtPeriod(dec.period_open) || 'this period') + (dec.due_state === 'overdue' ? ', now overdue' : '') });
-    if (asked) out.push({ to: 'introductions', icon: 'handshake',
-      text: asked === 1 ? 'Answer 1 introduction from the email we sent you' : 'Answer ' + asked + ' introductions from the emails we sent you' });
-    /* An account that is not a host and has listed, asked and been
-       introduced to nothing yet has one thing to do: choose a hub. The
-       line goes to the door, not to a section (plan 046, record B2). */
-    var nothingYet = !isHost(s) && !(Array.isArray(d.listings) && d.listings.length) &&
-      !(Array.isArray(d.requests) && d.requests.length) && !intros.length;
-    if (nothingYet) out.push({ href: HUB_DOOR, icon: 'hub',
-      text: 'Choose a hub: find print or milling capacity, or list your site' });
-    return out;
-  }
+  /* ═══════════ where things are ═══════════ */
+  var NAV_LABEL = { profile: 'Your site', waiting: 'Waiting on you', introductions: 'Introductions',
+    declarations: 'Declarations', fees: 'Fees and standing', education: 'Education' };
 
-  /* A line with an href leaves the page (the trailing arrow points on); one
-     with a section id scrolls down to it. */
-  function renderNeeds(needs) {
-    if (!needs.length) { hide('acctNeeds'); return; }
-    fill('acctNeeds',
-      '<h2>Next step</h2><ul>' + needs.map(function (n) {
-        var open = n.href ? '<a href="' + esc(n.href) + '">' : '<a href="#' + n.to + '">';
-        var arrow = n.href ? icon('arrow_forward') : icon('arrow_downward');
-        return '<li>' + open + icon(n.icon) + '<span>' + esc(n.text) + '</span>' + arrow + '</a></li>';
-      }).join('') + '</ul>');
-  }
-
-  var NAV_LABEL = { profile: 'Your site', introductions: 'Introductions', declarations: 'Declarations',
-    orders: 'Waiting on you', fees: 'Fees and standing', you: 'You', users: 'Users', education: 'Education' };
-
-  function renderNav(needs) {
-    var flagged = {};
-    needs.forEach(function (n) { flagged[n.to] = true; });
+  /* The rail: one link per section on the page, a dot on any that has
+     something waiting, and the settings page last (a page, not a section). */
+  function renderNav(flagged) {
+    flagged = flagged || {};
     var links = SECTIONS.filter(function (id) { return el(id) && !el(id).hidden; }).map(function (id) {
       return '<a href="#' + id + '">' + esc(NAV_LABEL[id]) +
         (flagged[id] ? '<span class="acct-nav__dot" aria-hidden="true"></span>' : '') + '</a>';
     });
+    links.push('<a href="settings/">Account settings</a>');
     fill('acctNav', links.join(''));
     var wrap = document.querySelector('.acct-wrap');
     if (wrap) wrap.classList.add('has-nav');
   }
 
   function clearChrome() {
-    hide('acctNeeds');
     hide('acctNav');
     var wrap = document.querySelector('.acct-wrap');
     if (wrap) wrap.classList.remove('has-nav');
@@ -887,17 +908,12 @@
     var byId = {};
     (Array.isArray(d.introductions) ? d.introductions : []).forEach(function (i) { byId[i.id] = i; });
     renderProfile(d, s);
+    var open = renderWaiting(d, s);
     renderIntroductions(d);
     renderDeclarations(d, s, byId);
-    renderOrders(d);
     renderFees(d, s);
     renderEducation();
-    var needs = needsOf(d, s);
-    renderNeeds(needs);
-    renderNav(needs);
-    /* The two people sections arrive on their own reads; the nav is drawn
-       again once they have, so it lists them. */
-    if (window.NPPeople) NPPeople.render().then(function () { renderNav(needs); });
+    renderNav({ waiting: open > 0 });
   }
 
   /* ═══════════ loading ═══════════ */
@@ -1190,18 +1206,23 @@
     if (act === 'intro-decline-open') { openAnswer(btn, 'decline'); return; }
     if (act === 'intro-accept-send') { gate(function () { sendAnswer(btn, 'accept'); }); return; }
     if (act === 'intro-decline-send') { gate(function () { sendAnswer(btn, 'decline'); }); return; }
-    if (act === 'avatar-pick') { var file = el('avatarFile'); if (file) file.click(); return; }
-    if (act === 'avatar-remove') { gate(function () { removeAvatar(btn); }); return; }
-  }
-  function onChange(e) {
-    if (e.target && e.target.id === 'avatarFile') gate(function () { uploadAvatar(e.target); });
+    if (act === 'waiting-confirm') {
+      /* The lines are right under the buttons: go to the first one. */
+      var first = document.querySelector('#waiting [data-act="line-confirm"]');
+      if (first) {
+        var row = first.closest('.acct-row');
+        try { (row || first).scrollIntoView({ block: 'center' }); } catch (e2) { /* an old browser */ }
+        first.focus();
+      }
+      return;
+    }
   }
 
   /* ═══════════ boot ═══════════ */
   function init() {
     var wrap = document.querySelector('.acct-wrap');
     if (wrap) wrap.addEventListener('click', onClick);
-    if (wrap) wrap.addEventListener('change', onChange);
+    window.addEventListener('hashchange', attend);
     if (!window.NPAccount) { showSignedOut(); return; }
     document.addEventListener('npaccount:change', load);
     NPAccount.ready.then(load);

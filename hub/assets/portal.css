@@ -688,6 +688,40 @@ body[data-np-signed-in] .np-holder{display:block}
 .wm-pill:hover{border-color:var(--blue)}
 .wm-pill.is-on{background:var(--blue);color:#fff;border-color:var(--blue)}
 
+/* The need box on the pair map (plan 055, decision 7): what the seeker asked
+   for, pinned open above the Request pin on every provider row, in the
+   page's own card rather than Leaflet's. The map is taller than the plain
+   pair map so the open box never clips. */
+.np-map--need{height:440px}
+@media(max-width:560px){.np-map--need{height:400px}}
+.np-need-pop .leaflet-popup-content-wrapper{border-radius:var(--radius-lg);background:var(--surface);border:1px solid var(--border-card);box-shadow:0 10px 28px rgba(14,22,38,.14);padding:0}
+.np-need-pop .leaflet-popup-content-wrapper{text-align:left}
+.np-need-pop .leaflet-popup-content{margin:0;padding:12px 14px 11px;font:400 12.5px/1.45 var(--font-body);color:#0E1626}
+.np-need-pop .leaflet-popup-tip-container{margin-top:-1px}
+.np-need-pop .leaflet-popup-tip{background:var(--surface);box-shadow:0 3px 6px rgba(14,22,38,.08)}
+.np-need{display:block;min-width:196px}
+.np-need__head{display:block;font:600 11px/1 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--green-deep);margin:0 0 6px}
+.np-need__where{display:block;font:600 13.5px/1.3 var(--font-display);color:#0E1626;margin:0 0 8px}
+.np-need dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0}
+.np-need dt{color:var(--on-surface-var);font-weight:500;white-space:nowrap}
+.np-need dd{margin:0;color:#0E1626;font-weight:600;overflow-wrap:anywhere}
+.np-need__notes{margin:8px 0 0;padding-top:8px;border-top:1px solid var(--border-soft);color:var(--on-surface);white-space:pre-line}
+.np-need__notes b{display:block;font:500 11px/1.6 var(--font-body);letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-var)}
+
+/* An introduction the reader was sent to (#intro-<id>, from the offer email
+   or the Waiting on you list, plan 055): a soft blue outline on that row. */
+.acct-row[id]{scroll-margin-top:100px}
+.acct-row.is-attention{border-color:rgba(0,92,200,.45);box-shadow:0 0 0 3px rgba(0,92,200,.18),0 8px 22px rgba(0,92,200,.08)}
+/* Plan 055, batch C: the listing form's ship map sits above its chips; the
+   find page tags its best three cards, and every ranked site is a pin, the
+   best three filled, the rest outlined (the shared count pins keep their
+   outline unless one of the three is under them). .np-pin.is-on, above,
+   still wins for the pin that is picked. */
+#shipsToMap{margin-bottom:14px}
+.badge-best{display:inline-flex;align-items:center;font:600 10px/1 var(--font-body);letter-spacing:.06em;text-transform:uppercase;color:#5a8f1d;background:rgba(139,197,63,.10);border:1px solid rgba(139,197,63,.20);border-radius:9999px;padding:5px 10px;white-space:nowrap}
+.np-pin--more{background:#fff;color:var(--blue);border-color:var(--blue)}
+.np-pin--best{background:var(--blue);color:#fff;border-color:#fff}
+
 /* The hub films (12 October 2026): one short film per hub page, in the overview film's family. */
 .film__frame{margin:clamp(28px,4vh,40px) auto 0;max-width:1120px;border:1px solid #E3E7ED;border-radius:12px;overflow:hidden;background:#F5F7FA;box-shadow:0 24px 64px rgba(14,22,38,.14)}
 .film__video{display:block;width:100%;aspect-ratio:16/9;background:#F5F7FA}

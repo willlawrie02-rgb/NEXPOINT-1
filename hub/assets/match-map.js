@@ -3,11 +3,13 @@
    leaflet, 1.9.4, BSD-2).
 
    The seeker's map, after Find capacity: the seeker's own town and one pin
-   per shortlisted site, numbered as the cards are. Sites in the same town
-   share one pin, which shows how many are there and opens a short anonymous
-   list ("Site 2", "Site 3", with lead time and distance), each with its own
-   Choose button. Choosing on the map ticks the card; ticking a card lights
-   its pin.
+   per ranked site, numbered as the cards are (plan 055: every ranked site
+   is on the map, the best three filled, the rest outlined; a pin opens the
+   card of a site outside the three). Sites in the same town share one pin,
+   which shows how many are there and opens a short anonymous list ("Site
+   2", "Site 3", with lead time and distance), each with its own Choose
+   button. Choosing on the map ticks the card; ticking a card lights its
+   pin.
 
    The provider's map, on an offer: the seeker's town and the lab's own.
 
@@ -106,8 +108,13 @@
   }
 
   /* The seeker's map. opts: {el, seeker: {lat,lng}|null, sites: [{listing_id,
-     position, town, country, point, lead, distance}], onPick(id), noun,
-     assetBase}. Returns {select(id), refresh(), destroy(), groups} or null. */
+     position, town, country, point, lead, distance, best}], onPick(id),
+     onReveal(id), noun, assetBase}. Every ranked site is a pin, numbered by
+     rank; a site flagged `best` (one of the three shown as cards) gets a
+     filled pin, the rest are outlined (plan 055, decision 15). A click on a
+     pin calls onReveal for each site under it before its popup opens, so a
+     site outside the three gets its card. Returns {select(id), refresh(),
+     destroy(), groups} or null. */
   function mount(opts) {
     var box = opts && opts.el;
     if (!box || !window.L) return null;
@@ -134,10 +141,19 @@
       var label = one
         ? noun.charAt(0).toUpperCase() + noun.slice(1) + ' ' + g.sites[0].position + ', ' + placeOf(g.sites[0])
         : g.sites.length + ' ' + noun + 's in ' + placeOf(g.sites[0]);
+      /* a town with one of the best three in it is a filled pin; a town
+         with none is outlined, as the shared count pins always were */
+      var best = g.sites.some(function (s) { return s.best === true; });
+      var cls = (one ? '' : 'np-pin--group') + (best ? ' np-pin--best' : ' np-pin--more');
       var m = L.marker([g.at.lat, g.at.lng], {
-        icon: pinIcon(one ? String(g.sites[0].position) : String(g.sites.length), one ? '' : 'np-pin--group'),
+        icon: pinIcon(one ? String(g.sites[0].position) : String(g.sites.length), cls.trim()),
         title: label, alt: label, riseOnHover: true,
       }).addTo(map);
+      /* registered before bindPopup, so the cards are on the page before
+         Leaflet's own click handler opens the popup */
+      if (typeof opts.onReveal === 'function') m.on('click', function () {
+        g.sites.forEach(function (s) { opts.onReveal(String(s.listing_id)); });
+      });
       m.bindPopup(popupFor(g, { noun: noun, onPick: function (id) { m.closePopup(); opts.onPick(id); } }),
         { minWidth: 200, maxWidth: 280 });
       points.push(g.at);
@@ -168,7 +184,11 @@
 
   /* The provider's map: the seeker's town and the lab's own, two pins and
      nothing to choose. opts: {el, seeker: {lat,lng,town,country}, site:
-     {lat,lng,town,country}}. Returns {refresh(), destroy()} or null. */
+     {lat,lng,town,country}, popup}. `popup` (plan 055, decision 7) is the
+     need box: HTML the page built from the request, pinned open on the
+     Request pin with no close button, and opened again whenever the map is
+     measured afresh. The frame leaves room above the pins for it, so the
+     box never clips. Returns {refresh(), destroy()} or null. */
   function mountPair(opts) {
     var box = opts && opts.el;
     if (!box || !window.L) return null;
@@ -177,6 +197,7 @@
     if (!seeker && !site) return null;
     var map = baseMap(box);
     var points = [];
+    var ask = null;
     if (site) {
       var lab = 'Your site, ' + placeOf(site);
       L.marker([site.point.lat, site.point.lng], { icon: pinIcon('You', 'np-pin--you'), title: lab, alt: lab })
@@ -185,17 +206,57 @@
     }
     if (seeker) {
       var who = 'The request, ' + placeOf(seeker);
-      L.marker([seeker.point.lat, seeker.point.lng], {
+      ask = L.marker([seeker.point.lat, seeker.point.lng], {
         icon: pinIcon('Request', 'np-pin--ask' + (site && near(site.point, seeker.point) ? ' np-pin--beside' : '')),
         title: who, alt: who })
         .addTo(map);
       points.push(seeker.point);
+      if (opts.popup) {
+        ask.bindPopup(opts.popup, { autoClose: false, closeOnClick: false, closeButton: false, autoPan: false,
+          className: 'np-need-pop', minWidth: 210, maxWidth: 260, offset: [0, 2] });
+      }
     }
-    frame(map, points);
+    var hasBox = !!(ask && opts.popup);
+    function openBox() { if (hasBox && !ask.isPopupOpen()) ask.openPopup(); }
+    /* With the box open, the frame is chosen by hand: the highest zoom at
+       which both pins fit with the box's height above the Request pin, and,
+       where one can be found, at which the box does not cover the site's
+       pin (the two separate as the map zooms in). */
+    function framePair() {
+      if (!points.length) return;
+      if (!hasBox) { frame(map, points); return; }
+      var pop = ask.getPopup() && ask.getPopup().getElement();
+      var w = pop ? pop.offsetWidth : 260, h = pop ? pop.offsetHeight : 220;
+      var size = map.getSize();
+      var pins = [{ ll: seeker.point, top: h + 30, side: w / 2 + 12 }];
+      if (site) pins.push({ ll: site.point, top: 40, side: 40 });
+      var fit = null, clear = null;
+      for (var z = 2; z <= 11; z++) {
+        var pts = pins.map(function (p) {
+          var q = map.project([p.ll.lat, p.ll.lng], z);
+          return { x: q.x, y: q.y, top: p.top, side: p.side };
+        });
+        var top = Math.min.apply(null, pts.map(function (p) { return p.y - p.top; }));
+        var bottom = Math.max.apply(null, pts.map(function (p) { return p.y + 40; }));
+        var left = Math.min.apply(null, pts.map(function (p) { return p.x - p.side; }));
+        var right = Math.max.apply(null, pts.map(function (p) { return p.x + p.side; }));
+        if (bottom - top > size.y || right - left > size.x) break;
+        var view = { z: z, x: (left + right) / 2, y: (top + bottom) / 2 };
+        fit = view;
+        var covered = pts.length > 1 && Math.abs(pts[1].x - pts[0].x) < w / 2 + 24 &&
+          pts[1].y < pts[0].y + 24 && pts[1].y > pts[0].y - h - 44;
+        if (!covered) clear = view;
+      }
+      var v = clear || fit;
+      if (!v) { frame(map, points); return; }
+      map.setView(map.unproject([v.x, v.y], v.z), v.z, { animate: false });
+    }
+    openBox();
+    framePair();
     var dead = false;
     return {
       map: map,
-      refresh: function () { setTimeout(function () { if (dead) return; map.invalidateSize(); frame(map, points); }, 50); },
+      refresh: function () { setTimeout(function () { if (dead) return; map.invalidateSize(); openBox(); framePair(); }, 50); },
       destroy: function () { dead = true; try { map.remove(); } catch (e) { /* already gone */ } },
     };
   }
