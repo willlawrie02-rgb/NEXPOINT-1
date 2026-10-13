@@ -386,7 +386,7 @@ function approveRequest(id){
      so the engine's own default (all of them) still covers a retry. */
   const boxes=[...document.querySelectorAll('.pick-'+id)];
   const chosen=boxes.filter(b=>b.checked).map(b=>b.value);
-  if(boxes.length&&!chosen.length){alert('Tick at least one provider to approve.');return;}
+  if(boxes.length&&!chosen.length){alert('Tick the provider to approve.');return;}
   const payload={request_id:id};
   if(boxes.length&&chosen.length<boxes.length)payload.listing_ids=chosen;
   raise('approve-intro-request',payload,'sreq-'+id,'Approved');
@@ -799,10 +799,11 @@ function rerouteControl(i){
 
 /* ── Listings (hub v2) ─────────────────────────────────────────────── */
 
+/* No monthly capacity here since plan 055: it is a machine attribute, read
+   by machineLines() and summed by capacityOf(). */
 const REV_FIELDS=[['address_line','Address'],['town','Town'],['postcode','Postcode'],
   ['country','Country'],['ships_to','Ships to'],['services','Services'],
-  ['quality_notes','Quality notes'],['monthly_capacity','Monthly capacity'],
-  ['attributes','Attributes']];
+  ['quality_notes','Quality notes'],['attributes','Attributes']];
 
 /* A stored term (pa12_nylon12, one_off) read as words: the vocabulary's label,
    or, for a term it lacks, the term with underscores as spaces and a capital. */
@@ -855,12 +856,52 @@ function diffTable(rows){
       <td class="now">${esc(b)}</td></tr>`).join('')}</tbody></table>`;
 }
 
+/* One line per machine, everything the host said about it (plan 055):
+   name, how many, materials, process, lead time, the monthly capacity and
+   minimum order it carries as attributes (left out when absent), notes. */
+function machineLines(rev){
+  return ((rev&&machinesByRev[rev.id])||[]).map(m=>{
+    const a=m.attributes||{};
+    return [
+      m.name||'(unnamed machine)',
+      m.count>1?`\u00d7${m.count}`:'',
+      (m.materials||[]).length?m.materials.map(t=>lab('material',t)).join(', '):'',
+      a.process!=null&&a.process!==''?`process ${fmtVal(a.process,'process')}`:'',
+      m.lead_time_days!=null?`${m.lead_time_days} day lead`:'',
+      a.monthly_capacity!=null&&a.monthly_capacity!==''?`${a.monthly_capacity} a month`:'',
+      a.min_order!=null&&a.min_order!==''?`min order ${a.min_order}`:'',
+      m.notes?`notes: ${m.notes}`:'',
+    ].filter(Boolean).join(' · ');
+  });
+}
+
+/* What the host submitted, in the seeker card's format (needLines): one
+   "Label: value" line per filled field, then one Machines line per machine.
+   Fields the host left empty are left out, as the seeker card leaves out
+   an empty need. */
 function submittedTable(rev){
-  const rows=REV_FIELDS.map(([f,label])=>[label,fmtVal((rev||{})[f],KIND_OF[f])]);
-  const machines=machineList(rev);
-  rows.push(['Machines',machines.length?machines.join('; '):'—']);
-  return `<table class="diff"><tbody>${rows.map(([f,v])=>
-    `<tr><td>${esc(f)}</td><td class="now" colspan="2">${esc(v)}</td></tr>`).join('')}</tbody></table>`;
+  const r=rev||{};
+  const lines=REV_FIELDS
+    .filter(([f])=>r[f]!=null&&String(r[f]).trim()!==''&&!(Array.isArray(r[f])&&!r[f].length)
+      &&!(typeof r[f]==='object'&&!Array.isArray(r[f])&&!Object.keys(r[f]).length))
+    .map(([f,label])=>`<strong>${esc(label)}:</strong> ${esc(fmtVal(r[f],KIND_OF[f]))}`);
+  const machines=machineLines(rev);
+  if(machines.length)machines.forEach(m=>lines.push(`<strong>Machines:</strong> ${esc(m)}`));
+  else lines.push('<strong>Machines:</strong> none listed');
+  return `<div class="why" style="margin-top:8px">${lines.join('<br>')}</div>`;
+}
+
+/* The listing's monthly capacity (plan 055): the sum over its machines of
+   the capacity each carries; null when none of them carries one. */
+function capacityOf(rev,l){
+  const machines=(rev&&machinesByRev[rev.id])||(l&&machinesByRev[l.live_revision_id])||[];
+  let total=null;
+  machines.forEach(m=>{
+    const v=Number((m.attributes||{}).monthly_capacity);
+    if((m.attributes||{}).monthly_capacity!=null&&(m.attributes||{}).monthly_capacity!==''&&!isNaN(v))
+      total=(total||0)+v;
+  });
+  return total;
 }
 
 const listingLabel=l=>{
@@ -904,11 +945,12 @@ function shipsToUnset(l){
 function cardSummary(intro){
   const l=listingById(intro.listing_id);
   const rev=revById[intro.listing_revision_id]||(l?revById[l.live_revision_id]:null)||{};
+  const capacity=capacityOf(rev,l);
   return [
     l?((orgById[l.org_id]||{}).name||'(host)'):'(listing withdrawn)',
     [rev.town,rev.country].filter(Boolean).join(', '),
     (rev.services||[]).map(t=>lab('service',t)).join(', '),
-    rev.monthly_capacity!=null?`${rev.monthly_capacity} a month`:'',
+    capacity!=null?`${capacity} a month`:'',
   ].filter(Boolean).join(' · ');
 }
 
@@ -966,7 +1008,7 @@ function seekerCard(r){
     actions=`<div class="actions">${failed}
       ${r.no_match?'<span class="status" style="flex-basis:100%">The search matched nobody; add a provider by hand or decline.</span>':''}
       ${picks.length?`<button class="btn btn-grn btn-sm" onclick="approveRequest(${r.id})">
-        <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve picks</button>`:''}
+        <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve the pick</button>`:''}
       ${adder}
       <button class="btn btn-danger btn-sm" onclick="declineRequest(${r.id})">
         <span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button></div>`;

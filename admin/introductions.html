@@ -95,7 +95,11 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         <p class="note">
           Every introduction on every hub, at every stage, dead ones included. Read-only:
           the stage dropdown, commission and re-route controls stay on each hub's board,
-          one click away on the row.
+          one click away on the row. "Introduced on" is the day the parties were put
+          together: the relationship starts there and the fee years count from it. "Last
+          reply" is the latest order email cc'd to the desk on that introduction. Quiet
+          means no cc'd order email and no declared line since the introduction, 30 days
+          or more after it was made, while it still reads introduced or in discussion.
         </p>
         <div class="toolbar"><div id="filters" style="display:contents"></div></div>
         <div id="banner"></div>
@@ -104,9 +108,10 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <table>
             <thead><tr>
               <th scope="col">Ref</th><th scope="col">Hub</th><th scope="col">Party A</th><th scope="col">Party B</th>
-              <th scope="col">Stage</th><th scope="col">Created</th><th scope="col">Last moved</th><th scope="col">Board</th>
+              <th scope="col">Stage</th><th scope="col">Introduced on</th><th scope="col">Created</th><th scope="col">Last moved</th>
+              <th scope="col">Last reply</th><th scope="col">Board</th>
             </tr></thead>
-            <tbody id="introRows"><tr><td colspan="8" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+            <tbody id="introRows"><tr><td colspan="10" style="color:var(--fg-2)">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -127,6 +132,9 @@ const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let me=null,intros=[],filter='all';
 let reqById={},listingById={},seekById={},orgById={};
+/* Plan 055 (decision 21): the latest cc'd order email per introduction, and
+   which introductions have a declared line that still stands. */
+let lastReply={},declaredIds=new Set();
 
 async function boot(){
   const {data}=await sb.auth.getSession();
@@ -194,6 +202,18 @@ function seekRef(r){
   return `${String(r.hub||'r')[0].toUpperCase()}S-${String(r.web_request_id).padStart(4,'0')}`;
 }
 const day=v=>v?String(v).slice(0,10):'—';
+const QUIET_DAYS=30;
+/* Quiet (plan 055, decision 21): put together 30 days or more ago, still
+   introduced or in discussion, and nothing since: no cc'd order email
+   received after the introduction and no declared line on it. */
+function quiet(i,now){
+  if(!['introduced','in_discussion'].includes(i.stage)||!i.introduced_at)return false;
+  const since=new Date(i.introduced_at).getTime();
+  if(isNaN(since)||(now||Date.now())-since<QUIET_DAYS*86400000)return false;
+  if(declaredIds.has(String(i.id)))return false;
+  const reply=lastReply[i.id];
+  return !(reply&&new Date(reply).getTime()>since);
+}
 
 /* ── Data ──────────────────────────────────────────────────────────── */
 
@@ -234,6 +254,25 @@ async function load(){
     .filter(([,q])=>q.error)
     .forEach(([what,q])=>{$('banner').innerHTML+=`<div class="banner">Could not read ${esc(what)}: ${
       esc(q.error.message)}. Party names fall back to their ids until this read succeeds.</div>`;});
+  /* The reply trail and the declared lines, for Last reply and Quiet
+     (plan 055). A superseded line was corrected by a later one, so only
+     the lines that still stand count. */
+  const introIds=intros.map(i=>i.id);
+  const [eq,dq]=await Promise.all([
+    introIds.length?sb.from('order_evidence').select('introduction_id,received_at').in('introduction_id',introIds):none,
+    introIds.length?sb.from('declaration_lines').select('introduction_id,superseded_at').is('superseded_at',null).in('introduction_id',introIds):none,
+  ]);
+  lastReply={};
+  (eq.data||[]).forEach(e=>{
+    if(!e.received_at)return;
+    const have=lastReply[e.introduction_id];
+    if(!have||new Date(e.received_at)>new Date(have))lastReply[e.introduction_id]=e.received_at;
+  });
+  declaredIds=new Set((dq.data||[]).map(d=>String(d.introduction_id)));
+  [['order emails',eq],['declared lines',dq]]
+    .filter(([,q])=>q.error)
+    .forEach(([what,q])=>{$('banner').innerHTML+=`<div class="banner">Could not read ${esc(what)}: ${
+      esc(q.error.message)}. Last reply and Quiet are blank until this read succeeds.</div>`;});
   render();
 }
 
@@ -276,27 +315,37 @@ function render(){
   const live=intros.filter(i=>LIVE_STAGES.includes(i.stage)).length;
   $('count').textContent=intros.length
     ?`${intros.length} across every hub · ${live} live · ${counts.dead||0} dead`:'';
-  const chips=[['all','All',intros.length],...STAGE_ORDER.map(s=>[s,STAGE_LABEL[s],counts[s]||0])];
+  const now=Date.now();
+  const quietN=intros.filter(i=>quiet(i,now)).length;
+  /* The Quiet chip sits after the stage chips and outside STAGE_ORDER: it
+     is a condition across two stages, not a stage of its own. */
+  const chips=[['all','All',intros.length],...STAGE_ORDER.map(s=>[s,STAGE_LABEL[s],counts[s]||0]),
+    ['quiet',`QUIET ${QUIET_DAYS}+ DAYS`,quietN]];
   $('filters').innerHTML=chips.map(([f,label,n])=>
     `<button class="fchip" aria-pressed="${filter===f}" data-f="${esc(f)}" onclick="setFilter(this.dataset.f)">${
       esc(label)}${n?` ${n}`:''}</button>`).join('');
-  const shown=intros.filter(i=>filter==='all'||i.stage===filter);
-  $('introRows').innerHTML=shown.length?shown.map(row).join('')
-    :`<tr><td colspan="8" style="color:var(--fg-2)">${intros.length
-      ?'Nothing at this stage.':'No introductions yet, on any hub.'}</td></tr>`;
+  const shown=intros.filter(i=>filter==='all'||(filter==='quiet'?quiet(i,now):i.stage===filter));
+  $('introRows').innerHTML=shown.length?shown.map(i=>row(i,now)).join('')
+    :`<tr><td colspan="10" style="color:var(--fg-2)">${intros.length
+      ?(filter==='quiet'?'Nothing quiet: every open introduction has had a reply or a declared line.':'Nothing at this stage.')
+      :'No introductions yet, on any hub.'}</td></tr>`;
 }
 
-function row(i){
+function row(i,now){
   const when=stageWhen(i);
+  const isQuiet=quiet(i,now);
   return `<tr>
     <td class="rref">${esc(introRef(i))}</td>
     <td class="hub">${esc(HUB_NAME[i.hub]||i.hub)}</td>
     <td>${esc(partyA(i))}</td>
     <td>${esc(partyB(i))}</td>
     <td><span class="stg stg-${esc(i.stage)}" title="${esc(STAGE_HELP[i.stage]||'')}">${esc(STAGE_LABEL[i.stage]||i.stage)}</span>${
-      when?`<br><span class="when">${esc(when)}</span>`:''}</td>
+      when?`<br><span class="when">${esc(when)}</span>`:''}${
+      isQuiet?`<br><span class="when" style="color:var(--warn-ink)">quiet ${QUIET_DAYS}+ days</span>`:''}</td>
+    <td class="dt">${esc(i.introduced_at?day(i.introduced_at):'')}</td>
     <td class="dt">${esc(day(i.created_at))}</td>
     <td class="dt">${esc(day(i.updated_at))}</td>
+    <td class="dt">${esc(lastReply[i.id]?day(lastReply[i.id]):'')}</td>
     <td><a class="btn btn-gh btn-sm" href="${esc(HUB_PAGE[i.hub]||'dashboard.html')}">Open ${esc(HUB_NAME[i.hub]||i.hub)} board</a></td>
   </tr>`;
 }
