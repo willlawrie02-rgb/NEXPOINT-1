@@ -620,6 +620,10 @@
 
   /* Footer stays dark as a premium base */
   html[data-theme="light"] .footer { background: #0d0e0f; border-top-color: rgba(255, 255, 255, 0.06); }
+  /* The home page film (12 October 2026): the overview in seventy-five seconds. */
+  .film__frame{margin:clamp(28px,4vh,40px) auto 0;max-width:1120px;border:1px solid #E3E7ED;border-radius:12px;overflow:hidden;background:#F5F7FA;box-shadow:0 24px 64px rgba(14,22,38,.14)}
+  .film__video{display:block;width:100%;aspect-ratio:16/9;background:#F5F7FA}
+  .film__note{margin:14px auto 0;max-width:1120px;font-size:13px;line-height:1.5;color:#4A5462;text-align:center}
 </style>
 <!-- Lead Forensics tracking -->
 <script type="text/javascript" src="https://www.365-syndicate.com/js/818863.js"></script>
@@ -703,6 +707,26 @@
       <div class="proof__num">Global</div>
       <div class="proof__label">Market reach</div>
     </div>
+  </div>
+</section>
+
+<!-- ───── The film: NexPoint in seventy-five seconds ───── -->
+<section id="film" class="section" aria-label="NexPoint in seventy-five seconds">
+  <div class="container">
+    <div class="sec-head enter enter--up">
+      <span class="eyebrow">Watch</span>
+      <h2 class="h2">NexPoint in seventy-five seconds.</h2>
+      <p class="lede" style="margin-top:20px;">
+        A global industry made up of local businesses, the match we make between them, and the Global Hub where the network sees what is being offered and sought.
+      </p>
+    </div>
+    <figure class="film__frame enter enter--up">
+      <video class="film__video" controls preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-home-film-poster.jpg" aria-label="NexPoint in seventy-five seconds: the industry, the match and the Global Hub, with captions">
+        <source src="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4" type="video/mp4">
+        Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4">Download it instead</a>.
+      </video>
+    </figure>
+    <p class="film__note">Captions are built in. Sound on for the narration.</p>
   </div>
 </section>
 
