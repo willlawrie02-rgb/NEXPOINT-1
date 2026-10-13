@@ -124,7 +124,7 @@ const EMPTY_SUMMARY = {
   listings: [], requests: [], offers: [], introductions: [],
   orders_awaiting_confirm: [], orders_logged_this_month: [], fees_owed: [], open_strikes: [],
   declarations: { current: null, history: [], lines: [] }, evidence_counts: {}, statements: [],
-  score: null, hubs_used: [],
+  score: null, hubs_used: [], relationships: [],
 };
 
 /* The terms files are hard-wrapped at about 95 characters, so a paragraph, an
@@ -170,8 +170,8 @@ const API = {
     title: "NexPoint terms (walk)", body_md: WRAPPED_TERMS }],
   "POST /requests": () => [200, { ok: true }],
   "GET /account/summary": (w) => (w.user ? [200, w.summary || EMPTY_SUMMARY] : [401, { error: "unauthenticated" }]),
-  // the profile picture (plan 052 task 3.5): none until a scenario says otherwise
-  "GET /account/avatar": (w) => (w.user ? [200, { ok: true, url: w.avatar || null }] : [401, { error: "unauthenticated" }]),
+  // the account's logo (plan 055, decision 25): none until a scenario says otherwise
+  "GET /account/logo": (w) => (w.user ? [200, { ok: true, url: w.logo || null, expires_in: 60 }] : [401, { error: "sign in required" }]),
   "GET /opportunities/briefs": () => [200, { ok: true, briefs: [] }],
   "GET /vocab": () => [200, { ok: true, items: [] }],
   "GET /attributes": () => [200, { ok: true, attributes: [] }],
@@ -595,6 +595,7 @@ const WALLED = [
   ["the Print Hub", `${PRINT}/`], ["Print Hub: find", `${PRINT}/find.html`], ["Print Hub: offer", `${PRINT}/offer.html`],
   ["the Mill Hub", `${MILL}/`], ["Mill Hub: find", `${MILL}/find.html`], ["Mill Hub: offer", `${MILL}/offer.html`],
   ["Opportunities", `${OPPS}/`], ["the account page", `${APEX}/hub/account/`],
+  ["the account settings page", `${APEX}/hub/account/settings/`],
 ];
 
 async function walkWall() {
@@ -945,18 +946,19 @@ async function walkAccount() {
       offers: [{ introduction_id: 7, ref: "INT-0007", hub: "print", acceptance_expires_at: soon,
         request: { material: "pa12_nylon12", process: "fdm_fff", quantity: 40, cadence: "one_off", town: "Bristol", country: "United Kingdom" } }],
       // Plan 052, item 4: PS-/MS- codes are the worker's and the desk's; the seeker sees INTRO- only.
+      // Plan 055, decision 8: one list, newest first, so the requests are dated before the offer.
       requests: [
         { id: 3, ref: "PS-0046", hub: "print", material: "pa12_nylon12", quantity: 500, cadence: "recurring", status: "picked",
-          created_at: new Date().toISOString(), no_match: false,
+          created_at: "2026-10-01T09:00:00Z", no_match: false,
           picks: [{ introduction_id: 8, ref: "INTRO-0008", stage: "proposed", card: { town: "Leeds", country: "United Kingdom", materials: ["pa12_nylon12"], services: ["finishing_dyeing"],
             machines: [{ name: "HP MJF 5200", materials: ["pa12_nylon12"], count: 2, lead_time_days: 5 }] } },
             { introduction_id: 9, ref: "INTRO-0009", stage: "introduced", card: { town: "Derby", country: "United Kingdom", materials: ["pa12_nylon12"] } },
             { introduction_id: 10, ref: "INTRO-0010", stage: "awaiting_acceptance", card: { town: "Hull", country: "United Kingdom", materials: ["pa12_nylon12"] } }] },
         { id: 4, ref: "MS-0047", hub: "mill", material: "pa12_nylon12", quantity: 200, cadence: "once", status: "open",
-          created_at: new Date().toISOString(), no_match: false, picks: [] },
+          created_at: "2026-10-02T09:00:00Z", no_match: false, picks: [] },
         // Plan 052, item 3: a hand-routed request still carries no_match; its pick must show.
         { id: 5, ref: "PS-0048", hub: "print", material: "pa12_nylon12", quantity: 60, cadence: "once", status: "open",
-          created_at: new Date().toISOString(), no_match: true,
+          created_at: "2026-10-03T09:00:00Z", no_match: true,
           picks: [{ introduction_id: 11, ref: "INTRO-0011", stage: "awaiting_acceptance", card: { town: "Exeter", country: "United Kingdom", materials: ["pa12_nylon12"] } }] },
       ],
       hubs_used: ["print"],
@@ -994,8 +996,9 @@ async function walkAccount() {
   await step("the picks block reads in words: labelled materials, services and machines, no underscore, no [object Object]", async () => {
     await page.waitForSelector("#introductions:not([hidden])");
     await page.evaluate(() => document.querySelectorAll("#introductions details").forEach((d) => { d.open = true; }));
-    const block = await page.textContent("#introductions .acct-pick");
-    for (const bad of ["_", "[object Object]"]) if (block.includes(bad)) throw new Error(`the picks block shows ${bad}: ${block}`);
+    const blocks = await page.$$eval("#introductions .acct-pick", (els) => els.map((e) => e.textContent));
+    const block = blocks.find((b) => b.includes("INTRO-0008")) || "";
+    for (const bad of ["_", "[object Object]"]) if (blocks.join(" ").includes(bad)) throw new Error(`the picks block shows ${bad}: ${blocks.join(" | ")}`);
     has(block, "HP MJF 5200", "the machine name");
     has(block, "PA12", "the labelled material");
     has(block, "Services", "the services row");
@@ -1020,10 +1023,55 @@ async function walkAccount() {
     const text = await page.textContent("#introductions");
     for (const gone of ["In progress", "Accepted"]) if (text.includes(gone)) throw new Error(`the page still says ${gone}`);
   });
-  await step("an offer waiting on the provider shows, with a way to have it sent again", async () => {
+  await step("one Introductions list, newest first, with no What you asked for or Asked of you headings (plan 055, decision 8)", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    has(await page.textContent("#introductions .hint"), "Once both sides have accepted, the introduction arrives in your inbox, and is listed below.", "the hint");
+    const subs = await page.$$eval("#introductions .acct-sub", (els) => els.map((e) => e.textContent.trim()));
+    for (const gone of ["What you asked for", "Asked of you", "Everything else"]) if (subs.includes(gone)) throw new Error(`the sub-heading ${gone} is still there`);
+    const order = await page.$$eval("#introductions > .acct-card, #introductions > .acct-row", (els) => els.map((e) => e.id || e.querySelector("h3").textContent.trim()));
+    eq(order[0], "intro-7", "the newest item (the offer, dated today)");
+    has(order[1], "INTRO-0011", "the next newest (the request of 3 October)");
+    eq(order.length, 4, "items in the list");
+  });
+  await step("the account is on both sides, so each card carries a side tag: You asked, or Asked of you", async () => {
+    const tags = await page.$$eval("#introductions .acct-tag", (els) => els.map((e) => e.textContent.trim()));
+    eq(tags.filter((x) => x === "Asked of you").length, 1, "Asked of you tags");
+    eq(tags.filter((x) => x === "You asked").length, 3, "You asked tags");
+    eq(await page.$eval("#intro-7 .acct-tag", (e) => e.textContent.trim()), "Asked of you", "the offer's tag");
+  });
+  await step("an offer waiting on the provider shows, with a way to have the email sent again", async () => {
     await page.waitForSelector("#introductions:not([hidden])");
     has(await page.textContent("#introductions"), "INT-0007", "the introductions section");
+    has(await page.textContent('[data-act="intro-resend"][data-intro="7"]'), "Send the email again", "the button");
     return (await page.locator('[data-act="intro-resend"][data-intro="7"]').count()) === 1;
+  });
+  await step("Waiting on you sits directly under the banner and names the one open action, Answer 1 introduction, lit (plan 055, decision 10)", async () => {
+    await page.waitForSelector("#waiting:not([hidden])");
+    eq(await page.evaluate(() => document.getElementById("profile").nextElementSibling.id), "waiting", "the section after the banner");
+    has(await page.textContent("#waiting .hint"), "What needs your answer.", "the hint");
+    const acts = await page.$$eval("#waiting .acct-action", (els) => els.map((e) => ({ text: e.textContent.replace(/\s+/g, " ").trim(), top: e.classList.contains("is-top"), href: e.getAttribute("href") })));
+    eq(acts.length, 1, "actions");
+    has(acts[0].text, "Answer 1 introduction", "the action");
+    eq(acts[0].top, true, "the top action is lit");
+    eq(acts[0].href, "#intro-7", "where it goes");
+  });
+  await step("the Answer action scrolls to the offer's row and marks it", async () => {
+    await page.click("#waiting .acct-action.is-top");
+    await page.waitForSelector("#intro-7.is-attention");
+    // the page scrolls smoothly, so the row arrives over a few frames
+    await page.waitForFunction(() => { const r = document.getElementById("intro-7").getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight; });
+    eq(new URL(page.url()).hash, "#intro-7", "the address");
+  });
+  await step("the page's own links: a dot on Waiting on you, Account settings last, and no You or Users (plan 055)", async () => {
+    const links = await page.$$eval("#acctNav a", (els) => els.map((e) => ({ text: e.textContent.trim(), href: e.getAttribute("href"), dot: !!e.querySelector(".acct-nav__dot") })));
+    eq(links.map((l) => l.text), ["Your site", "Waiting on you", "Introductions", "Declarations", "Fees and standing", "Education", "Account settings"], "the links");
+    eq(links.filter((l) => l.dot).map((l) => l.text), ["Waiting on you"], "the dotted link");
+    eq(new URL(links.at(-1).href, page.url()).pathname, "/hub/account/settings/", "where Account settings goes");
+  });
+  await step("the banner offers Edit account or add users, to the settings page, and no picture buttons", async () => {
+    has(await page.textContent("#profile a.acct-edit"), "Edit account or add users", "the link");
+    eq(new URL(await page.getAttribute("#profile a.acct-edit", "href"), page.url()).pathname, "/hub/account/settings/", "where it goes");
+    eq(await page.locator('#profile [data-act^="avatar"], #profile [data-act^="logo"]').count(), 0, "picture buttons on the banner");
   });
   await step("a resend the email provider refused says so, and gives the button back", async () => {
     world.api["POST /introductions/:id/resend"] = () => [502, { error: "send_failed" }];
@@ -1097,95 +1145,182 @@ async function walkAccount() {
       eq(await page.locator("#more").count(), 0, "More of the network sections");
       eq(apiCalls(world, "GET /opportunities/briefs").length, 0, "briefs reads");
     });
-    await step("its one to-do line is Choose a hub, and it leaves the page for the door (plan 046)", async () => {
-      await page.waitForSelector("#acctNeeds:not([hidden])");
-      has(await page.textContent("#acctNeeds"), "Choose a hub", "the to-do block");
-      const links = await page.locator("#acctNeeds a").all();
-      eq(links.length, 1, "to-do lines");
+    await step("Waiting on you is its one open action, List your site or ask a hub, lit, and it leaves the page for the door (plan 046, plan 055)", async () => {
+      await page.waitForSelector("#waiting:not([hidden])");
+      eq(await page.evaluate(() => document.getElementById("profile").nextElementSibling.id), "waiting", "the section after the banner");
+      eq(await page.locator("#acctNeeds").count(), 0, "the old Next step block");
+      const links = await page.locator("#waiting .acct-action").all();
+      eq(links.length, 1, "actions");
+      has(await links[0].textContent(), "List your site, or ask a hub for what you need", "the action");
+      eq(await links[0].getAttribute("class"), "acct-action is-top", "the one action is the lit one");
       eq(new URL(await links[0].getAttribute("href"), page.url()).pathname, "/hub/index.html", "where the line goes");
-      return has(await links[0].textContent(), "arrow_forward", "the trailing arrow");
-    });
-    await step("the needs block is headed Next step, sits in the head level with the Go button, and reads large and bold (plan 052)", async () => {
-      has(await page.textContent("#acctNeeds h2"), "Next step", "the heading");
-      eq(await page.locator(".acct-head #acctNeeds").count(), 1, "the block is inside .acct-head");
-      const blockBox = await page.locator("#acctNeeds").boundingBox();
-      const btnBox = await page.locator("#goHub").boundingBox();
-      if (Math.abs(blockBox.y - btnBox.y) > 8) throw new Error(`block top ${blockBox.y} is not level with the button top ${btnBox.y}`);
-      // Will (9 Oct 2026): the card is the same width as the button, side by side.
-      if (Math.abs(blockBox.width - btnBox.width) > 2) throw new Error(`block width ${blockBox.width} is not the button's ${btnBox.width}`);
-      if (blockBox.x <= btnBox.x + btnBox.width) throw new Error(`the block (x ${blockBox.x}) is not to the right of the button (right edge ${btnBox.x + btnBox.width})`);
-      const f = await page.$eval("#acctNeeds h2", (el) => { const c = getComputedStyle(el); return { size: parseFloat(c.fontSize), weight: parseInt(c.fontWeight, 10) }; });
-      if (f.size < 18 || f.weight < 700) throw new Error(`heading is ${f.size}px at weight ${f.weight}`);
+      has(await links[0].textContent(), "arrow_forward", "the trailing arrow");
+      has(await page.textContent("#introductions"), "No introductions yet. Ask a hub for what you need, or list your site, and they appear here.", "the empty list");
     });
     clean(world, errors, "the new account's page");
     await context.close();
   }
-}
 
-/* The profile picture (plan 052 task 3.5, Will's item 19): the head's
-   monogram becomes the user's picture. The page crops to a square and sends
-   a JPEG; the worker answers a signed link, here a data: URL so the picture
-   really draws without reaching past the stubs. */
-const PIXEL_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-const PIXEL_URL = `data:image/png;base64,${PIXEL_PNG}`;
-async function walkAvatar() {
-  area = "The account page: the picture";
-  const world = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
-    org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "none", host_print: "none", host_mill: "none" },
-    site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "none", host_mill: "none" },
-  }) });
-  const { context, page, errors } = await visit(world);
-  await page.goto(`${APEX}/hub/account/`);
-  await step("with no picture the head shows the monogram and offers Add a picture", async () => {
-    await page.waitForSelector("#profile:not([hidden])");
-    await until(() => apiCalls(world, "GET /account/avatar").length === 1, "the picture read");
-    eq((await page.textContent("#profile .acct-mono")).trim(), "ZW", "the monogram");
-    eq(await page.locator("#profile img.acct-mono").count(), 0, "pictures");
-    has(await page.textContent('[data-act="avatar-pick"]'), "Add a picture", "the button");
-    return await page.isHidden('[data-act="avatar-remove"]');
-  });
-  await step("a picture the worker refuses says so, and the monogram stays", async () => {
-    world.api["POST /account/avatar"] = () => [400, { error: "not_an_image" }];
-    await page.setInputFiles("#avatarFile", { name: "me.png", mimeType: "image/png", buffer: Buffer.from(PIXEL_PNG, "base64") });
-    await page.waitForSelector("#avatarMsg:not([hidden])");
-    has(await page.textContent("#avatarMsg"), "Choose a PNG or JPEG picture.", "the message");
-    return (await page.locator("#profile img.acct-mono").count()) === 0;
-  });
-  await step("a picture chosen is sent once, squared as a JPEG, and replaces the monogram", async () => {
-    world.api["POST /account/avatar"] = (w) => { w.avatar = PIXEL_URL; return [200, { ok: true, url: PIXEL_URL, expires_in: 60 }]; };
-    await page.setInputFiles("#avatarFile", { name: "me.png", mimeType: "image/png", buffer: Buffer.from(PIXEL_PNG, "base64") });
-    await page.waitForSelector("#profile img.acct-mono");
-    const sent = apiCalls(world, "POST /account/avatar");
-    eq(sent.length, 2, "uploads (the refused one and this one)");
-    has(String(sent[1].body && sent[1].body.image).slice(0, 23), "data:image/jpeg;base64,", "what was sent");
-    eq(await page.getAttribute("#profile img.acct-mono", "src"), PIXEL_URL, "the picture shown");
-    eq(await page.evaluate(() => document.querySelector("#profile img.acct-mono").naturalWidth), 1, "the picture drew");
-    has(await page.textContent('[data-act="avatar-pick"]'), "Change picture", "the button");
-    return await page.isVisible('[data-act="avatar-remove"]');
-  });
-  await step("Remove picture asks the worker once and puts the monogram back", async () => {
-    world.api["POST /account/avatar/remove"] = (w) => { w.avatar = null; return [200, { ok: true }]; };
-    await page.click('[data-act="avatar-remove"]');
-    await page.waitForSelector("#profile span.acct-mono");
-    eq(apiCalls(world, "POST /account/avatar/remove").length, 1, "removes");
-    eq((await page.textContent("#profile .acct-mono")).trim(), "ZW", "the monogram");
-    has(await page.textContent('[data-act="avatar-pick"]'), "Add a picture", "the button");
-    return await page.isHidden('[data-act="avatar-remove"]');
-  });
-  clean(world, errors, "the picture");
-  await context.close();
-
-  area = "The account page: a picture already there";
+  area = "The account page (nothing waiting)";
   {
-    const world = newWorld({ user: USER, avatar: PIXEL_URL, summary: Object.assign({}, EMPTY_SUMMARY) });
+    // Plan 055, decision 10: Waiting on you is never empty. A host with its
+    // listing live and nothing due reads one line; a seeker with a request in
+    // and nothing to answer reads the other.
+    const host = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+      org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", host_print: "approved", host_mill: "none" },
+      site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none", verified: true },
+      listings: [{ hub: "print", status: "live", live: { approved_at: "2026-10-01T09:00:00Z" } }],
+      relationships: [{ introduction_id: 42, ref: "INTRO-0042", hub: "print", since: "2026-11-03T10:00:00Z" }],
+      hubs_used: ["print"],
+    }) });
+    const seeker = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+      org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "none", host_print: "none", host_mill: "none" },
+      requests: [{ id: 3, ref: "PS-0050", hub: "print", material: "pa12_nylon12", quantity: 10, cadence: "once", status: "open",
+        created_at: "2026-10-03T09:00:00Z", no_match: false, picks: [] }],
+      hubs_used: ["print"],
+    }) });
+    for (const [who, world, line] of [["a host", host, "Nothing waiting on you. Your listing is live; introductions appear below as they arrive."],
+      ["a seeker", seeker, "Nothing waiting on you. Ask a hub for what you need when you are ready."]]) {
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step(`${who} with nothing due reads the never-empty line, and the nav carries no dot`, async () => {
+        await page.waitForSelector("#waiting:not([hidden])");
+        eq((await page.textContent("#waiting .acct-quiet")).trim(), line, "the line");
+        eq(await page.locator("#waiting .acct-action").count(), 0, "actions");
+        eq(await page.locator("#acctNav .acct-nav__dot").count(), 0, "dots");
+      });
+      if (who === "a host") await step("a host's Fees and standing lists its introduced customers with the day each relationship began (plan 055, decision 20)", async () => {
+        await page.waitForSelector("#fees:not([hidden])");
+        const subs = await page.$$eval("#fees .acct-sub", (els) => els.map((e) => e.textContent.trim()));
+        eq(subs, ["Introduced customers", "Statements", "Open strikes"], "the sub-headings, in order");
+        const text = await page.textContent("#fees .acct-list");
+        has(text, "INTRO-0042", "the ref");
+        has(text, "Relationship since 3 Nov 2026", "the since line");
+      });
+      clean(world, errors, `${who}'s quiet page`);
+      await context.close();
+    }
+  }
+
+  area = "The account page (a declared order to confirm)";
+  {
+    const soon = new Date(Date.now() + 3 * 864e5).toISOString();
+    const world = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+      org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", host_print: "approved", host_mill: "none" },
+      site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none", verified: true },
+      introductions: [{ id: 7, ref: "INTRO-0007", hub: "print", stage: "awaiting_acceptance", seeker_request_id: 3, accepted_a_at: null,
+        accepted_b_at: null, acceptance_expires_at: soon, declined_at: null, created_at: new Date().toISOString(), role: "provider", introduced_at: null }],
+      offers: [{ introduction_id: 7, ref: "INTRO-0007", hub: "print", acceptance_expires_at: soon,
+        request: { material: "pa12_nylon12", quantity: 40, cadence: "one_off", town: "Bristol", country: "United Kingdom" } }],
+      declarations: { due_state: "none", history: [], awaiting_my_confirmation: [
+        { line_id: 55, ref: "INTRO-0008", period: "2026-09", units: 40, value: 1200, currency: "GBP", declared_at: "2026-10-02T09:00:00Z" }] },
+      hubs_used: ["print"],
+    }) });
+    world.api["POST /declarations/lines/:id/confirm"] = () => [200, { ok: true }];
     const { context, page, errors } = await visit(world);
     await page.goto(`${APEX}/hub/account/`);
-    await step("the page opens with the picture where the monogram was", async () => {
-      await page.waitForSelector("#profile img.acct-mono");
-      eq(await page.getAttribute("#profile img.acct-mono", "src"), PIXEL_URL, "the picture shown");
-      return has(await page.textContent('[data-act="avatar-pick"]'), "Change picture", "the button");
+    await step("Waiting on you lists the open actions in order: Answer the introduction first, lit, then Confirm the declared order", async () => {
+      await page.waitForSelector("#waiting:not([hidden])");
+      const acts = await page.$$eval("#waiting .acct-action", (els) => els.map((e) => ({ text: e.querySelector("span:nth-child(2)").textContent.trim(), top: e.classList.contains("is-top") })));
+      eq(acts.map((a) => a.text), ["Answer 1 introduction", "Confirm 1 declared order"], "the actions");
+      eq(acts.map((a) => a.top), [true, false], "only the top one is lit");
+      eq(await page.locator("#orders").count(), 0, "the old orders section");
+      eq(await page.$$eval("#acctNav a", (els) => els.filter((e) => e.querySelector(".acct-nav__dot")).map((e) => e.textContent.trim())), ["Waiting on you"], "the dotted link");
     });
-    clean(world, errors, "the page with a picture");
+    await step("the declared line is answered inside Waiting on you: Confirm posts to the line, and says so", async () => {
+      has(await page.textContent("#waiting .acct-sub"), "Declared orders to confirm", "the sub-heading");
+      eq(await page.locator('#waiting [data-act="line-confirm"][data-line="55"]').count(), 1, "Confirm buttons");
+      eq(await page.locator('#waiting [data-act="line-query"][data-line="55"]').count(), 1, "Query buttons");
+      has(await page.textContent("#line-55"), "INTRO-0008", "the line's ref");
+      has(await page.textContent("#line-55"), "September 2026", "the line's period");
+      await page.click('#waiting [data-act="line-confirm"][data-line="55"]');
+      await until(() => apiCalls(world, "POST /declarations/lines/55/confirm").length === 1, "the confirm post");
+      await page.waitForSelector("#lineMsg-55:not([hidden])");
+      has(await page.textContent("#lineMsg-55"), "Confirmed. Thank you.", "the message");
+    });
+    clean(world, errors, "the page with a declared order to confirm");
+    await context.close();
+  }
+}
+
+/* The account's logo (plan 055, decision 25; once the profile picture of plan
+   052 task 3.5): added, changed and removed on the settings page, and shown
+   where the monogram was on both pages. The settings page crops to a square
+   and sends a JPEG; the worker answers a signed link, here a data: URL so the
+   logo really draws without reaching past the stubs. */
+const PIXEL_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+const PIXEL_URL = `data:image/png;base64,${PIXEL_PNG}`;
+async function walkLogo() {
+  area = "The account settings page: the logo";
+  const world = newWorld({ user: USER });
+  const { context, page, errors } = await visit(world);
+  await page.goto(`${APEX}/hub/account/settings/`);
+  await step("the settings page opens with its heading, its lede and the way back, and no dashboard or map script", async () => {
+    await page.waitForSelector("body[data-np-open]");
+    has(await page.textContent("h1"), "Account settings", "the heading");
+    has(await page.textContent(".acct-head p"), "The account's logo, your own details, and who signs in.", "the lede");
+    eq(new URL(await page.getAttribute("#backToAccount", "href"), page.url()).pathname, "/hub/account/", "where Back to your account goes");
+    eq(await page.$$eval("script[src]", (els) => els.map((e) => e.getAttribute("src")).filter((s) => /dashboard|leaflet|match-map/.test(s))), [], "scripts the page has no use for");
+  });
+  await step("with no logo the Logo card shows the monogram and offers Add a logo", async () => {
+    await page.waitForSelector("#logo:not([hidden])");
+    await until(() => apiCalls(world, "GET /account/logo").length === 1, "the logo read");
+    has(await page.textContent("#logo .hint"), "Shown on your account for everyone who signs in to it.", "the hint");
+    eq((await page.textContent("#logo .acct-mono")).trim(), "ZW", "the monogram");
+    eq(await page.locator("#logo img.acct-mono").count(), 0, "logos");
+    has(await page.textContent('[data-act="logo-pick"]'), "Add a logo", "the button");
+    return await page.isHidden('[data-act="logo-remove"]');
+  });
+  await step("a file the worker refuses says so, and the monogram stays", async () => {
+    world.api["POST /account/logo"] = () => [400, { error: "not_an_image" }];
+    await page.setInputFiles("#logoFile", { name: "logo.png", mimeType: "image/png", buffer: Buffer.from(PIXEL_PNG, "base64") });
+    await page.waitForSelector("#logoMsg:not([hidden])");
+    has(await page.textContent("#logoMsg"), "Choose a PNG or JPEG picture.", "the message");
+    return (await page.locator("#logo img.acct-mono").count()) === 0;
+  });
+  await step("a logo chosen is sent once, squared as a JPEG, and replaces the monogram", async () => {
+    world.api["POST /account/logo"] = (w) => { w.logo = PIXEL_URL; return [200, { ok: true, url: PIXEL_URL, expires_in: 60 }]; };
+    await page.setInputFiles("#logoFile", { name: "logo.png", mimeType: "image/png", buffer: Buffer.from(PIXEL_PNG, "base64") });
+    await page.waitForSelector("#logo img.acct-mono");
+    const sent = apiCalls(world, "POST /account/logo");
+    eq(sent.length, 2, "uploads (the refused one and this one)");
+    has(String(sent[1].body && sent[1].body.image).slice(0, 23), "data:image/jpeg;base64,", "what was sent");
+    eq(await page.getAttribute("#logo img.acct-mono", "src"), PIXEL_URL, "the logo shown");
+    eq(await page.evaluate(() => document.querySelector("#logo img.acct-mono").naturalWidth), 1, "the logo drew");
+    has(await page.textContent('[data-act="logo-pick"]'), "Change logo", "the button");
+    return await page.isVisible('[data-act="logo-remove"]');
+  });
+  await step("Remove logo asks the worker once and puts the monogram back", async () => {
+    world.api["POST /account/logo/remove"] = (w) => { w.logo = null; return [200, { ok: true }]; };
+    await page.click('[data-act="logo-remove"]');
+    await page.waitForSelector("#logo span.acct-mono");
+    eq(apiCalls(world, "POST /account/logo/remove").length, 1, "removes");
+    eq((await page.textContent("#logo .acct-mono")).trim(), "ZW", "the monogram");
+    has(await page.textContent('[data-act="logo-pick"]'), "Add a logo", "the button");
+    return await page.isHidden('[data-act="logo-remove"]');
+  });
+  clean(world, errors, "the logo");
+  await context.close();
+
+  area = "The account page: a logo already there";
+  {
+    const world = newWorld({ user: USER, logo: PIXEL_URL, summary: Object.assign({}, EMPTY_SUMMARY) });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/`);
+    await step("the account page opens with the logo where the monogram was, read once, and only the settings link beside it", async () => {
+      await page.waitForSelector("#profile img.acct-mono");
+      eq(await page.getAttribute("#profile img.acct-mono", "src"), PIXEL_URL, "the logo shown");
+      eq(apiCalls(world, "GET /account/logo").length, 1, "logo reads");
+      eq(apiCalls(world, "GET /account/avatar").length, 0, "reads of the old picture route");
+      eq(await page.locator("#profile input[type=file]").count(), 0, "file inputs on the banner");
+    });
+    await step("the settings page shows the same logo and offers Change logo", async () => {
+      await page.goto(`${APEX}/hub/account/settings/`);
+      await page.waitForSelector("#logo img.acct-mono");
+      eq(await page.getAttribute("#logo img.acct-mono", "src"), PIXEL_URL, "the logo shown");
+      return has(await page.textContent('[data-act="logo-pick"]'), "Change logo", "the button");
+    });
+    clean(world, errors, "the pages with a logo");
     await context.close();
   }
 }
@@ -1200,8 +1335,10 @@ async function walkAccountAnswers() {
   const intro = (id, over) => Object.assign({ id, ref: `INTRO-000${id}`, hub: "print", stage: "awaiting_acceptance",
     seeker_request_id: id, accepted_a_at: null, accepted_b_at: "2026-10-08T09:00:00Z", acceptance_expires_at: soon,
     declined_at: null, created_at: "2026-10-08T09:00:00Z", role: "provider", introduced_at: null }, over);
-  const offer = (id) => ({ introduction_id: id, ref: `INTRO-000${id}`, hub: "print", acceptance_expires_at: soon,
-    request: { material: "pa12_nylon12", quantity: 40, town: "Bristol", country: "United Kingdom", point: { lat: 51.45, lng: -2.59 } },
+  // Plan 055, decision 7: the worker sends an offer for every provider introduction, whatever its stage.
+  const offer = (id) => ({ introduction_id: id, ref: `INTRO-000${id}`, hub: "print", acceptance_expires_at: id === 8 ? null : soon,
+    request: { material: "pa12_nylon12", process: "mjf", quantity: 40, cadence: "one_off", max_lead_time_days: 10, needed_by: "2026-11-03",
+      services: ["finishing_dyeing"], notes: "Pairs, boxed per patient.", town: "Bristol", country: "United Kingdom", point: { lat: 51.45, lng: -2.59 } },
     site: { town: "Leeds", country: "United Kingdom", point: { lat: 53.8, lng: -1.55 } } });
   const summary = (intros, offers) => Object.assign({}, EMPTY_SUMMARY, {
     org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", founding: true, host_print: "approved", host_mill: "none", fee_exempt_note: null },
@@ -1212,11 +1349,11 @@ async function walkAccountAnswers() {
   const world = newWorld({
     user: USER,
     summary: summary([intro(7), intro(9), intro(8, { stage: "introduced", accepted_a_at: "2026-10-07T10:00:00Z",
-      introduced_at: "2026-10-07T10:00:00Z", acceptance_expires_at: null })], [offer(7), offer(9)]),
+      introduced_at: "2026-10-07T10:00:00Z", acceptance_expires_at: null })], [offer(7), offer(9), offer(8)]),
   });
   world.api["POST /introductions/accept"] = (w) => {
     w.summary = summary([intro(7, { stage: "introduced", accepted_a_at: "2026-10-08T12:00:00Z",
-      introduced_at: "2026-10-08T12:00:00Z" }), intro(9)], [offer(9)]);
+      introduced_at: "2026-10-08T12:00:00Z", acceptance_expires_at: null }), intro(9)], [offer(7), offer(9)]);
     return [200, { ok: true, stage: "introduced", ref: "INTRO-0007" }];
   };
   world.api["POST /introductions/decline"] = () => [200, { ok: true, stage: "declined", ref: "INTRO-0009" }];
@@ -1239,7 +1376,35 @@ async function walkAccountAnswers() {
     has(titles.join(" | "), "Leeds", "the site's town in a pin title");
     has(titles.join(" | "), "Bristol", "the request's town in a pin title");
     eq(await page.locator("#pairMap-7 [data-choose]").count(), 0, "Choose buttons on the pair map");
-    eq(await page.locator("#pairMap-8").count(), 0, "a map on an introduced row");
+    eq(await page.locator("#introductions .acct-tag").count(), 0, "side tags on an account that is only asked");
+  });
+  await step("the need box is open on the Request pin: what they need, row by row, inside the map, with no close button (plan 055, decision 7)", async () => {
+    await page.waitForSelector("#pairMap-7 .leaflet-popup .np-need");
+    const need = await page.$eval("#pairMap-7 .leaflet-popup .np-need", (e) => ({
+      head: e.querySelector(".np-need__head").textContent, where: e.querySelector(".np-need__where").textContent,
+      rows: [...e.querySelectorAll("dt")].map((dt) => [dt.textContent, dt.nextElementSibling.textContent]),
+      notes: (e.querySelector(".np-need__notes") || {}).textContent || "" }));
+    eq(need.head, "What they need", "the box's title");
+    eq(need.where, "Bristol, United Kingdom", "the request's town");
+    eq(need.rows.map((r) => r[0]), ["Material", "Process", "Quantity", "Cadence", "Lead time", "Needed by", "Services"], "the rows");
+    const by = Object.fromEntries(need.rows);
+    eq(by.Quantity, "40 units", "the quantity");
+    eq(by.Cadence, "One off", "the cadence");
+    eq(by["Lead time"], "within 10 days", "the lead time");
+    eq(by["Needed by"], "3 Nov 2026", "the date");
+    for (const v of Object.values(by)) if (v.includes("_")) throw new Error(`a raw term in the box: ${v}`);
+    has(need.notes, "Pairs, boxed per patient.", "the notes");
+    eq(await page.locator("#pairMap-7 .leaflet-popup-close-button").count(), 0, "close buttons");
+    const map = await page.locator("#pairMap-7").boundingBox();
+    const pop = await page.locator("#pairMap-7 .leaflet-popup").boundingBox();
+    if (pop.y < map.y || pop.y + pop.height > map.y + map.height || pop.x < map.x || pop.x + pop.width > map.x + map.width)
+      throw new Error(`the box (${Math.round(pop.x)},${Math.round(pop.y)} ${Math.round(pop.width)}x${Math.round(pop.height)}) clips the map (${Math.round(map.x)},${Math.round(map.y)} ${Math.round(map.width)}x${Math.round(map.height)})`);
+  });
+  await step("an introduced row shows the pair map and the open need box too (plan 055, decision 7)", async () => {
+    await page.waitForSelector("#pairMap-8:not([hidden]) .leaflet-popup .np-need");
+    const pins = await page.$$eval("#pairMap-8 .np-pin", (els) => els.map((e) => e.textContent.trim()));
+    eq(pins.sort(), ["Request", "You"], "the pins");
+    has(await page.textContent("#pairMap-8 .np-need"), "What they need", "the box");
   });
   await step("an introduced row says the introduction is in the inbox, with its INTRO ref, and no address", async () => {
     const text = await page.textContent("#introductions");
@@ -1277,6 +1442,52 @@ async function walkAccountAnswers() {
   });
   clean(world, errors, "answering on the account page");
   await context.close();
+
+  area = "The account page (sent to one introduction)";
+  {
+    // Plan 055, decision 19: the offer email links to /hub/account/#intro-<id>,
+    // and the old accept page sends its ?intro= there too.
+    const world = newWorld({ user: USER, summary: summary([intro(7), intro(9), intro(8, { stage: "introduced", accepted_a_at: "2026-10-07T10:00:00Z",
+      introduced_at: "2026-10-07T10:00:00Z", acceptance_expires_at: null })], [offer(7), offer(9), offer(8)]) });
+    const { context, page, errors } = await visit(world);
+    await step("#intro-<id> in the address scrolls to that row and marks it, and no other", async () => {
+      await page.goto(`${APEX}/hub/account/#intro-9`);
+      await page.waitForSelector("#intro-9.is-attention");
+      eq(await page.locator("#introductions .acct-row.is-attention").count(), 1, "marked rows");
+      // the page scrolls smoothly, so the row arrives over a few frames
+      await page.waitForFunction(() => { const r = document.getElementById("intro-9").getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; });
+      const style = await page.$eval("#intro-9", (e) => getComputedStyle(e).boxShadow);
+      if (style === "none") throw new Error("the marked row has no outline");
+    });
+    await step("a change of hash moves the mark", async () => {
+      await page.evaluate(() => { location.hash = "#intro-8"; });
+      await page.waitForSelector("#intro-8.is-attention");
+      eq(await page.locator("#intro-9.is-attention").count(), 0, "the old mark");
+    });
+    await step("the old accept page sends ?intro= to the account page's row, and nothing else to the account page", async () => {
+      await page.goto(`${APEX}/hub/accept.html?intro=7&token=old`);
+      await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/account/" && u.hash === "#intro-7");
+      await page.waitForSelector("#intro-7.is-attention");
+      await page.goto(`${APEX}/hub/accept.html`);
+      await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/account/" && u.hash === "");
+      eq(apiCalls(world, "GET /introductions/preview").length, 0, "reads of the old preview route");
+    });
+    await step("a stranger sent to one introduction comes back to it after signing in", async () => {
+      await context.close();
+      const w2 = newWorld({ summary: world.summary });
+      const v2 = await visit(w2);
+      await v2.page.goto(`${APEX}/hub/account/#intro-9`);
+      await v2.page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/" && u.searchParams.get("signin") === "1");
+      eq(new URL(v2.page.url()).searchParams.get("return"), `${APEX}/hub/account/#intro-9`, "the way back keeps the hash");
+      await v2.page.waitForSelector("#signOverlay.open");
+      await v2.page.fill("#sEmail", USER.email); await v2.page.fill("#sPass", PASSWORD);
+      await v2.page.click("#signContent button[type=submit]");
+      await v2.page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/account/" && u.hash === "#intro-9");
+      await v2.page.waitForSelector("#intro-9.is-attention");
+      await v2.context.close();
+    });
+    check("the deep link: no script errors", errors.length === 0, errors.slice(0, 3).join(" | "));
+  }
 }
 
 async function walkHomepage() {
@@ -1738,8 +1949,8 @@ async function walkPeople() {
       return [200, { ok: true }];
     };
     const { context, page, errors } = await visit(world);
-    await page.goto(`${APEX}/hub/account/`);
-    await step("You shows the user's own details", async () => {
+    await page.goto(`${APEX}/hub/account/settings/`);
+    await step("You shows the user's own details, on the settings page", async () => {
       await page.waitForSelector("#you:not([hidden])");
       const t = await page.textContent("#you");
       has(t, USER.name, "the You section");
@@ -1753,9 +1964,13 @@ async function walkPeople() {
       eq(await page.locator('#users [data-act="user-remove"]').count(), 1, "Remove buttons");
       return eq(await page.getAttribute('#users [data-act="user-remove"]', "data-user"), COLLEAGUE.user_id, "whom Remove removes");
     });
-    await step("the page's own links list You and Users", async () => {
-      await page.waitForFunction(() => /Users/.test(document.getElementById("acctNav").textContent));
-      return has(await page.textContent("#acctNav"), "You", "the nav");
+    await step("the sections come in order: Logo, You, Users, each with its own read, and nothing of the account page's", async () => {
+      await page.waitForSelector("#logo:not([hidden])");
+      const ids = await page.$$eval(".acct-section:not([hidden])", (els) => els.map((e) => e.id));
+      eq(ids, ["logo", "you", "users"], "the sections");
+      for (const k of ["GET /account/profile", "GET /account/users", "GET /account/invites", "GET /account/logo"]) eq(apiCalls(world, k).length, 1, `${k} reads`);
+      eq(apiCalls(world, "GET /account/summary").length, 0, "summary reads");
+      eq(await page.locator("#acctNav, #profile, #waiting, #introductions").count(), 0, "the account page's parts");
     });
     await step("Edit your details posts the person's own fields, and the section shows them saved", async () => {
       await page.click('[data-act="you-edit"]');
@@ -1804,13 +2019,13 @@ async function walkPeople() {
       eq(apiCalls(world, "POST /account/users/remove").pop().body, { user_id: COLLEAGUE.user_id }, "the body");
       return has(await page.textContent("#usersMsg"), "Cal League has been removed.", "the message");
     });
-    await step("the people sections fit a phone's width", async () => {
+    await step("the settings page fits a phone's width", async () => {
       await page.setViewportSize({ width: 375, height: 800 });
       const wide = await page.evaluate(() => document.documentElement.scrollWidth);
       await page.setViewportSize({ width: 1280, height: 900 });
       return eq(wide <= 375, true, `page width at 375px (${wide})`);
     });
-    clean(world, errors, "the people sections");
+    clean(world, errors, "the settings page");
     await context.close();
   }
 
@@ -1894,9 +2109,9 @@ const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
 const parts = []
-  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkAvatar, walkAccountAnswers, walkHomepage, walkLandings] : [])
+  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkLandings] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames] : []);
-/* The people sections (plan 052, wave 3) walk straight after the account page. */
+/* The settings page's You and Users (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
 try {
   for (const part of parts) {
