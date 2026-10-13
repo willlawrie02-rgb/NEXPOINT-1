@@ -24,7 +24,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,lan,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=swap" rel="stylesheet" />
 
 <style>
   :root {
@@ -381,7 +381,16 @@
   }
 
   /* ─── Global reach (split: list + map) ─── */
-  .reach__inner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap-lg); align-items: center; }
+  .reach__inner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--gap-lg); row-gap: 0; align-items: stretch; }
+  .reach__head { grid-column: 1; grid-row: 1; }
+  .reach__inner > .markets { grid-column: 1; grid-row: 2; }
+  /* the card takes the box's row, so it has the box's top and height; its
+     corners match the box's, and the map is centred in what is left
+     between its two labels */
+  .wm-card.reach__card { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; padding: 0; border-radius: 12px; }
+  .reach__card .map-caption { padding: 18px 20px; }
+  .reach__map { flex: 1; display: flex; align-items: center; padding: 0 14px; }
+  .reach__map svg { flex: 1; }
   .reach__title { font: 600 clamp(28px, 3.2vw, 44px)/1.15 var(--font-display); letter-spacing: -0.02em; color: #fff; margin: 0 0 20px; }
   .reach__lede { font: 400 clamp(15px, 1.2vw, 17px)/1.6 var(--font-body); color: rgba(226, 226, 226, 0.65); margin: 0 0 32px; max-width: 540px; }
   .markets { border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; }
@@ -401,10 +410,12 @@
   .wm-pill:hover { border-color: var(--np-blue); }
   .wm-pill.is-on { background: var(--np-blue); color: #FFFFFF; border-color: var(--np-blue); }
   .map-caption { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-  .map-caption--top { margin-bottom: 12px; }
-  .map-caption--bottom { margin-top: 12px; }
   .map-caption__label { font: 600 11px/1 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; color: rgba(226, 226, 226, 0.6); }
-  @media (max-width: 1000px) { .reach__inner { grid-template-columns: minmax(0, 1fr); gap: 40px; } }
+  @media (max-width: 1000px) {
+    .reach__inner { grid-template-columns: minmax(0, 1fr); }
+    .reach__head, .reach__inner > .markets, .wm-card.reach__card { grid-column: 1; grid-row: auto; }
+    .wm-card.reach__card { margin-top: 32px; }
+  }
 
   /* ─── Global Hub teaser band ─── */
   .hubteaser { display: flex; align-items: center; justify-content: space-between; gap: var(--gap-lg); border-top: 1px solid var(--border); padding-top: clamp(28px, 4vh, 44px); }
@@ -791,9 +802,9 @@
   <div class="container">
     <div class="sec-head enter enter--up">
       <span class="eyebrow">What we do</span>
-      <h2 class="h2">Three services. One commercial bridge into global O&amp;P markets.</h2>
+      <h2 class="h2">Two services. One commercial bridge into global O&amp;P markets.</h2>
       <p class="lede" style="margin-top:20px;">
-        We help O&amp;P businesses, manufacturers, materials and tech companies expand internationally. We do this in three ways: introductions to customers in new markets, introductions to reseller and distribution partners, and the NexPoint Global Hub, where the network finds capacity, products and partners.
+        We help O&amp;P businesses, manufacturers, materials and tech companies expand internationally. We do this in two ways: introductions to customers in new markets, and introductions to reseller and distribution partners.
       </p>
       <p class="lede" style="margin-top:14px;">
         With over 20 years of experience and a network of 1,000+ trusted relationships, we provide the market insight and commercial understanding needed to turn introductions into real growth.
@@ -828,19 +839,6 @@
         </div>
       </li>
 
-      <li class="svc-row">
-        <div class="svc-row__body enter enter--left">
-          <span class="svc-row__icon material-symbols-outlined" aria-hidden="true">lan</span>
-          <h3>Hub Management &amp; Development</h3>
-          <p>We connect the few to the many through the NexPoint Global Hub: one online space where labs, clinics and suppliers sign in to see the print and mill capacity, products, materials and services on offer across the network.</p>
-          <p>Every listing is reviewed before it appears, and every introduction is made by us, person to person.</p>
-        </div>
-        <div class="svc-row__media enter enter--right">
-          <figure class="shot" style="aspect-ratio: 4 / 3;">
-            <img src="hub/assets/img/product-hub.jpg" alt="Illustration of a desk globe with opportunity briefs standing on different continents" loading="lazy" width="1600" height="893" />
-          </figure>
-        </div>
-      </li>
     </ol>
   </div>
 </section>
@@ -1020,37 +1018,37 @@
 <!-- ───── Global reach ───── -->
 <section id="network" class="section">
   <div class="container">
+    <!-- The map card sits beside the contacts box: the same top, the same
+         height and the same width (Will, 13 October 2026). The heading has
+         the row above to itself; the box and the card share the row below,
+         and the card stretches to the box's height. -->
     <div class="reach__inner">
-      <div class="enter enter--left">
+      <div class="reach__head enter enter--left">
         <span class="eyebrow">Global reach</span>
         <h2 class="reach__title">Local fluency across the markets that matter most.</h2>
         <p class="reach__lede">
           We bridge global borders with local expertise, giving you direct access to O&amp;P decision makers across the UK, Europe, North America, the Middle East, and Australia.
         </p>
-
-        <div class="markets">
-          <div class="markets__header">
-            <span class="markets__header-num">1,000+</span>
-            <span class="markets__header-label">Trusted contacts across our network</span>
-          </div>
-          <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">Canada</div></div>
-          <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">United States</div></div>
-          <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">United Kingdom</div></div>
-          <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">EMEA</div></div>
-          <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">Australia</div></div>
-          <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">New Zealand</div></div>
-          <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">Asia</div></div>
-        </div>
       </div>
 
-      <div class="enter enter--right">
-        <div class="map-caption map-caption--top">
-          <span class="map-caption__label">Global network</span>
+      <div class="markets enter enter--left">
+        <div class="markets__header">
+          <span class="markets__header-num">1,000+</span>
+          <span class="markets__header-label">Trusted contacts across our network</span>
         </div>
-        <div class="wm-card" data-world-map="show" data-pins='[{"label":"Canada","lat":43.65,"lon":-79.38},{"label":"USA","lat":41.88,"lon":-87.63,"at":"left"},{"label":"United Kingdom","lat":52.33,"lon":-2.06,"at":"left"},{"label":"EMEA","lat":25.2,"lon":55.27},{"label":"Asia","lat":1.35,"lon":103.82},{"label":"Australia","lat":-33.87,"lon":151.21,"at":"left"},{"label":"New Zealand","lat":-36.85,"lon":174.76,"at":"below"}]'></div>
-        <div class="map-caption map-caption--bottom">
-          <span class="map-caption__label">Global reach · 1,000+ contacts</span>
-        </div>
+        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">Canada</div></div>
+        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">United States</div></div>
+        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">United Kingdom</div></div>
+        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">EMEA</div></div>
+        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">Australia</div></div>
+        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">New Zealand</div></div>
+        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">Asia</div></div>
+      </div>
+
+      <div class="wm-card reach__card enter enter--right">
+        <div class="map-caption"><span class="map-caption__label">Global network</span></div>
+        <div class="reach__map" data-world-map="show" data-pins='[{"label":"Canada","lat":43.65,"lon":-79.38},{"label":"USA","lat":41.88,"lon":-87.63,"at":"left"},{"label":"United Kingdom","lat":52.33,"lon":-2.06,"at":"left"},{"label":"EMEA","lat":25.2,"lon":55.27},{"label":"Asia","lat":1.35,"lon":103.82},{"label":"Australia","lat":-33.87,"lon":151.21,"at":"left"},{"label":"New Zealand","lat":-36.85,"lon":174.76,"at":"below"}]'></div>
+        <div class="map-caption"><span class="map-caption__label">Global reach · 1,000+ contacts</span></div>
       </div>
     </div>
   </div>
