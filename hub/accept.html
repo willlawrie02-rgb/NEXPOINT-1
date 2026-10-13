@@ -4,64 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>Answer an introduction · The NexPoint Global Hub</title>
+<title>Your account · The NexPoint Global Hub</title>
 <link rel="icon" href="../assets/nexpoint-logo.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/portal.css">
-<style>
-  /* Page-only additions. The components this page is built from
-     (.panel, .cap, .terms-scroll, .np-terms-tick, .np-sign-error, .field,
-     .btn, .modal-actions) all live in assets/portal.css. */
-  [hidden]{display:none!important}
-  .acc-wrap{max-width:640px;margin:0 auto;padding:clamp(32px,6vh,72px) var(--side-pad) clamp(60px,8vh,96px)}
-  .acc-wrap h2{font:600 clamp(21px,2.6vw,26px)/1.25 var(--font-display);letter-spacing:-.01em;color:#0E1626;margin:0 0 6px}
-  .acc-meta{font:600 12px/1.5 var(--font-body);letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-var);margin:0 0 16px}
-  .acc-line{font-size:14.5px;line-height:23px;color:var(--on-surface-var);margin:0 0 16px}
-  .acc-fallback{font-size:13.5px;line-height:21px;color:var(--on-surface-var);margin:18px 0 0;padding-top:16px;border-top:1px solid var(--border-soft)}
-  .acc-fallback a{color:var(--blue);font-weight:600}
-  .acc-card{margin:0 0 20px}
-  .acc-card h3{margin:0 0 14px}
-  .acc-note{margin:2px 0 0;font-size:13px;line-height:20px;color:var(--on-surface)}
-  .acc-note b{display:block;font:500 12px/1.6 var(--font-body);letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-var)}
-  .acc-decline{margin-top:22px;padding-top:20px;border-top:1px solid var(--border-soft)}
-  .acc-hint{margin:10px 0 0;font-size:12.5px;line-height:19px;color:var(--on-surface-var)}
-  .acc-loading{color:var(--on-surface-var);font-size:14px;padding:40px 0;text-align:center}
-</style>
-</head>
-<body>
-<!--
-2026-09-07 (Global Hub v2) - the provider's answer page. It is reached from
-one link in one email and nowhere else: ?intro=&token= is the whole of the
-gate, there is no sign-in on this page, and no session route is called from
-it. hub/assets/accept.js owns everything inside the panel.
--->
-
-<header>
-  <div class="container nav">
-    <a href="https://nexpoint.co.uk/" class="wordmark" aria-label="NexPoint home"><img src="../assets/nexpoint-logo.png" alt="NexPoint" width="52" height="52"></a>
-    <nav class="nav-links" aria-label="Global Hub">
-      <a href="https://nexpoint.co.uk/hub/">The Global Hub</a>
-    </nav>
-  </div>
-</header>
-
-<div class="acc-wrap">
-  <div class="panel" id="accBody"><div class="acc-loading">Loading the introduction…</div></div>
-</div>
-
-<script src="assets/portal.js"></script>
-<script src="assets/vocab.js"></script>
-<script src="assets/accept.js"></script>
 <script>
-  /* Same boot as every other hub page: portal.js starts the page module
-     from np:modules, once the chain and the document are both ready. */
-  (function(){
-    function fire(){ document.dispatchEvent(new CustomEvent('np:modules')); }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fire, { once: true });
-    else fire();
+  /* Plan 055 (decision 19): the provider answers an introduction on its
+     account page, so the old emailed link (?intro=&token=) lands on that
+     page, at the introduction it named. Nothing is read from the token. */
+  (function () {
+    var id = new URLSearchParams(location.search).get('intro') || '';
+    location.replace(/^\d+$/.test(id) ? '/hub/account/#intro-' + id : '/hub/account/');
   })();
 </script>
+</head>
+<body>
+<p>Opening your account… <a href="/hub/account/">Go to your account</a></p>
 </body>
 </html>
