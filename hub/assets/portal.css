@@ -687,3 +687,8 @@ body[data-np-signed-in] .np-holder{display:block}
 .wm-pill{font:600 12px/1 var(--font-body);padding:8px 14px;border-radius:999px;color:var(--blue);background:#fff;border:1px solid rgba(0,92,200,.35);cursor:pointer;transition:background var(--dur) var(--ease),color var(--dur) var(--ease),border-color var(--dur) var(--ease)}
 .wm-pill:hover{border-color:var(--blue)}
 .wm-pill.is-on{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* The hub films (12 October 2026): one short film per hub page, in the overview film's family. */
+.film__frame{margin:clamp(28px,4vh,40px) auto 0;max-width:1120px;border:1px solid #E3E7ED;border-radius:12px;overflow:hidden;background:#F5F7FA;box-shadow:0 24px 64px rgba(14,22,38,.14)}
+.film__video{display:block;width:100%;aspect-ratio:16/9;background:#F5F7FA}
+.film__note{margin:14px auto 0;max-width:1120px;font-size:13px;line-height:1.5;color:#4A5462;text-align:center}
