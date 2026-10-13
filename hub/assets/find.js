@@ -6,13 +6,16 @@
      2  the shortlist the best three anonymous cards and a map of them; pick one
      3  the request   the Introduction Acceptance terms, then one submission
 
-   The shortlist (plan 052, items 23 and 24, Will's answers of 8 Oct): hard
-   filters first (material, process, lead time), then the three nearest by
-   town, no weights. The worker ranks up to ten and marks the best three
-   `shortlist`; only those are shown. The map (match-map.js) puts the
-   seeker's town and the three sites' towns on OpenStreetMap; sites in one
-   town share a numbered pin. The seeker picks one site, on a card or on
-   the map, and the two stay in step.
+   The shortlist (plan 052, items 23 and 24, answers of 8 Oct): hard
+   filters first (material, process, lead time), then the nearest by town,
+   no weights. The worker ranks up to ten and marks the best three
+   `shortlist`. Those three are shown as cards, each tagged "Best fit for
+   your request"; every ranked site is a pin on the map (match-map.js),
+   numbered by rank, the best three filled and the rest outlined (plan
+   055, decision 15). A pin opens the card of a site outside the three,
+   below them and without the tag. Sites in one town share a numbered
+   pin. The seeker picks one site, on a card or on the map, and the two
+   stay in step.
 
    Nothing here names a site. A card carries a town, a country, machines,
    materials, services and a lead time; who the site is, and where exactly,
@@ -119,7 +122,9 @@
   let vocab = null;            /* NPVocab.load(HUB) */
   const TA = {};               /* live type-ahead handles by input id */
   let spec = null;             /* the ask, as POST /seeker-requests takes it */
-  let matches = [];            /* the shortlist shown: at most SHORTLIST cards, in rank order */
+  let matches = [];            /* every ranked result the worker sent, in rank order (up to ten) */
+  let shortlistIds = [];       /* the best three of them, by listing id: the cards shown first */
+  let revealed = new Set();    /* ids opened from the map; their cards sit after the three */
   let seekerPoint = null;      /* the seeker's own town point, for the map */
   let matchMap = null;         /* NPMatchMap handle while step 2 shows one */
   let noMatch = false;         /* nothing met the hard filter, so this is the pool */
@@ -191,6 +196,14 @@
         '<div class="field full"><label for="fProcess">Process (optional)</label>' +
         '<input id="fProcess" placeholder="Select from the list or type your own"></div>' +
 
+        /* One off or recurring is asked before how many (plan 055, point 20):
+           the count reads differently once the cadence is known. */
+        '<div class="field full"><label id="fCadenceLabel">Is this a one off?</label>' +
+        '<div class="lgroup" id="fCadence" role="radiogroup" aria-labelledby="fCadenceLabel">' +
+        pickChip('fCadence', 'one_off', 'One off', true, 'radio') +
+        pickChip('fCadence', 'recurring', 'Recurring', false, 'radio') +
+        '</div></div>' +
+
         '<div class="field"><label for="fQuantity" id="fQuantityLabel">' +
         'How many</label>' +
         '<input id="fQuantity" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 200"></div>' +
@@ -198,12 +211,6 @@
         '<div class="field"><label for="fQuantityUnit">Counted in</label>' +
         '<select id="fQuantityUnit"><option value="pairs">Pairs</option>' +
         '<option value="units">Units</option></select></div>' +
-
-        '<div class="field full"><label id="fCadenceLabel">Is this a one off?</label>' +
-        '<div class="lgroup" id="fCadence" role="radiogroup" aria-labelledby="fCadenceLabel">' +
-        pickChip('fCadence', 'one_off', 'One off', true, 'radio') +
-        pickChip('fCadence', 'recurring', 'Recurring', false, 'radio') +
-        '</div></div>' +
 
         '<div class="field full"><label id="fLeadModeLabel">When do you need it?</label>' +
         '<div class="lgroup" id="fLeadMode" role="radiogroup" aria-labelledby="fLeadModeLabel">' +
@@ -445,7 +452,9 @@
       NP.saveLoc(regionOf(spec.country) || spec.country, spec.country, spec.town);
     }
 
-    matches = shortlistOf(Array.isArray(d.matches) ? d.matches : []);
+    matches = Array.isArray(d.matches) ? d.matches.filter(Boolean) : [];
+    shortlistIds = shortlistOf(matches).map((c) => String(c.listing_id));
+    revealed = new Set();
     noMatch = !!d.no_match;
     seekerPoint = d.seeker_point || null;
     picks = [];
@@ -473,6 +482,24 @@
     const marked = all.filter((c) => c && c.shortlist === true);
     return (marked.length ? marked : all).slice(0, SHORTLIST);
   }
+  function isBest(id) { return shortlistIds.indexOf(String(id)) !== -1; }
+  /* The cards on the page: the best three and any site opened from the map,
+     in rank order, each with its rank (the number its pin carries). */
+  function visibleMatches() {
+    return matches.map((c, i) => ({ card: c, position: i + 1 }))
+      .filter((m) => isBest(m.card.listing_id) || revealed.has(String(m.card.listing_id)));
+  }
+  /* A pin on the map opens the cards of the sites under it (decision 15,
+     plan 055): a site outside the best three gets its card below them,
+     without the tag, and the page scrolls to it. */
+  function revealFromMap(id) {
+    id = String(id);
+    if (isBest(id) || revealed.has(id) || !matches.some((c) => String(c.listing_id) === id)) return;
+    revealed.add(id);
+    renderResults();
+    const card = document.querySelector('#capGrid [data-card="' + cssEscape(id) + '"]');
+    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 
   /* The map above the cards. Made after step 2 is shown, because Leaflet
      measures its box when it is made; remade on every search. */
@@ -488,11 +515,15 @@
       assetBase: window.NP_APEX || '',
       noun: siteNoun(),
       seeker: seekerPoint,
+      /* every ranked site, so a pin's number is the site's rank and the
+         cards say the same; the best three are flagged for their pins */
       sites: matches.map((c, i) => ({
         listing_id: c.listing_id, position: i + 1, town: c.town, country: c.country,
         point: c.point || null, lead: c.min_lead_time_days, distance: c.distance_km,
+        best: isBest(c.listing_id),
       })),
       onPick: chooseFromMap,
+      onReveal: revealFromMap,
     });
     if (!matchMap) { box.hidden = true; return; }
     matchMap.refresh();
@@ -501,7 +532,11 @@
 
   /* Choose on the map ticks that card, exactly as a click on it would. */
   function chooseFromMap(id) {
-    const box = document.querySelector('#capGrid input[data-pick="' + cssEscape(id) + '"]');
+    let box = document.querySelector('#capGrid input[data-pick="' + cssEscape(id) + '"]');
+    if (!box) {
+      revealFromMap(id);
+      box = document.querySelector('#capGrid input[data-pick="' + cssEscape(id) + '"]');
+    }
     if (!box || box.disabled) return;
     if (!box.checked) box.click();
     const card = box.closest('.cap');
@@ -516,8 +551,10 @@
     renderNoMatch();
     const grid = el('capGrid');
     if (grid) {
-      grid.innerHTML = matches.map((c, i) => cardHtml(c, i + 1)).join('');
+      grid.innerHTML = visibleMatches().map((m) => cardHtml(m.card, m.position, isBest(m.card.listing_id))).join('');
       grid.querySelectorAll('input[data-pick]').forEach((box) => {
+        /* a re-render (a site revealed from the map) keeps the pick */
+        box.checked = picks.indexOf(box.getAttribute('data-pick')) !== -1;
         box.addEventListener('change', onPickChange);
       });
       /* Anywhere on the card ticks it. The tick's own label already does
@@ -533,6 +570,13 @@
     updatePickState();
   }
 
+  /* small counts in words, as the page's own copy has them ("the three sites") */
+  function words(n, sentenceStart) {
+    const w = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][n];
+    if (!w) return String(n);
+    return sentenceStart ? w.charAt(0).toUpperCase() + w.slice(1) : w;
+  }
+
   function renderMatchIntro() {
     const box = el('matchIntro');
     if (!box) return;
@@ -542,14 +586,18 @@
       return;
     }
     const n = matches.length;
+    const k = shortlistIds.length;
+    const extra = n - k;
+    const more = extra > 0
+      ? words(extra, true) + ' more ' + (extra === 1 ? siteNoun() : siteNounPlural()) + ' on the map. ' : '';
     const privacy = 'Names and addresses stay private until both sides accept an introduction.';
     box.style.display = 'block';
     /* When nothing met the ask, the count is the size of the pool, not a
        claim that any of them fit: #noMatch says what these actually are. */
     box.textContent = noMatch
-      ? 'The nearest ' + siteNounPlural() + ' to you, wherever they are. Pick one. ' + privacy
+      ? 'The nearest ' + siteNounPlural() + ' to you, wherever they are. ' + more + 'Pick one. ' + privacy
       : (n === 1 ? 'One ' + siteNoun() + ' can take this. '
-                 : 'The ' + n + ' ' + siteNounPlural() + ' that fit best, nearest first. Pick one. ') + privacy;
+                 : 'The ' + words(k) + ' ' + siteNounPlural() + ' that fit best, nearest first. ' + more + 'Pick one. ') + privacy;
   }
 
   /* Two things can leave the shortlist without a card to tick: a search
@@ -588,15 +636,21 @@
     }
   }
 
-  function cardHtml(card, position) {
+  function cardHtml(card, position, best) {
     const id = String(card.listing_id);
     const rows = [];
 
+    /* "3× EOS P396, 600 a month": the count, the machine, and its monthly
+       capacity when the worker sends one (decision 14, plan 055). Machines
+       are separated by a dot, as a machine line can carry a comma itself. */
     const machines = (card.machines || []).map((m) => {
       const count = m.count == null ? 1 : Number(m.count);
-      return (count > 1 ? count + '× ' : '') + String(m.name || '');
+      const name = (count > 1 ? count + '× ' : '') + String(m.name || '');
+      if (!name) return '';
+      const cap = m.monthly_capacity == null ? null : Number(m.monthly_capacity);
+      return cap !== null && isFinite(cap) ? name + ', ' + cap + ' a month' : name;
     }).filter(Boolean);
-    if (machines.length) rows.push(['Machines', machines.join(', ')]);
+    if (machines.length) rows.push(['Machines', machines.join(' · ')]);
 
     const mats = labelsFor(vocab && vocab.materials, card.materials);
     if (mats.length) rows.push(['Materials', mats.join(', ')]);
@@ -627,6 +681,7 @@
     return '<div class="cap pick" data-card="' + esc(id) + '">' +
       '<span class="cap__head">' +
         '<b class="cap__num">' + esc(who) + '</b>' +
+        (best ? '<span class="badge-best">Best fit for your request</span>' : '') +
         (card.verified ? '<span class="badge-verified">Verified</span>' : '') +
         (exactMatch ? '' : '<span class="badge-nomatch">no exact match</span>') +
       '</span>' +

@@ -839,12 +839,14 @@ async function walkSignedIn() {
   }
 }
 
-/* The seeker's shortlist and its map (plan 052, items 23 and 24): the best
-   three cards, a map with the seeker's town and the sites' towns, two sites
-   in one town sharing one numbered pin, and one pick, on the map or a card. */
+/* The seeker's shortlist and its map (plan 052, items 23 and 24; plan 055,
+   decision 15): the best three cards, each tagged, a map with the seeker's
+   town and every ranked site's town, two sites in one town sharing one
+   numbered pin, a fourth site on the map only until its pin is clicked, and
+   one pick, on the map or a card. */
 const MATCH_CARD = (id, town, lat, lng, lead, km, shortlist) => ({
   listing_id: id, town, country: "United Kingdom", point: lat === null ? null : { lat, lng },
-  machines: [{ name: "HP MJF 5200", materials: ["pa12_nylon12"], count: 1, lead_time_days: lead }],
+  machines: [{ name: "HP MJF 5200", materials: ["pa12_nylon12"], count: 1, lead_time_days: lead, monthly_capacity: 600, min_order: null }],
   materials: ["pa12_nylon12"], processes: ["mjf"], services: [], min_lead_time_days: lead,
   verified: true, distance_km: km, meets_lead_time: true, no_match_flag: false, shortlist,
 });
@@ -868,6 +870,14 @@ async function walkFindMap() {
   await page.waitForSelector("body[data-np-open]");
   await page.waitForSelector("#findForm");
 
+  await step("the cadence question comes before the quantity", async () => {
+    const order = await page.evaluate(() => {
+      const cadence = document.getElementById("fCadence"), qty = document.getElementById("fQuantity");
+      return !!(cadence && qty && (cadence.compareDocumentPosition(qty) & Node.DOCUMENT_POSITION_FOLLOWING));
+    });
+    eq(order, true, "Is this a one off? sits above How many");
+    return has(await page.textContent("#fCadenceLabel"), "one off", "the cadence question");
+  });
   await step("a search shows the three the worker marked, not the fourth", async () => {
     await page.fill("#fMaterial", "PA12"); await page.press("#fMaterial", "Enter");
     await page.fill("#fQuantity", "200");
@@ -876,18 +886,40 @@ async function walkFindMap() {
     await page.waitForSelector("#step2:not([hidden]) #capGrid .cap");
     eq(await page.locator("#capGrid .cap").count(), 3, "cards");
     eq(await page.locator('#capGrid [data-card="listing-d"]').count(), 0, "the fourth card");
+    has(await page.textContent("#matchIntro"), "One more site on the map", "the intro counts the fourth");
     const q = apiCalls(world, "GET /listings/search")[0].query;
     return eq([q.town, q.country, q.max_lead_time_days], ["Leeds", "United Kingdom", "10"], "the search's town, country and lead time");
   });
-  await step("the map shows the seeker's town and one pin per town, two Leeds sites on one pin", async () => {
+  await step("the three cards carry Best fit for your request", async () => {
+    eq(await page.locator("#capGrid .cap .badge-best").count(), 3, "tags");
+    has(await page.textContent("#capGrid .cap .badge-best"), "Best fit for your request", "the tag's words");
+    return has(await page.textContent('#capGrid [data-card="listing-a"] dl'), "HP MJF 5200, 600 a month", "the machine's monthly capacity");
+  });
+  await step("the map shows the seeker's town and every ranked site, two Leeds sites on one pin, the fourth outlined", async () => {
     await page.waitForSelector("#matchMap:not([hidden]) .leaflet-container, #matchMap.leaflet-container");
     const pins = await page.$$eval("#matchMap .np-pin", (els) => els.map((e) => ({ text: e.textContent.trim(), cls: e.className })));
-    eq(pins.length, 3, "pins (You, Leeds, Bristol)");
+    eq(pins.length, 4, "pins (You, Leeds, Bristol, Glasgow)");
     eq(pins.filter((p) => /np-pin--you/.test(p.cls)).map((p) => p.text), ["You"], "the seeker's pin");
     eq(pins.filter((p) => /np-pin--group/.test(p.cls)).map((p) => p.text), ["2"], "the Leeds pin shows how many");
-    eq(pins.filter((p) => !/np-pin--(you|group)/.test(p.cls)).map((p) => p.text), ["3"], "Bristol's pin is Site 3");
+    eq(pins.filter((p) => !/np-pin--(you|group)/.test(p.cls)).map((p) => p.text), ["3", "4"], "Bristol's pin is Site 3, Glasgow's Site 4");
+    eq(pins.filter((p) => /np-pin--best/.test(p.cls)).map((p) => p.text), ["2", "3"], "the best three are the filled pins");
+    eq(pins.filter((p) => /np-pin--more/.test(p.cls)).map((p) => p.text), ["4"], "the fourth is outlined");
     const titles = await page.$$eval("#matchMap .leaflet-marker-icon", (els) => els.map((e) => e.getAttribute("title")));
     has(titles.join(" | "), "2 sites in Leeds, United Kingdom", "the Leeds pin's name");
+  });
+  await step("the Glasgow pin reveals Site 4's card below the three, without the tag", async () => {
+    await page.click("#matchMap .np-pin--more");
+    await page.waitForSelector('#capGrid [data-card="listing-d"]');
+    const cards = await page.$$eval("#capGrid .cap", (els) => els.map((e) => e.getAttribute("data-card")));
+    eq(cards, ["listing-a", "listing-b", "listing-c", "listing-d"], "the cards, in rank order");
+    eq(await page.locator('#capGrid [data-card="listing-d"] .badge-best').count(), 0, "no tag on the fourth");
+    eq(await page.locator("#capGrid .cap .badge-best").count(), 3, "the three keep theirs");
+    has(await page.textContent('#capGrid [data-card="listing-d"] .cap__num'), "Site 4", "its number is its rank");
+    await page.waitForSelector("#matchMap .np-pop");
+    has(await page.textContent("#matchMap .np-pop"), "Site 4", "its popup opens too");
+    /* closed, and gone (Leaflet fades a popup out), before the next step opens another */
+    await page.click("#matchMap .leaflet-popup-close-button");
+    await page.waitForSelector("#matchMap .np-pop", { state: "detached" });
   });
   await step("the shared pin opens a short anonymous list, and Choose ticks that card", async () => {
     await page.click("#matchMap .np-pin--group");
