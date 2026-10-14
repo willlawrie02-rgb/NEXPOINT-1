@@ -767,7 +767,15 @@
      the display type at full strength, the doors as Draft A has them (Will, 14 Oct), a denser proof
      band, and one blue band for the door at the foot. ─── */
   .hero__title { font: 800 clamp(40px, 5vw, 70px)/1.02 var(--font-display); letter-spacing: -0.035em; max-width: 20ch; }
-  @media (min-width: 1101px) { .hero__inner { grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr); } }
+  /* The film, much bigger (Will, 14 October, evening): the reveal box is 16:9 rather than square, so
+     the film fills it; it takes the wider column and runs into the right-hand padding. The globe draws
+     a centred sphere at the box's height, so the reveal is unchanged. The title steps down one notch
+     to keep to its column. */
+  @media (min-width: 1101px) {
+    .hero__inner { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.45fr); gap: clamp(28px, 3.5vw, 48px); }
+    .hero__title { font-size: clamp(40px, 4vw, 58px); }
+    .hero-reveal { width: calc(100% + var(--side-pad)); max-width: 920px; aspect-ratio: 16 / 9; margin-right: calc(-1 * var(--side-pad)); }
+  }
   .hero__sub { font: 400 clamp(16px, 1.35vw, 19px)/1.5 var(--font-body); max-width: 520px; }
   .hero__hint { font-size: 14px; }
 
