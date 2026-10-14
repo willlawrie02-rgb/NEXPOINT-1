@@ -658,7 +658,7 @@
   a.door:hover { border-color: var(--np-blue); transform: translateY(-2px); box-shadow: 0 16px 40px rgba(14, 22, 38, 0.10); }
   a.door:focus-visible { outline: 3px solid var(--np-blue); outline-offset: 3px; }
   .door__media { position: relative; overflow: hidden; }
-  .door__media img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; filter: saturate(0.92); transition: transform 400ms var(--ease), filter 400ms var(--ease); }
+  .door__media img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; filter: saturate(0.92); transition: transform 400ms var(--ease), filter 400ms var(--ease); }
   a.door:hover .door__media img { transform: scale(1.04); filter: saturate(1); }
   .door__status {
     position: absolute; top: 16px; left: 16px; display: inline-flex; align-items: center; gap: 7px;
@@ -729,7 +729,7 @@
   .lede { font-size: clamp(16px, 1.25vw, 18px); }
 
   .doors { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(18px, 2.4vw, 32px); }
-  .door__media img { aspect-ratio: 16 / 9; }
+  .door__media img { height: auto; aspect-ratio: 16 / 9; }
   .door__body { padding: clamp(24px, 2.6vw, 34px); }
   .door__kicker { font: 600 11px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--np-blue); display: block; margin-bottom: 10px; }
   .door h3 { font: 700 clamp(26px, 2.6vw, 38px)/1.1 var(--font-display); letter-spacing: -0.025em; margin-bottom: 10px; }
