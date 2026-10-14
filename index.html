@@ -750,7 +750,7 @@
      the display type at full strength, the doors as large image cards, a denser proof
      band, and one blue band for the door at the foot. ─── */
   .hero__title { font: 800 clamp(40px, 5vw, 70px)/1.02 var(--font-display); letter-spacing: -0.035em; max-width: 20ch; }
-  .hero__inner { grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr); }
+  @media (min-width: 1101px) { .hero__inner { grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr); } }
   .hero__sub { font: 400 clamp(16px, 1.35vw, 19px)/1.5 var(--font-body); max-width: 520px; }
   .hero__hint { font-size: 14px; }
 
