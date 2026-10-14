@@ -18,13 +18,73 @@
      and saw it unstyled. Bump both values together whenever this page's
      markup and those files change in the same PR (check/sweep.mjs holds the
      two in step). -->
-<link rel="stylesheet" href="assets/portal.css?v=20261014">
+<link rel="stylesheet" href="assets/portal.css?v=20261014.2">
 <link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="assets/explainer.css">
 <!-- The globe-to-film reveal is switched on here, before the hero paints, so the
      film never flashes ahead of the globe. Without this class (reduced motion,
      or no script) the hero shows the film alone. -->
 <script>if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches))document.documentElement.classList.add('np-reveal');</script>
+
+<style>
+  /* ─── The stage swap (Will, 14 October 2026): the hero fills the screen, then gives way
+       sideways to the four doors. Inline on purpose, like the layer below: it rides with the
+       page, so a browser holding an older portal.css still gets it whole.
+       The hero and the doors section are two panels in one sticky stage the height of the
+       viewport under the header. The block after the stage (the ::after; a sticky box may
+       only move within its parent's content box, so this is a block, never padding) is the
+       travel: two screens of scrolling during which the stage holds. The page's script
+       reads progress through the travel and writes four numbers on the stage, which the
+       rules here map to transform and opacity only: --np-h slides the hero left and fades
+       it, --np-d brings the doors in from the right, --np-do fades them up, --np-n fades
+       the Next button away. Nothing moves for the first tenth of the travel (the film is
+       there to be watched), the swap runs through the middle, and the last tenth holds the
+       doors so the stage lets go cleanly. html.np-swap-on is set by the script only when
+       both panels fit the stage, which is a desktop with the four doors in one row; a
+       tablet, a phone, reduced motion or no script gets the plain stacked page, hero then
+       doors, with no swap and no button. */
+  html.np-swap-on .np-swap { position: relative; }
+  html.np-swap-on .np-swap::after { content: ""; display: block; height: var(--np-swap-travel, 200vh); }
+  html.np-swap-on .np-swap__stage { position: sticky; top: var(--np-head, 73px); height: calc(100vh - var(--np-head, 73px)); overflow: clip; }
+  html.np-swap-on .np-swap__panel { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; }
+  html.np-swap-on .np-swap__hero { opacity: calc(1 - var(--np-h, 0)); transform: translate3d(calc(-16% * var(--np-h, 0)), 0, 0); }
+  html.np-swap-on .np-swap__hero .hub-hero { padding: 0; }
+  html.np-swap-on .np-swap__doors { opacity: var(--np-do, 0); transform: translate3d(calc(100% * (1 - var(--np-d, 0))), 0, 0); }
+  html.np-swap-on .np-swap__stage.is-swapping .np-swap__panel { will-change: transform, opacity; }
+  /* each door arrives a beat after the one before it, so the row reads as drawn in rather than pasted on */
+  html.np-swap-on .np-swap__stage.is-swapping .doors--four .door { transform: translate3d(calc(var(--np-lag, 0px) * (1 - var(--np-d, 0))), 0, 0); will-change: transform; }
+  .doors--four .door:nth-child(1) { --np-lag: 40px; }
+  .doors--four .door:nth-child(2) { --np-lag: 80px; }
+  .doors--four .door:nth-child(3) { --np-lag: 120px; }
+  .doors--four .door:nth-child(4) { --np-lag: 160px; }
+  /* the doors, compact enough for one screen: the heading beside its lede, tighter cards */
+  html.np-swap-on .np-swap__doors .section { padding: 0; }
+  html.np-swap-on .np-swap__doors .doors-head { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: auto auto; column-gap: clamp(32px, 4vw, 64px); margin-bottom: clamp(20px, 3.2vh, 36px); }
+  html.np-swap-on .np-swap__doors .doors-head .eyebrow { grid-column: 1; grid-row: 1; align-self: start; margin-bottom: 14px; }
+  html.np-swap-on .np-swap__doors .doors-head h2 { grid-column: 1; grid-row: 2; font-size: clamp(30px, 3.4vw, 50px); margin-bottom: 0; }
+  html.np-swap-on .np-swap__doors .doors-head .sub { grid-column: 2; grid-row: 1 / span 2; align-self: end; margin-bottom: 6px; }
+  html.np-swap-on .np-swap__doors .doors--four .door__body { padding: clamp(18px, 2vw, 26px); }
+  html.np-swap-on .np-swap__doors .doors--four .door p { font-size: 14px; line-height: 21px; }
+  html.np-swap-on .np-swap__doors .doors--four .door .go { margin-top: 16px; padding-top: 14px; }
+  html.np-swap-on .np-swap__doors .doors--four .door .btn { margin-top: 16px; }
+  /* Next: the same swap on a click, in the stage's bottom right corner beside the film.
+     There once the film has arrived; gone again once the swap is under way. */
+  .np-swap__next { display: none; }
+  html.np-swap-on .np-swap__next { position: absolute; right: clamp(20px, 2.4vw, 36px); bottom: clamp(20px, 3vh, 32px); z-index: 3; display: inline-flex; align-items: center; gap: 8px; padding: 14px 18px 14px 22px; border: 0; border-radius: 9999px; cursor: pointer; background: var(--blue); color: #fff; font: 600 15px/1 var(--font-body); box-shadow: 0 12px 32px rgba(0, 92, 200, .35); opacity: var(--np-n, 0); transition: background var(--dur) var(--ease); }
+  html.np-swap-on .np-swap__next:hover { background: var(--blue-hover); }
+  html.np-swap-on .np-swap__next:active { transform: scale(.97); }
+  html.np-swap-on .np-swap__next:focus-visible { outline: 3px solid var(--blue-bright); outline-offset: 3px; }
+  html.np-swap-on .np-swap__next.is-hidden { visibility: hidden; }
+  html.np-swap-on .np-swap__next .material-symbols-outlined { font-size: 20px; }
+  /* preference can change after load, so unwind rather than rely on the script's gate */
+  @media (prefers-reduced-motion: reduce) {
+    html.np-swap-on .np-swap::after { display: none; }
+    html.np-swap-on .np-swap__stage { position: static; height: auto; overflow: visible; }
+    html.np-swap-on .np-swap__panel { position: static; display: block; opacity: 1; transform: none; will-change: auto; }
+    html.np-swap-on .np-swap__doors .doors--four .door { transform: none; will-change: auto; }
+    html.np-swap-on .np-swap__next { display: none; }
+  }
+</style>
 
 <style>
   /* ─── Draft C, 14 October 2026: the home page's scale on this hub page. Inline on purpose:
@@ -123,6 +183,10 @@ fixed so the wordmark stops going missing.
 2026-09-04 - storyboard retells the signed story (need, unseen supply, a person
 weighs the fit, a personal introduction). Static cards only: animation deferred
 until the scenes are remade with Chris.
+
+2026-10-14 - the hero and the four doors become one stage (Will): the hero fills
+the screen on arrival, the doors are not on it; scrolling, or Next, slides the hero
+away to the left and brings the doors in from the right in its place.
 -->
 
 <div class="scroll-progress" aria-hidden="true"></div>
@@ -147,9 +211,19 @@ until the scenes are remade with Chris.
   <a href="https://opportunities.nexpoint.co.uk/">Opportunities Board</a>
 </nav>
 
-<!-- HERO - leads the page. Its Print/Mill buttons stay removed: the four cards sit
-     directly beneath it, so the same two destinations would appear twice in one screen. -->
-<div class="hero-stage">
+<!-- THE STAGE SWAP (Will, 14 October 2026): the hero fills the screen on arrival and the
+     four doors are not on it. Scrolling slides the hero away to the left and brings the doors
+     in from the right in its place; Next, the button in the stage's corner, does the same at
+     a set pace; after that the page scrolls as normal. Two panels in one sticky stage with a
+     block of travel after it: the rules are in the head, the driver at the foot of the page.
+     On a tablet, a phone, under reduced motion or with no script the two panels are the plain
+     stacked page they always were. The data-sc-* attributes are inert hooks for the
+     scroll-craft verification harness and carry no style. -->
+<div class="np-swap" data-sc-act="pin" data-sc-span="3">
+<div class="np-swap__stage" data-sc-stage>
+<div class="np-swap__panel np-swap__hero">
+<!-- HERO - the first panel. Its Print/Mill buttons stay removed: the four cards follow it,
+     so the same two destinations would appear twice in one screen. -->
 <section class="hub-hero">
   <div class="container">
     <div class="grid">
@@ -190,10 +264,11 @@ until the scenes are remade with Chris.
 </section>
 </div>
 
-<!-- THE FOUR DOORS - image-buttons, immediately under the hero. -->
-<section class="section hero-next" style="padding-top:0">
+<!-- THE FOUR DOORS - image-buttons, the second panel of the stage. -->
+<div class="np-swap__panel np-swap__doors">
+<section class="section" style="padding-top:0">
   <div class="container">
-    <div>
+    <div class="doors-head">
       <span class="eyebrow">Four hubs</span>
       <h2>Where do you want to go?</h2>
       <p class="sub">Each hub is a door into a different part of the network. Three are open today; the fourth is being built with founding partners now.</p>
@@ -250,6 +325,12 @@ until the scenes are remade with Chris.
     </div>
   </div>
 </section>
+</div>
+<!-- Next: the same swap on a click. In the stage's bottom right corner beside the film;
+     shown once the film has arrived, gone once the swap is under way. -->
+<button class="np-swap__next is-hidden" id="swapNext" type="button" aria-label="Next: where do you want to go"><span>Next</span><span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
+</div>
+</div>
 
 <!-- HOW AN INTRODUCTION HAPPENS -->
 <section class="section alt" id="how">
@@ -370,6 +451,177 @@ until the scenes are remade with Chris.
 <script src="../assets/hub-account.js"></script>
 <script src="assets/vendor/leaflet/leaflet.js" defer></script>
 <script src="assets/site-map.js" defer></script>
-<script src="assets/portal.js?v=20261014"></script>
+<script src="assets/portal.js?v=20261014.2"></script>
+<script>
+/* ─── The stage swap: the hero gives way sideways to the four doors (Will, 14 October 2026) ───
+   The shape is in the style block in the head. This decides whether the swap is on (the two
+   panels both fit the stage, which is a desktop with the doors in one row), measures the
+   header, reads progress through the travel, eases toward it on one rAF loop and writes the
+   numbers the CSS maps to transform and opacity. Three things keep the film watchable:
+   nothing moves for the first tenth of the travel; progress is held at nought until the
+   globe has given way (the film's arrival animation ending, or 2.6 s), whatever the wheel
+   has done in the meantime; and the travel is two screens long, so the swap takes deliberate
+   scrolling. A scroll that stops part-way settles to the nearer end in the direction it was
+   going, after a short pause, so the stage is never left half-swapped; any further input
+   cancels that. Next glides the page to the end of the travel: the same swap at a set pace.
+   The panel that is off the stage is inert, so nothing in it can be tabbed to or clicked
+   through the other. ?swap=direct (verification only) removes the easing and the settling,
+   so a harness sees exact states at exact positions. */
+(function initStageSwap(){
+  const root = document.documentElement;
+  const track = document.querySelector('.np-swap');
+  const stage = track && track.querySelector('.np-swap__stage');
+  const heroPanel = track && track.querySelector('.np-swap__hero');
+  const doorsPanel = track && track.querySelector('.np-swap__doors');
+  const heroSection = heroPanel && heroPanel.querySelector('.hub-hero');
+  const doorsSection = doorsPanel && doorsPanel.querySelector('.section');
+  const next = document.getElementById('swapNext');
+  const head = document.querySelector('header');
+  const filmFrame = document.querySelector('.hero-film');
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)');
+  /* sc-ready is the verification harness's "laid out" signal; it carries no style */
+  const ready = () => root.classList.add('sc-ready');
+  if (!track || !stage || !heroPanel || !doorsPanel || !heroSection || !doorsSection || still.matches) { ready(); return; }
+
+  const direct = new URLSearchParams(location.search).get('swap') === 'direct';
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
+  const wide = window.matchMedia('(min-width: 1101px)');   // the four doors in one row
+  const LERP = direct ? 1 : coarse ? 0.2 : 0.1;             // per-frame approach to the target; a thumb wants less lag than a wheel
+  const HOLD_IN = 0.10, HOLD_OUT = 0.90;                    // the still tenths at either end of the travel
+  const HALF_GONE = 0.36;                                   // progress at which the hero is half faded
+  const easeInOut = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
+  const easeOut = (t) => Math.sin((t * Math.PI) / 2);
+  const win = (p, a, b) => Math.min(1, Math.max(0, (p - a) / (b - a)));
+
+  let on = false, revealed = false, target = 0, cur = -1, btn = 0, raf = 0, idle = 0, glide = null, lastState = '', lastY = window.scrollY, dir = 1;
+
+  const headH = () => (head ? head.offsetHeight : 73);
+  const travel = () => Math.max(1, track.offsetHeight - stage.offsetHeight);
+  const progress = () => Math.min(1, Math.max(0, (headH() - track.getBoundingClientRect().top) / travel()));
+  const scrollFor = (p) => track.getBoundingClientRect().top + window.scrollY - headH() + p * travel();
+  function fits(){
+    const room = window.innerHeight - headH() - 24;   // a little air above and below
+    return wide.matches && heroSection.offsetHeight <= room && doorsSection.offsetHeight <= room;
+  }
+
+  function write(p){
+    const h = easeInOut(win(p, HOLD_IN, 0.62));      // the hero: left, and out
+    const d = easeInOut(win(p, 0.28, HOLD_OUT));     // the doors: in from the right
+    const o = easeOut(win(p, 0.28, 0.66));           // the doors' opacity, up ahead of their travel
+    const n = btn * (1 - win(p, 0, 0.22));           // Next: there once the film is, gone as the swap starts
+    const s = stage.style;
+    s.setProperty('--np-h', h.toFixed(4));
+    s.setProperty('--np-d', d.toFixed(4));
+    s.setProperty('--np-do', o.toFixed(4));
+    s.setProperty('--np-n', n.toFixed(4));
+    const heroOut = h >= 0.999, doorsAway = d <= 0.001;
+    if (heroPanel.inert !== heroOut) heroPanel.inert = heroOut;
+    if (doorsPanel.inert !== doorsAway) doorsPanel.inert = doorsAway;
+    stage.classList.toggle('is-swapping', (h > 0 && !heroOut) || (!doorsAway && d < 0.999));
+    if (next) next.classList.toggle('is-hidden', n < 0.01);
+    /* the hero is pinned while it fades, so the film is still on screen to an observer: stop it here */
+    if (h >= 0.5 && window.NPHeroFilm) NPHeroFilm.pause();
+    /* the harness reads these; they are the only attributes written per frame */
+    const state = 'hero:' + h.toFixed(2) + ' doors:' + d.toFixed(2) + '/' + o.toFixed(2) + ' next:' + n.toFixed(2);
+    if (state !== lastState) { stage.setAttribute('data-sc-verify-state', state); lastState = state; }
+    const hold = (p < HOLD_IN || p > HOLD_OUT) ? 'true' : 'false';
+    if (stage.getAttribute('data-sc-verify-hold') !== hold) stage.setAttribute('data-sc-verify-hold', hold);
+  }
+  function tick(){
+    raf = 0;
+    const k = glide ? 1 : LERP;   // a glide is already eased: follow it exactly
+    if (cur < 0) cur = target; else cur += (target - cur) * k;
+    if (Math.abs(target - cur) < 0.0005) cur = target;
+    const want = revealed ? 1 : 0;            // Next fades up once the film has arrived
+    btn += (want - btn) * (direct ? 1 : 0.08);
+    if (Math.abs(want - btn) < 0.005) btn = want;
+    write(cur);
+    if (cur !== target || btn !== want) raf = requestAnimationFrame(tick);
+  }
+  function readTarget(){ target = revealed ? progress() : 0; }
+  function onScroll(){
+    const y = window.scrollY;
+    if (y !== lastY) { dir = y > lastY ? 1 : -1; lastY = y; }
+    if (!on) return;
+    readTarget();
+    if (!raf) raf = requestAnimationFrame(tick);
+    clearTimeout(idle);
+    idle = setTimeout(settle, 260);
+  }
+  /* a stop part-way through the swap settles to the nearer end in the direction of travel:
+     scrolling down, back to the hero until it is half gone and on to the doors after;
+     scrolling up, the mirror of that */
+  function settle(){
+    idle = 0;
+    if (!on || !revealed || glide || direct) return;
+    const p = progress();
+    if (p <= 0.02 || p >= 0.98) return;
+    const to = dir > 0 ? (p < HALF_GONE ? 0 : 1) : (p > 1 - HALF_GONE ? 1 : 0);
+    glideTo(to, 500 + 900 * Math.abs(to - p));
+  }
+  /* a page-driven scroll at a set pace, in place of the browser's own smooth scroll, whose
+     pace is not ours to set; any input from the visitor cancels it */
+  function glideTo(p1, ms){
+    cancelGlide();
+    const y0 = window.scrollY, y1 = scrollFor(p1), t0 = performance.now();
+    const was = root.style.scrollBehavior;
+    root.style.scrollBehavior = 'auto';
+    const g = glide = { stop(){ if (glide !== g) return; root.style.scrollBehavior = was; glide = null; } };
+    const step = (now) => {
+      if (glide !== g) return;
+      const t = Math.min(1, (now - t0) / ms);
+      window.scrollTo(0, y0 + (y1 - y0) * easeInOut(t));
+      if (t < 1) requestAnimationFrame(step); else g.stop();
+    };
+    requestAnimationFrame(step);
+  }
+  function cancelGlide(){ if (glide) glide.stop(); }
+  ['wheel', 'touchstart', 'pointerdown', 'keydown'].forEach((ev) => window.addEventListener(ev, cancelGlide, { passive: true }));
+
+  function apply(){
+    root.style.setProperty('--np-head', headH() + 'px');
+    root.classList.add('np-swap-on');          // measure with the stage's rules applied
+    const want = fits();
+    if (!want) root.classList.remove('np-swap-on');
+    if (want !== on) {
+      on = want;
+      if (!on) {
+        cancelGlide();
+        stage.removeAttribute('style');
+        stage.classList.remove('is-swapping');
+        stage.removeAttribute('data-sc-verify-state');
+        stage.removeAttribute('data-sc-verify-hold');
+        heroPanel.inert = false; doorsPanel.inert = false;
+        if (next) next.classList.add('is-hidden');
+        lastState = '';
+      }
+    }
+    if (!on) return;
+    readTarget();
+    cur = -1;   // a layout change is not a scroll: land on the new number, do not glide to it
+    if (!raf) raf = requestAnimationFrame(tick);
+  }
+  function reveal(){
+    if (revealed) return;
+    revealed = true;
+    if (on) onScroll();
+    if (!raf) raf = requestAnimationFrame(tick);
+    ready();
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', apply, { passive: true });
+  window.addEventListener('load', apply);   // images settle after load and can change a panel's height
+  if (wide.addEventListener) wide.addEventListener('change', apply); else wide.addListener(apply);
+  if (next) next.addEventListener('click', () => { if (on && revealed) glideTo(1, 1500); });
+  apply();
+  /* the swap waits for the film: the globe's leaving and the film's arrival are CSS
+     animations started on load (portal.css), and the film's end is the cue */
+  if (root.classList.contains('np-reveal') && filmFrame) {
+    filmFrame.addEventListener('animationend', (e) => { if (e.animationName === 'np-film-arrive') reveal(); });
+    setTimeout(reveal, 2600);
+  } else reveal();
+})();
+</script>
 </body>
 </html>

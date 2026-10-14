@@ -832,7 +832,7 @@ function doorSendBack(){
 })();
 
 /* Flip every .enter inside a container on the same frame. Shared, so the scroll observer
-   and the hero handoff can each fire a group at the moment they choose, and so firing
+   and any page sequence can each fire a group at the moment they choose, and so firing
    twice is harmless. */
 function fireEnterGroup(el){
   if (!el || el.dataset.entered) return;
@@ -859,9 +859,7 @@ function fireEnterGroup(el){
        the same frame and --d alone spaces them, so the stagger is the same every time.
        threshold 0 with a bottom margin keys off the container's top edge, which stays
        predictable however tall the group is. */
-    const wideEnough = window.matchMedia('(min-width:961px)').matches;
     document.querySelectorAll('[data-enter-group]').forEach(group => {
-      if (wideEnough && group.hasAttribute('data-enter-handoff')) return;
       new IntersectionObserver((entries, obs) => {
         entries.forEach(en => {
           if (!en.isIntersecting) return;
@@ -916,78 +914,6 @@ document.addEventListener('np:modules', bootPageModules, { once: true });
   window.NPHeroFilm = { pause: () => { if (!film.paused) film.pause(); } };
 })();
 
-/* ═══════════ hero handoff: the globe launches, the doors take the frame ═══════════
-   Progress is derived from scrollY alone (no per-frame layout reads), written once per
-   rAF into custom properties that CSS turns into transform/opacity/filter. Nothing here
-   animates a layout property, so the whole sequence stays on the compositor. */
-(function initHeroHandoff(){
-  const root  = document.documentElement;
-  const stage = document.querySelector('.hero-stage');
-  const nextSection = document.querySelector('.hero-next');
-  const head  = document.querySelector('header');
-  if (!stage || !nextSection || !root.classList.contains('js-motion')) return;
-
-  const wide = window.matchMedia('(min-width:961px)');
-  const still = window.matchMedia('(prefers-reduced-motion:reduce)');
-  const VARS = ['--copy-o','--globe-y','--globe-s','--globe-b','--globe-o'];
-
-  let span = 1, queued = false, live = false, wasFlying = false;
-
-  const clamp  = v => v < 0 ? 0 : v > 1 ? 1 : v;
-  /* smoothstep: eases both ends of a fade so nothing snaps on or off */
-  const ramp   = (v, a, b) => { const t = clamp((v - a) / (b - a)); return t * t * (3 - 2 * t); };
-
-  function measure(){
-    const h = head ? head.offsetHeight : 0;
-    root.style.setProperty('--header-h', h + 'px');
-    /* distance from rest to the doors meeting the header, the whole handoff */
-    span = Math.max(1, nextSection.getBoundingClientRect().top + window.scrollY - h);
-  }
-
-  function frame(){
-    queued = false;
-    const p = clamp(window.scrollY / span);
-    const g = p * p;                 /* squared: it accelerates away rather than drifting */
-    const s = stage.style;
-    s.setProperty('--copy-o',  (1 - ramp(p, .05, .62)).toFixed(3));
-    s.setProperty('--globe-y', (-g * 155).toFixed(2) + 'vh');
-    s.setProperty('--globe-s', (1 - g * .18).toFixed(3));
-    s.setProperty('--globe-b', (ramp(p, .22, 1) * 6).toFixed(2) + 'px');
-    s.setProperty('--globe-o', (1 - ramp(p, .12, .72)).toFixed(3));
-
-    /* Only what is in frame when the hero gives way belongs to the handoff. Bands further
-       down earn their own entrance from the scroll observer, or they would play unseen. */
-    if (p >= .5) nextSection.querySelectorAll('[data-enter-handoff]').forEach(fireEnterGroup);
-    /* the hero is pinned while it fades, so the film is still "on screen" to
-       an observer: stop it here once it has mostly gone */
-    if (p >= .6 && window.NPHeroFilm) NPHeroFilm.pause();
-
-    const flying = p > 0 && p < 1;
-    if (flying !== wasFlying){ stage.classList.toggle('is-flight', flying); wasFlying = flying; }
-  }
-
-  function clear(){
-    VARS.forEach(k => stage.style.removeProperty(k));
-    stage.classList.remove('is-flight');
-    wasFlying = false;
-  }
-
-  function onScroll(){ if (live && !queued){ queued = true; requestAnimationFrame(frame); } }
-
-  function sync(){
-    live = wide.matches && !still.matches;
-    if (live){ measure(); frame(); return; }
-    /* handoff is off (narrow, or reduced motion switched on mid-session). It owns the
-       doors' entrance, so hand it back rather than leaving them hidden forever. */
-    clear();
-    nextSection.querySelectorAll('[data-enter-handoff]').forEach(fireEnterGroup);
-  }
-
-  addEventListener('scroll', onScroll, { passive:true });
-  addEventListener('resize', sync,     { passive:true });
-  const watch = (mq, fn) => mq.addEventListener ? mq.addEventListener('change', fn) : mq.addListener(fn);
-  watch(wide, sync); watch(still, sync);
-  /* images settle after load and can move the doors; re-measure once they have */
-  addEventListener('load', sync);
-  sync();
-})();
+/* The hero handoff that lived here (progress from scrollY into custom properties the
+   old .hero-stage rules read) was retired on 14 October 2026: the door's stage swap is
+   inline with hub/index.html, and nothing else on the site used it. */
