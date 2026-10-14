@@ -2,7 +2,7 @@
 
    Page contract:
    window.HUB = {
-     hub: 'print', title: 'Print Hub',
+     hub: 'print', title: '3D Print Hub',
      left:  { side: 'offer_capacity',   title: 'Hosts — offering capacity',     approveLabel: 'Approve as host' },
      right: { side: 'request_capacity', title: 'Seekers — requesting capacity', approveLabel: 'Approve request' },
    }

@@ -1,4 +1,4 @@
-/* NexPoint Global Hub - the hub account module (spec 2026-09-03).
+/* NexPoint Global Portal - the hub account module (spec 2026-09-03).
    Served from the apex only; subdomain pages load it by absolute URL.
    Progressive enhancement: if this file fails to load, every form falls back
    to its original anonymous behaviour.
@@ -94,7 +94,7 @@
        secret second, or the worker will start rejecting registrations the form
        is not yet sending a token for. It lives on this module, not on NP,
        because this module owns the register form and is loaded on every page
-       that opens it, including the Opportunities board, which never loads
+       that opens it, including the Opportunities Board, which never loads
        portal.js. Emptying it again switches the widget off: the questionnaire
        renders nothing extra and the register body carries no token, so remove
        the worker's TURNSTILE_SECRET before ever doing that. */
@@ -218,7 +218,7 @@
      on a phone the chip is the first thing the header squeezes. Two changes
      share this function because both follow the same fact, A.user: the chip's
      link is drawn as a button (np-chip__account, styled in portal.css; a page
-     with its own styles, the Opportunities board, keeps the plain link look),
+     with its own styles, the Opportunities Board, keeps the plain link look),
      and every page's hub-switch pill bar carries a "Your account" pill that
      is in the markup hidden and shown only to a signed-in visitor. */
   function syncAccountPills() {

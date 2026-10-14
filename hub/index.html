@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>The NexPoint Global Hub</title>
-<meta name="description" content="The NexPoint Global Hub: print capacity, milled production and opportunities in orthotics and prosthetics, by trusted introduction. Education to follow.">
+<title>The NexPoint Global Portal</title>
+<meta name="description" content="The NexPoint Global Portal: print capacity, milled production and opportunities in orthotics and prosthetics, by trusted introduction. Education to follow.">
 <link rel="icon" href="../assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,7 +18,7 @@
      and saw it unstyled. Bump both values together whenever this page's
      markup and those files change in the same PR (check/sweep.mjs holds the
      two in step). -->
-<link rel="stylesheet" href="assets/portal.css?v=20261013c">
+<link rel="stylesheet" href="assets/portal.css?v=20261014">
 <link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="assets/explainer.css">
 <!-- The globe-to-film reveal is switched on here, before the hero paints, so the
@@ -30,7 +30,7 @@
 <!--
 v3 · 2026-08-15 - rebuilt from Chris's 14 Aug review.
 CHANGED: hub cards are image-buttons and sit directly under the hero · Product Hub
-renamed Global Opportunities Hub and wired to the existing board · "From any hub to
+renamed Opportunities Board and wired to the existing board · "From any hub to
 an introduction, quietly" cut ("it doesn't make any sense to a human") · logo path
 fixed so the wordmark stops going missing.
 
@@ -44,10 +44,10 @@ until the scenes are remade with Chris.
 <header>
   <div class="container nav">
     <a href="https://nexpoint.co.uk/" class="wordmark" aria-label="NexPoint home"><img src="../assets/nexpoint-logo.png" alt="NexPoint" width="52" height="52"></a>
-    <nav class="nav-links" aria-label="Global Hub">
-      <a href="https://printhub.nexpoint.co.uk/" class="hide-m">Print Hub</a>
+    <nav class="nav-links" aria-label="Global Portal">
+      <a href="https://printhub.nexpoint.co.uk/" class="hide-m">3D Print Hub</a>
       <a href="https://millhub.nexpoint.co.uk/" class="hide-m">Mill Hub</a>
-      <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities Hub</a>
+      <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities Board</a>
       <button class="btn btn-outline" onclick="openIntro('THE PORTAL','Talk to the desk')">Talk to the desk</button>
       <span data-np-account-slot><a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a></span>
     </nav>
@@ -55,10 +55,10 @@ until the scenes are remade with Chris.
 </header>
 <nav class="hub-switch" aria-label="Hubs">
   <a href="https://nexpoint.co.uk/hub/account/" data-np-switch-account hidden>Your account</a>
-  <a href="index.html" aria-current="page">Global Hub home</a>
-  <a href="https://printhub.nexpoint.co.uk/">Print Hub</a>
+  <a href="index.html" aria-current="page">Global Portal home</a>
+  <a href="https://printhub.nexpoint.co.uk/">3D Print Hub</a>
   <a href="https://millhub.nexpoint.co.uk/">Mill Hub</a>
-  <a href="https://opportunities.nexpoint.co.uk/">Opportunities Hub</a>
+  <a href="https://opportunities.nexpoint.co.uk/">Opportunities Board</a>
 </nav>
 
 <!-- HERO - leads the page. Its Print/Mill buttons stay removed: the four cards sit
@@ -68,7 +68,7 @@ until the scenes are remade with Chris.
   <div class="container">
     <div class="grid">
       <div class="hero-copy">
-        <span class="eyebrow">The NexPoint Global Hub</span>
+        <span class="eyebrow">The NexPoint Global Portal</span>
         <h1>One trusted network.<br><em>Four hubs.</em></h1>
         <p class="lede">Print capacity, milled production, products and know-how, connected across the global O&amp;P industry. Every introduction is made person to person, by people who know both sides.</p>
         <p style="margin-top:14px"><a class="hero-how" href="#how">See how the hub works</a></p>
@@ -80,17 +80,17 @@ until the scenes are remade with Chris.
         <p class="np-holder" style="margin-top:18px;font-size:13.5px;color:var(--on-surface-var)">Welcome back. <a href="https://nexpoint.co.uk/hub/account/" style="color:var(--blue);font-weight:600">Go to your account</a> for your requests, introductions and listings.</p>
       </div>
       <!-- The globe gives way to the film (Will, 12 and 13 October 2026, plan 055
-           point 6): on load the globe rises and fades and the Global Hub film is
+           point 6): on load the globe rises and fades and the Global Portal film is
            revealed where it stood, as a poster with one play button; sound is on
            when it is played. The film is the frame's size from the start, so
            nothing below moves. Reduced motion, or no script: the film alone. -->
       <div class="hero-reveal">
         <figure class="film__frame hero-film">
-          <video class="film__video" id="heroFilm" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film-poster.jpg" aria-label="The NexPoint Global Hub in ninety seconds: four hubs and how an introduction actually happens, with captions">
+          <video class="film__video" id="heroFilm" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film-poster.jpg" aria-label="The NexPoint Global Portal in ninety seconds: four hubs and how an introduction actually happens, with captions">
             <source src="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film.mp4" type="video/mp4">
             Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film.mp4">Download it instead</a>.
           </video>
-          <button class="hero-film__play" id="heroFilmPlay" type="button" aria-label="Play the film: the Global Hub in ninety seconds">
+          <button class="hero-film__play" id="heroFilmPlay" type="button" aria-label="Play the film: the Global Portal in ninety seconds">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
             <span>Play the film</span>
           </button>
@@ -122,9 +122,9 @@ until the scenes are remade with Chris.
           <span class="status"><span class="live-dot"></span>Live</span>
         </div>
         <div class="hub-band__body">
-          <h3>Global Print Hub</h3>
+          <h3>3D Print Hub</h3>
           <p>Certified labs print each other's work close to the end customer. Founding nodes joining across six regions now. The file travels, the product doesn't.</p>
-          <span class="go">Enter the Print Hub <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
+          <span class="go">Enter the 3D Print Hub <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
         </div>
       </a>
 
@@ -134,7 +134,7 @@ until the scenes are remade with Chris.
           <span class="status"><span class="live-dot"></span>Live</span>
         </div>
         <div class="hub-band__body">
-          <h3>Global Mill Hub</h3>
+          <h3>Mill Hub</h3>
           <p>Established milled-orthotic production, run as your own line inside a partner facility: your styles, your branding, your standard, mirrored across continents for full redundancy.</p>
           <span class="go">Enter the Mill Hub <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
         </div>
@@ -146,7 +146,7 @@ until the scenes are remade with Chris.
           <span class="status"><span class="live-dot"></span>On the board</span>
         </div>
         <div class="hub-band__body">
-          <h3>Global Opportunities Hub</h3>
+          <h3>Opportunities Board</h3>
           <p>Products, materials, technologies, consultancy, and companies looking to buy or sell. Placed through verified, anonymised opportunities. Read the board and request an introduction; nothing is bought or sold on the page.</p>
           <span class="go">Browse the board <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
         </div>
@@ -172,9 +172,9 @@ until the scenes are remade with Chris.
   <div class="container">
     <div class="enter enter--up">
       <h2>How an introduction actually happens.</h2>
-      <p class="sub">The Global Hub shows you what exists. People decide what meets.</p>
+      <p class="sub">The Global Portal shows you what exists. People decide what meets.</p>
     </div>
-    <div id="explainer" class="xp-mount enter enter--up" aria-label="How the Global Hub works">
+    <div id="explainer" class="xp-mount enter enter--up" aria-label="How the Global Portal works">
       <div class="xp-board">
         <div class="xp-panel"><span class="n">01</span><h3>The need</h3><p>You have the work, a scan ready to make, but not the machine.</p></div>
         <div class="xp-panel"><span class="n">02</span><h3>The unseen supply</h3><p>Somewhere in the network, a certified lab has exactly that capacity. You've never met.</p></div>
@@ -187,7 +187,7 @@ until the scenes are remade with Chris.
       <div class="row enter enter--up" style="--d:0ms">
         <span class="material-symbols-outlined" aria-hidden="true">visibility_off</span>
         <span class="lead">Discretion as standard</span>
-        <p>Every hub describes the deal, not the party. Names, prices and references never appear on the Global Hub; they are shared only inside a personal introduction, the way good deals have always been done.</p>
+        <p>Every hub describes the deal, not the party. Names, prices and references never appear on the Global Portal; they are shared only inside a personal introduction, the way good deals have always been done.</p>
       </div>
       <div class="row enter enter--up" style="--d:70ms">
         <span class="material-symbols-outlined" aria-hidden="true">verified</span>
@@ -220,10 +220,10 @@ until the scenes are remade with Chris.
       <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, Australia and Asia.</p>
     </div>
     <div class="footer__col">
-      <h5>Global Hub</h5>
+      <h5>Global Portal</h5>
       <ul>
-        <li><a href="https://printhub.nexpoint.co.uk/">Global Print Hub</a></li>
-        <li><a href="https://millhub.nexpoint.co.uk/">Global Mill Hub</a></li>
+        <li><a href="https://printhub.nexpoint.co.uk/">3D Print Hub</a></li>
+        <li><a href="https://millhub.nexpoint.co.uk/">Mill Hub</a></li>
         <li><a href="https://opportunities.nexpoint.co.uk/">The opportunity board</a></li>
         <li><a href="#how">How it works</a></li>
       </ul>
@@ -286,6 +286,6 @@ until the scenes are remade with Chris.
 <script src="../assets/hub-account.js"></script>
 <script src="assets/vendor/leaflet/leaflet.js" defer></script>
 <script src="assets/site-map.js" defer></script>
-<script src="assets/portal.js?v=20261013c"></script>
+<script src="assets/portal.js?v=20261014"></script>
 </body>
 </html>

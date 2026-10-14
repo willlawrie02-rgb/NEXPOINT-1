@@ -1,4 +1,4 @@
-/* NexPoint Global Hub - the per-site listing form (spec 2026-09-03).
+/* NexPoint Global Portal - the per-site listing form (spec 2026-09-03).
    The offer page's own module. One listing per site per hub: an address,
    the regions it ships to, services, quality notes, monthly capacity, the
    an unlimited list of machines. Nothing a host writes goes live on its
@@ -904,7 +904,7 @@
       notesPlaceholder: 'Plans, standards, current volumes',
       signedOut: 'Sign in or create your hub account to apply. The NexPoint desk reviews every application personally, and nothing is listed or charged until approved.',
       pending: 'Application received. We review personally; nothing is listed or charged until approved.',
-      approved: 'You are an approved host on the Print Hub. Your dashboard has your introductions, orders and order log.',
+      approved: 'You are an approved host on the 3D Print Hub. Your dashboard has your introductions, orders and order log.',
     },
     mill: {
       machineLabel: 'Machines',
