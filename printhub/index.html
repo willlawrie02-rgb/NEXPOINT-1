@@ -102,6 +102,11 @@
   .post .btn-primary:hover { background: #F5F7FA; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); }
   .post ::selection { background: rgba(255, 255, 255, .35); color: #fff; }
   .next-hub h3 { font-weight: 700; }
+  /* five steps in a row on a wide screen, three on a tablet, one on a phone (the old inline
+     style pinned five columns at every width) */
+  .steps--five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  @media (max-width: 1100px) { .steps--five { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px clamp(14px, 1.8vw, 24px); } }
+  @media (max-width: 640px) { .steps--five { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 </style>
 </head>
 <body data-hub="print" data-np-wall>
@@ -254,7 +259,7 @@ own pages · logo path fixed.
     <h2>How the Print Hub works</h2>
     <p class="sub">Five steps, and only the file moves. Quality is held by certification: approved printers and materials, calibration, inspection, packaging and delivery standards.</p>
     </div>
-    <div class="steps" style="grid-template-columns:repeat(5,minmax(0,1fr))">
+    <div class="steps steps--five">
       <div class="step enter enter--up" style="--d:0ms"><span class="n">01</span><h3>Join &amp; verify</h3><p>We verify every lab's equipment, materials, print quality and production standards before it joins.</p></div>
       <div class="step enter enter--up" style="--d:60ms"><span class="n">02</span><h3>Build your listing</h3><p>Printers, build sizes, materials, capacity, lead times and the countries you serve: what a seeker's search is matched against.</p></div>
       <div class="step enter enter--up" style="--d:120ms"><span class="n">03</span><h3>Demand arrives</h3><p>Search the network yourself, or ask us to recommend the right partner for the job.</p></div>
