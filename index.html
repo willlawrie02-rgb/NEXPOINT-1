@@ -690,6 +690,11 @@
   .hero__hint { font: 500 13.5px/1.5 var(--font-body); color: #5A6474; margin: 14px 0 0; }
 
   /* The four doors: the hub door's card idiom, ported here because this page keeps its own styles */
+  /* A section-level link out of a heading block: the four-hubs head points at the portal door (Will, 14 Oct) */
+  .sec-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; font: 600 15px/1 var(--font-body); color: var(--np-blue); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color var(--duration) var(--ease); }
+  .sec-link:hover { border-bottom-color: var(--np-blue); }
+  .sec-link .material-symbols-outlined { font-size: 18px; transition: transform var(--duration) var(--ease); }
+  .sec-link:hover .material-symbols-outlined { transform: translateX(3px); }
   .doors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(16px, 2vw, 24px); }
   @media (max-width: 1100px) { .doors { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .door {
@@ -868,8 +873,9 @@
       <span class="eyebrow">The Global Portal</span>
       <h2 class="h2">Four hubs. One trusted network.</h2>
       <p class="lede" style="margin-top:20px;">
-        Each hub is a door into a different part of the network. One free account opens all of them, and every introduction is still made by the NexPoint desk.
+        Each hub is a door into a different part of the network. Together they are the Global Portal: one free account opens all four, and every introduction is still made by the NexPoint desk.
       </p>
+      <a class="sec-link" href="https://nexpoint.co.uk/hub/">See how the Global Portal works <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
     </div>
 
     <div class="doors">
