@@ -102,6 +102,16 @@
     user: null,
     ready: null,
     async refresh() {
+      /* Until /auth/me has answered, the door shows neither the stranger's
+         button nor the holder's line (hub/index.html hides both, and the
+         header slot, while this attribute is on), so a signed-in visitor
+         never sees Create your hub account flash first (Will, 14 Oct). A
+         slow answer shows the stranger state after three seconds, as before. */
+      whenDom(() => {
+        if (!document.body) return;
+        document.body.setAttribute('data-np-checking', '');
+        setTimeout(() => document.body.removeAttribute('data-np-checking'), 3000);
+      });
       try {
         /* A dropped request, or the worker saying it could not tell
            (signed_in null: the sign-in service gave no answer), is not
@@ -176,6 +186,7 @@
   function enforceDoor() {
     const b = document.body;
     if (!b) return;
+    b.removeAttribute('data-np-checking');
     b.toggleAttribute('data-np-signed-in', !!A.user);
     if (!b.hasAttribute('data-np-wall')) return;
     if (A.user) { b.setAttribute('data-np-open', ''); return; }
