@@ -546,12 +546,9 @@
   html[data-theme="light"] .hero { background: linear-gradient(180deg, #FFFFFF 0%, var(--bg) 100%); }
   html[data-theme="light"] .hero__title { color: #0E1626; }
   html[data-theme="light"] .hero__sub { color: #4A5462; }
-  /* Keep the globe dark & rich in light mode — it's drawn semi-transparent, so give it a dark planet backing */
-  html[data-theme="light"] .globe-stage::before {
-    content: ""; position: absolute; left: 50%; top: 50%; width: 92%; height: 92%;
-    transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; z-index: 0;
-    background: radial-gradient(circle at 40% 34%, #18263e 0%, #0d1728 62%, #080f1c 88%, rgba(8, 15, 28, 0) 100%);
-  }
+  /* The globe's dark planet backing is drawn on the canvas itself (see frame() in the globe
+     script): a CSS disc on the stage was an ellipse in Safari once the stage went 16:9 behind
+     the film (Will, 14 October, evening), and a circle drawn in the canvas is round everywhere. */
   html[data-theme="light"] .globe-canvas { z-index: 1; }
   html[data-theme="light"] .btn--ghost-lg { color: #0E1626; border-color: rgba(14, 22, 38, 0.2); }
   html[data-theme="light"] .btn--ghost-lg:hover { border-color: rgba(14, 22, 38, 0.4); background: rgba(14, 22, 38, 0.03); }
@@ -607,7 +604,7 @@
 
   /* Footer stays dark as a premium base */
   html[data-theme="light"] .footer { background: #0d0e0f; border-top-color: rgba(255, 255, 255, 0.06); }
-  /* The home page film (12 October 2026): the overview in seventy-five seconds. */
+  /* The home page film (v2, 14 October 2026): NexPoint in two minutes. */
   .film__frame{margin:clamp(20px,3vh,28px) auto 0;max-width:min(860px,calc((100vh - 300px) * 16 / 9));border:1px solid #E3E7ED;border-radius:12px;overflow:hidden;background:#F5F7FA;box-shadow:0 24px 64px rgba(14,22,38,.14)}
   .film__video{display:block;width:100%;aspect-ratio:16/9;background:#F5F7FA}
   .film__note{margin:12px auto 0;max-width:min(860px,calc((100vh - 300px) * 16 / 9));font-size:13px;line-height:1.5;color:#4A5462;text-align:center}
@@ -763,11 +760,32 @@
   /* The closing band carries the hero's two buttons */
   .hubteaser .hero__ctas { margin-top: 4px; }
 
+  /* ─── The scroll progress bar, as the portal pages have it (Will, 14 October, evening: it had gone
+     from the home page in an earlier redesign). Driven by the scroll timeline where the browser has
+     it; a few lines of script fill it elsewhere; hidden under reduced motion. ─── */
+  .scroll-progress { position: fixed; top: 0; left: 0; height: 2px; z-index: 2000; background: linear-gradient(90deg, var(--np-blue), var(--np-green)); transform-origin: 0 50%; width: 100%; transform: scaleX(0); pointer-events: none; }
+  @supports (animation-timeline: scroll(root)) {
+    @keyframes np-grow-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .scroll-progress { animation: np-grow-progress auto linear; animation-timeline: scroll(root); }
+  }
+  @media (prefers-reduced-motion: reduce) { .scroll-progress { display: none; } }
+
   /* ─── Draft C: the bolder pass (14 October 2026). Same palette, same fonts, same shell;
      the display type at full strength, the doors as Draft A has them (Will, 14 Oct), a denser proof
      band, and one blue band for the door at the foot. ─── */
   .hero__title { font: 800 clamp(40px, 5vw, 70px)/1.02 var(--font-display); letter-spacing: -0.035em; max-width: 20ch; }
-  @media (min-width: 1101px) { .hero__inner { grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr); } }
+  /* The film, much bigger (Will, 14 October, evening): the reveal box is 16:9 rather than square, so
+     the film fills it; it takes the wider column and runs into the right-hand padding. The globe draws
+     a centred sphere at the box's height, so the reveal is unchanged. The title steps down one notch
+     to keep to its column. */
+  @media (min-width: 1101px) {
+    .hero__inner { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.45fr); gap: clamp(28px, 3.5vw, 48px); }
+    .hero__title { font-size: clamp(40px, 4vw, 58px); }
+    .hero-reveal { width: calc(100% + var(--side-pad)); max-width: 920px; aspect-ratio: 16 / 9; margin-right: calc(-1 * var(--side-pad)); }
+    /* the globe bigger (Will, 14 October, evening): its canvas stands 40% taller than the film box,
+       centred on it, so the sphere, bounded by the canvas's shorter side, comes back to its old size */
+    html.np-reveal .hero-reveal .globe-stage { inset: -20% 0; height: 140%; }
+  }
   .hero__sub { font: 400 clamp(16px, 1.35vw, 19px)/1.5 var(--font-body); max-width: 520px; }
   .hero__hint { font-size: 14px; }
 
@@ -872,6 +890,7 @@
      data-sc-* attributes are inert hooks for the scroll-craft verification
      harness (check: node .../scroll-craft/scripts/shoot.mjs), which samples a
      pinned act at six positions; no engine reads them on the live page. -->
+<div class="scroll-progress" aria-hidden="true"></div>
 <div class="hero-track" id="top" data-sc-act="pin" data-sc-span="2.6">
 <section class="hero" data-sc-stage>
   <div class="hero__bg" aria-hidden="true"></div>
@@ -901,11 +920,11 @@
          script: the film alone. -->
     <div class="hero-reveal" id="film">
       <figure class="film__frame hero-film">
-        <video class="film__video" id="heroFilm" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-home-film-poster.jpg" aria-label="NexPoint in seventy-five seconds: the industry, the match and the Global Portal, with captions">
-          <source src="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4" type="video/mp4">
-          Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4">Download it instead</a>.
+        <video class="film__video" id="heroFilm" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-home-film-poster.jpg?v=2" aria-label="NexPoint in two minutes: who we are, the match, the one-to-one service and the Global Portal, with captions">
+          <source src="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4?v=2" type="video/mp4">
+          Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4?v=2">Download it instead</a>.
         </video>
-        <button class="hero-film__play" id="heroFilmPlay" type="button" aria-label="Play the film: NexPoint in seventy-five seconds">
+        <button class="hero-film__play" id="heroFilmPlay" type="button" aria-label="Play the film: NexPoint in two minutes">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
           <span>Play the film</span>
         </button>
@@ -988,7 +1007,7 @@
       <a class="door enter enter--up" style="--d:140ms;" href="https://opportunities.nexpoint.co.uk/">
         <div class="door__media">
           <img src="hub/assets/img/product-hub.jpg" alt="Illustration of a desk globe with opportunity briefs standing on different continents" width="1600" height="893" loading="lazy" />
-          <span class="door__status"><span class="live-dot"></span>On the board</span>
+          <span class="door__status"><span class="live-dot"></span>Live</span>
         </div>
         <div class="door__body">
           <h3>Opportunities Board</h3>
@@ -1453,6 +1472,17 @@
     });
   });
 
+  // The scroll progress bar, where the browser has no scroll timeline
+  (function () {
+    var bar = document.querySelector('.scroll-progress');
+    if (!bar || (window.CSS && CSS.supports && CSS.supports('animation-timeline: scroll(root)'))) return;
+    var paint = function () {
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      bar.style.transform = 'scaleX(' + (max > 0 ? Math.min(1, window.scrollY / max) : 0) + ')';
+    };
+    window.addEventListener('scroll', paint, { passive: true }); window.addEventListener('resize', paint); paint();
+  })();
+
   // ─── Mobile menu ───
   const burger = document.querySelector('[data-menu-toggle]');
   const navMenu = document.getElementById('navMenu');
@@ -1746,6 +1776,15 @@
       const cosA = Math.cos(rot), sinA = Math.sin(rot);
       const edge = Math.min(W, H) * 0.5;
       ctx.clearRect(0, 0, W, H);
+
+      // the dark planet backing (the sphere is drawn semi-transparent): on the canvas, so it is
+      // a circle in every browser whatever the stage's shape; 92% of the shorter side, as the
+      // CSS disc was, lit from the upper left
+      const Rd = R * 1.045;
+      const disc = ctx.createRadialGradient(cx - Rd * 0.2, cy - Rd * 0.32, 0, cx, cy, Rd);
+      disc.addColorStop(0, '#18263e'); disc.addColorStop(0.62, '#0d1728');
+      disc.addColorStop(0.88, '#080f1c'); disc.addColorStop(1, 'rgba(8,15,28,0)');
+      ctx.fillStyle = disc; ctx.beginPath(); ctx.arc(cx, cy, Rd, 0, Math.PI * 2); ctx.fill();
 
       // atmospheric rim glow
       const atmo = ctx.createRadialGradient(cx, cy, R * 0.9, cx, cy, edge);
