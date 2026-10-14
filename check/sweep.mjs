@@ -161,7 +161,9 @@ for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.htm
 // below). URLs, paths and keys keep their spelling (`/hub/`, `printhub.`,
 // `print-hub.html`, `hub: 'print'`): they were not renamed.
 {
-  const OLD = /\bGlobal Hub\b|\bOpportunities Hub\b|(?<!3D )(?<!3D-)\bPrint Hub\b/i;
+  // Same afternoon: the hub names carry no "Global" (the 3D Print Hub, not the
+  // Global 3D Print Hub); "Global" belongs to the portal alone.
+  const OLD = /\bGlobal Hub\b|\bOpportunities Hub\b|(?<!3D )(?<!3D-)\bPrint Hub\b|\bGlobal (?:3D Print|Mill) Hub\b|\bGlobal Opportunities Board\b/i;
   const why = "Will's ruling, 14 Oct 2026: the Global Portal, the 3D Print Hub, the Opportunities Board";
   for (const p of pages) {
     const text = read(p)

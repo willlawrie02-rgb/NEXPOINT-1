@@ -25,7 +25,7 @@ const CAPTURE_REQUESTS_URL = API_BASE + '/requests';
 const HUB = document.body.dataset.hub || '';
 const HUB_CONFIG = {
   print: {
-    label: 'Global 3D Print Hub',
+    label: '3D Print Hub',
     deskRef: '3D PRINT HUB',
     machineNoun: 'printer',
     siteNoun: 'site',
@@ -36,7 +36,7 @@ const HUB_CONFIG = {
     },
   },
   mill: {
-    label: 'Global Mill Hub',
+    label: 'Mill Hub',
     deskRef: 'MILL HUB',
     machineNoun: 'milling cell',
     siteNoun: 'cell',
