@@ -1,4 +1,4 @@
-/* NexPoint Global Hub - the account dashboard.
+/* NexPoint Global Portal - the account dashboard.
    One page, six sections, one GET /account/summary. The logo, the reader's
    own details and the account's users live on the settings page
    (hub/account/settings/, people.js); this page only reads the logo. Every section owns its
@@ -11,14 +11,14 @@
 
   /* ── the words a hub is known by ────────────────────────────────── */
   var HUBS = ['print', 'mill'];
-  var HUB_LABEL = { print: 'Print Hub', mill: 'Mill Hub', opportunities: 'Opportunities Hub' };
+  var HUB_LABEL = { print: '3D Print Hub', mill: 'Mill Hub', opportunities: 'Opportunities Board' };
   var HUB_LISTING = {
     print: 'https://printhub.nexpoint.co.uk/offer.html',
     mill: 'https://millhub.nexpoint.co.uk/offer.html',
   };
   /* The door with the four hub cards: where an account that has done nothing
      yet is sent (plan 046, record B2). Spelt as the page's own links spell
-     it, so the Go to the Global Hub button and this line land in one place. */
+     it, so the Go to the Global Portal button and this line land in one place. */
   var HUB_DOOR = '../index.html';
 
   /* The four steps every introduction walks, in order, the same for seekers and

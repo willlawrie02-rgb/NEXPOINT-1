@@ -69,7 +69,7 @@
     var who = invite.inviter ? esc(invite.inviter) + ' has invited you' : 'You have been invited';
     render(
       '<h1>Join ' + esc(invite.company || 'your colleagues') + '.</h1>' +
-      '<p>' + who + ' to join the ' + esc(invite.company || 'company') + ' account on the NexPoint Global Hub. ' +
+      '<p>' + who + ' to join the ' + esc(invite.company || 'company') + ' account on the NexPoint Global Portal. ' +
         'Choose your name and a password; we then send one email to confirm the address.</p>' +
       '<div class="panel">' +
         '<div class="field"><label>Email</label><div class="fixed" id="invEmail">' + esc(invite.email) + '</div></div>' +
