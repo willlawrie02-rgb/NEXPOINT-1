@@ -45,7 +45,7 @@ walk has no stub for fails it: add the stub beside the others.
 ## Layout
 
 - `index.html` — apex marketing page (standalone; own inline styles by design)
-- `hub/` + `hub/assets/` + `assets/hub-account.js` — the Global Hub and its
+- `hub/` + `hub/assets/` + `assets/hub-account.js` — the Global Portal and its
   shared modules (portal.css/js, find, listing-form, dashboard, accept)
 - `printhub/`, `millhub/` — hub door pages (served on subdomains, see #4)
 - `opportunities/` — the briefs board (see #3)

@@ -1,4 +1,4 @@
-/* NexPoint Global Hub - the seeker's find flow (spec 2026-09-03).
+/* NexPoint Global Portal - the seeker's find flow (spec 2026-09-03).
    The find page's own module, and the replacement for the placeholder map
    the page used to lead with. Three numbered steps:
 
@@ -61,7 +61,7 @@
   }
 
   /* ── the hub's own words ──────────────────────────────────────────────
-     A provider is a "site" on the Print Hub and a "cell" on the Mill Hub,
+     A provider is a "site" on the 3D Print Hub and a "cell" on the Mill Hub,
      which is what the rest of the Mill Hub already calls one. portal.js's
      HUB_CONFIG is the one place a hub is named; the fallback below is only
      for a page that somehow loads this module without the shared one. */
@@ -75,11 +75,11 @@
     const n = siteNoun();
     return n.charAt(0).toUpperCase() + n.slice(1);
   }
-  const HUB_NAME = { print: 'Print Hub', mill: 'Mill Hub' };
+  const HUB_NAME = { print: '3D Print Hub', mill: 'Mill Hub' };
   function hubName() { return HUB_NAME[HUB]; }
   function deskRef() {
     const c = (window.NP && NP.config && NP.config()) || null;
-    return (c && c.deskRef) || (HUB === 'mill' ? 'MILL HUB' : 'PRINT HUB');
+    return (c && c.deskRef) || (HUB === 'mill' ? 'MILL HUB' : '3D PRINT HUB');
   }
 
   /* ── countries ────────────────────────────────────────────────────────

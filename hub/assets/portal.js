@@ -1,7 +1,7 @@
-/* NexPoint Global Hub - the shared portal module.
+/* NexPoint Global Portal - the shared portal module.
    One copy, served from the apex at /hub/assets/portal.js. Every hub page
    loads this file, the subdomains by absolute URL, so printhub and millhub
-   run exactly the code the Global Hub runs. It carries only what every page
+   run exactly the code the Global Portal runs. It carries only what every page
    needs: which hub the page belongs to, the desk forms, the sign-in modal,
    the overlays, the globe and the entrances. Anything that belongs to one
    page lives in that page's own module and is started from the boot at the
@@ -25,8 +25,8 @@ const CAPTURE_REQUESTS_URL = API_BASE + '/requests';
 const HUB = document.body.dataset.hub || '';
 const HUB_CONFIG = {
   print: {
-    label: 'Global Print Hub',
-    deskRef: 'PRINT HUB',
+    label: 'Global 3D Print Hub',
+    deskRef: '3D PRINT HUB',
     machineNoun: 'printer',
     siteNoun: 'site',
     emptyState: {
@@ -401,7 +401,7 @@ function introSubmit(e){
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>Received, in confidence.</h2>
         <p>The NexPoint desk reads every request personally. Expect to hear from us within two working days.</p>
-        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
+        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Portal</button></div>
       </div>`;
   }, () => {
     formFailState(form, state);
@@ -434,7 +434,7 @@ function eduSubmit(e){
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>You're on the list.</h2>
         <p>We'll write the moment the first courses open. Nothing else lands in your inbox.</p>
-        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
+        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the Global Portal</button></div>
       </div>`;
   }, () => formFailState(form, state));
   return false;
@@ -471,7 +471,7 @@ async function signSubmit(){
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>Welcome back, ${escapeHtml((NPAccount.user && (NPAccount.user.name || NPAccount.user.email)) || '')}.</h2>
         <p>You're signed in across every hub. Requests you make now arrive with your profile attached.</p>
-        <div class="modal-actions" style="justify-content:center;flex-wrap:wrap"><a class="btn btn-primary" href="https://nexpoint.co.uk/hub/account/">Go to your account</a><button class="btn btn-outline" onclick="closeAll()">Back to the Global Hub</button></div>
+        <div class="modal-actions" style="justify-content:center;flex-wrap:wrap"><a class="btn btn-primary" href="https://nexpoint.co.uk/hub/account/">Go to your account</a><button class="btn btn-outline" onclick="closeAll()">Back to the Global Portal</button></div>
       </div>`;
   } else if (err){
     /* too_many_attempts (audit plan 010): the worker stops trying an address

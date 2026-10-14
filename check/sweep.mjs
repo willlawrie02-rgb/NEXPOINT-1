@@ -142,22 +142,58 @@ for (const p of pages) {
 }
 
 // ---------------------------------------------------------------- plan 046: the third hub is named like the other two
-// "Opportunities Hub" (Will, 6 October 2026, Q3), in both bars of every page
-// that names Print Hub and Mill Hub beside it.
+// "Opportunities Board" (Will, 6 October 2026, Q3), in both bars of every page
+// that names 3D Print Hub and Mill Hub beside it.
 for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.html", "printhub/find.html",
   "printhub/offer.html", "millhub/index.html", "millhub/find.html", "millhub/offer.html", "opportunities/index.html"]) {
   // The board's own footer list may say Opportunities; the two bars may not.
   const bars = read(p).replace(/<footer[\s\S]*$/, "");
   const bare = (bars.match(/>Opportunities<\/a>/g) || []).length;
-  if (bare) fail(`${p}: ${bare} nav label(s) say "Opportunities"; the hub is the Opportunities Hub (plan 046)`);
+  if (bare) fail(`${p}: ${bare} nav label(s) say "Opportunities"; the hub is the Opportunities Board (plan 046)`);
+}
+
+// ---------------------------------------------------------------- the names, 14 October 2026
+// Will's ruling, 14 October 2026 (taking Chris's review of the hub films, 13 Oct):
+// the whole is the NexPoint Global Portal, the Print Hub is the 3D Print Hub and
+// the Opportunities Hub is the Opportunities Board. The old names may not come
+// back in anything a visitor reads: visible page copy, and the string literals
+// that read as copy in the shared scripts (the same reach as the names rules
+// below). URLs, paths and keys keep their spelling (`/hub/`, `printhub.`,
+// `print-hub.html`, `hub: 'print'`): they were not renamed.
+{
+  const OLD = /\bGlobal Hub\b|\bOpportunities Hub\b|(?<!3D )(?<!3D-)\bPrint Hub\b/i;
+  const why = "Will's ruling, 14 Oct 2026: the Global Portal, the 3D Print Hub, the Opportunities Board";
+  for (const p of pages) {
+    const text = read(p)
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]*>/g, " ");
+    const m = text.match(OLD);
+    if (m) fail(`${p}: visible copy says "${m[0]}" (${why})`);
+    // Titles, meta descriptions and aria-labels are read out too.
+    for (const attr of read(p).match(/(?:<title>[^<]*<\/title>|\b(?:content|aria-label|alt)="[^"]*")/g) || []) {
+      const a = attr.match(OLD);
+      if (a) fail(`${p}: ${attr.slice(0, 50)}... says "${a[0]}" (${why})`);
+    }
+  }
+  for (const p of scripts) {
+    const src = read(p).replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const line of src.split("\n")) {
+      if (/^\s*\/\//.test(line)) continue;
+      for (const lit of line.match(/(['"`])(?:(?!\1)[^\\\n]|\\.)*\1/g) || []) {
+        if (lit.includes(" ") && OLD.test(lit)) fail(`${p}: copy says "${lit.match(OLD)[0]}" in ${lit.slice(0, 60)} (${why})`);
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------- plan 046: the account page
-// The account page sends a new account to the Global Hub as its one next
+// The account page sends a new account to the Global Portal as its one next
 // step and cross-sells nothing (record B1, B2).
 {
   const page = read("hub/account/index.html");
-  if (!page.includes('id="goHub"')) fail("hub/account/index.html: no Go to the Global Hub button (plan 046)");
+  if (!page.includes('id="goHub"')) fail("hub/account/index.html: no Go to the Global Portal button (plan 046)");
   if (page.includes('id="more"')) fail("hub/account/index.html: More of the network is gone (plan 046)");
   const dash = read("hub/assets/dashboard.js");
   if (/More of the network|renderMore|loadBriefs|HUB_TILE|opportunities\/briefs/.test(dash)) fail("hub/assets/dashboard.js: the cross-sell is gone (plan 046)");
@@ -169,7 +205,7 @@ for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.htm
 // or two sentences; the link landings (they only make sense with a token)
 // and the old portal redirect are left out. And a link or button that carries
 // an aria-label hides its icon from assistive technology, or a screen reader
-// user hears "lock Global Hub" where the label says "Global Hub".
+// user hears "lock Global Portal" where the label says "Global Portal".
 const NO_DESCRIPTION = new Set(["hub/accept.html", "hub/check.html", "hub/confirm.html", "hub/email.html", "hub/invite.html", "hub/reset.html", "portal/index.html"]);
 const unescape = (t) => t.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
 for (const p of pages) {
