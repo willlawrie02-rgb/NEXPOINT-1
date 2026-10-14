@@ -375,9 +375,27 @@
     }
     .focus-item { scroll-snap-align: start; }
   }
+  /* On a phone the rail shows one photo at a time (Will, 13 October 2026): each
+     photo, with its title, is a full screen-width slide that the rail locks
+     onto, and a swipe moves exactly one. Nothing of the next photo shows, so
+     the dots beneath say there is more and where you are. The slide carries
+     the side gutter itself, which is what keeps its neighbour out of sight. */
+  .focus__dots { display: none; }
   @media (max-width: 640px) {
-    .focus__strip { grid-auto-columns: 74vw; }
+    .focus__strip {
+      grid-auto-columns: 100%; gap: 0; padding-left: 0; padding-right: 0; padding-bottom: 6px;
+      scroll-snap-type: x mandatory; scrollbar-width: none;
+    }
+    .focus__strip::-webkit-scrollbar { display: none; }
+    .focus-item { padding: 0 var(--side-pad); scroll-snap-align: start; scroll-snap-stop: always; }
     .focus-item:nth-child(even) { margin-top: 0; }
+    /* a photo swiped into view is simply there: no late fade on arrival */
+    html.js-motion .focus-item.enter { opacity: 1; transform: none; transition: none; }
+    .focus__dots { display: flex; justify-content: center; gap: 2px; padding: 4px 0 clamp(18px, 3vh, 30px); }
+    .focus__dot { width: 28px; height: 28px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+    .focus__dot::before { content: ""; width: 8px; height: 8px; border-radius: 9999px; background: rgba(14, 22, 38, 0.22); transition: background var(--duration) var(--ease), transform var(--duration) var(--ease); }
+    .focus__dot[aria-current="true"]::before { background: var(--np-blue); transform: scale(1.25); }
+    .focus__dot:focus-visible { outline: 2px solid var(--np-blue); outline-offset: -4px; border-radius: 9999px; }
   }
 
   /* ─── Global reach (split: list + map) ─── */
@@ -1045,6 +1063,7 @@
         </figcaption>
       </figure>
     </div>
+    <div class="focus__dots" id="focusDots"></div>
   </div>
 </section>
 
@@ -1676,6 +1695,39 @@
       new IntersectionObserver((ents) => { ents.forEach(e => e.isIntersecting ? start() : stop()); }, { threshold: 0.05 }).observe(canvas);
     } else { start(); }
     document.addEventListener('visibilitychange', () => { document.hidden ? stop() : start(); });
+  })();
+
+  // ─── Focus areas on a phone: one photo at a time, with dots ───
+  // The rail itself locks onto each photo (CSS scroll snap). This only draws
+  // the dots, keeps the current one marked as the rail moves, and lets a dot
+  // be pressed to go to its photo.
+  (function initFocusDots() {
+    const strip = document.querySelector('.focus__strip');
+    const dots = document.getElementById('focusDots');
+    if (!strip || !dots) return;
+    const items = Array.from(strip.querySelectorAll('.focus-item'));
+    if (items.length < 2) return;
+    const buttons = items.map((item, i) => {
+      const title = (item.querySelector('.focus-item__title') || {}).textContent || '';
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'focus__dot';
+      b.setAttribute('aria-label', 'Show photo ' + (i + 1) + ' of ' + items.length + (title ? ': ' + title.trim() : ''));
+      b.addEventListener('click', () => {
+        const quiet = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        strip.scrollTo({ left: item.offsetLeft - strip.offsetLeft, behavior: quiet ? 'auto' : 'smooth' });
+      });
+      dots.appendChild(b);
+      return b;
+    });
+    let ticking = false;
+    function mark() {
+      ticking = false;
+      const at = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth));
+      buttons.forEach((b, i) => { if (i === at) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+    }
+    strip.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(mark); } }, { passive: true });
+    window.addEventListener('resize', mark, { passive: true });
+    mark();
   })();
 
   // ─── The hero film: one play button on the poster ───
