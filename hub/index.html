@@ -25,6 +25,78 @@
      film never flashes ahead of the globe. Without this class (reduced motion,
      or no script) the hero shows the film alone. -->
 <script>if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches))document.documentElement.classList.add('np-reveal');</script>
+
+<style>
+  /* ─── Draft C, 14 October 2026: the home page's scale on this hub page. Inline on purpose:
+       portal.css is fetched from the live site and cached for hours; this layer rides with
+       the page. Palette, fonts and components are portal.css's own. ─── */
+  .hub-hero h1 { font: 800 clamp(40px, 5vw, 70px)/1.02 var(--font-display); letter-spacing: -.035em; max-width: 20ch; }
+  .hub-hero .lede { font-size: clamp(16px, 1.35vw, 19px); line-height: 1.5; }
+  .section h2, .post h2 { font: 700 clamp(34px, 4.2vw, 60px)/1.05 var(--font-display); letter-spacing: -.03em; max-width: 900px; }
+  .section .sub { font-size: clamp(16px, 1.25vw, 18px); line-height: 1.55; max-width: 720px; }
+  .hub-hero .door h3 { font-weight: 700; }
+
+  /* the proof band: a hairline grid with the numerals at full strength */
+  .net-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0; padding: 0; }
+  .net { flex-direction: column; align-items: flex-start; gap: 10px; padding: clamp(24px, 3vh, 36px) clamp(20px, 2.4vw, 36px); border-left: 1px solid var(--border); }
+  .net:first-child { border-left: 0; padding-left: 0; }
+  .net b { font: 800 clamp(40px, 4.4vw, 64px)/1 var(--font-display); letter-spacing: -.035em; }
+  .net span { font-size: 12px; }
+  @media (max-width: 760px) {
+    .net-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .net { padding-left: 16px; }
+    .net:nth-child(odd) { border-left: 0; padding-left: 0; }
+    .net:nth-child(n+3) { border-top: 1px solid var(--border); }
+  }
+
+  /* steps and storyboard panels: a dark rule, then the numeral in NexPoint Blue */
+  .step { border-top: 2px solid #0E1626; padding-top: 18px; }
+  .step::before, .step::after { display: none; }
+  .step .n { font: 800 clamp(40px, 4vw, 56px)/1 var(--font-display); letter-spacing: -.035em; color: var(--blue); margin-bottom: 18px; }
+  .step h3 { font-size: clamp(19px, 1.6vw, 23px); line-height: 1.2; }
+  .step p { font-size: 15.5px; line-height: 1.55; }
+  @media (max-width: 640px) { .step { padding: 20px 0 24px; } }
+  .xp-board { gap: clamp(18px, 2.4vw, 32px); }
+  .xp-panel { background: transparent; border: 0; border-top: 2px solid #0E1626; border-radius: 0; padding: 18px 0 0; }
+  .xp-panel .n { font: 800 clamp(40px, 4vw, 56px)/1 var(--font-display); letter-spacing: -.035em; color: var(--blue); }
+  .xp-panel h3 { font-size: clamp(19px, 1.6vw, 23px); margin-top: 18px; }
+  .xp-panel p { font-size: 15.5px; line-height: 1.55; }
+
+  /* the reason rows */
+  .row .lead { font-size: clamp(18px, 1.6vw, 22px); }
+  .row p { font-size: 15.5px; line-height: 1.55; }
+  .chip-list li { font-size: 14px; line-height: 1.45; }
+
+  /* a call to action after the reasons: the two sides of the hub, again */
+  .cta-band { margin-top: clamp(36px, 5vh, 56px); padding: clamp(20px, 2.2vw, 26px) clamp(20px, 2.4vw, 32px); background: var(--surface); border: 1px solid var(--border-card); border-radius: 12px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; justify-content: space-between; }
+  .cta-band__text { display: flex; align-items: center; gap: 14px; color: #0E1626; font: 500 clamp(15px, 1.3vw, 17px)/1.5 var(--font-body); }
+  .cta-band__text .material-symbols-outlined { color: var(--blue); font-size: 22px; flex: 0 0 auto; }
+  .cta-band__actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* the closing band: the one surface in NexPoint Blue */
+  .post-inner { background: var(--blue); border-color: var(--blue); }
+  .post-inner:hover { border-color: var(--blue); }
+  .post h2 { color: #fff; font: 700 clamp(30px, 3.8vw, 54px)/1.08 var(--font-display); letter-spacing: -.03em; max-width: 20ch; }
+  .post p { color: rgba(255, 255, 255, .86); font-size: clamp(16px, 1.25vw, 18px); line-height: 1.55; }
+  .post .btn-primary { background: #fff; color: var(--blue); }
+  .post .btn-primary:hover { background: #F5F7FA; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); }
+  .post ::selection { background: rgba(255, 255, 255, .35); color: #fff; }
+  .next-hub h3 { font-weight: 700; }
+</style>
+
+<style>
+  /* the four doors as one row of cards, as on the home page (Will, 14 Oct) */
+  .doors--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .doors--four .door__media { position: relative; }
+  .doors--four .door__media img { aspect-ratio: 16 / 10; height: auto; }
+  .doors--four .door__media .status { position: absolute; top: 14px; left: 14px; }
+  .doors--four .door--soon .door__media img { filter: saturate(.5) opacity(.85); }
+  .doors--four .door h3 { font: 600 clamp(20px, 1.8vw, 24px)/1.25 var(--font-display); letter-spacing: -.015em; }
+  .doors--four .door p { max-width: none; }
+  .doors--four .door .btn { margin-top: 20px; align-self: flex-start; }
+  @media (max-width: 1100px) { .doors--four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .doors--four { grid-template-columns: minmax(0, 1fr); } }
+</style>
 </head>
 <body>
 <!--
@@ -108,6 +180,7 @@ until the scenes are remade with Chris.
 <section class="section hero-next" style="padding-top:0">
   <div class="container">
     <div>
+      <span class="eyebrow">Four hubs</span>
       <h2>Where do you want to go?</h2>
       <p class="sub">Each hub is a door into a different part of the network. Three are open today; the fourth is being built with founding partners now.</p>
     </div>
@@ -115,49 +188,46 @@ until the scenes are remade with Chris.
          body the other, flipping between them. Education is a waiting list, not a door, so
          its band is a plain block with the list button instead of a link.
          This section is deliberately static: no scroll entrances. -->
-    <div class="hub-bands">
-      <a class="hub-band" href="https://printhub.nexpoint.co.uk/">
-        <div class="hub-band__media">
+    <div class="doors doors--four">
+      <a class="door" href="https://printhub.nexpoint.co.uk/">
+        <div class="door__media">
           <img src="assets/img/print-hub.jpg" alt="Illustration of an enclosed desktop 3D printer with filament spools on top, printing an insole" width="1600" height="893" fetchpriority="high" style="height:auto">
           <span class="status"><span class="live-dot"></span>Live</span>
         </div>
-        <div class="hub-band__body">
+        <div class="door__body">
           <h3>Global Print Hub</h3>
           <p>Certified labs print each other's work close to the end customer. Founding nodes joining across six regions now. The file travels, the product doesn't.</p>
           <span class="go">Enter the Print Hub <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
         </div>
       </a>
-
-      <a class="hub-band hub-band--flip" href="https://millhub.nexpoint.co.uk/">
-        <div class="hub-band__media">
+      <a class="door" href="https://millhub.nexpoint.co.uk/">
+        <div class="door__media">
           <img src="assets/img/mill-hub.jpg" alt="Illustration of an enclosed CNC milling machine carving a pair of insoles from a foam block" width="1600" height="893" style="height:auto">
           <span class="status"><span class="live-dot"></span>Live</span>
         </div>
-        <div class="hub-band__body">
+        <div class="door__body">
           <h3>Global Mill Hub</h3>
           <p>Established milled-orthotic production, run as your own line inside a partner facility: your styles, your branding, your standard, mirrored across continents for full redundancy.</p>
           <span class="go">Enter the Mill Hub <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
         </div>
       </a>
-
-      <a class="hub-band" href="https://opportunities.nexpoint.co.uk/">
-        <div class="hub-band__media">
+      <a class="door" href="https://opportunities.nexpoint.co.uk/">
+        <div class="door__media">
           <img src="assets/img/product-hub.jpg" alt="Illustration of a desk globe with opportunity briefs standing on different continents" loading="lazy" width="1600" height="893" style="height:auto">
           <span class="status"><span class="live-dot"></span>On the board</span>
         </div>
-        <div class="hub-band__body">
+        <div class="door__body">
           <h3>Global Opportunities Hub</h3>
           <p>Products, materials, technologies, consultancy, and companies looking to buy or sell. Placed through verified, anonymised opportunities. Read the board and request an introduction; nothing is bought or sold on the page.</p>
           <span class="go">Browse the board <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
         </div>
       </a>
-
-      <div class="hub-band hub-band--flip hub-band--soon">
-        <div class="hub-band__media">
+      <div class="door door--soon">
+        <div class="door__media">
           <img src="assets/img/education-hub.jpg" alt="Illustration of a desk globe wearing a graduation cap, standing on a stack of books" loading="lazy" width="1600" height="893" style="height:auto">
           <span class="status soon">Coming soon</span>
         </div>
-        <div class="hub-band__body">
+        <div class="door__body">
           <h3>Global Education Hub</h3>
           <p>Training and digital-workflow education for teams adopting scanning, CAD/CAM and additive manufacturing for the first time. Built with the network's most experienced hands.</p>
           <button class="btn btn-primary" onclick="openEducationList()">Put me on the list</button>
