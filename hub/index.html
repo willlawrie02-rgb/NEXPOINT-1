@@ -165,7 +165,10 @@
      account check (assets/hub-account.js sets data-np-checking until /auth/me has answered) */
   body[data-np-checking] .np-stranger, body[data-np-checking] .np-holder, body[data-np-checking] [data-np-account-slot] { visibility: hidden; }
   /* signed in, the hero's one action is the account button (Will, 14 October, evening); the
-     holder block lays out like the stranger's */
+     holder block lays out like the stranger's, and exists only once the account check says
+     signed in (the layout class's own rule comes later in portal.css than the one that hides
+     the holder, so it has to be hidden again here) */
+  .np-holder.hero-join { display: none; }
   body[data-np-signed-in] .np-holder.hero-join { display: flex; }
   /* The film, much bigger (Will, 14 October, evening): the wider column, running into the right-hand padding */
   @media (min-width: 961px) {
