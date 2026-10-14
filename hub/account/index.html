@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>Your account · The NexPoint Global Hub</title>
-<meta name="description" content="Your NexPoint Global Hub account: your site, your requests and introductions, and what needs your attention, in one place.">
+<title>Your account · The NexPoint Global Portal</title>
+<meta name="description" content="Your NexPoint Global Portal account: your site, your requests and introductions, and what needs your attention, in one place.">
 <link rel="icon" href="../../assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,7 +73,7 @@
   /* the side tag on a card when the account is on both sides of the hub (decision 8) */
   .acct-tag{display:inline-flex;align-items:center;font:600 10.5px/1 var(--font-body);letter-spacing:.06em;text-transform:uppercase;padding:5px 8px;border-radius:9999px;background:rgba(0,92,200,.08);color:var(--blue)}
 
-  /* ── who this account is: the card beside the Go to the Global Hub button, the two
+  /* ── who this account is: the card beside the Go to the Global Portal button, the two
      level at the top; the rail and the reading column start below them ── */
   #profile{background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-xl);padding:clamp(20px,2.6vw,28px);box-shadow:0 12px 30px rgba(14,22,38,.05);margin-bottom:clamp(30px,4vh,44px)}
   .acct-id{display:flex;align-items:center;gap:16px}
@@ -196,10 +196,10 @@ details and the account's users are on settings/ (plan 055).
 <header>
   <div class="container nav">
     <a href="https://nexpoint.co.uk/" class="wordmark" aria-label="NexPoint home"><img src="../../assets/nexpoint-logo.png" alt="NexPoint" width="52" height="52"></a>
-    <nav class="nav-links" aria-label="Global Hub">
-      <a href="https://printhub.nexpoint.co.uk/" class="hide-m">Print Hub</a>
+    <nav class="nav-links" aria-label="Global Portal">
+      <a href="https://printhub.nexpoint.co.uk/" class="hide-m">3D Print Hub</a>
       <a href="https://millhub.nexpoint.co.uk/" class="hide-m">Mill Hub</a>
-      <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities Hub</a>
+      <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities Board</a>
       <button class="btn btn-outline" onclick="openIntro('YOUR ACCOUNT','Talk to the desk')">Talk to the desk</button>
       <span data-np-account-slot><a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a></span>
     </nav>
@@ -207,10 +207,10 @@ details and the account's users are on settings/ (plan 055).
 </header>
 <nav class="hub-switch" aria-label="Hubs">
   <a href="https://nexpoint.co.uk/hub/account/" data-np-switch-account aria-current="page" hidden>Your account</a>
-  <a href="../index.html">Global Hub home</a>
-  <a href="https://printhub.nexpoint.co.uk/">Print Hub</a>
+  <a href="../index.html">Global Portal home</a>
+  <a href="https://printhub.nexpoint.co.uk/">3D Print Hub</a>
   <a href="https://millhub.nexpoint.co.uk/">Mill Hub</a>
-  <a href="https://opportunities.nexpoint.co.uk/">Opportunities Hub</a>
+  <a href="https://opportunities.nexpoint.co.uk/">Opportunities Board</a>
 </nav>
 
 <div class="acct-wrap">
@@ -219,7 +219,7 @@ details and the account's users are on settings/ (plan 055).
     <p>Introductions, declarations and your host standing, in one place.</p>
   </div>
 
-  <a class="btn btn-primary acct-go" id="goHub" href="../index.html"><span class="material-symbols-outlined" aria-hidden="true">hub</span>Go to the Global Hub</a>
+  <a class="btn btn-primary acct-go" id="goHub" href="../index.html"><span class="material-symbols-outlined" aria-hidden="true">hub</span>Go to the Global Portal</a>
 
   <section class="acct-section" id="profile" hidden></section>
 

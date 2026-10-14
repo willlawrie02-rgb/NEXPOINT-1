@@ -613,11 +613,11 @@
   .film__note{margin:12px auto 0;max-width:min(860px,calc((100vh - 300px) * 16 / 9));font-size:13px;line-height:1.5;color:#4A5462;text-align:center}
 
   /* ─── The globe gives way to the film, under the visitor's hand (14 October 2026) ───
-     The reveal is scrubbed by scroll, not played on load. The hero pins for one
-     viewport of travel (the track's padding below the sticky stage) and the
+     The reveal is scrubbed by scroll, not played on load. The hero pins for a
+     viewport and a half of travel (the block after the sticky stage) and the
      wheel is the scrubber: scrolling down lifts the globe off the film, and
      scrolling back to the top sets it down again. The page's script reads the
-     travel and publishes three eased numbers on the track, which the CSS here
+     travel and publishes three eased numbers on the box, which the CSS here
      maps to transform and opacity only: --np-g lifts the globe (three planes,
      three rates), --np-f brings the film in behind it, --np-b lands the play
      button last. At rest (p = 0) the globe lies over the film: pure CSS,
@@ -632,7 +632,9 @@
   /* The travel is a block after the stage, not padding on the track: a sticky
      box may only move within its containing block's content box, so padding
      would leave it no room and it would simply scroll away with the page. */
-  html.js-hero-pin .hero-track::after { content: ""; display: block; height: var(--hero-travel, 100vh); }
+  /* 160vh of travel (Will, 14 October: slower): the globe takes about 1.2
+     screens of scrolling to leave, the film is fully in by 1.4. */
+  html.js-hero-pin .hero-track::after { content: ""; display: block; height: var(--hero-travel, 160vh); }
   html.js-hero-pin .hero { position: sticky; top: 0; min-height: 0; height: 100vh; height: 100svh; }
   /* A column that centres the film on its main axis only: an alignment
      keyword on the box itself (place-items) would also shrink the globe's
@@ -870,7 +872,7 @@
      data-sc-* attributes are inert hooks for the scroll-craft verification
      harness (check: node .../scroll-craft/scripts/shoot.mjs), which samples a
      pinned act at six positions; no engine reads them on the live page. -->
-<div class="hero-track" id="top" data-sc-act="pin" data-sc-span="2">
+<div class="hero-track" id="top" data-sc-act="pin" data-sc-span="2.6">
 <section class="hero" data-sc-stage>
   <div class="hero__bg" aria-hidden="true"></div>
   <div class="hero__inner">
@@ -989,7 +991,7 @@
           <span class="door__status"><span class="live-dot"></span>On the board</span>
         </div>
         <div class="door__body">
-          <h3>Opportunities Hub</h3>
+          <h3>Opportunities Board</h3>
           <p>Products, materials, technology, partners, and companies looking to buy or sell, as verified, anonymised opportunities. Nothing is sold on the page; you request an introduction.</p>
           <span class="go">Browse the board <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
         </div>
@@ -1504,16 +1506,17 @@
   }
 
   // ─── The hero reveal: the wheel is the scrubber ───
-  // The hero pins for one viewport of travel (the track's bottom padding under
-  // the sticky stage) and progress through that travel drives the reveal, so
-  // it runs forwards as the visitor scrolls down and backwards as they return
-  // to the top. Native scroll is untouched: a passive listener reads position,
+  // The hero pins for a viewport and a half of travel (the block after the
+  // sticky stage) and progress through that travel drives the reveal, so it
+  // runs forwards as the visitor scrolls down and backwards as they return to
+  // the top. Native scroll is untouched: a passive listener reads position,
   // one rAF loop eases toward it (a wheel notch glides rather than steps) and
-  // writes three custom properties on the track, which the CSS maps to
-  // transform and opacity. Three planes at three rates: --np-g lifts the globe
-  // over the first 70% of the travel, --np-f brings the film in behind it from
-  // 30% to 85%, --np-b lands the play button from 55% to 95%; the last 5% is a
-  // held beat before the page lets go. The pin applies only when the hero fits
+  // writes three custom properties on the box, which the CSS maps to
+  // transform and opacity. Three planes at three rates, on sine curves so no
+  // part of the travel is sudden: --np-g lifts the globe over the first 78% of
+  // the travel, --np-f brings the film in behind it from 22% to 88%, --np-b
+  // lands the play button from 55% to 94%; the last 6% is a held beat before
+  // the page lets go. The pin applies only when the hero fits
   // the viewport; on a short phone nothing is pinned and the same reveal runs
   // as the box rises through the viewport, so the film is never left behind a
   // globe the visitor cannot move. Reduced motion (no html.np-reveal): none of
@@ -1530,9 +1533,9 @@
     if (!track || !stage || !box || !globe || !frame || !root.classList.contains('np-reveal')) { root.classList.add('sc-ready'); return; }
 
     const coarse = window.matchMedia('(pointer: coarse)').matches;
-    const LERP = coarse ? 0.3 : 0.18;   // per-frame approach to the target; a thumb wants less lag than a wheel
-    const easeInOut = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+    const LERP = coarse ? 0.22 : 0.11;  // per-frame approach to the target; a thumb wants less lag than a wheel
+    const easeInOut = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
+    const easeOut = (t) => Math.sin((t * Math.PI) / 2);
     const win = (p, a, b) => Math.min(1, Math.max(0, (p - a) / (b - a)));
     const NAV = 84;                      // the hero's padding-top, the fixed nav's height
 
@@ -1546,12 +1549,12 @@
     // Not pinned: the reveal runs as the box rises through the viewport, from
     // its top entering at the bottom edge (or its rest position, if it is
     // already on screen) to its top reaching 30% down the screen, with at
-    // least 40% of a viewport of scroll so a wheel notch never snaps it.
+    // least 60% of a viewport of scroll so a wheel notch never snaps it.
     function range() {
       const vh = window.innerHeight;
       const b0 = box.getBoundingClientRect().top + window.scrollY;
       const startY = Math.max(0, b0 - vh);
-      return { startY, endY: Math.max(startY + vh * 0.4, b0 - vh * 0.3) };
+      return { startY, endY: Math.max(startY + vh * 0.6, b0 - vh * 0.3) };
     }
     function readTarget() {
       if (pinned) { target = Math.min(1, Math.max(0, -track.getBoundingClientRect().top / travel())); return; }
@@ -1559,12 +1562,13 @@
       target = Math.min(1, Math.max(0, (window.scrollY - r.startY) / (r.endY - r.startY)));
     }
     function write(p) {
-      const g = easeInOut(win(p, 0, 0.7));
-      const f = easeOut(win(p, 0.3, 0.85));
-      const b = easeOut(win(p, 0.55, 0.95));
-      track.style.setProperty('--np-g', g.toFixed(4));
-      track.style.setProperty('--np-f', f.toFixed(4));
-      track.style.setProperty('--np-b', b.toFixed(4));
+      const g = easeInOut(win(p, 0, 0.78));
+      const f = easeOut(win(p, 0.22, 0.88));
+      const b = easeOut(win(p, 0.55, 0.94));
+      // on the box, not the track: only the box's subtree restyles each frame
+      box.style.setProperty('--np-g', g.toFixed(4));
+      box.style.setProperty('--np-f', f.toFixed(4));
+      box.style.setProperty('--np-b', b.toFixed(4));
       const gone = g >= 0.999;
       if (globe.classList.contains('is-gone') !== gone) {
         globe.classList.toggle('is-gone', gone);
@@ -1945,7 +1949,7 @@
 
   // The form stores what it receives (audit plan 027): the request posts to
   // the worker's /requests route first, which writes a web_requests row,
-  // emails the desk and puts the enquiry on the Opportunities board. Success
+  // emails the desk and puts the enquiry on the Opportunities Board. Success
   // is decided by the worker's answer alone. Web3Forms then gets a
   // best-effort second copy as a launch-week safety net; it decides nothing.
   const REQUESTS_URL = 'https://api.nexpoint.co.uk/requests';
