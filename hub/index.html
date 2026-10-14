@@ -101,6 +101,15 @@
   .doors--four .door .btn { margin-top: 20px; align-self: flex-start; }
   @media (max-width: 1100px) { .doors--four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 640px) { .doors--four { grid-template-columns: minmax(0, 1fr); } }
+  /* no flash of the wrong account state: both hero states and the header slot wait for the
+     account check (assets/hub-account.js sets data-np-checking until /auth/me has answered) */
+  body[data-np-checking] .np-stranger, body[data-np-checking] .np-holder, body[data-np-checking] [data-np-account-slot] { visibility: hidden; }
+  /* The film, much bigger (Will, 14 October, evening): the wider column, running into the right-hand padding */
+  @media (min-width: 961px) {
+    .hub-hero .grid { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.45fr); gap: clamp(28px, 3.5vw, 48px); }
+    .hub-hero .hero-reveal { width: calc(100% + var(--side-pad)); margin-right: calc(-1 * var(--side-pad)); }
+    .hub-hero .hero-film { max-width: none; }
+  }
 </style>
 </head>
 <body>
