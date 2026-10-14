@@ -372,39 +372,9 @@ a.door:hover .go svg{transform:translateX(3px)}
 /* empty / waiting states inside the matcher */
 .cap-empty{border:1px dashed rgba(14,22,38,.22);border-radius:var(--radius-xl);padding:clamp(24px,3vw,36px);background:rgba(14,22,38,.02);text-align:center}
 .cap-empty p{font-size:14px;line-height:22px;color:var(--on-surface-var);max-width:440px;margin:0 auto 20px}
-/* ═══════════ hero handoff ═══════════
-   The globe leaves under its own power while the copy dissolves where it stands, and the
-   doors rise into the frame it vacated. Gated on html.js-motion, so no-JS and
-   reduced-motion visitors get the plain stacked page and never meet a pinned section.
-   Two-column hero only; below 961px the hero stacks and the effect has nothing to say.
-   The stage's padding-bottom and the doors' negative margin cancel, so the document is
-   exactly as long as it was: the travel is borrowed, not added. */
-@media (min-width:961px){
-  html.js-motion .hero-stage{padding-bottom:var(--hero-runway,105vh)}
-  html.js-motion .hero-stage .hub-hero{position:sticky;top:var(--header-h,73px);z-index:1}
-  html.js-motion .hero-next{
-    margin-top:calc(-1 * var(--hero-runway,105vh));
-    position:relative;z-index:2;background:var(--bg)}
-
-  html.js-motion .hero-stage .hero-copy{opacity:var(--copy-o,1)}
-  html.js-motion .hero-stage .hero-reveal{
-    transform:translate3d(0,var(--globe-y,0),0) scale(var(--globe-s,1));
-    opacity:var(--globe-o,1);
-    filter:blur(var(--globe-b,0px))}
-
-  /* compositor hints only while the sequence is actually mid-flight */
-  html.js-motion .hero-stage.is-flight .hero-copy{will-change:opacity}
-  html.js-motion .hero-stage.is-flight .hero-reveal{will-change:transform,opacity,filter}
-}
-
-/* preference can change after load, so unwind rather than rely on the js-motion gate */
-@media (prefers-reduced-motion:reduce){
-  html.js-motion .hero-stage{padding-bottom:0}
-  html.js-motion .hero-stage .hub-hero{position:static}
-  html.js-motion .hero-next{margin-top:0}
-  html.js-motion .hero-stage .hero-copy,
-  html.js-motion .hero-stage .hero-reveal{opacity:1;transform:none;filter:none;will-change:auto}
-}
+/* The hero handoff that lived here (the globe launching up the page while the doors
+   rose into its frame) was retired on 14 October 2026: the door now swaps its hero for
+   the doors sideways, and the rules for that ride inline with hub/index.html. */
 
 /* ═══════════ the four doors ═══════════
    Ported from the main site's own vocabulary rather than invented here: alternating
