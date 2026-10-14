@@ -4,19 +4,19 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>NexPoint | Global O&P commercial connectors</title>
-<meta name="description" content="NexPoint connects the O&amp;P industry person to person: print capacity, milled production, products and partners, through the NexPoint Global Hub." />
+<meta name="description" content="NexPoint connects the O&amp;P industry person to person: print capacity, milled production, products and partners, through the NexPoint Global Portal." />
 <link rel="canonical" href="https://nexpoint.co.uk/" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://nexpoint.co.uk/" />
 <meta property="og:title" content="NexPoint | Global O&amp;P commercial connectors" />
-<meta property="og:description" content="NexPoint connects the O&amp;P industry person to person: print capacity, milled production, products and partners, through the NexPoint Global Hub." />
+<meta property="og:description" content="NexPoint connects the O&amp;P industry person to person: print capacity, milled production, products and partners, through the NexPoint Global Portal." />
 <meta property="og:image" content="https://nexpoint.co.uk/assets/og-image.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:image:alt" content="NexPoint: the commercial bridge for Orthotics and Prosthetics worldwide" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="NexPoint | Global O&amp;P commercial connectors" />
-<meta name="twitter:description" content="NexPoint connects the O&amp;P industry person to person: print capacity, milled production, products and partners, through the NexPoint Global Hub." />
+<meta name="twitter:description" content="NexPoint connects the O&amp;P industry person to person: print capacity, milled production, products and partners, through the NexPoint Global Portal." />
 <meta name="twitter:image" content="https://nexpoint.co.uk/assets/og-image.png" />
 <link rel="icon" href="assets/nexpoint-logo.png" />
 
@@ -295,7 +295,7 @@
   .why__title { font: 600 clamp(28px, 3.2vw, 44px)/1.13 var(--font-display); letter-spacing: -0.02em; color: #fff; margin: 0 0 20px; }
   .why__lede { font: 400 clamp(15px, 1.2vw, 17px)/1.6 var(--font-body); color: rgba(226, 226, 226, 0.65); margin: 0 0 28px; }
   .why__caption { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
-  .why__caption-label { font: 600 10px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: #477616; margin-bottom: 8px; }
+  .why__caption-label { font: 600 10px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--np-green); margin-bottom: 8px; }
   .why__caption-text { font: 500 clamp(15px, 1.2vw, 17px)/1.35 var(--font-display); color: var(--fg); letter-spacing: -0.01em; }
   .why__list { display: flex; flex-direction: column; }
   .why-item { display: grid; grid-template-columns: 44px 1fr; gap: 20px; padding: clamp(24px, 3vh, 34px) 0; border-top: 1px solid var(--border); transition: border-color var(--duration) var(--ease); }
@@ -334,9 +334,27 @@
     }
     .focus-item { scroll-snap-align: start; }
   }
+  /* On a phone the rail shows one photo at a time (Will, 13 October 2026): each
+     photo, with its title, is a full screen-width slide that the rail locks
+     onto, and a swipe moves exactly one. Nothing of the next photo shows, so
+     the dots beneath say there is more and where you are. The slide carries
+     the side gutter itself, which is what keeps its neighbour out of sight. */
+  .focus__dots { display: none; }
   @media (max-width: 640px) {
-    .focus__strip { grid-auto-columns: 74vw; }
+    .focus__strip {
+      grid-auto-columns: 100%; gap: 0; padding-left: 0; padding-right: 0; padding-bottom: 6px;
+      scroll-snap-type: x mandatory; scrollbar-width: none;
+    }
+    .focus__strip::-webkit-scrollbar { display: none; }
+    .focus-item { padding: 0 var(--side-pad); scroll-snap-align: start; scroll-snap-stop: always; }
     .focus-item:nth-child(even) { margin-top: 0; }
+    /* a photo swiped into view is simply there: no late fade on arrival */
+    html.js-motion .focus-item.enter { opacity: 1; transform: none; transition: none; }
+    .focus__dots { display: flex; justify-content: center; gap: 2px; padding: 4px 0 clamp(18px, 3vh, 30px); }
+    .focus__dot { width: 28px; height: 28px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+    .focus__dot::before { content: ""; width: 8px; height: 8px; border-radius: 9999px; background: rgba(14, 22, 38, 0.22); transition: background var(--duration) var(--ease), transform var(--duration) var(--ease); }
+    .focus__dot[aria-current="true"]::before { background: var(--np-blue); transform: scale(1.25); }
+    .focus__dot:focus-visible { outline: 2px solid var(--np-blue); outline-offset: -4px; border-radius: 9999px; }
   }
 
   /* ─── Global reach (split: list + map) ─── */
@@ -376,7 +394,7 @@
     .wm-card.reach__card { margin-top: 32px; }
   }
 
-  /* ─── Global Hub teaser band ─── */
+  /* ─── Global Portal teaser band ─── */
   .hubteaser { display: flex; align-items: center; justify-content: space-between; gap: var(--gap-lg); border-top: 1px solid var(--border); padding-top: clamp(28px, 4vh, 44px); }
   .hubteaser__line { font: 600 clamp(20px, 2.6vw, 28px)/1.3 var(--font-display); letter-spacing: -0.01em; color: var(--fg); max-width: 560px; margin: 12px 0 18px; }
   .hubteaser__cta { display: inline-flex; font: 600 clamp(14px, 1.05vw, 15px)/1 var(--font-body); color: var(--np-blue); text-decoration: none; border-bottom: 2px solid var(--np-green); padding-bottom: 2px; transition: border-color var(--duration) var(--ease); }
@@ -594,13 +612,28 @@
   .film__video{display:block;width:100%;aspect-ratio:16/9;background:#F5F7FA}
   .film__note{margin:12px auto 0;max-width:min(860px,calc((100vh - 300px) * 16 / 9));font-size:13px;line-height:1.5;color:#4A5462;text-align:center}
 
-  /* ─── The globe gives way to the film (13 October 2026) ───
-     The reveal box is the globe stage's own box, so the hero is exactly as
-     tall as it was; the film is centred in it and the globe lies over the
-     film until it rises and fades. Pure CSS, switched on by html.np-reveal
-     (set in the head); without it there is no globe and the film stands
-     there. Below 1100px the hero stacks, the box takes the film's shape and
-     the globe is drawn at the film's height, so nothing overlaps the copy. */
+  /* ─── The globe gives way to the film, under the visitor's hand (14 October 2026) ───
+     The reveal is scrubbed by scroll, not played on load. The hero pins for one
+     viewport of travel (the track's padding below the sticky stage) and the
+     wheel is the scrubber: scrolling down lifts the globe off the film, and
+     scrolling back to the top sets it down again. The page's script reads the
+     travel and publishes three eased numbers on the track, which the CSS here
+     maps to transform and opacity only: --np-g lifts the globe (three planes,
+     three rates), --np-f brings the film in behind it, --np-b lands the play
+     button last. At rest (p = 0) the globe lies over the film: pure CSS,
+     switched on by html.np-reveal (set in the head); without it (reduced
+     motion, or no script) there is no globe and the film stands there. The pin
+     is html.js-hero-pin, set only when the hero fits the viewport; on a short
+     phone the same reveal runs over the first half-viewport of scroll with
+     nothing pinned. Below 1100px the hero stacks, the box takes the film's
+     shape and the globe is drawn at the film's height, so nothing overlaps
+     the copy. */
+  .hero-track { position: relative; }
+  /* The travel is a block after the stage, not padding on the track: a sticky
+     box may only move within its containing block's content box, so padding
+     would leave it no room and it would simply scroll away with the page. */
+  html.js-hero-pin .hero-track::after { content: ""; display: block; height: var(--hero-travel, 100vh); }
+  html.js-hero-pin .hero { position: sticky; top: 0; min-height: 0; height: 100vh; height: 100svh; }
   /* A column that centres the film on its main axis only: an alignment
      keyword on the box itself (place-items) would also shrink the globe's
      absolutely placed stage to nothing. */
@@ -619,29 +652,38 @@
   .hero-film__play:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
   .hero-film.is-playing .hero-film__play { display: none; }
   .hero-reveal .globe-stage { display: none; }
+  /* The film: opacity and a 14px rise, driven by --np-f. Opacity rather than
+     visibility, so the play button stays in the tab order and focusing it can
+     reveal the film (see the script); pointer-events are off until it has
+     fully arrived, so nothing invisible can be clicked through the globe. */
+  html.np-reveal .hero-film {
+    opacity: var(--np-f, 0);
+    transform: translate3d(0, calc(14px * (1 - var(--np-f, 0))), 0);
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+  html.np-reveal .hero-film.is-live { pointer-events: auto; }
+  html.np-reveal .hero-film__play { opacity: var(--np-b, 0); }
   html.np-reveal .hero-reveal .globe-stage {
     /* sized outright: an absolutely placed child of a flex box is not
        stretched to its insets, so nothing is left to the box's alignment */
     display: block; position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; aspect-ratio: auto;
     z-index: 2; pointer-events: none;
-    animation: np-globe-leave 1.2s cubic-bezier(0.5, 0, 0.2, 1) 0.7s forwards;
+    opacity: calc(1 - var(--np-g, 0));
+    transform: translate3d(0, calc(-42% * var(--np-g, 0)), 0) scale(calc(1 - 0.08 * var(--np-g, 0)));
+    will-change: transform, opacity;
   }
-  html.np-reveal .hero-film { animation: np-film-arrive 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 1.25s both; }
-  @keyframes np-globe-leave {
-    from { opacity: 1; transform: none; visibility: visible; }
-    to   { opacity: 0; transform: translate3d(0, -42%, 0) scale(0.92); visibility: hidden; }
-  }
-  @keyframes np-film-arrive {
-    from { opacity: 0; transform: translate3d(0, 14px, 0); visibility: hidden; }
-    to   { opacity: 1; transform: none; visibility: visible; }
-  }
+  html.np-reveal .hero-reveal .globe-stage.is-gone { visibility: hidden; }
   @media (max-width: 1100px) {
     .hero-reveal { width: min(100%, 520px); aspect-ratio: auto; margin: 0 auto; justify-self: center; }
     html.np-reveal .hero-reveal .globe-stage { inset: 0; margin: auto; height: 100%; width: auto; aspect-ratio: 1 / 1; }
   }
   @media (prefers-reduced-motion: reduce) {
     html.np-reveal .hero-reveal .globe-stage { display: none; }
-    html.np-reveal .hero-film { animation: none; }
+    html.np-reveal .hero-film { opacity: 1; transform: none; pointer-events: auto; will-change: auto; }
+    html.np-reveal .hero-film__play { opacity: 1; }
+    html.js-hero-pin .hero-track::after { display: none; }
+    html.js-hero-pin .hero { position: relative; height: auto; min-height: min(94vh, 940px); }
   }
 
   /* ─── Draft A additions (14 October 2026): the hub doors, the four steps, the two sides ─── */
@@ -705,8 +747,9 @@
   .hubteaser .hero__ctas { margin-top: 4px; }
 </style>
 <!-- The globe-to-film reveal is switched on here, before the hero paints, so the
-     film never flashes ahead of the globe. Without this class (reduced motion,
-     or no script) the hero shows the film alone. -->
+     film never flashes ahead of the globe. The reveal itself is driven by scroll
+     (see the hero script). Without this class (reduced motion, or no script)
+     the hero shows the film alone. -->
 <script>if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches))document.documentElement.classList.add('np-reveal');</script>
 <!-- Lead Forensics tracking -->
 <script type="text/javascript" src="https://www.365-syndicate.com/js/818863.js"></script>
@@ -721,7 +764,7 @@
       <img src="assets/nexpoint-logo.png" alt="NexPoint" width="52" height="52" />
     </a>
     <div class="navbar__links">
-      <a href="#hub"       class="navbar__link" data-nav="hub">The Global Hub</a>
+      <a href="#hub"       class="navbar__link" data-nav="hub">The Global Portal</a>
       <a href="#how"       class="navbar__link" data-nav="how">How it works</a>
       <a href="#who"       class="navbar__link" data-nav="who">Who it is for</a>
       <a href="#expertise" class="navbar__link" data-nav="expertise">Why NexPoint</a>
@@ -737,20 +780,26 @@
     </div>
   </nav>
   <div class="navbar__menu" id="navMenu">
-    <a href="#hub"       data-nav="hub">The Global Hub</a>
+    <a href="#hub"       data-nav="hub">The Global Portal</a>
     <a href="#how"       data-nav="how">How it works</a>
     <a href="#who"       data-nav="who">Who it is for</a>
     <a href="#expertise" data-nav="expertise">Why NexPoint</a>
     <a href="#services"  data-nav="services">Consultancy</a>
     <a href="#book"      data-nav="book">Talk to the desk</a>
-    <a href="/hub/">Enter the Global Hub</a>
+    <a href="/hub/">Enter the Global Portal</a>
   </div>
 </header>
 
 <main>
 
 <!-- ───── Hero ───── -->
-<section id="top" class="hero">
+<!-- The track owns the scroll travel of the reveal (its bottom padding, when
+     html.js-hero-pin is set); the section inside it is the sticky stage. The
+     data-sc-* attributes are inert hooks for the scroll-craft verification
+     harness (check: node .../scroll-craft/scripts/shoot.mjs), which samples a
+     pinned act at six positions; no engine reads them on the live page. -->
+<div class="hero-track" id="top" data-sc-act="pin" data-sc-span="2">
+<section class="hero" data-sc-stage>
   <div class="hero__bg" aria-hidden="true"></div>
   <div class="hero__inner">
     <div>
@@ -758,11 +807,11 @@
         The commercial bridge for <span class="accent">Orthotics &amp; Prosthetics</span> worldwide.
       </h1>
       <p class="hero__sub">
-        NexPoint introduces labs, clinics, manufacturers and suppliers across the O&amp;P industry to each other, person to person, wherever one has what another needs. The Global Hub is where the whole network sees what is being offered and sought.
+        NexPoint introduces labs, clinics, manufacturers and suppliers across the O&amp;P industry to each other, person to person, wherever one has what another needs. The Global Portal is where the whole network sees what is being offered and sought.
       </p>
       <div class="hero__ctas">
         <a class="btn btn--primary-lg" href="https://nexpoint.co.uk/hub/">
-          Enter the Global Hub
+          Enter the Global Portal
           <span class="material-symbols-outlined" style="font-size:18px;">arrow_forward</span>
         </a>
         <a class="btn btn--ghost-lg" href="https://nexpoint.co.uk/hub/?join=1">Create your hub account</a>
@@ -778,7 +827,7 @@
          script: the film alone. -->
     <div class="hero-reveal" id="film">
       <figure class="film__frame hero-film">
-        <video class="film__video" id="heroFilm" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-home-film-poster.jpg" aria-label="NexPoint in seventy-five seconds: the industry, the match and the Global Hub, with captions">
+        <video class="film__video" id="heroFilm" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-home-film-poster.jpg" aria-label="NexPoint in seventy-five seconds: the industry, the match and the Global Portal, with captions">
           <source src="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4" type="video/mp4">
           Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4">Download it instead</a>.
         </video>
@@ -793,6 +842,7 @@
     </div>
   </div>
 </section>
+</div>
 
 <!-- ───── Proof strip (stats) ───── -->
 <section class="proof" aria-label="NexPoint by the numbers">
@@ -812,11 +862,11 @@
   </div>
 </section>
 
-<!-- ───── The Global Hub: four doors ───── -->
+<!-- ───── The Global Portal: four doors ───── -->
 <section id="hub" class="section">
   <div class="container">
     <div class="sec-head enter enter--up">
-      <span class="eyebrow">The Global Hub</span>
+      <span class="eyebrow">The Global Portal</span>
       <h2 class="h2">Four hubs. One trusted network.</h2>
       <p class="lede" style="margin-top:20px;">
         Each hub is a door into a different part of the network. One free account opens all of them, and every introduction is still made by the NexPoint desk.
@@ -830,9 +880,9 @@
           <span class="door__status"><span class="live-dot"></span>Live</span>
         </div>
         <div class="door__body">
-          <h3>Print Hub</h3>
-          <p>Certified labs with production printers offer spare capacity to the clinics and labs around them, so printed devices arrive without buying a printer.</p>
-          <span class="go">Enter the Print Hub <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
+          <h3>3D Print Hub</h3>
+          <p>Certified labs with production 3D printers offer spare capacity to the clinics and labs around them, so printed devices arrive without buying a 3D printer.</p>
+          <span class="go">Enter the 3D Print Hub <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
         </div>
       </a>
 
@@ -867,7 +917,7 @@
         </div>
         <div class="door__body">
           <h3>Education Hub</h3>
-          <p>Webinars and articles for the whole community, from the people on the hubs: what the new printers and materials actually do, and what is coming next.</p>
+          <p>Webinars and articles for the whole community, from the people on the hubs: what the new 3D printers and materials actually do, and what is coming next.</p>
           <span class="go">Join the waiting list <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
         </div>
       </a>
@@ -891,7 +941,7 @@
   <div class="container">
     <div class="sec-head enter enter--up">
       <h2 class="h2">How an introduction actually happens.</h2>
-      <p class="lede" style="margin-top:20px;">The Global Hub shows you what exists. People decide what meets.</p>
+      <p class="lede" style="margin-top:20px;">The Global Portal shows you what exists. People decide what meets.</p>
     </div>
 
     <div class="how-grid">
@@ -920,10 +970,10 @@
     <div class="cta-banner">
       <div class="cta-banner__text">
         <span class="material-symbols-outlined">arrow_outward</span>
-        <span>Ready to ask the network? Sign in to find capacity, or to offer yours.</span>
+        <span>Ready to ask the network? Sign in to find 3D print or milled capacity, or to offer yours.</span>
       </div>
       <a href="https://nexpoint.co.uk/hub/" class="cta-banner__link">
-        Enter the Global Hub
+        Enter the Global Portal
         <span class="material-symbols-outlined">arrow_forward</span>
       </a>
     </div>
@@ -936,7 +986,7 @@
     <div class="sec-head enter enter--up">
       <h2 class="h2">Built for both sides of the industry.</h2>
       <p class="lede" style="margin-top:20px;">
-        Every company on the hub is offering something, seeking something, or both. Seekers never pay. Providers pay a hub fee, and we talk the commercial side through with them personally before anything is listed.
+        Every company on the portal is offering something, seeking something, or both. Seekers never pay. Providers pay to list, and we talk the commercial side through with them personally before anything is listed.
       </p>
     </div>
 
@@ -945,7 +995,7 @@
         <span class="who-col__icon material-symbols-outlined" aria-hidden="true">medical_services</span>
         <h3>If you need something</h3>
         <ul>
-          <li><span class="material-symbols-outlined" aria-hidden="true">print_disabled</span>A clinic or lab that designs digitally but owns no production machine, or wants to try printing before buying one</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">print_disabled</span>A clinic or lab that designs digitally but owns no production machine, or wants to try 3D printing before buying a printer</li>
           <li><span class="material-symbols-outlined" aria-hidden="true">grid_view</span>A lab that needs overflow capacity, or a technology its own machines cannot do</li>
           <li><span class="material-symbols-outlined" aria-hidden="true">warehouse</span>A lab outsourcing its manufacturing without giving up its brand or its standard</li>
           <li><span class="material-symbols-outlined" aria-hidden="true">travel_explore</span>A company looking for a product, a partner, or a business to acquire</li>
@@ -956,7 +1006,7 @@
         <span class="who-col__icon material-symbols-outlined" aria-hidden="true">precision_manufacturing</span>
         <h3>If you have something to offer</h3>
         <ul>
-          <li><span class="material-symbols-outlined" aria-hidden="true">view_in_ar</span>A lab with production printers and capacity to spare between its own jobs</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">view_in_ar</span>A lab with production 3D printers and capacity to spare between its own jobs</li>
           <li><span class="material-symbols-outlined" aria-hidden="true">conveyor_belt</span>A manufacturer with milled capacity to run as a dedicated cell for another lab</li>
           <li><span class="material-symbols-outlined" aria-hidden="true">science</span>A product, material or technology proven at home and ready for new territories</li>
           <li><span class="material-symbols-outlined" aria-hidden="true">storefront</span>A business its owner is ready to sell, or a partnership to form</li>
@@ -1003,6 +1053,7 @@
         </figcaption>
       </figure>
     </div>
+    <div class="focus__dots" id="focusDots"></div>
   </div>
 </section>
 
@@ -1042,7 +1093,7 @@
         <article class="why-item enter enter--up" style="--d:160ms;">
           <div class="why-item__num">03</div>
           <div>
-            <h4>Nothing is bought on the hub</h4>
+            <h4>Nothing is bought on the portal</h4>
             <p>Orders, files and payments move directly between the two companies. We never sit inside the deal, and the customer is yours.</p>
           </div>
         </article>
@@ -1076,7 +1127,7 @@
       <span class="eyebrow">Consultancy</span>
       <h2 class="h2">Two services. One to one, when you want us working for you.</h2>
       <p class="lede" style="margin-top:20px;">
-        Most of what we do runs through the Global Hub. When a company wants NexPoint as its own sales and marketing effort in a territory, or a search for partners, acquisitions or joint ventures, that is consultancy: a fixed-term engagement, then a share of the business that follows.
+        Most of what we do runs through the Global Portal. When a company wants NexPoint as its own sales and marketing effort in a territory, or a search for partners, acquisitions or joint ventures, that is consultancy: a fixed-term engagement, then a share of the business that follows.
       </p>
     </div>
 
@@ -1156,11 +1207,11 @@
   <div class="container">
     <div class="hubteaser">
       <div class="enter enter--left">
-        <span class="eyebrow">The Global Hub</span>
+        <span class="eyebrow">The Global Portal</span>
         <h2 class="hubteaser__line">Four hubs. One account. Every introduction made by people who know both sides.</h2>
         <div class="hero__ctas">
           <a class="btn btn--primary-lg" href="https://nexpoint.co.uk/hub/">
-            Enter the Global Hub
+            Enter the Global Portal
             <span class="material-symbols-outlined" style="font-size:18px;">arrow_forward</span>
           </a>
           <a class="btn btn--ghost-lg" href="https://nexpoint.co.uk/hub/?join=1">Create your hub account</a>
@@ -1217,7 +1268,7 @@
     <div class="footer__col">
       <h5>Explore</h5>
       <ul>
-        <li><a href="/hub/">The Global Hub</a></li>
+        <li><a href="/hub/">The Global Portal</a></li>
         <li><a href="#how" data-nav="how">How an introduction happens</a></li>
         <li><a href="#who" data-nav="who">Who it is for</a></li>
         <li><a href="#expertise" data-nav="expertise">Why NexPoint</a></li>
@@ -1328,16 +1379,124 @@
     document.querySelectorAll('.enter').forEach(el => io.observe(el));
   }
 
+  // ─── The hero reveal: the wheel is the scrubber ───
+  // The hero pins for one viewport of travel (the track's bottom padding under
+  // the sticky stage) and progress through that travel drives the reveal, so
+  // it runs forwards as the visitor scrolls down and backwards as they return
+  // to the top. Native scroll is untouched: a passive listener reads position,
+  // one rAF loop eases toward it (a wheel notch glides rather than steps) and
+  // writes three custom properties on the track, which the CSS maps to
+  // transform and opacity. Three planes at three rates: --np-g lifts the globe
+  // over the first 70% of the travel, --np-f brings the film in behind it from
+  // 30% to 85%, --np-b lands the play button from 55% to 95%; the last 5% is a
+  // held beat before the page lets go. The pin applies only when the hero fits
+  // the viewport; on a short phone nothing is pinned and the same reveal runs
+  // as the box rises through the viewport, so the film is never left behind a
+  // globe the visitor cannot move. Reduced motion (no html.np-reveal): none of
+  // this runs and the film stands alone.
+  (function initHeroReveal() {
+    const track = document.querySelector('.hero-track');
+    const stage = track && track.querySelector('.hero');
+    const box = track && track.querySelector('.hero-reveal');
+    const globe = track && track.querySelector('.globe-stage');
+    const frame = track && track.querySelector('.hero-film');
+    const film = document.getElementById('heroFilm');
+    const play = document.getElementById('heroFilmPlay');
+    // sc-ready is the verification harness's "laid out" signal; it carries no style.
+    if (!track || !stage || !box || !globe || !frame || !root.classList.contains('np-reveal')) { root.classList.add('sc-ready'); return; }
+
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    const LERP = coarse ? 0.3 : 0.18;   // per-frame approach to the target; a thumb wants less lag than a wheel
+    const easeInOut = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+    const win = (p, a, b) => Math.min(1, Math.max(0, (p - a) / (b - a)));
+    const NAV = 84;                      // the hero's padding-top, the fixed nav's height
+
+    let pinned = false, target = 0, cur = -1, raf = 0, lastState = '';
+
+    function fits() {
+      const inner = stage.querySelector('.hero__inner');
+      return !!inner && inner.offsetHeight + NAV <= window.innerHeight;
+    }
+    function travel() { return Math.max(1, track.offsetHeight - stage.offsetHeight); }
+    // Not pinned: the reveal runs as the box rises through the viewport, from
+    // its top entering at the bottom edge (or its rest position, if it is
+    // already on screen) to its top reaching 30% down the screen, with at
+    // least 40% of a viewport of scroll so a wheel notch never snaps it.
+    function range() {
+      const vh = window.innerHeight;
+      const b0 = box.getBoundingClientRect().top + window.scrollY;
+      const startY = Math.max(0, b0 - vh);
+      return { startY, endY: Math.max(startY + vh * 0.4, b0 - vh * 0.3) };
+    }
+    function readTarget() {
+      if (pinned) { target = Math.min(1, Math.max(0, -track.getBoundingClientRect().top / travel())); return; }
+      const r = range();
+      target = Math.min(1, Math.max(0, (window.scrollY - r.startY) / (r.endY - r.startY)));
+    }
+    function write(p) {
+      const g = easeInOut(win(p, 0, 0.7));
+      const f = easeOut(win(p, 0.3, 0.85));
+      const b = easeOut(win(p, 0.55, 0.95));
+      track.style.setProperty('--np-g', g.toFixed(4));
+      track.style.setProperty('--np-f', f.toFixed(4));
+      track.style.setProperty('--np-b', b.toFixed(4));
+      const gone = g >= 0.999;
+      if (globe.classList.contains('is-gone') !== gone) {
+        globe.classList.toggle('is-gone', gone);
+        // the globe's own loop stops while it is gone and restarts when it is back
+        globe.dispatchEvent(new CustomEvent('np-globe', { detail: { visible: !gone } }));
+      }
+      const live = b >= 0.999;
+      frame.classList.toggle('is-live', live);
+      // the globe coming back over a playing film stops the narration
+      if (!live && film && !film.paused) film.pause();
+      // the harness reads this; it is the only DOM attribute written per frame
+      const state = 'globe:' + g.toFixed(2) + ' film:' + f.toFixed(2) + ' play:' + b.toFixed(2);
+      if (state !== lastState) { stage.setAttribute('data-sc-verify-state', state); lastState = state; }
+    }
+    function tick() {
+      raf = 0;
+      if (cur < 0) cur = target; else cur += (target - cur) * LERP;
+      if (Math.abs(target - cur) < 0.0005) cur = target;
+      write(cur);
+      if (cur !== target) raf = requestAnimationFrame(tick);
+    }
+    function onScroll() { readTarget(); if (!raf) raf = requestAnimationFrame(tick); }
+    function apply() {
+      const want = fits();
+      if (want !== pinned) { pinned = want; root.classList.toggle('js-hero-pin', pinned); }
+      readTarget();
+      cur = -1;   // a layout change is not a scroll: land on the new number, do not glide to it
+      if (!raf) raf = requestAnimationFrame(tick);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', apply, { passive: true });
+    apply();
+    root.classList.add('sc-ready');
+
+    // Keyboard: the play button is in the tab order before the film has
+    // arrived (it is hidden by opacity, not visibility). Landing on it scrolls
+    // the hero to the end of its travel, so the film is revealed before it is
+    // pressed and nothing is activated out of sight.
+    if (play) play.addEventListener('focus', () => {
+      if (frame.classList.contains('is-live')) return;
+      const top = pinned ? track.getBoundingClientRect().top + window.scrollY + travel() : range().endY;
+      window.scrollTo({ top, behavior: 'smooth' });
+    });
+  })();
+
   // ─── Hero globe: realistically lit dotted Earth with live connection arcs (canvas, dependency-free) ───
   (function initGlobe() {
     const canvas = document.getElementById('globeCanvas');
     if (!canvas) return;
     // The globe is the opening of the film reveal: with no reveal (reduced
-    // motion) it is not drawn at all, and once it has risen away its loop
-    // is stopped for good.
+    // motion) it is not drawn at all. The reveal driver above marks the stage
+    // is-gone once the globe has risen away and clears it when the visitor
+    // scrolls it back; the loop stops and restarts with that.
     const leaving = canvas.closest('.hero-reveal') ? canvas.closest('.globe-stage') : null;
     if (leaving && !document.documentElement.classList.contains('np-reveal')) return;
-    let gone = false;
+    let gone = !!(leaving && leaving.classList.contains('is-gone'));
     const ctx = canvas.getContext('2d');
 
     // Land mask: 24 rows (N->S) x 60 cols (lon -180..+180); [colStart,colEnd] land runs.
@@ -1425,10 +1584,12 @@
 
     let W = 0, H = 0, cx = 0, cy = 0, R = 0, dpr = 1;
     function resize() {
-      const rect = canvas.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
+      // layout size, not the bounding rect: the stage is scaled by a transform
+      // while it leaves, and a resize caught mid-reveal must not shrink the canvas
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      if (!w || !h) return;
       dpr = Math.min(window.devicePixelRatio || 1, 2);
-      W = rect.width; H = rect.height;
+      W = w; H = h;
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1584,7 +1745,7 @@
     }
     function start() { if (running || gone) return; running = true; lastT = null; raf = requestAnimationFrame(loop); }
     function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; }
-    if (leaving) leaving.addEventListener('animationend', () => { gone = true; stop(); });
+    if (leaving) leaving.addEventListener('np-globe', (e) => { gone = !e.detail.visible; if (gone) stop(); else start(); });
 
     window.addEventListener('resize', resize);
     if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
@@ -1592,6 +1753,39 @@
       new IntersectionObserver((ents) => { ents.forEach(e => e.isIntersecting ? start() : stop()); }, { threshold: 0.05 }).observe(canvas);
     } else { start(); }
     document.addEventListener('visibilitychange', () => { document.hidden ? stop() : start(); });
+  })();
+
+  // ─── Focus areas on a phone: one photo at a time, with dots ───
+  // The rail itself locks onto each photo (CSS scroll snap). This only draws
+  // the dots, keeps the current one marked as the rail moves, and lets a dot
+  // be pressed to go to its photo.
+  (function initFocusDots() {
+    const strip = document.querySelector('.focus__strip');
+    const dots = document.getElementById('focusDots');
+    if (!strip || !dots) return;
+    const items = Array.from(strip.querySelectorAll('.focus-item'));
+    if (items.length < 2) return;
+    const buttons = items.map((item, i) => {
+      const title = (item.querySelector('.focus-item__title') || {}).textContent || '';
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'focus__dot';
+      b.setAttribute('aria-label', 'Show photo ' + (i + 1) + ' of ' + items.length + (title ? ': ' + title.trim() : ''));
+      b.addEventListener('click', () => {
+        const quiet = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        strip.scrollTo({ left: item.offsetLeft - strip.offsetLeft, behavior: quiet ? 'auto' : 'smooth' });
+      });
+      dots.appendChild(b);
+      return b;
+    });
+    let ticking = false;
+    function mark() {
+      ticking = false;
+      const at = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth));
+      buttons.forEach((b, i) => { if (i === at) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+    }
+    strip.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(mark); } }, { passive: true });
+    window.addEventListener('resize', mark, { passive: true });
+    mark();
   })();
 
   // ─── The hero film: one play button on the poster ───
