@@ -4,19 +4,19 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>NexPoint | Global O&P commercial connectors</title>
-<meta name="description" content="NexPoint connects Orthotics &amp; Prosthetics, healthcare and manufacturing companies to the partners, channels and customers they need in new markets." />
+<meta name="description" content="NexPoint connects the O&amp;P industry person to person: print capacity, milled production, products and partners, through the NexPoint Global Hub." />
 <link rel="canonical" href="https://nexpoint.co.uk/" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://nexpoint.co.uk/" />
 <meta property="og:title" content="NexPoint | Global O&amp;P commercial connectors" />
-<meta property="og:description" content="NexPoint connects Orthotics &amp; Prosthetics, healthcare and manufacturing companies to the partners, channels and customers they need in new markets." />
+<meta property="og:description" content="NexPoint connects the O&amp;P industry person to person: print capacity, milled production, products and partners, through the NexPoint Global Hub." />
 <meta property="og:image" content="https://nexpoint.co.uk/assets/og-image.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:image:alt" content="NexPoint: the commercial bridge for Orthotics and Prosthetics worldwide" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="NexPoint | Global O&amp;P commercial connectors" />
-<meta name="twitter:description" content="NexPoint connects Orthotics &amp; Prosthetics, healthcare and manufacturing companies to the partners, channels and customers they need in new markets." />
+<meta name="twitter:description" content="NexPoint connects the O&amp;P industry person to person: print capacity, milled production, products and partners, through the NexPoint Global Hub." />
 <meta name="twitter:image" content="https://nexpoint.co.uk/assets/og-image.png" />
 <link rel="icon" href="assets/nexpoint-logo.png" />
 
@@ -26,6 +26,7 @@
 <!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=swap" rel="stylesheet" />
 
+<link rel="stylesheet" href="assets/scrollcraft.css" />
 <style>
   :root {
     --np-blue: #005CC8;
@@ -274,47 +275,6 @@
     .svc-row__media { order: -1; }
   }
 
-  /* ─── Value chain: pinned scroll-linked sequence on a full-bleed band ─── */
-  .vc { background: var(--bg-alt); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-  .vc__sticky { padding: var(--section-pad) 0; }
-  .vc__head { max-width: 820px; margin: 0 0 clamp(36px, 5vh, 56px); }
-  .vc__head .h2 { margin-bottom: 20px; }
-  /* 180vh = 80vh of scroll distance across five stages — enough to read the
-     sequence, short enough that it never feels like dead space. */
-  html.js-pin .vc__track { height: 180vh; position: relative; }
-  html.js-pin .vc__sticky { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 0; }
-  html.js-pin .vc__head { margin-bottom: clamp(28px, 4vh, 44px); }
-  .vc-chain { display: flex; align-items: flex-start; justify-content: space-between; gap: 4px; }
-  .vc-step { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
-  .vc-step__node {
-    position: relative; width: clamp(52px, 5vw, 68px); height: clamp(52px, 5vw, 68px);
-    display: flex; align-items: center; justify-content: center; margin-bottom: 16px;
-    color: var(--fg-2); background: var(--surface); border: 1px solid var(--border-card); border-radius: 10px;
-    transition: color 420ms var(--ease), border-color 420ms var(--ease), background 420ms var(--ease);
-  }
-  .vc-step__node span.material-symbols-outlined { font-size: clamp(24px, 2.2vw, 30px); }
-  .vc-step__index { font: 600 10px/1 var(--font-body); letter-spacing: 0.14em; color: var(--fg-2); margin-bottom: 10px; transition: color 420ms var(--ease); }
-  .vc-step__label { font: 600 clamp(14px, 1.4vw, 17px)/1.25 var(--font-display); color: var(--fg); margin-bottom: 6px; letter-spacing: -0.01em; min-height: 2.5em; }
-  .vc-step__sub { font: 600 10.5px/1.45 var(--font-body); letter-spacing: 0.07em; text-transform: uppercase; color: rgba(226, 226, 226, 0.55); }
-  .vc-step.is-lit .vc-step__node { color: var(--np-blue); border-color: var(--np-blue); background: rgba(0, 92, 200, 0.08); }
-  .vc-step.is-lit .vc-step__index { color: var(--np-blue); }
-  /* progress rail runs under the nodes and fills with scroll */
-  .vc__rail { position: relative; height: 1px; background: var(--border-card); margin: 0 0 clamp(18px, 2.4vh, 26px); }
-  /* scaleX, not width — the fill updates on the compositor, never the layout */
-  .vc__rail-fill { position: absolute; inset: 0 0 0 0; background: var(--np-blue); transform-origin: 0 50%; transform: scaleX(var(--vc-p, 1)); transition: transform 120ms linear; }
-  html.js-pin .vc-chain + .cta-banner { margin-top: clamp(28px, 3.5vh, 44px); }
-  @media (max-width: 860px) {
-    html.js-pin .vc__track { height: auto; }
-    html.js-pin .vc__sticky { position: static; height: auto; padding: var(--section-pad) 0; }
-    .vc-chain { flex-direction: column; gap: 18px; }
-    .vc-step { flex: 0 0 auto; width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 16px; }
-    .vc-step__node { grid-column: 1; grid-row: 1 / 3; margin-bottom: 0; align-self: center; }
-    .vc-step__label { grid-column: 2; grid-row: 1; min-height: 0; margin-bottom: 3px; align-self: end; }
-    .vc-step__sub { grid-column: 2; grid-row: 2; align-self: start; }
-    .vc-step__index { display: none; }
-    .vc__rail { display: none; }
-  }
-
   /* ─── Shared CTA banner (quiet band) ─── */
   .cta-banner {
     margin-top: clamp(48px, 6vh, 72px); padding: clamp(20px, 2.2vw, 26px) clamp(20px, 2.4vw, 32px);
@@ -336,7 +296,7 @@
   .why__title { font: 600 clamp(28px, 3.2vw, 44px)/1.13 var(--font-display); letter-spacing: -0.02em; color: #fff; margin: 0 0 20px; }
   .why__lede { font: 400 clamp(15px, 1.2vw, 17px)/1.6 var(--font-body); color: rgba(226, 226, 226, 0.65); margin: 0 0 28px; }
   .why__caption { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
-  .why__caption-label { font: 600 10px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--np-green); margin-bottom: 8px; }
+  .why__caption-label { font: 600 10px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: #477616; margin-bottom: 8px; }
   .why__caption-text { font: 500 clamp(15px, 1.2vw, 17px)/1.35 var(--font-display); color: var(--fg); letter-spacing: -0.01em; }
   .why__list { display: flex; flex-direction: column; }
   .why-item { display: grid; grid-template-columns: 44px 1fr; gap: 20px; padding: clamp(24px, 3vh, 34px) 0; border-top: 1px solid var(--border); transition: border-color var(--duration) var(--ease); }
@@ -523,8 +483,6 @@
     html { scroll-behavior: auto; }
     *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
     html.js-motion .enter { opacity: 1 !important; transform: none !important; }
-    html.js-pin .vc__track { height: auto !important; }
-    html.js-pin .vc__sticky { position: static !important; height: auto !important; padding: var(--section-pad) 0 !important; }
   }
 
   /* ─── Theme toggle button ─── */
@@ -595,9 +553,6 @@
   html[data-theme="light"] .focus-item__title { color: #0E1626; }
   html[data-theme="light"] .why__caption-text { color: #0E1626; }
 
-  /* Value chain — nodes flip with the surface tokens; labels flip explicitly */
-  html[data-theme="light"] .vc-step__label { color: #0E1626; }
-  html[data-theme="light"] .vc-step__sub { color: #5A6474; }
 
   /* Why NexPoint */
   html[data-theme="light"] .why__title { color: #0E1626; }
@@ -689,11 +644,187 @@
     html.np-reveal .hero-reveal .globe-stage { display: none; }
     html.np-reveal .hero-film { animation: none; }
   }
+
+  /* ─── Draft A additions (14 October 2026): the hub doors, the four steps, the two sides ─── */
+  .hero__hint { font: 500 13.5px/1.5 var(--font-body); color: #5A6474; margin: 14px 0 0; }
+
+  /* The four doors: the hub door's card idiom, ported here because this page keeps its own styles */
+  .doors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(16px, 2vw, 24px); }
+  @media (max-width: 1100px) { .doors { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .door {
+    position: relative; display: flex; flex-direction: column; text-decoration: none; color: inherit;
+    background: var(--surface); border: 1px solid var(--border-card); border-radius: 12px; overflow: hidden;
+    transition: border-color var(--duration) var(--ease), transform var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+  }
+  a.door:hover { border-color: var(--np-blue); transform: translateY(-2px); box-shadow: 0 16px 40px rgba(14, 22, 38, 0.10); }
+  a.door:focus-visible { outline: 3px solid var(--np-blue); outline-offset: 3px; }
+  .door__media { position: relative; overflow: hidden; }
+  .door__media img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; filter: saturate(0.92); transition: transform 400ms var(--ease), filter 400ms var(--ease); }
+  a.door:hover .door__media img { transform: scale(1.04); filter: saturate(1); }
+  .door__status {
+    position: absolute; top: 16px; left: 16px; display: inline-flex; align-items: center; gap: 7px;
+    font: 600 10.5px/1 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; padding: 7px 12px; border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(14, 22, 38, 0.08); color: #477616;
+  }
+  .door__status--soon { color: rgba(14, 22, 38, 0.75); }
+  .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--np-green); box-shadow: 0 0 8px rgba(139, 197, 63, 0.7); }
+  .door__body { display: flex; flex-direction: column; flex: 1; padding: 22px 22px 20px; }
+  .door h3 { font: 600 clamp(20px, 1.8vw, 24px)/1.25 var(--font-display); letter-spacing: -0.015em; color: var(--fg); margin: 0 0 8px; }
+  .door p { font: 400 15px/1.55 var(--font-body); color: #4A5462; margin: 0; flex: 1; }
+  .door .go { display: inline-flex; align-items: center; gap: 7px; font: 600 13.5px/1 var(--font-body); color: var(--np-blue); margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-soft); }
+  .door .go .material-symbols-outlined { font-size: 16px; transition: transform var(--duration) var(--ease); }
+  a.door:hover .go .material-symbols-outlined { transform: translateX(3px); }
+  .door--soon .door__media img { filter: saturate(0.5) opacity(0.85); }
+  @media (max-width: 640px) { .doors { grid-template-columns: minmax(0, 1fr); } }
+
+  /* The four steps of an introduction */
+  .how-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(20px, 2.6vw, 40px); }
+  .how-step { padding-top: 22px; border-top: 1px solid var(--border); }
+  .how-step__num { display: flex; align-items: center; gap: 10px; font: 600 12px/1 var(--font-body); letter-spacing: 0.12em; color: var(--np-blue); margin-bottom: 16px; }
+  .how-step__num .material-symbols-outlined { font-size: 22px; }
+  .how-step h3 { font: 600 clamp(17px, 1.4vw, 20px)/1.3 var(--font-display); letter-spacing: -0.01em; color: var(--fg); margin: 0 0 10px; }
+  .how-step p { font: 400 15px/1.6 var(--font-body); color: #4A5462; margin: 0; }
+  @media (max-width: 900px) { .how-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .how-grid { grid-template-columns: minmax(0, 1fr); } }
+
+  /* The two sides of the network */
+  .who-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(20px, 3vw, 40px); }
+  .who-col { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border-card); border-radius: 12px; padding: clamp(24px, 2.6vw, 36px); }
+  .who-col__icon { color: var(--np-blue); font-size: 28px; margin-bottom: 14px; }
+  .who-col--offer .who-col__icon { color: #477616; }
+  .who-col h3 { font: 600 clamp(20px, 1.9vw, 26px)/1.2 var(--font-display); letter-spacing: -0.015em; color: var(--fg); margin: 0 0 18px; }
+  .who-col ul { list-style: none; margin: 0 0 26px; padding: 0; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .who-col li { display: flex; gap: 12px; align-items: flex-start; font: 400 15px/1.55 var(--font-body); color: #2C3444; }
+  .who-col li .material-symbols-outlined { font-size: 20px; color: var(--np-blue); flex: 0 0 auto; margin-top: 2px; }
+  .who-col--offer li .material-symbols-outlined { color: #477616; }
+  .who-col .btn { align-self: flex-start; }
+  @media (max-width: 860px) { .who-grid { grid-template-columns: minmax(0, 1fr); } }
+  .strip-head { margin: clamp(40px, 6vh, 64px) 0 18px; font: 600 12px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: #5A6474; }
+
+  /* The closing band carries the hero's two buttons */
+  .hubteaser .hero__ctas { margin-top: 4px; }
+
+  /* ─── Draft B: the scroll-led home page (14 October 2026). The scroll-craft engine
+     (assets/scrollcraft.css and .js, unmodified) drives the data-sc-* attributes; the
+     page keeps its own shell, tokens and components. html.np-sc is set in the head
+     when motion is welcome; without it (reduced motion, or no script) every act is
+     an ordinary section and nothing is hidden. ─── */
+  :root {
+    --sc-canvas: #F5F7FA; --sc-surface: #FFFFFF; --sc-ink: #0E1626; --sc-ink-soft: #4A5462;
+    --sc-accent: #005CC8; --sc-accent-ink: #FFFFFF;
+    --sc-font-display: 'Montserrat', system-ui, sans-serif; --sc-font-text: 'Inter', system-ui, sans-serif;
+    --sc-shadow-color: 222 46% 10%;
+  }
+  html, body { background: var(--bg); color: var(--fg-1); font-family: var(--font-body); font-size: 16px; line-height: 1.55; letter-spacing: normal; }
+  img, svg { display: inline-block; }
+  .shot img, .door__media img, .svc-row__media img, .footer__brand img, .navbar__brand img { display: block; }
+  :focus-visible { outline: 3px solid var(--np-blue); outline-offset: 3px; border-radius: 4px; }
+  ::selection { background: rgba(0, 92, 200, 0.18); color: #0E1626; }
+
+  /* Act 2: the quiet before the match */
+  .story { padding: clamp(56px, 9vh, 120px) 0 clamp(40px, 6vh, 72px); }
+  .story__inner { max-width: 860px; }
+  .story__inner .h2 { margin-bottom: 26px; max-width: 16ch; }
+  .story__p { font: 400 clamp(17px, 1.5vw, 21px)/1.5 var(--font-body); color: #2C3444; margin: 0 0 16px; max-width: 46ch; text-wrap: pretty; }
+  .story__p--strong { font-weight: 600; color: var(--fg); margin-top: 24px; }
+
+  /* Act 3: the match (the peak). The stage holds; the copy crosses over in one slot;
+     the arcs draw from --sc-p. */
+  .match__stage { display: flex; align-items: center; }
+  .match__inner { width: 100%; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: clamp(28px, 4vw, 64px); align-items: center; padding-top: 84px; }
+  .match__title { margin-bottom: 26px; }
+  .match-lines { position: relative; min-height: 9.5em; }
+  .match-lines p { position: absolute; left: 0; top: 0; margin: 0; max-width: 42ch; font: 400 clamp(17px, 1.5vw, 21px)/1.5 var(--font-body); color: #2C3444; text-wrap: pretty; }
+  .match-map { position: relative; padding: 14px; }
+  .match-map__map svg { display: block; width: 100%; height: auto; }
+  .match-arcs { position: absolute; left: 14px; right: 14px; top: 14px; width: calc(100% - 28px); height: auto; pointer-events: none; }
+  .match {
+    --a1: clamp(0, calc((var(--sc-p, 1) - 0.05) / 0.22), 1);
+    --a2: clamp(0, calc((var(--sc-p, 1) - 0.31) / 0.22), 1);
+  }
+  .match-arcs .arc { fill: none; stroke: var(--np-blue); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 1; }
+  .match-arcs .arc--1 { stroke-dashoffset: calc(1 - var(--a1)); }
+  .match-arcs .arc--2 { stroke-dashoffset: calc(1 - var(--a2)); }
+  .match-arcs .arc--pulse { stroke: var(--np-green); stroke-width: 5; stroke-dasharray: 0.035 1; }
+  .match-arcs .arc--p1 { stroke-dashoffset: calc(0 - var(--a1) * 0.965); opacity: calc(var(--a1) * (1 - var(--a1)) * 4); }
+  .match-arcs .arc--p2 { stroke-dashoffset: calc(0 - var(--a2) * 0.965); opacity: calc(var(--a2) * (1 - var(--a2)) * 4); }
+  .match-arcs .pin { fill: var(--np-green); stroke: #fff; stroke-width: 1.5; }
+  .match-arcs .pin--1a { opacity: var(--a1); }
+  .match-arcs .pin--1b { opacity: calc(var(--a1) * var(--a1) * var(--a1)); }
+  .match-arcs .pin--2a { opacity: var(--a2); }
+  .match-arcs .pin--2b { opacity: calc(var(--a2) * var(--a2) * var(--a2)); }
+  @media (max-width: 1000px) {
+    .match__inner { grid-template-columns: minmax(0, 1fr); gap: 22px; align-content: center; }
+    .match-map { order: -1; }
+    .match-lines { min-height: 8em; }
+    .match-lines p { font-size: 16.5px; max-width: none; }
+  }
+
+  /* Act 4: the four hubs, sideways */
+  .hubs__stage { display: flex; align-items: center; }
+  .rail { display: flex; align-items: stretch; gap: clamp(16px, 2vw, 28px); padding: 84px var(--side-pad) 24px; }
+  .rail > * { flex: 0 0 auto; }
+  .rail__lead { width: clamp(300px, 30vw, 440px); display: flex; flex-direction: column; justify-content: center; padding-right: clamp(8px, 2vw, 32px); }
+  .rail__lead .h2 { margin-bottom: 18px; }
+  .rail .door { width: clamp(300px, 29vw, 420px); }
+  .rail__close { width: clamp(280px, 26vw, 380px); display: flex; flex-direction: column; justify-content: center; padding-left: clamp(8px, 2vw, 32px); }
+  .rail__close h3 { font: 600 clamp(22px, 2.2vw, 30px)/1.2 var(--font-display); letter-spacing: -0.02em; color: var(--fg); margin: 0 0 10px; }
+  .rail__close p { font: 400 15px/1.55 var(--font-body); color: #4A5462; margin: 0 0 22px; }
+  .rail__close .btn { align-self: flex-start; }
+  /* the items settle one after another as the rail travels; the lead is exempt */
+  html.np-sc .rail > *:nth-child(2) { --i: 0; } html.np-sc .rail > *:nth-child(3) { --i: 1; }
+  html.np-sc .rail > *:nth-child(4) { --i: 2; } html.np-sc .rail > *:nth-child(5) { --i: 3; } html.np-sc .rail > *:nth-child(6) { --i: 4; }
+  html.np-sc .rail > *:not(:first-child) { opacity: calc(0.55 + 0.45 * clamp(0, calc((var(--sc-p, 1) - var(--i) * 0.13) / 0.14), 1)); }
+  @media (max-width: 760px) {
+    .rail { padding: 76px 20px 20px; gap: 14px; }
+    .rail__lead { width: 78vw; }
+    .rail .door { width: 78vw; }
+    .rail__close { width: 78vw; }
+  }
+
+  /* Act 5 */
+  .who-grid--late { margin-top: clamp(40px, 6vh, 64px); }
+  .why-strip { list-style: none; margin: clamp(40px, 6vh, 64px) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(18px, 2.4vw, 36px); }
+  .why-strip li { padding-top: 18px; border-top: 1px solid var(--border); font: 400 15px/1.6 var(--font-body); color: #4A5462; }
+  .why-strip li b { display: block; font: 600 16px/1.35 var(--font-display); color: var(--fg); margin-bottom: 6px; letter-spacing: -0.01em; }
+  .why-strip li .material-symbols-outlined { display: block; color: var(--np-blue); font-size: 22px; margin-bottom: 10px; }
+  @media (max-width: 860px) { .why-strip { grid-template-columns: minmax(0, 1fr); } }
+
+  /* Act 6: the door */
+  .enter-act__stage { display: flex; align-items: center; background: var(--bg); }
+  .enter-act__inner { padding-top: 84px; }
+  .enter-act__title { max-width: 22ch; margin: 0 0 28px; }
+  .enter-act .hero__ctas { margin-bottom: 14px; }
+  .enter-act .hero__hint { margin-top: 0; }
+  [data-sc-spotlight]::after { background: radial-gradient(28rem 28rem at calc(var(--sc-mx, 0.5) * 100%) calc(var(--sc-my, 0.5) * 100%), rgba(0, 92, 200, 0.08), transparent 70%); }
+
+  /* Without the engine (reduced motion, or no script) every act is an ordinary
+     section: nothing hidden, nothing pinned, the arcs drawn, the rail wrapped. */
+  html:not(.np-sc) [data-sc-act] { height: auto !important; --sc-p: 1; }
+  html:not(.np-sc) [data-sc-stage], html:not(.np-sc) .sc-stage { position: static !important; height: auto !important; overflow: visible !important; }
+  html:not(.np-sc) [data-sc-cue], html:not(.np-sc) [data-sc-in], html:not(.np-sc) [data-sc-stagger] > * { opacity: 1 !important; transform: none !important; }
+  html:not(.np-sc) [data-sc-reveal] { clip-path: none !important; }
+  html:not(.np-sc) [data-sc-pan] { transform: none !important; flex-wrap: wrap; justify-content: center; padding-top: 0; }
+  html:not(.np-sc) .match { padding: clamp(56px, 9vh, 120px) 0; }
+  html:not(.np-sc) .match__inner { padding-top: 0; }
+  html:not(.np-sc) .match-lines { min-height: 0; }
+  html:not(.np-sc) .match-lines p { position: static; margin: 0 0 14px; }
+  html:not(.np-sc) .match-arcs .arc--pulse { opacity: 0; }
+  html:not(.np-sc) .hubs { padding: clamp(40px, 6vh, 80px) 0; }
+  html:not(.np-sc) .rail__lead, html:not(.np-sc) .rail__close { width: 100%; max-width: 760px; padding: 0 0 12px; }
+  html:not(.np-sc) .rail .door { width: clamp(280px, 30vw, 400px); }
+  html:not(.np-sc) .enter-act { padding: clamp(56px, 9vh, 120px) 0; }
+  html:not(.np-sc) .enter-act__inner { padding-top: 0; }
+  html:not(.np-sc) [data-sc-spotlight]::after { display: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .rail > * { opacity: 1 !important; }
+  }
 </style>
 <!-- The globe-to-film reveal is switched on here, before the hero paints, so the
      film never flashes ahead of the globe. Without this class (reduced motion,
      or no script) the hero shows the film alone. -->
-<script>if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches))document.documentElement.classList.add('np-reveal');</script>
+<script>if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches))document.documentElement.classList.add('np-reveal','np-sc');</script>
 <!-- Lead Forensics tracking -->
 <script type="text/javascript" src="https://www.365-syndicate.com/js/818863.js"></script>
 <noscript><img src="https://www.365-syndicate.com/818863.png" style="display:none;" alt="" width="1" height="1" /></noscript>
@@ -707,11 +838,10 @@
       <img src="assets/nexpoint-logo.png" alt="NexPoint" width="52" height="52" />
     </a>
     <div class="navbar__links">
-      <a href="#services"    class="navbar__link" data-nav="services">Services</a>
-      <a href="#value-chain" class="navbar__link" data-nav="value-chain">Value chain</a>
-      <a href="#expertise"   class="navbar__link" data-nav="expertise">Why us</a>
-      <a href="#focus"       class="navbar__link" data-nav="focus">Focus areas</a>
-      <a href="#network"     class="navbar__link" data-nav="network">Network</a>
+      <a href="#story"     class="navbar__link" data-nav="story">The story</a>
+      <a href="#hub"       class="navbar__link" data-nav="hub">The Global Hub</a>
+      <a href="#how"       class="navbar__link" data-nav="how">How it works</a>
+      <a href="#services"  class="navbar__link" data-nav="services">Consultancy</a>
     </div>
     <div class="navbar__actions">
       <button class="btn btn--outline" data-nav="book">Talk to the desk</button>
@@ -723,19 +853,18 @@
     </div>
   </nav>
   <div class="navbar__menu" id="navMenu">
-    <a href="#services"    data-nav="services">Services</a>
-    <a href="#value-chain" data-nav="value-chain">Value chain</a>
-    <a href="#expertise"   data-nav="expertise">Why us</a>
-    <a href="#focus"       data-nav="focus">Focus areas</a>
-    <a href="#network"     data-nav="network">Network</a>
-    <a href="#book"        data-nav="book">Talk to the desk</a>
-    <a href="/hub/">Global Hub</a>
+    <a href="#story"     data-nav="story">The story</a>
+    <a href="#hub"       data-nav="hub">The Global Hub</a>
+    <a href="#how"       data-nav="how">How it works</a>
+    <a href="#services"  data-nav="services">Consultancy</a>
+    <a href="#book"      data-nav="book">Talk to the desk</a>
+    <a href="/hub/">Enter the Global Hub</a>
   </div>
 </header>
 
 <main>
 
-<!-- ───── Hero ───── -->
+<!-- ───── Hero (the kept shell: the globe gives way to the film; one primary action) ───── -->
 <section id="top" class="hero">
   <div class="hero__bg" aria-hidden="true"></div>
   <div class="hero__inner">
@@ -744,23 +873,18 @@
         The commercial bridge for <span class="accent">Orthotics &amp; Prosthetics</span> worldwide.
       </h1>
       <p class="hero__sub">
-        NexPoint helps O&amp;P, healthcare, and manufacturing companies expand into new markets through strategic partnerships, qualified introductions, channel development, and commercial growth support.
+        NexPoint introduces labs, clinics, manufacturers and suppliers across the O&amp;P industry to each other, person to person, wherever one has what another needs. The Global Hub is where the whole network sees what is being offered and sought.
       </p>
       <div class="hero__ctas">
         <a class="btn btn--primary-lg" href="https://nexpoint.co.uk/hub/">
-          Explore the Global Hub
+          Enter the Global Hub
           <span class="material-symbols-outlined" style="font-size:18px;">arrow_forward</span>
         </a>
-        <a class="btn btn--ghost-lg" href="https://nexpoint.co.uk/hub/?join=1">Join our network</a>
+        <a class="btn btn--ghost-lg" href="https://nexpoint.co.uk/hub/?join=1">Create your hub account</a>
       </div>
+      <p class="hero__hint">Free, and it takes two minutes. One account opens every hub.</p>
     </div>
 
-    <!-- The globe gives way to the film (Will, 13 October 2026; the hub door's
-         reveal, repeated here): on load the globe rises and fades and the home
-         film is revealed where it stood, as a poster with one play button;
-         sound is on when it is played. The box is the globe's own, so the hero
-         keeps its height and nothing below moves. Reduced motion, or no
-         script: the film alone. -->
     <div class="hero-reveal" id="film">
       <figure class="film__frame hero-film">
         <video class="film__video" id="heroFilm" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-home-film-poster.jpg" aria-label="NexPoint in seventy-five seconds: the industry, the match and the Global Hub, with captions">
@@ -779,47 +903,219 @@
   </div>
 </section>
 
-<!-- ───── Proof strip (stats) ───── -->
-<section class="proof" aria-label="NexPoint by the numbers">
-  <div class="proof__inner">
-    <div class="proof__item">
-      <div class="proof__num">1,000+</div>
-      <div class="proof__label">Industry contacts</div>
-    </div>
-    <div class="proof__item">
-      <div class="proof__num">20+</div>
-      <div class="proof__label">Years of O&amp;P relationships</div>
-    </div>
-    <div class="proof__item">
-      <div class="proof__num">Global</div>
-      <div class="proof__label">Market reach</div>
+<!-- ───── Act 2: a global industry made up of local businesses (flow) ───── -->
+<section id="story" class="story" data-sc-act="flow">
+  <div class="container story__inner" data-sc-in data-sc-stagger="90">
+    <h2 class="h2">Everybody knows their own market.</h2>
+    <p class="story__p">A lab in Australia has a product the United States has never seen. A manufacturer in Canada has capacity Europe cannot find. A supplier in the UK has a material the world should know about.</p>
+    <p class="story__p">Each has done well at home. Each is locked in its own geography. Finding a partner abroad usually means years of exhibitions and cold calls.</p>
+    <p class="story__p story__p--strong">We know everybody's markets, and the people in them.</p>
+  </div>
+</section>
+
+<!-- ───── Act 3: we make the match (pin, the peak). The signature move: the
+     introduction draws itself across the site's own dotted map as the lines
+     arrive, and a green pulse travels each arc. Driven from --sc-p in CSS. ───── -->
+<section id="match" class="match" data-sc-act="pin" data-sc-span="3.4">
+  <div data-sc-stage class="match__stage">
+    <div class="container match__inner">
+      <div class="match__copy">
+        <h2 class="h2 match__title" data-sc-cue="0 0.94 0 0.06" data-sc-kinetic="lines">We make the match.</h2>
+        <div class="match-lines">
+          <p data-sc-cue="0 0.3 0">A lab in Australia has a product the United States has never seen. Somewhere in our network is the lab that should carry it.</p>
+          <p data-sc-cue="0.26 0.56">A manufacturer in Canada has capacity Europe cannot find. Somewhere in our network is the lab that needs exactly that.</p>
+          <p data-sc-cue="0.5 0.8 0.2 0.3">We know both companies in every introduction we make, and we vouch for the fit. No algorithm decides who meets.</p>
+          <p data-sc-cue="0.76 1 0.12 0.05">Introduced, person to person. Then we step out of the way, and the relationship is yours.</p>
+        </div>
+      </div>
+      <div class="match-map wm-card" aria-label="A world map: two introductions drawn, Australia to the United States and Canada to the United Kingdom">
+        <div class="match-map__map" data-world-map="show" data-pins='[{"label":"Canada","lat":43.65,"lon":-79.38},{"label":"USA","lat":34.05,"lon":-118.24,"at":"left"},{"label":"United Kingdom","lat":51.5,"lon":-0.12},{"label":"Middle East","lat":25.2,"lon":55.27},{"label":"Asia","lat":1.35,"lon":103.82},{"label":"Australia","lat":-27.47,"lon":153.03,"at":"left"}]'></div>
+        <svg class="match-arcs" viewBox="0 0 640 252" aria-hidden="true" focusable="false">
+          <!-- Brisbane to Los Angeles, then Toronto to London. pathLength=1 so the
+               dash arithmetic is in fractions of each path. -->
+          <path class="arc arc--1" pathLength="1" d="M592 198 Q350 20 110 89"/>
+          <path class="arc arc--pulse arc--p1" pathLength="1" d="M592 198 Q350 20 110 89"/>
+          <circle class="pin pin--1a" cx="592" cy="198" r="3.5"/>
+          <circle class="pin pin--1b" cx="110" cy="89" r="3.5"/>
+          <path class="arc arc--2" pathLength="1" d="M179 72 Q249 10 320 58"/>
+          <path class="arc arc--pulse arc--p2" pathLength="1" d="M179 72 Q249 10 320 58"/>
+          <circle class="pin pin--2a" cx="179" cy="72" r="3.5"/>
+          <circle class="pin pin--2b" cx="320" cy="58" r="3.5"/>
+        </svg>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- ───── Services ───── -->
-<section id="services" class="section">
+<!-- ───── Act 4: the four hubs (pan) ───── -->
+<section id="hub" class="hubs" data-sc-act="pan" data-sc-span="3.8">
+  <div data-sc-stage class="hubs__stage">
+    <div class="rail" data-sc-pan="0.05">
+      <div class="rail__lead">
+        <span class="eyebrow">The Global Hub</span>
+        <h2 class="h2">Four hubs. One trusted network.</h2>
+        <p class="lede">Each hub is a door into a different part of the network. One free account opens all of them, and every introduction is still made by the NexPoint desk.</p>
+      </div>
+
+      <a class="door" href="https://printhub.nexpoint.co.uk/">
+        <div class="door__media">
+          <img src="hub/assets/img/print-hub.jpg" alt="Illustration of an enclosed desktop 3D printer with filament spools on top, printing an insole" width="1600" height="893" loading="lazy" />
+          <span class="door__status"><span class="live-dot"></span>Live</span>
+        </div>
+        <div class="door__body">
+          <h3>Print Hub</h3>
+          <p>Certified labs with production printers offer spare capacity to the clinics and labs around them, so printed devices arrive without buying a printer.</p>
+          <span class="go">Enter the Print Hub <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
+        </div>
+      </a>
+
+      <a class="door" href="https://millhub.nexpoint.co.uk/">
+        <div class="door__media">
+          <img src="hub/assets/img/mill-hub.jpg" alt="Illustration of an enclosed CNC milling machine carving a pair of insoles from a foam block" width="1600" height="893" loading="lazy" />
+          <span class="door__status"><span class="live-dot"></span>Live</span>
+        </div>
+        <div class="door__body">
+          <h3>Mill Hub</h3>
+          <p>Your production line inside someone else's factory: milled and moulded insoles made as your own line, to your standard, at a price per pair.</p>
+          <span class="go">Enter the Mill Hub <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
+        </div>
+      </a>
+
+      <a class="door" href="https://opportunities.nexpoint.co.uk/">
+        <div class="door__media">
+          <img src="hub/assets/img/product-hub.jpg" alt="Illustration of a desk globe with opportunity briefs standing on different continents" width="1600" height="893" loading="lazy" />
+          <span class="door__status"><span class="live-dot"></span>On the board</span>
+        </div>
+        <div class="door__body">
+          <h3>Opportunities Hub</h3>
+          <p>Products, materials, technology, partners, and companies looking to buy or sell, as verified, anonymised opportunities. Nothing is sold on the page; you request an introduction.</p>
+          <span class="go">Browse the board <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
+        </div>
+      </a>
+
+      <a class="door door--soon" href="https://nexpoint.co.uk/hub/">
+        <div class="door__media">
+          <img src="hub/assets/img/education-hub.jpg" alt="Illustration of a desk globe wearing a graduation cap, standing on a stack of books" width="1600" height="893" loading="lazy" />
+          <span class="door__status door__status--soon">Coming soon</span>
+        </div>
+        <div class="door__body">
+          <h3>Education Hub</h3>
+          <p>Webinars and articles for the whole community, from the people on the hubs: what the new printers and materials actually do, and what is coming next.</p>
+          <span class="go">Join the waiting list <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
+        </div>
+      </a>
+
+      <div class="rail__close">
+        <h3>One free account opens all four.</h3>
+        <p>Two minutes, and every door is open.</p>
+        <a class="btn btn--primary-lg" href="https://nexpoint.co.uk/hub/?join=1">Create your hub account <span class="material-symbols-outlined" style="font-size:18px;">arrow_forward</span></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───── Act 5: how an introduction happens, and who it is for (flow) ───── -->
+<section id="how" class="section how" data-sc-act="flow">
   <div class="container">
-    <div class="sec-head enter enter--up">
-      <span class="eyebrow">What we do</span>
-      <h2 class="h2">Two services. One commercial bridge into global O&amp;P markets.</h2>
+    <div class="sec-head" data-sc-in>
+      <h2 class="h2">How an introduction actually happens.</h2>
+      <p class="lede" style="margin-top:20px;">The Global Hub shows you what exists. People decide what meets.</p>
+    </div>
+
+    <div class="how-grid" data-sc-in data-sc-stagger="80">
+      <div class="how-step">
+        <div class="how-step__num"><span class="material-symbols-outlined" aria-hidden="true">inbox</span>01</div>
+        <h3>The need</h3>
+        <p>You have the work, a scan ready to make, but not the machine. Or a product that has done well at home and needs a new market.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step__num"><span class="material-symbols-outlined" aria-hidden="true">travel_explore</span>02</div>
+        <h3>The unseen supply</h3>
+        <p>Somewhere in the network a certified lab has exactly that capacity, or a partner is looking for exactly that product. You have never met.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step__num"><span class="material-symbols-outlined" aria-hidden="true">person</span>03</div>
+        <h3>A person weighs the fit</h3>
+        <p>You ask once. The NexPoint desk reads it personally and weighs the fit. No algorithm decides who meets.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step__num"><span class="material-symbols-outlined" aria-hidden="true">handshake</span>04</div>
+        <h3>A personal introduction</h3>
+        <p>When it fits, we introduce you directly and step back. Orders, files and payments move between the two companies. The relationship is yours.</p>
+      </div>
+    </div>
+
+    <div class="who-grid who-grid--late" data-sc-in data-sc-stagger="90">
+      <div class="who-col">
+        <span class="who-col__icon material-symbols-outlined" aria-hidden="true">medical_services</span>
+        <h3>If you need something</h3>
+        <ul>
+          <li><span class="material-symbols-outlined" aria-hidden="true">print_disabled</span>A clinic or lab that designs digitally but owns no production machine, or wants to try printing before buying one</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">grid_view</span>A lab that needs overflow capacity, or a technology its own machines cannot do</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">warehouse</span>A lab outsourcing its manufacturing without giving up its brand or its standard</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">travel_explore</span>A company looking for a product, a partner, or a business to acquire</li>
+        </ul>
+        <a class="btn btn--primary" href="https://nexpoint.co.uk/hub/">Find what you need <span class="material-symbols-outlined" style="font-size:16px;">arrow_forward</span></a>
+      </div>
+      <div class="who-col who-col--offer">
+        <span class="who-col__icon material-symbols-outlined" aria-hidden="true">precision_manufacturing</span>
+        <h3>If you have something to offer</h3>
+        <ul>
+          <li><span class="material-symbols-outlined" aria-hidden="true">view_in_ar</span>A lab with production printers and capacity to spare between its own jobs</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">conveyor_belt</span>A manufacturer with milled capacity to run as a dedicated cell for another lab</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">science</span>A product, material or technology proven at home and ready for new territories</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">storefront</span>A business its owner is ready to sell, or a partnership to form</li>
+        </ul>
+        <a class="btn btn--primary" href="https://nexpoint.co.uk/hub/?join=1">List what you offer <span class="material-symbols-outlined" style="font-size:16px;">arrow_forward</span></a>
+      </div>
+    </div>
+
+    <ul class="why-strip" data-sc-in data-sc-stagger="70">
+      <li><span class="material-symbols-outlined" aria-hidden="true">monitor_heart</span><b>Twenty years inside O&amp;P.</b> The relationships come from two decades supplying labs and clinics across the UK, Europe, North America, the Middle East, Australia and Asia.</li>
+      <li><span class="material-symbols-outlined" aria-hidden="true">factory</span><b>Nothing is bought on the hub.</b> Orders, files and payments move directly between the two companies. We never sit inside the deal.</li>
+      <li><span class="material-symbols-outlined" aria-hidden="true">handyman</span><b>Seekers never pay.</b> Providers pay a hub fee, and we talk the commercial side through with them personally before anything is listed.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ───── Act 6: the door (pin + pointer). Holds, then the kept shell follows. ───── -->
+<section id="enter" class="enter-act" data-sc-act="pin" data-sc-span="1.3">
+  <div data-sc-stage class="enter-act__stage" data-sc-spotlight>
+    <div class="container enter-act__inner">
+      <span class="eyebrow" data-sc-cue="0 1 0 0">The Global Hub</span>
+      <h2 class="h2 enter-act__title" data-sc-cue="0 1 0 0">Four hubs. One account. Every introduction made by people who know both sides.</h2>
+      <div class="hero__ctas" data-sc-cue="0 1 0 0">
+        <a class="btn btn--primary-lg" href="https://nexpoint.co.uk/hub/" data-sc-magnet="0.24" data-sc-rise="0">
+          Enter the Global Hub
+          <span class="material-symbols-outlined" style="font-size:18px;">arrow_forward</span>
+        </a>
+        <a class="btn btn--ghost-lg" href="https://nexpoint.co.uk/hub/?join=1">Create your hub account</a>
+      </div>
+      <p class="hero__hint" data-sc-cue="0 1 0 0">Free, and it takes two minutes. The UK, Europe, North America, the Middle East, Australia and Asia.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───── Consultancy: the two services (the kept shell) ───── -->
+<section id="services" class="section section--alt">
+  <div class="container">
+    <div class="sec-head" data-sc-in>
+      <span class="eyebrow">Consultancy</span>
+      <h2 class="h2">Two services. One to one, when you want us working for you.</h2>
       <p class="lede" style="margin-top:20px;">
-        We help O&amp;P businesses, manufacturers, materials and tech companies expand internationally. We do this in two ways: introductions to customers in new markets, and introductions to reseller and distribution partners.
-      </p>
-      <p class="lede" style="margin-top:14px;">
-        With over 20 years of experience and a network of 1,000+ trusted relationships, we provide the market insight and commercial understanding needed to turn introductions into real growth.
+        Most of what we do runs through the Global Hub. When a company wants NexPoint as its own sales and marketing effort in a territory, or a search for partners, acquisitions or joint ventures, that is consultancy: a fixed-term engagement, then a share of the business that follows.
       </p>
     </div>
 
     <ol class="svc">
       <li class="svc-row svc-row--green">
-        <div class="svc-row__body enter enter--left">
+        <div class="svc-row__body" data-sc-in>
           <span class="svc-row__icon material-symbols-outlined" aria-hidden="true">my_location</span>
           <h3>Targeted Business Development</h3>
-          <p>We give you direct access to target markets by linking you to the right customers, decision makers, and real opportunities across manufacturers, clinics, labs, and O&amp;P providers.</p>
-          <p>Acting as an extension of your sales team, we help you gain traction faster, without relying on cold outreach.</p>
+          <p>We find and open the right customers and decision makers in your target territory: the manufacturers, clinics, labs and O&amp;P providers we already know.</p>
+          <p>Acting as an extension of your sales team, so your time goes into real conversations rather than cold outreach.</p>
         </div>
-        <div class="svc-row__media enter enter--right">
+        <div class="svc-row__media" data-sc-in>
           <figure class="shot" style="aspect-ratio: 4 / 3;">
             <img src="assets/img/bd-strategy-meeting.jpg" alt="Two people at a clinic table reviewing an orthosis design on a tablet, one holding a blue 3D-printed ankle-foot orthosis, printed samples on the table" loading="lazy" width="1200" height="900" />
           </figure>
@@ -827,256 +1123,42 @@
       </li>
 
       <li class="svc-row svc-row--flip">
-        <div class="svc-row__body enter enter--right">
+        <div class="svc-row__body" data-sc-in>
           <span class="svc-row__icon material-symbols-outlined" aria-hidden="true">hub</span>
           <h3>Channel &amp; Reseller Development</h3>
-          <p>Identify, qualify, and engage suitable O&amp;P focused reseller and distribution partners for technologies, materials, manufacturing solutions, and digital workflows, building scalable indirect sales channels through trusted regional partners with existing market presence.</p>
+          <p>We identify and qualify O&amp;P resellers and distribution partners with real market presence, make the introduction warm, and support the early commercial discussions, so your indirect channel is built on trusted regional partners.</p>
         </div>
-        <div class="svc-row__media enter enter--left">
+        <div class="svc-row__media" data-sc-in>
           <figure class="shot" style="aspect-ratio: 4 / 3;">
             <img src="assets/img/channel-distribution.jpg" alt="A long aisle of racked stock in a bright distribution warehouse" loading="lazy" width="1200" height="900" />
           </figure>
         </div>
       </li>
-
     </ol>
-  </div>
-</section>
-
-<!-- ───── Value chain (pinned, scroll-linked sequence) ───── -->
-<section id="value-chain" class="vc">
-  <div class="vc__track" id="vcTrack">
-    <div class="vc__sticky">
-      <div class="container">
-        <div class="vc__head">
-          <span class="eyebrow">The O&amp;P value chain</span>
-          <h2 class="h2">We add value at the intersection of every stage of the O&amp;P value chain.</h2>
-          <p class="lede" style="margin-top:20px;">Our network spans every stage of the O&amp;P chain, from the patient through to raw material supply. Most businesses straddle more than one: labs that also finish in house, supply their own materials, or dispense clinically. We help to map you to the right partners anywhere in the O&amp;P value chain.</p>
-        </div>
-
-        <div class="vc__rail" aria-hidden="true"><span class="vc__rail-fill"></span></div>
-
-        <div class="vc-chain" id="vcChain">
-          <div class="vc-step is-lit">
-            <div class="vc-step__index">01</div>
-            <div class="vc-step__node"><span class="material-symbols-outlined" aria-hidden="true">person</span></div>
-            <div class="vc-step__label">Patient</div>
-            <div class="vc-step__sub">End user</div>
-          </div>
-          <div class="vc-step is-lit">
-            <div class="vc-step__index">02</div>
-            <div class="vc-step__node"><span class="material-symbols-outlined" aria-hidden="true">medical_services</span></div>
-            <div class="vc-step__label">Clinic</div>
-            <div class="vc-step__sub">Consult &amp; prescribe</div>
-          </div>
-          <div class="vc-step is-lit">
-            <div class="vc-step__index">03</div>
-            <div class="vc-step__node"><span class="material-symbols-outlined" aria-hidden="true">precision_manufacturing</span></div>
-            <div class="vc-step__label">Lab / Manufacturer</div>
-            <div class="vc-step__sub">Custom &amp; prefab production</div>
-          </div>
-          <div class="vc-step is-lit">
-            <div class="vc-step__index">04</div>
-            <div class="vc-step__node"><span class="material-symbols-outlined" aria-hidden="true">handyman</span></div>
-            <div class="vc-step__label">Finishing</div>
-            <div class="vc-step__sub">Trim, pad &amp; assemble</div>
-          </div>
-          <div class="vc-step is-lit">
-            <div class="vc-step__index">05</div>
-            <div class="vc-step__node"><span class="material-symbols-outlined" aria-hidden="true">conveyor_belt</span></div>
-            <div class="vc-step__label">Supplier</div>
-            <div class="vc-step__sub">Raw materials &amp; components</div>
-          </div>
-        </div>
-
-        <div class="cta-banner">
-          <div class="cta-banner__text">
-            <span class="material-symbols-outlined">arrow_outward</span>
-            <span>Where do you sit in the chain? We can help you build an optimal value chain.</span>
-          </div>
-          <a href="#book" class="cta-banner__link" data-nav="book">
-            Map my position
-            <span class="material-symbols-outlined">arrow_forward</span>
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ───── Why NexPoint ───── -->
-<section id="expertise" class="section">
-  <div class="container">
-    <div class="why__inner">
-      <div class="why__left enter enter--left">
-        <h2 class="why__title">Why companies choose NexPoint to grow in O&amp;P.</h2>
-        <p class="why__lede">
-          We're not a consultancy and we're not a lead gen agency. We are a commercial partner, built on 20+ years inside the O&amp;P markets, with 1,000 trusted relationships across the global industry.
-        </p>
-        <figure class="shot" style="aspect-ratio: 3 / 2;">
-          <img src="assets/img/trust-partnership.jpg" alt="Two people shaking hands across a table in a bright meeting room" loading="lazy" width="1272" height="848" />
-        </figure>
-        <div class="why__caption">
-          <div class="why__caption-label">Built on trust</div>
-          <div class="why__caption-text">Long term commercial partnerships, not transactional consulting.</div>
-        </div>
-      </div>
-
-      <div class="why__list">
-        <article class="why-item enter enter--up" style="--d:0ms;">
-          <div class="why-item__num">01</div>
-          <div>
-            <h4>Direct access to decision makers</h4>
-            <p>Our ~1,000 trusted contacts include manufacturers, distributors, fabrication labs, clinical groups, and technology leaders across the UK, Europe, North America, the Middle East, and Australia.</p>
-          </div>
-        </article>
-        <article class="why-item enter enter--up" style="--d:80ms;">
-          <div class="why-item__num">02</div>
-          <div>
-            <h4>Industry native, not generic</h4>
-            <p>20+ years inside O&amp;P manufacturing, fabrication, and clinical workflows. We bring market reality and commercial fluency, not slide deck theory.</p>
-          </div>
-        </article>
-        <article class="why-item enter enter--up" style="--d:160ms;">
-          <div class="why-item__num">03</div>
-          <div>
-            <h4>Flexible commercial models</h4>
-            <p>Engage as a strategic advisor, on success based terms, or as a recurring commercial partner. Aligned with your stage, risk profile, and growth goals.</p>
-          </div>
-        </article>
-        <article class="why-item enter enter--up" style="--d:240ms;">
-          <div class="why-item__num">04</div>
-          <div>
-            <h4>A shorter path to traction</h4>
-            <p>We compress the cost and complexity of international expansion by going direct to the right people: qualified commercial conversations, not cold outreach.</p>
-          </div>
-        </article>
-      </div>
-    </div>
 
     <div class="cta-banner">
       <div class="cta-banner__text">
         <span class="material-symbols-outlined">arrow_outward</span>
-        <span>Exploring a new market, a new partner, or a new commercial channel? Let's talk.</span>
+        <span>Want NexPoint working for you one to one? It starts with a call.</span>
       </div>
       <a href="#book" class="cta-banner__link" data-nav="book">
-        Request an intro call
+        Talk to the desk
         <span class="material-symbols-outlined">arrow_forward</span>
       </a>
     </div>
   </div>
 </section>
 
-<!-- ───── Focus areas ───── -->
-<section id="focus" class="section section--alt">
-  <div class="container">
-    <div class="sec-head enter enter--up">
-      <h2 class="h2">Quality Suppliers we help</h2>
-      <p class="lede" style="margin-top:20px; max-width:560px;">Orthotics &amp; Prosthetics is our core market. We help companies in clinical technology, manufacturing, and materials bring their products into our community of customers.</p>
-    </div>
-
-    <div class="focus__strip">
-      <figure class="focus-item enter enter--rise" style="--d:0ms;">
-        <div class="shot"><img src="assets/img/tile-clinical-tech.jpg" alt="A clinician holding a tablet to capture a 3D scan of a patient's lower leg" loading="lazy" width="900" height="1200" /></div>
-        <figcaption class="focus-item__body">
-          <span class="focus-item__icon material-symbols-outlined" aria-hidden="true">monitor_heart</span>
-          <span class="focus-item__title">Clinical technology</span>
-        </figcaption>
-      </figure>
-      <figure class="focus-item enter enter--rise" style="--d:70ms;">
-        <div class="shot"><img src="assets/img/tile-additive-mfg.jpg" alt="A white 3D-printed ankle-foot orthosis with a lattice calf section on a bench beside a printed orthotic shell, a 3D printer behind" loading="lazy" width="900" height="1200" /></div>
-        <figcaption class="focus-item__body">
-          <span class="focus-item__icon material-symbols-outlined" aria-hidden="true">view_in_ar</span>
-          <span class="focus-item__title">Additive manufacturing technology</span>
-        </figcaption>
-      </figure>
-      <figure class="focus-item enter enter--rise" style="--d:140ms;">
-        <div class="shot"><img src="assets/img/tile-general-mfg.jpg" alt="A CNC router spindle cutting into a pale board, chips flying from the cutter" loading="lazy" width="900" height="1200" /></div>
-        <figcaption class="focus-item__body">
-          <span class="focus-item__icon material-symbols-outlined" aria-hidden="true">factory</span>
-          <span class="focus-item__title">General manufacturing technology</span>
-        </figcaption>
-      </figure>
-      <figure class="focus-item enter enter--rise" style="--d:210ms;">
-        <div class="shot"><img src="assets/img/tile-materials.jpg" alt="Stacked cut edges of orthotic fabrication materials: EVA foam, cork and carbon composite" loading="lazy" width="900" height="1200" /></div>
-        <figcaption class="focus-item__body">
-          <span class="focus-item__icon material-symbols-outlined" aria-hidden="true">science</span>
-          <span class="focus-item__title">Materials &amp; consumables</span>
-        </figcaption>
-      </figure>
-      <figure class="focus-item enter enter--rise" style="--d:280ms;">
-        <div class="shot"><img src="assets/img/tile-finishing.jpg" alt="Three finished custom foot orthoses with grey top covers and coloured EVA bases on a bench in front of a finishing grinder" loading="lazy" width="900" height="1200" /></div>
-        <figcaption class="focus-item__body">
-          <span class="focus-item__icon material-symbols-outlined" aria-hidden="true">handyman</span>
-          <span class="focus-item__title">Finishing Hardware</span>
-        </figcaption>
-      </figure>
-    </div>
-  </div>
-</section>
-
-<!-- ───── Global reach ───── -->
-<section id="network" class="section">
-  <div class="container">
-    <!-- The map card sits beside the contacts box: the same top, the same
-         height and the same width (Will, 13 October 2026). The heading has
-         the row above to itself; the box and the card share the row below,
-         and the card stretches to the box's height. -->
-    <div class="reach__inner">
-      <div class="reach__head enter enter--left">
-        <span class="eyebrow">Global reach</span>
-        <h2 class="reach__title">Local fluency across the markets that matter most.</h2>
-        <p class="reach__lede">
-          We bridge global borders with local expertise, giving you direct access to O&amp;P decision makers across the UK, Europe, North America, the Middle East, and Australia.
-        </p>
-      </div>
-
-      <div class="markets enter enter--left">
-        <div class="markets__header">
-          <span class="markets__header-num">1,000+</span>
-          <span class="markets__header-label">Trusted contacts across our network</span>
-        </div>
-        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">Canada</div></div>
-        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">United States</div></div>
-        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">United Kingdom</div></div>
-        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">EMEA</div></div>
-        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">Australia</div></div>
-        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">New Zealand</div></div>
-        <div class="market-row"><span class="market-row__dot"></span><div class="market-row__name">Asia</div></div>
-      </div>
-
-      <div class="wm-card reach__card enter enter--right">
-        <div class="map-caption"><span class="map-caption__label">Global network</span></div>
-        <div class="reach__map" data-world-map="show" data-pins='[{"label":"Canada","lat":43.65,"lon":-79.38},{"label":"USA","lat":41.88,"lon":-87.63,"at":"left"},{"label":"United Kingdom","lat":52.33,"lon":-2.06,"at":"left"},{"label":"EMEA","lat":25.2,"lon":55.27},{"label":"Asia","lat":1.35,"lon":103.82},{"label":"Australia","lat":-33.87,"lon":151.21,"at":"left"},{"label":"New Zealand","lat":-36.85,"lon":174.76,"at":"below"}]'></div>
-        <div class="map-caption"><span class="map-caption__label">Global reach · 1,000+ contacts</span></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ───── Global Hub teaser ───── -->
-<section id="hub-teaser" class="section">
-  <div class="container">
-    <div class="hubteaser">
-      <div class="enter enter--left">
-        <span class="eyebrow">The Global Hub</span>
-        <h2 class="hubteaser__line">Where the O&amp;P world finds print capacity, milled production and live opportunities, one personal introduction at a time.</h2>
-        <a class="hubteaser__cta" href="/hub/#how">See how the Global Hub works</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ───── Book call ───── -->
+<!-- ───── Book call (the kept shell) ───── -->
 <section id="book" class="book">
   <div class="book__bg" aria-hidden="true"></div>
   <div class="container">
     <div class="book__inner">
       <div>
-        <span class="eyebrow">Get in touch</span>
-        <h2 class="book__title">Let's map your global footprint.</h2>
+        <span class="eyebrow">The desk</span>
+        <h2 class="book__title">Talk to the desk.</h2>
         <p class="book__lede">
-          Send a few details and we'll be in touch soon to schedule a 30 minute intro call.
+          Not sure which hub you need, or want NexPoint working for you one to one? Send a few details and we will set up a 30 minute call.
         </p>
 
         <div class="book__write">
@@ -1088,7 +1170,7 @@
         </div>
       </div>
 
-      <div class="book-card enter enter--rise" id="bookCard">
+      <div class="book-card" id="bookCard">
         <!-- populated by JS -->
       </div>
     </div>
@@ -1114,11 +1196,10 @@
     <div class="footer__col">
       <h5>Explore</h5>
       <ul>
-        <li><a href="#value-chain" data-nav="value-chain">O&amp;P value chain</a></li>
-        <li><a href="#focus" data-nav="focus">Industries</a></li>
-        <li><a href="#network" data-nav="network">Global network</a></li>
-        <li><a href="#expertise" data-nav="expertise">Why NexPoint</a></li>
-        <li><a href="/hub/">Global Hub</a></li>
+        <li><a href="/hub/">The Global Hub</a></li>
+        <li><a href="#story" data-nav="story">The story</a></li>
+        <li><a href="#how" data-nav="how">How an introduction happens</a></li>
+        <li><a href="#services" data-nav="services">Consultancy</a></li>
       </ul>
     </div>
     <div class="footer__col">
@@ -1191,7 +1272,7 @@
   }
 
   const navLinks = Array.from(document.querySelectorAll('.navbar__link'));
-  const SECTIONS = ['top','services','value-chain','expertise','focus','network','book'];
+  const SECTIONS = ['top','story','match','hub','how','enter','services','book'];
   const visible = new Map();
   const navObserver = new IntersectionObserver((entries) => {
     entries.forEach(en => visible.set(en.target.id, en.intersectionRatio));
@@ -1224,50 +1305,6 @@
     }, { rootMargin: '0px 0px -12% 0px', threshold: 0.15 });
     document.querySelectorAll('.enter').forEach(el => io.observe(el));
   }
-
-  // Pinned value chain: the rail fills and the stages light as the track scrolls.
-  // Native scroll is untouched — we only read position and set a custom property.
-  (function initValueChain() {
-    const track = document.getElementById('vcTrack');
-    const chain = document.getElementById('vcChain');
-    if (!track || !chain) return;
-    const steps = Array.from(chain.querySelectorAll('.vc-step'));
-    const wide = window.matchMedia('(min-width: 861px)');
-    const canPin = () => !reduce && wide.matches;
-    let ticking = false, bound = false;
-
-    function update() {
-      ticking = false;
-      if (!canPin()) return;
-      const r = track.getBoundingClientRect();
-      const total = r.height - window.innerHeight;
-      if (total <= 0) return;
-      const p = Math.min(1, Math.max(0, -r.top / total));
-      track.style.setProperty('--vc-p', p.toFixed(4));
-      // spread the stages across the whole track: first lit at p=0, last at p=1
-      const lit = Math.floor(p * (steps.length - 1) + 1e-4);
-      steps.forEach((s, i) => s.classList.toggle('is-lit', i <= lit));
-    }
-    function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(update); } }
-
-    function apply() {
-      if (canPin()) {
-        root.classList.add('js-pin');
-        if (!bound) { window.addEventListener('scroll', onScroll, { passive: true }); bound = true; }
-        update();
-      } else {
-        root.classList.remove('js-pin');
-        if (bound) { window.removeEventListener('scroll', onScroll); bound = false; }
-        track.style.removeProperty('--vc-p');
-        steps.forEach(s => s.classList.add('is-lit'));
-      }
-    }
-    apply();
-    // the breakpoint itself is the authoritative signal; resize only refreshes the sticky maths
-    if (wide.addEventListener) wide.addEventListener('change', apply);
-    else if (wide.addListener) wide.addListener(apply);
-    window.addEventListener('resize', apply, { passive: true });
-  })();
 
   // ─── Hero globe: realistically lit dotted Earth with live connection arcs (canvas, dependency-free) ───
   (function initGlobe() {
@@ -1695,5 +1732,7 @@
   render();
 })();
 </script>
+<script src="assets/scrollcraft.js"></script>
+<script>if (document.documentElement.classList.contains('np-sc') && window.ScrollCraft) ScrollCraft.mount(document.body);</script>
 </body>
 </html>
