@@ -747,7 +747,7 @@
   .hubteaser .hero__ctas { margin-top: 4px; }
 
   /* ─── Draft C: the bolder pass (14 October 2026). Same palette, same fonts, same shell;
-     the display type at full strength, the doors as large image cards, a denser proof
+     the display type at full strength, the doors as Draft A has them (Will, 14 Oct), a denser proof
      band, and one blue band for the door at the foot. ─── */
   .hero__title { font: 800 clamp(40px, 5vw, 70px)/1.02 var(--font-display); letter-spacing: -0.035em; max-width: 20ch; }
   @media (min-width: 1101px) { .hero__inner { grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr); } }
@@ -770,15 +770,6 @@
   .sec-head { max-width: 900px; }
   .lede { font-size: clamp(16px, 1.25vw, 18px); }
 
-  .doors { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(18px, 2.4vw, 32px); }
-  .door__media img { height: auto; aspect-ratio: 16 / 9; }
-  .door__body { padding: clamp(24px, 2.6vw, 34px); }
-  .door__kicker { font: 600 11px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--np-blue); display: block; margin-bottom: 10px; }
-  .door h3 { font: 700 clamp(26px, 2.6vw, 38px)/1.1 var(--font-display); letter-spacing: -0.025em; margin-bottom: 10px; }
-  .door p { font-size: 16px; line-height: 1.55; max-width: 46ch; }
-  .door .go { font-size: 15px; margin-top: 22px; padding-top: 18px; }
-  @media (max-width: 1100px) { .doors { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 760px) { .doors { grid-template-columns: minmax(0, 1fr); } }
 
   .how-step { border-top: 2px solid var(--fg); padding-top: 18px; }
   .how-step__num { font: 800 clamp(40px, 4vw, 56px)/1 var(--font-display); letter-spacing: -0.035em; color: var(--np-blue); margin-bottom: 18px; }
@@ -950,7 +941,6 @@
           <span class="door__status"><span class="live-dot"></span>Live</span>
         </div>
         <div class="door__body">
-          <span class="door__kicker">Capacity</span>
           <h3>3D Print Hub</h3>
           <p>Certified labs with production 3D printers offer spare capacity to the clinics and labs around them, so printed devices arrive without buying a 3D printer.</p>
           <span class="go">Enter the 3D Print Hub <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
@@ -963,7 +953,6 @@
           <span class="door__status"><span class="live-dot"></span>Live</span>
         </div>
         <div class="door__body">
-          <span class="door__kicker">Production</span>
           <h3>Mill Hub</h3>
           <p>Your production line inside someone else's factory: milled and moulded insoles made as your own line, to your standard, at a price per pair.</p>
           <span class="go">Enter the Mill Hub <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
@@ -976,7 +965,6 @@
           <span class="door__status"><span class="live-dot"></span>On the board</span>
         </div>
         <div class="door__body">
-          <span class="door__kicker">Products, partners, exits</span>
           <h3>Opportunities Hub</h3>
           <p>Products, materials, technology, partners, and companies looking to buy or sell, as verified, anonymised opportunities. Nothing is sold on the page; you request an introduction.</p>
           <span class="go">Browse the board <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
@@ -989,7 +977,6 @@
           <span class="door__status door__status--soon">Coming soon</span>
         </div>
         <div class="door__body">
-          <span class="door__kicker">Know-how</span>
           <h3>Education Hub</h3>
           <p>Webinars and articles for the whole community, from the people on the hubs: what the new 3D printers and materials actually do, and what is coming next.</p>
           <span class="go">Join the waiting list <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
