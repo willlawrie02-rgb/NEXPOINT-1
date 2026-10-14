@@ -1970,6 +1970,126 @@ async function walkOrganisationsNames() {
   await context.close();
 }
 
+/* Plan 065: Chris's CRM categorisation on the Prospects page. Every new
+   button raises one intent and touches no other table. The deploy copy
+   predates it until the admin sync; WALK_ADMIN_DIR=<engine>/app walks it now. */
+const CRM = /PLAN065/.test(readFileSync(join(ADMIN_DIR, "leads.html"), "utf8"));
+async function walkProspectsCrm() {
+  area = "The Prospects page with Chris's classification";
+  if (!CRM) {
+    notes.push("The Prospects page in this copy predates plan 065, so its checks were not run. " +
+      "It arrives with the admin sync; WALK_ADMIN_DIR=<engine>/app walks it now.");
+    return;
+  }
+  const row = (id, extra) => ({
+    id, company: `zz-walk-${id}`, display_name: `ZZ Walk ${id} Ltd`, category: "Cold", matched_json: [], reasoning: "walk",
+    judge_reason: "walk", website: "https://example.com", quality: null, judged: true, judge_confidence: "medium",
+    proposed_at: ago(24), decided_at: null, decided_by: null, decision_note: null, status: "pending",
+    prospect_type: "Cold", recommended_campaign_id: null, campaign_id: null, source: "finder", list_overlap: null,
+    sector: null, company_type: null, ...extra });
+  const seed = (world) => {
+    world.rows.engine_lead_queue = [row(601), row(602, { quality: "watch" }),
+      row(603, { status: "approved", decided_at: ago(2), decided_by: ADMIN_EMAIL })];
+    world.rows.prospect_options = [
+      { field: "sector", value: "Insoles", position: 10, active: true },
+      { field: "company_type", value: "Lab", position: 10, active: true }];
+    world.rows.prospect_notes = [{ id: 1, company: "zz-walk-601", body: "Met at the fair.", by: ADMIN_EMAIL, at: ago(5) }];
+  };
+  const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+  const one = async (name, act, expect) => {
+    const world = newWorld({ dialogAnswer: "the scripted walk" });
+    seed(world);
+    const { context, page, errors } = await visit(world, { seedAdmin: true });
+    await page.goto(`${APEX}/admin/leads.html`);
+    await page.waitForSelector("#admin", { state: "visible" });
+    await page.waitForSelector("#sections .row");
+    await step(name, async () => {
+      await act(page);
+      await until(() => world.writes.length > 0, "the intent write");
+      await pause(300);
+      eq(world.writes.length, 1, "writes");
+      const w = world.writes[0];
+      const body = Array.isArray(w.body) ? w.body[0] : w.body;
+      eq([w.method, w.table, body.type], ["POST", "engine_intents", expect.type], "the intent");
+      expect.check && expect.check(body.payload_json);
+      has(await page.innerText("body"), "queued for the engine", "the page's confirmation");
+    });
+    clean(world, errors, "the Prospects page");
+    await context.close();
+  };
+  await one("Save raises one edit-prospect with only the changed fields", async (page) => {
+    await page.selectOption("#sector-601", "Insoles");
+    await page.selectOption("#ctype-601", "Lab");
+    await page.click("#save-601");
+  }, { type: "edit-prospect", check: (p) => eq([p.queue_row, p.fields], [601, { sector: "Insoles", company_type: "Lab" }], "payload") });
+  await one("Park raises one watch-lead", (page) => page.click('#act-601 button[onclick^="park("]'),
+    { type: "watch-lead", check: (p) => eq(p.queue_row, 601, "row") });
+  await one("Unpark on the Parked tab raises one unpark-lead", async (page) => {
+    await page.click('[data-tab="parked"]');
+    await page.click('#act-602 button[onclick^="unpark("]');
+  }, { type: "unpark-lead", check: (p) => eq(p.queue_row, 602, "row") });
+  await one("Return to prospect asks why and raises one intent", async (page) => {
+    await page.click('[data-tab="leads"]');
+    await page.click('#act-603 button[onclick^="returnLead("]');
+  }, { type: "return-to-prospect", check: (p) => eq([p.queue_row, p.reason], [603, "the scripted walk"], "payload") });
+  await one("Kill asks why and raises one block-lead", (page) => page.click('#act-601 button[onclick^="block("]'),
+    { type: "block-lead", check: (p) => eq([p.queue_row, p.reason], [601, "the scripted walk"], "payload") });
+  await one("Add note raises one add-prospect-note for the company", async (page) => {
+    await page.fill("#note-601", "Software competitor, revisit in 2027.");
+    await page.click('button[onclick^="addNote("][data-id="601"]');
+  }, { type: "add-prospect-note", check: (p) => eq([p.company, p.body], ["zz-walk-601", "Software competitor, revisit in 2027."], "payload") });
+  await one("Add a company raises one add-prospect", async (page) => {
+    await page.click("#addOpen");
+    await page.fill("#add-name", "ZZ Added Ltd");
+    await page.selectOption("#add-type", "Known contact");
+    await page.click("#add-go");
+  }, { type: "add-prospect", check: (p) => eq([p.display_name, p.type, p.campaign_id], ["ZZ Added Ltd", "Known contact", null], "payload") });
+  {
+    const world = newWorld();
+    seed(world);
+    const { context, page, errors } = await visit(world, { seedAdmin: true });
+    await page.goto(`${APEX}/admin/leads.html`);
+    await step("Known contact greys the Campaign; the parked card cannot be graded; notes show", async () => {
+      await page.waitForSelector("#admin", { state: "visible" });
+      await page.waitForSelector("#sections .row");
+      has(await page.textContent("#sections"), "Met at the fair.", "the note");
+      await page.selectOption("#type-601", "Known contact");
+      eq(await page.isDisabled("#camp-601"), true, "campaign disabled");
+      await page.click('[data-tab="parked"]');
+      eq(await page.isDisabled("#quality-602"), true, "parked quality disabled");
+      eq(world.writes, [], "writes");
+    });
+    clean(world, errors, "the Prospects page");
+    await context.close();
+  }
+  {
+    /* Before migration 0065 the two new tables are unreadable (the stub answers
+       any table with rows, so the walk makes these two refuse by route). */
+    const world = newWorld();
+    seed(world);
+    const { context, page, errors } = await visit(world, { seedAdmin: true });
+    await page.route(/\/rest\/v1\/prospect_(options|notes)/, (route) => route.fulfill({
+      status: 404, contentType: "application/json",
+      headers: { "access-control-allow-origin": "*", "access-control-allow-credentials": "true" },
+      body: JSON.stringify({ code: "42P01", message: "relation does not exist", details: null, hint: null }) }));
+    await page.goto(`${APEX}/admin/leads.html`);
+    await step("Before migration 0065 the page says so and Accept still raises one accept-prospect", async () => {
+      await page.waitForSelector("#admin", { state: "visible" });
+      await page.waitForSelector("#sections .row");
+      has(await page.textContent("#banner"), "0065", "the banner");
+      await page.click('#act-601 button[onclick^="accept("]');
+      await until(() => world.writes.length > 0, "the intent write");
+      await pause(300);
+      eq(world.writes.length, 1, "writes");
+      const w = world.writes[0];
+      const body = Array.isArray(w.body) ? w.body[0] : w.body;
+      eq([w.method, w.table, body.type, body.payload_json.queue_row], ["POST", "engine_intents", "accept-prospect", 601], "the intent");
+    });
+    clean(world, errors, "the Prospects page");
+    await context.close();
+  }
+}
+
 async function walkReviewedBoards() {
   area = "The boards after the code review of 4 October";
   if (!REVIEWED) {
@@ -2274,7 +2394,7 @@ const started = Date.now();
    failed check with the reason, and the parts after it still run. */
 const parts = []
   .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkLandings] : [])
-  .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames] : []);
+  .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm] : []);
 /* The settings page's You and Users (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
 /* The listing form's ship picker (plan 055) walks straight after the find map. */
