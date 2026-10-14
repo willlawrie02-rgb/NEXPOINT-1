@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NexPoint Global Opportunities Hub</title>
-<meta name="description" content="The NexPoint Global Opportunities Hub: anonymised offers and requests across orthotics and prosthetics. Read the board, then ask us for an introduction.">
+<title>NexPoint Opportunities Board</title>
+<meta name="description" content="The NexPoint Opportunities Board: anonymised offers and requests across orthotics and prosthetics. Read the board, then ask us for an introduction.">
 <meta name="robots" content="noindex">
 <style>body[data-np-wall]:not([data-np-open]){visibility:hidden}</style>
 <script>
@@ -106,7 +106,7 @@
     .hub-switch a{flex:0 0 auto;font:600 12px/1 var(--font-body);letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.18);border-radius:9999px;padding:9px 15px;white-space:nowrap}
     .hub-switch a[aria-current="page"]{background:rgba(61,142,235,.14);border-color:var(--blue-bright);color:#fff}
   }
-  /* breadcrumb trail back to the Global Hub — same pattern as the print/mill doors */
+  /* breadcrumb trail back to the Global Portal — same pattern as the print/mill doors */
   .crumbs{display:flex;align-items:center;gap:8px;font:500 12.5px/1 var(--font-body);color:var(--on-surface-var);padding:18px 0 0}
   .crumbs a{color:var(--on-surface-var);text-decoration:none}
   .crumbs a:hover{color:var(--blue)}
@@ -453,13 +453,46 @@
   /* footer stays dark as a premium base */
   html[data-theme="light"] .footer{background:#0d0e0f;border-top-color:rgba(255,255,255,.06)}
   html[data-theme="light"] .footer__bar{border-top-color:rgba(255,255,255,.06)}
-  /* The hub film (12 October 2026): the Opportunities Hub in ninety seconds. */
+  /* The hub film (12 October 2026): the Opportunities Board in ninety seconds. */
   .film{padding:clamp(56px,8vh,96px) 0}
   .film h2{font:600 clamp(26px,3vw,40px)/1.15 var(--font-display);letter-spacing:-.02em;color:#0E1626;margin:0 0 14px;max-width:760px}
   .film .sub{font-size:15px;line-height:24px;color:#4A5462;max-width:640px;margin:0}
   .film__frame{margin:clamp(20px,3vh,28px) auto 0;max-width:min(860px,calc((100vh - 300px) * 16 / 9));border:1px solid #E3E7ED;border-radius:12px;overflow:hidden;background:#F5F7FA;box-shadow:0 24px 64px rgba(14,22,38,.14)}
   .film__video{display:block;width:100%;aspect-ratio:16/9;background:#F5F7FA}
   .film__note{margin:12px auto 0;max-width:min(860px,calc((100vh - 300px) * 16 / 9));font-size:13px;line-height:1.5;color:#4A5462;text-align:center}
+</style>
+
+<style>
+  /* ─── Draft C, 14 October 2026: the home page's scale on the Opportunities Hub. ─── */
+  .hero h1 { font: 800 clamp(40px, 5vw, 70px)/1.02 var(--font-display); letter-spacing: -.035em; max-width: 20ch; }
+  .hero p.lede { font-size: clamp(16px, 1.35vw, 19px); line-height: 1.5; }
+  .film h2, .board-head h2, .how h2 { font: 700 clamp(34px, 4.2vw, 60px)/1.05 var(--font-display); letter-spacing: -.03em; max-width: 900px; }
+  .film .sub { font-size: clamp(16px, 1.25vw, 18px); line-height: 1.55; max-width: 720px; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+  .stat { flex-direction: column; align-items: flex-start; gap: 10px; max-width: none; padding: clamp(24px, 3vh, 36px) clamp(20px, 2.4vw, 36px); border-left: 1px solid var(--border); }
+  .stat:first-child { border-left: 0; padding-left: 0; }
+  .stat b { font: 800 clamp(40px, 4.4vw, 64px)/1 var(--font-display); letter-spacing: -.035em; }
+  .stat b i { font: 600 .42em/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; margin-left: 4px; }
+  .stat span { font-size: 12px; }
+  @media (max-width: 760px) {
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stat { padding-left: 16px; }
+    .stat:nth-child(odd) { border-left: 0; padding-left: 0; }
+    .stat:nth-child(n+3) { border-top: 1px solid var(--border); }
+  }
+  .principle .label { font-size: clamp(18px, 1.6vw, 22px); }
+  .principle p { font-size: 15.5px; line-height: 1.55; }
+  .pnum { font: 700 13px/1.7 var(--font-body); letter-spacing: .12em; }
+  .step { border-top: 2px solid #0E1626; padding-top: 18px; }
+  .step::before, .step::after { display: none; }
+  .step .n { font: 800 clamp(40px, 4vw, 56px)/1 var(--font-display); letter-spacing: -.035em; color: var(--blue); margin-bottom: 18px; }
+  .step h3 { font-size: clamp(19px, 1.6vw, 23px); line-height: 1.2; }
+  .step p { font-size: 15.5px; line-height: 1.55; }
+  html[data-theme="light"] .post-inner, .post-inner { background: var(--blue); border-color: var(--blue); }
+  html[data-theme="light"] .post h2, .post h2 { color: #fff; font: 700 clamp(30px, 3.8vw, 54px)/1.08 var(--font-display); letter-spacing: -.03em; max-width: 20ch; }
+  html[data-theme="light"] .post p, .post p { color: rgba(255, 255, 255, .86); font-size: clamp(16px, 1.25vw, 18px); line-height: 1.55; }
+  html[data-theme="light"] .post .btn-primary, .post .btn-primary { background: #fff; color: var(--blue); }
+  html[data-theme="light"] .post .btn-primary:hover, .post .btn-primary:hover { background: #F5F7FA; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); }
 </style>
 </head>
 <body data-np-wall>
@@ -469,11 +502,11 @@
 <header>
   <div class="container nav">
     <a href="https://nexpoint.co.uk/" class="wordmark" aria-label="NexPoint home"><img src="assets/nexpoint-logo.png" alt="NexPoint" width="52" height="52"></a>
-    <nav class="nav-links" aria-label="Global Hub">
-      <a href="https://printhub.nexpoint.co.uk/" class="hide-m">Print Hub</a>
+    <nav class="nav-links" aria-label="Global Portal">
+      <a href="https://printhub.nexpoint.co.uk/" class="hide-m">3D Print Hub</a>
       <a href="https://millhub.nexpoint.co.uk/" class="hide-m">Mill Hub</a>
-      <a href="https://nexpoint.co.uk/hub/" class="hide-m">Global Hub</a>
-      <a href="#briefs" class="hide-m" aria-current="page">Opportunities Hub</a>
+      <a href="https://nexpoint.co.uk/hub/" class="hide-m">Global Portal</a>
+      <a href="#briefs" class="hide-m" aria-current="page">Opportunities Board</a>
       <a href="#post" class="hide-m">Post an opportunity</a>
       <span data-np-account-slot><a href="#" id="navSignIn" onclick="event.preventDefault();openSignIn()">Sign in</a></span>
       <button class="btn btn-primary" id="navAccess" onclick="openGate()">Create your hub account</button>
@@ -482,14 +515,14 @@
 </header>
 <nav class="hub-switch" aria-label="Hubs">
   <a href="https://nexpoint.co.uk/hub/account/" data-np-switch-account hidden>Your account</a>
-  <a href="https://nexpoint.co.uk/hub/">Global Hub home</a>
-  <a href="https://printhub.nexpoint.co.uk/">Print Hub</a>
+  <a href="https://nexpoint.co.uk/hub/">Global Portal home</a>
+  <a href="https://printhub.nexpoint.co.uk/">3D Print Hub</a>
   <a href="https://millhub.nexpoint.co.uk/">Mill Hub</a>
-  <a href="#briefs" aria-current="page">Opportunities Hub</a>
+  <a href="#briefs" aria-current="page">Opportunities Board</a>
 </nav>
 
 <div class="container">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="https://nexpoint.co.uk/hub/">Global Hub</a><span class="sep">/</span><b>Global Opportunities Hub</b></nav>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="https://nexpoint.co.uk/hub/">Global Portal</a><span class="sep">/</span><b>Opportunities Board</b></nav>
 </div>
 
 <!-- HERO -->
@@ -498,7 +531,7 @@
   <div class="container">
     <div class="hero-grid">
       <div class="hero-copy">
-        <span class="eyebrow eyebrow--green">The Global Opportunities Hub</span>
+        <span class="eyebrow eyebrow--green">The Opportunities Board</span>
         <h1>The best deals in this industry<br>still happen <em>person to person.</em></h1>
         <p class="lede">NexPoint turns 20+ years of working relationships into live, verified opportunities for labs and clinics, manufacturing capacity, products, technology, talent and exits. None of it reaches the open market, and every introduction is made by people who know both sides.</p>
         <div class="hero-ctas">
@@ -519,20 +552,20 @@
     <div class="stats">
       <div class="stat"><b id="statLiveCount">13</b><span>opportunities live on the board right now</span></div>
       <div class="stat"><b>5</b><span>continents of manufacturers, clinics, distributors &amp; makers</span></div>
-      <div class="stat"><b>40 <i>yrs</i></b><span>of personal industry relationships</span></div>
+      <div class="stat"><b>20+ <i>yrs</i></b><span>of personal industry relationships</span></div>
       <div class="stat"><b>1-to-1</b><span>every introduction made in person</span></div>
     </div>
   </div>
 </section>
 
 <!-- THE FILM: the hub in ninety seconds, in the overview film's family (12 Oct 2026) -->
-<section class="film" aria-label="The Opportunities Hub, explained.">
+<section class="film" aria-label="The Opportunities Board, explained.">
   <div class="container">
     <span class="eyebrow eyebrow--green">Ninety seconds</span>
-    <h2>The Opportunities Hub, explained.</h2>
+    <h2>The Opportunities Board, explained.</h2>
     <p class="sub">What goes on the board, the three principles behind it, and how an introduction follows.</p>
     <figure class="film__frame">
-      <video class="film__video" controls preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-opportunities-hub-film-poster.jpg" aria-label="The Global Opportunities Hub in ninety seconds: verified, anonymised opportunities and how an introduction follows, with captions">
+      <video class="film__video" controls preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-opportunities-hub-film-poster.jpg" aria-label="The Opportunities Board in ninety seconds: verified, anonymised opportunities and how an introduction follows, with captions">
         <source src="https://nexpoint.co.uk/assets/video/nexpoint-opportunities-hub-film.mp4" type="video/mp4">
         Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-opportunities-hub-film.mp4">Download it instead</a>.
       </video>
@@ -637,7 +670,7 @@
       <h5>NexPoint</h5>
       <ul>
         <li><a href="https://nexpoint.co.uk/">Main site</a></li>
-        <li><a href="https://nexpoint.co.uk/hub/">Global Hub</a></li>
+        <li><a href="https://nexpoint.co.uk/hub/">Global Portal</a></li>
         <li><a href="https://nexpoint.co.uk/#services">Services</a></li>
         <li><a href="https://nexpoint.co.uk/#network">Global network</a></li>
         <li><a href="https://nexpoint.co.uk/#expertise">Why NexPoint</a></li>
@@ -1153,7 +1186,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
 const seekingOrBoth=()=>['Seeking New Opportunities','Both'].includes(profile.direction);
 const hasType=(t)=>(profile.productTypes||[]).includes(t);
 const steps=[
- {key:'type',type:'single',q:"Welcome to the NexPoint Global Opportunities Hub. Before the board opens, we'd like to know who we're connecting, a few questions, about two minutes. Every profile is read personally by the NexPoint desk, and nothing you tell us is ever published. First: what best describes your operation?",
+ {key:'type',type:'single',q:"Welcome to the NexPoint Opportunities Board. Before the board opens, we'd like to know who we're connecting, a few questions, about two minutes. Every profile is read personally by the NexPoint desk, and nothing you tell us is ever published. First: what best describes your operation?",
   chips:['Custom Lab / O&P Group','Clinic / Clinician','Distributor / Wholesaler','Technology Developer','Materials / Equipment Creator','Something else']},
  {key:'region',type:'single',other:true,otherLabel:'Or tell us what country you are in',
   q:"Good to meet you. Where are you based?",
@@ -1185,7 +1218,7 @@ const steps=[
   chips:['Vacuum Forming Hardware','Finishing Hardware (grinders, buffers, etc)','CNC Routers','3D Printers','General (benches, tooling, etc)']},
  {key:'more',type:'single',loop:true,q:"Are there any other products you are seeking or offering?",
   chips:['Yes, add more','No, continue']},
- {key:'goals',type:'multi',q:"Select any that match your reason for joining the Global Opportunities Hub. I want to:",
+ {key:'goals',type:'multi',q:"Select any that match your reason for joining the Opportunities Board. I want to:",
   chips:['Outsource my manufacturing to a high-quality provider','Sell our spare manufacturing capacity','Find a new partner / representative in a new country','Hire new talent','Start something new','Find new manufacturing technologies','Find new design technologies','Buy or sell O&P equipment','Source materials or consumables','Find new products to represent','Sell my business (discretely)','Just explore what you have to offer']},
  {key:'pressing',type:'multi',q:"Now the question that matters most. What are you hoping the network can do for you? Choose one or more, this decides which opportunities and introductions reach you first. Don't worry too much, you can browse everything later.",
   chips:['I am looking for new ideas','Networking with likeminded companies is important to our future','Staffing pressures are forcing change','Rising costs (materials, people, etc) are a challenge','I need to plan an exit','I need to expand my business','We are growing fast','We need to find new suppliers','Nothing urgent, just browsing']},

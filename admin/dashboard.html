@@ -73,7 +73,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <a href="dashboard.html" aria-current="page">Dashboard</a>
           <a href="leads.html">Prospects</a>
           <a href="tasks.html">Tasks</a>
-          <a href="print-hub.html">Print Hub</a>
+          <a href="print-hub.html">3D Print Hub</a>
           <a href="mill-hub.html">Mill Hub</a>
           <a href="opportunities.html">Opportunities</a>
         </span>
@@ -181,7 +181,7 @@ function showAdmin(user){
 }
 
 const HUB_PAGE={print:'print-hub.html',mill:'mill-hub.html',opportunities:'opportunities.html',education:'dashboard.html#education'};
-const HUB_NAME={print:'Print Hub',mill:'Mill Hub',opportunities:'Opportunities Hub',education:'Education list'};
+const HUB_NAME={print:'3D Print Hub',mill:'Mill Hub',opportunities:'Opportunities Board',education:'Education list'};
 const days=iso=>Math.floor((Date.now()-new Date(iso).getTime())/86400000);
 const hoursSince=iso=>(Date.now()-new Date(iso).getTime())/3600000;
 /* An age as the list shows it: hours until two days, then days. */

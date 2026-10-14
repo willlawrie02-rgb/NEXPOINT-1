@@ -402,7 +402,7 @@ async function walkDoor() {
     eq(await page.locator(".hero-join [data-np-join]").count(), 0, "a second data-np-join");
   });
   // Plan 055, point 6 (Will, 13 October 2026): the globe rises and fades on
-  // load and the Global Hub film is revealed where it stood.
+  // load and the Global Portal film is revealed where it stood.
   await step("the globe gives way to the film: the film stands in the hero with one play button", async () => {
     await page.waitForFunction(() => {
       const g = document.querySelector(".hero-reveal .hero-globe");
@@ -617,7 +617,7 @@ async function walkRegister() {
 }
 
 const WALLED = [
-  ["the Print Hub", `${PRINT}/`], ["Print Hub: find", `${PRINT}/find.html`], ["Print Hub: offer", `${PRINT}/offer.html`],
+  ["the 3D Print Hub", `${PRINT}/`], ["3D Print Hub: find", `${PRINT}/find.html`], ["3D Print Hub: offer", `${PRINT}/offer.html`],
   ["the Mill Hub", `${MILL}/`], ["Mill Hub: find", `${MILL}/find.html`], ["Mill Hub: offer", `${MILL}/offer.html`],
   ["Opportunities", `${OPPS}/`], ["the account page", `${APEX}/hub/account/`],
   ["the account settings page", `${APEX}/hub/account/settings/`],
@@ -834,7 +834,7 @@ async function walkSignedIn() {
       has(await page.textContent(".np-chip__name"), "Walk Tester", "the chip's name");
       has(await page.textContent("[data-np-account-slot]"), "Sign out", "the chip's sign out");
       if (/Signed in/.test(await page.textContent("[data-np-account-slot]"))) throw new Error('the chip still says "Signed in"');
-      // The Opportunities board has its own header with no Talk to the desk
+      // The Opportunities Board has its own header with no Talk to the desk
       // button; everywhere else the chip sits right of it (plan 046).
       eq(await page.evaluate(() => {
         if (!/Talk to the desk/.test(document.querySelector("header").textContent)) return true;
@@ -995,7 +995,7 @@ async function walkFindMap() {
    so this also proves the picker on the seed regions. */
 async function walkOfferMap() {
   area = "Offering capacity: where you ship";
-  for (const [hub, url] of [["Print Hub", `${PRINT}/offer.html`], ["Mill Hub", `${MILL}/offer.html`]]) {
+  for (const [hub, url] of [["3D Print Hub", `${PRINT}/offer.html`], ["Mill Hub", `${MILL}/offer.html`]]) {
     const world = newWorld({ user: USER });
     const { context, page, errors } = await visit(world);
     await page.goto(url);
@@ -1167,7 +1167,7 @@ async function walkAccount() {
   });
   await step("Waiting on you heads the reading column beside the rail and names the one open action, Answer 1 introduction, lit (plan 055, decision 10)", async () => {
     await page.waitForSelector("#waiting:not([hidden])");
-    eq(await page.evaluate(() => document.getElementById("profile").previousElementSibling.id), "goHub", "the banner sits beside the Go to the Global Hub button");
+    eq(await page.evaluate(() => document.getElementById("profile").previousElementSibling.id), "goHub", "the banner sits beside the Go to the Global Portal button");
     eq(await page.evaluate(() => document.querySelector(".acct-main .acct-section:not([hidden])").id), "waiting", "the first section of the reading column");
     has(await page.textContent("#waiting .hint"), "What needs your answer.", "the hint");
     const acts = await page.$$eval("#waiting .acct-action", (els) => els.map((e) => ({ text: e.textContent.replace(/\s+/g, " ").trim(), top: e.classList.contains("is-top"), href: e.getAttribute("href") })));
@@ -1258,17 +1258,17 @@ async function walkAccount() {
     const world = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY) });
     const { context, page, errors } = await visit(world);
     await page.goto(`${APEX}/hub/account/`);
-    await step("the page opens with Go to the Global Hub under the title, and no More of the network", async () => {
+    await step("the page opens with Go to the Global Portal under the title, and no More of the network", async () => {
       await page.waitForSelector("body[data-np-open]");
       await page.waitForSelector("#profile:not([hidden])");
-      has(await page.textContent("#goHub"), "Go to the Global Hub", "the button");
+      has(await page.textContent("#goHub"), "Go to the Global Portal", "the button");
       eq(new URL(await page.getAttribute("#goHub", "href"), page.url()).pathname, "/hub/index.html", "where it goes");
       eq(await page.locator("#more").count(), 0, "More of the network sections");
       eq(apiCalls(world, "GET /opportunities/briefs").length, 0, "briefs reads");
     });
     await step("Waiting on you is its one open action, List your site or ask a hub, lit, and it leaves the page for the door (plan 046, plan 055)", async () => {
       await page.waitForSelector("#waiting:not([hidden])");
-      eq(await page.evaluate(() => document.getElementById("profile").previousElementSibling.id), "goHub", "the banner sits beside the Go to the Global Hub button");
+      eq(await page.evaluate(() => document.getElementById("profile").previousElementSibling.id), "goHub", "the banner sits beside the Go to the Global Portal button");
       eq(await page.evaluate(() => document.querySelector(".acct-main .acct-section:not([hidden])").id), "waiting", "the first section of the reading column");
       eq(await page.locator("#acctNeeds").count(), 0, "the old Next step block");
       const links = await page.locator("#waiting .acct-action").all();
@@ -1631,7 +1631,7 @@ async function walkHomepage() {
     eq(await page.locator("header.navbar >> text=Get in touch").count(), 0, "Get in touch buttons left");
   });
   await step("the hero sends people to the hub, and Join our network opens the create-account box there", async () => {
-    eq(await page.getAttribute(".hero__ctas a.btn--primary-lg", "href"), "https://nexpoint.co.uk/hub/", "Explore the Global Hub");
+    eq(await page.getAttribute(".hero__ctas a.btn--primary-lg", "href"), "https://nexpoint.co.uk/hub/", "Explore the Global Portal");
     eq(await page.getAttribute(".hero__ctas a.btn--ghost-lg", "href"), "https://nexpoint.co.uk/hub/?join=1", "Join our network");
   });
   // 13 October 2026 (Will): the hub door's reveal, repeated on the home page;

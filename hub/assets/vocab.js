@@ -1,4 +1,4 @@
-/* NexPoint Global Hub: the shared vocabulary (spec 2026-09-03).
+/* NexPoint Global Portal: the shared vocabulary (spec 2026-09-03).
    One list of materials, processes, services, machines and regions, so the
    listing form and the find form offer the same words and store the same
    terms. The worker owns the list (`/vocab`, `/attributes`); the seed below

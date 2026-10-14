@@ -1,4 +1,4 @@
-/* NexPoint Global Hub - the account settings page (plan 052, wave 3; plan
+/* NexPoint Global Portal - the account settings page (plan 052, wave 3; plan
    055, decisions 25 and 26). Three sections: "Logo", the account's mark,
    shown on the account page to everyone who signs in to it; "You", the
    signed-in user's own details with an edit form and the email change; and

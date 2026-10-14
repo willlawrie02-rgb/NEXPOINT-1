@@ -1,4 +1,4 @@
-/* NexPoint Global Hub: type-ahead (spec 2026-09-03).
+/* NexPoint Global Portal: type-ahead (spec 2026-09-03).
    One input pattern for every vocabulary field: the shared list is offered,
    the person can still type their own words where the field allows it, and
    what leaves the field is always a list of terms.
