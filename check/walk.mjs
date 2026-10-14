@@ -1651,7 +1651,8 @@ async function walkHomepage() {
     const got = await page.evaluate(() => {
       const v = document.getElementById("heroFilm"), stage = document.querySelector(".hero-reveal .globe-stage");
       const box = document.querySelector(".hero-reveal").getBoundingClientRect(), g = stage.getBoundingClientRect();
-      return { globeFillsItsBox: Math.round(g.width) === Math.round(box.width) && Math.round(g.height) === Math.round(box.height) && g.width > 300,
+      // 14 October (Will, evening): the globe stands taller than the film box, so it is at least the box's size
+      return { globeFillsItsBox: Math.round(g.width) === Math.round(box.width) && Math.round(g.height) >= Math.round(box.height) && g.width > 300,
         globeStays: !stage.classList.contains("is-gone") && getComputedStyle(stage).visibility !== "hidden",
         films: document.querySelectorAll("video").length, sections: document.querySelectorAll("section#film").length, controls: v.controls };
     });
