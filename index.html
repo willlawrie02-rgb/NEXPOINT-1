@@ -546,14 +546,9 @@
   html[data-theme="light"] .hero { background: linear-gradient(180deg, #FFFFFF 0%, var(--bg) 100%); }
   html[data-theme="light"] .hero__title { color: #0E1626; }
   html[data-theme="light"] .hero__sub { color: #4A5462; }
-  /* Keep the globe dark & rich in light mode — it's drawn semi-transparent, so give it a dark planet backing.
-     A circle on the stage's shorter side: the stage is 16:9 behind the film since 14 October, and a
-     disc sized to both sides was an ellipse (Will, the same evening). */
-  html[data-theme="light"] .globe-stage::before {
-    content: ""; position: absolute; left: 50%; top: 50%; width: auto; height: 92%; aspect-ratio: 1 / 1;
-    transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; z-index: 0;
-    background: radial-gradient(circle at 40% 34%, #18263e 0%, #0d1728 62%, #080f1c 88%, rgba(8, 15, 28, 0) 100%);
-  }
+  /* The globe's dark planet backing is drawn on the canvas itself (see frame() in the globe
+     script): a CSS disc on the stage was an ellipse in Safari once the stage went 16:9 behind
+     the film (Will, 14 October, evening), and a circle drawn in the canvas is round everywhere. */
   html[data-theme="light"] .globe-canvas { z-index: 1; }
   html[data-theme="light"] .btn--ghost-lg { color: #0E1626; border-color: rgba(14, 22, 38, 0.2); }
   html[data-theme="light"] .btn--ghost-lg:hover { border-color: rgba(14, 22, 38, 0.4); background: rgba(14, 22, 38, 0.03); }
@@ -1756,6 +1751,15 @@
       const cosA = Math.cos(rot), sinA = Math.sin(rot);
       const edge = Math.min(W, H) * 0.5;
       ctx.clearRect(0, 0, W, H);
+
+      // the dark planet backing (the sphere is drawn semi-transparent): on the canvas, so it is
+      // a circle in every browser whatever the stage's shape; 92% of the shorter side, as the
+      // CSS disc was, lit from the upper left
+      const Rd = R * 1.045;
+      const disc = ctx.createRadialGradient(cx - Rd * 0.2, cy - Rd * 0.32, 0, cx, cy, Rd);
+      disc.addColorStop(0, '#18263e'); disc.addColorStop(0.62, '#0d1728');
+      disc.addColorStop(0.88, '#080f1c'); disc.addColorStop(1, 'rgba(8,15,28,0)');
+      ctx.fillStyle = disc; ctx.beginPath(); ctx.arc(cx, cy, Rd, 0, Math.PI * 2); ctx.fill();
 
       // atmospheric rim glow
       const atmo = ctx.createRadialGradient(cx, cy, R * 0.9, cx, cy, edge);
