@@ -701,6 +701,11 @@
   .portal-step__cta .material-symbols-outlined { font-size: 18px; transition: transform var(--duration) var(--ease); }
   .portal-step:hover .portal-step__cta .material-symbols-outlined { transform: translateX(3px); }
   @media (max-width: 760px) { .portal-step { grid-template-columns: minmax(0, 1fr); } .portal-step__cta { justify-content: center; white-space: normal; } }
+  /* Consultancy calls to action: a button per service row, and a banner after the rows (Will, 14 Oct) */
+  .svc-row__cta { margin-top: 22px; }
+  .svc-row__cta .btn { display: inline-flex; align-items: center; gap: 8px; }
+  .svc-row__cta .material-symbols-outlined { font-size: 18px; }
+  button.cta-banner__link { border: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
   .doors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(16px, 2vw, 24px); }
   @media (max-width: 1100px) { .doors { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .door {
@@ -1230,6 +1235,9 @@
           <h3>Targeted Business Development</h3>
           <p>We find and open the right customers and decision makers in your target territory: the manufacturers, clinics, labs and O&amp;P providers we already know.</p>
           <p>Acting as an extension of your sales team, so your time goes into real conversations rather than cold outreach.</p>
+          <div class="svc-row__cta">
+            <button class="btn btn--primary" type="button" data-nav="book" data-intent="I would like to talk about targeted business development in my territory.">Ask about business development <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
+          </div>
         </div>
         <div class="svc-row__media enter enter--right">
           <figure class="shot" style="aspect-ratio: 4 / 3;">
@@ -1243,6 +1251,9 @@
           <span class="svc-row__icon material-symbols-outlined" aria-hidden="true">hub</span>
           <h3>Channel &amp; Reseller Development</h3>
           <p>We identify and qualify O&amp;P resellers and distribution partners with real market presence, make the introduction warm, and support the early commercial discussions, so your indirect channel is built on trusted regional partners.</p>
+          <div class="svc-row__cta">
+            <button class="btn btn--primary" type="button" data-nav="book" data-intent="I would like to talk about channel and reseller development.">Ask about channel development <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
+          </div>
         </div>
         <div class="svc-row__media enter enter--left">
           <figure class="shot" style="aspect-ratio: 4 / 3;">
@@ -1252,6 +1263,17 @@
       </li>
 
     </ol>
+
+    <div class="cta-banner enter enter--up">
+      <div class="cta-banner__text">
+        <span class="material-symbols-outlined">arrow_outward</span>
+        <span>Want NexPoint working for you one to one? It starts with a short call about your territory and your targets.</span>
+      </div>
+      <button type="button" class="cta-banner__link" data-nav="book" data-intent="I would like to talk about NexPoint working for us one to one.">
+        Request an intro call
+        <span class="material-symbols-outlined">arrow_forward</span>
+      </button>
+    </div>
   </div>
 </section>
 
@@ -1416,6 +1438,16 @@
       e.preventDefault();
       closeMenu();
       scrollToId(el.getAttribute('data-nav'));
+    });
+  });
+
+  // Consultancy calls to action: name the service in the form's notes before the scroll to it (14 Oct)
+  document.querySelectorAll('[data-intent]').forEach(el => {
+    el.addEventListener('click', () => {
+      const notes = document.getElementById('f-notes');
+      if (!notes || notes.value.trim()) return;
+      notes.value = el.getAttribute('data-intent');
+      notes.dispatchEvent(new Event('input', { bubbles: true }));
     });
   });
 
