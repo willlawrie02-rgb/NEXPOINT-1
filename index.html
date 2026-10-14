@@ -760,6 +760,16 @@
   /* The closing band carries the hero's two buttons */
   .hubteaser .hero__ctas { margin-top: 4px; }
 
+  /* ─── The scroll progress bar, as the portal pages have it (Will, 14 October, evening: it had gone
+     from the home page in an earlier redesign). Driven by the scroll timeline where the browser has
+     it; a few lines of script fill it elsewhere; hidden under reduced motion. ─── */
+  .scroll-progress { position: fixed; top: 0; left: 0; height: 2px; z-index: 2000; background: linear-gradient(90deg, var(--np-blue), var(--np-green)); transform-origin: 0 50%; width: 100%; transform: scaleX(0); pointer-events: none; }
+  @supports (animation-timeline: scroll(root)) {
+    @keyframes np-grow-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .scroll-progress { animation: np-grow-progress auto linear; animation-timeline: scroll(root); }
+  }
+  @media (prefers-reduced-motion: reduce) { .scroll-progress { display: none; } }
+
   /* ─── Draft C: the bolder pass (14 October 2026). Same palette, same fonts, same shell;
      the display type at full strength, the doors as Draft A has them (Will, 14 Oct), a denser proof
      band, and one blue band for the door at the foot. ─── */
@@ -772,6 +782,9 @@
     .hero__inner { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.45fr); gap: clamp(28px, 3.5vw, 48px); }
     .hero__title { font-size: clamp(40px, 4vw, 58px); }
     .hero-reveal { width: calc(100% + var(--side-pad)); max-width: 920px; aspect-ratio: 16 / 9; margin-right: calc(-1 * var(--side-pad)); }
+    /* the globe bigger (Will, 14 October, evening): its canvas stands 40% taller than the film box,
+       centred on it, so the sphere, bounded by the canvas's shorter side, comes back to its old size */
+    html.np-reveal .hero-reveal .globe-stage { inset: -20% 0; height: 140%; }
   }
   .hero__sub { font: 400 clamp(16px, 1.35vw, 19px)/1.5 var(--font-body); max-width: 520px; }
   .hero__hint { font-size: 14px; }
@@ -877,6 +890,7 @@
      data-sc-* attributes are inert hooks for the scroll-craft verification
      harness (check: node .../scroll-craft/scripts/shoot.mjs), which samples a
      pinned act at six positions; no engine reads them on the live page. -->
+<div class="scroll-progress" aria-hidden="true"></div>
 <div class="hero-track" id="top" data-sc-act="pin" data-sc-span="2.6">
 <section class="hero" data-sc-stage>
   <div class="hero__bg" aria-hidden="true"></div>
@@ -993,7 +1007,7 @@
       <a class="door enter enter--up" style="--d:140ms;" href="https://opportunities.nexpoint.co.uk/">
         <div class="door__media">
           <img src="hub/assets/img/product-hub.jpg" alt="Illustration of a desk globe with opportunity briefs standing on different continents" width="1600" height="893" loading="lazy" />
-          <span class="door__status"><span class="live-dot"></span>On the board</span>
+          <span class="door__status"><span class="live-dot"></span>Live</span>
         </div>
         <div class="door__body">
           <h3>Opportunities Board</h3>
@@ -1457,6 +1471,17 @@
       notes.dispatchEvent(new Event('input', { bubbles: true }));
     });
   });
+
+  // The scroll progress bar, where the browser has no scroll timeline
+  (function () {
+    var bar = document.querySelector('.scroll-progress');
+    if (!bar || (window.CSS && CSS.supports && CSS.supports('animation-timeline: scroll(root)'))) return;
+    var paint = function () {
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      bar.style.transform = 'scaleX(' + (max > 0 ? Math.min(1, window.scrollY / max) : 0) + ')';
+    };
+    window.addEventListener('scroll', paint, { passive: true }); window.addEventListener('resize', paint); paint();
+  })();
 
   // ─── Mobile menu ───
   const burger = document.querySelector('[data-menu-toggle]');

@@ -164,6 +164,9 @@
   /* no flash of the wrong account state: both hero states and the header slot wait for the
      account check (assets/hub-account.js sets data-np-checking until /auth/me has answered) */
   body[data-np-checking] .np-stranger, body[data-np-checking] .np-holder, body[data-np-checking] [data-np-account-slot] { visibility: hidden; }
+  /* signed in, the hero's one action is the account button (Will, 14 October, evening); the
+     holder block lays out like the stranger's */
+  body[data-np-signed-in] .np-holder.hero-join { display: flex; }
   /* The film, much bigger (Will, 14 October, evening): the wider column, running into the right-hand padding */
   @media (min-width: 961px) {
     .hub-hero .grid { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.45fr); gap: clamp(28px, 3.5vw, 48px); }
@@ -231,13 +234,15 @@ away to the left and brings the doors in from the right in its place.
         <span class="eyebrow">The NexPoint Global Portal</span>
         <h1>One trusted network.<br><em>Four hubs.</em></h1>
         <p class="lede">Print capacity, milled production, products and know-how, connected across the global O&amp;P industry. Every introduction is made person to person, by people who know both sides.</p>
-        <p style="margin-top:14px"><a class="hero-how" href="#how">See how the hub works</a></p>
         <div class="np-stranger hero-join">
           <button class="btn btn-primary btn-lg" type="button" onclick="window.NPAccount&&NPAccount.openQuestionnaire({})">Create your hub account</button>
           <span class="np-hint">Two minutes, free.</span>
           <p>Already have an account? <a href="#" onclick="event.preventDefault();openSignIn()" style="color:var(--blue);font-weight:600">Sign in</a></p>
         </div>
-        <p class="np-holder" style="margin-top:18px;font-size:13.5px;color:var(--on-surface-var)">Welcome back. <a href="https://nexpoint.co.uk/hub/account/" style="color:var(--blue);font-weight:600">Go to your account</a> for your requests, introductions and listings.</p>
+        <div class="np-holder hero-join">
+          <a class="btn btn-primary btn-lg" href="https://nexpoint.co.uk/hub/account/">Go to your account</a>
+          <span class="np-hint">Your requests, introductions and listings.</span>
+        </div>
       </div>
       <!-- The globe gives way to the film (Will, 12 and 13 October 2026, plan 055
            point 6): on load the globe rises and fades and the Global Portal film is
@@ -303,7 +308,7 @@ away to the left and brings the doors in from the right in its place.
       <a class="door" href="https://opportunities.nexpoint.co.uk/">
         <div class="door__media">
           <img src="assets/img/product-hub.jpg" alt="Illustration of a desk globe with opportunity briefs standing on different continents" loading="lazy" width="1600" height="893" style="height:auto">
-          <span class="status"><span class="live-dot"></span>On the board</span>
+          <span class="status"><span class="live-dot"></span>Live</span>
         </div>
         <div class="door__body">
           <h3>Opportunities Board</h3>
