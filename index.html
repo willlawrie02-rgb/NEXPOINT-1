@@ -546,9 +546,11 @@
   html[data-theme="light"] .hero { background: linear-gradient(180deg, #FFFFFF 0%, var(--bg) 100%); }
   html[data-theme="light"] .hero__title { color: #0E1626; }
   html[data-theme="light"] .hero__sub { color: #4A5462; }
-  /* Keep the globe dark & rich in light mode — it's drawn semi-transparent, so give it a dark planet backing */
+  /* Keep the globe dark & rich in light mode — it's drawn semi-transparent, so give it a dark planet backing.
+     A circle on the stage's shorter side: the stage is 16:9 behind the film since 14 October, and a
+     disc sized to both sides was an ellipse (Will, the same evening). */
   html[data-theme="light"] .globe-stage::before {
-    content: ""; position: absolute; left: 50%; top: 50%; width: 92%; height: 92%;
+    content: ""; position: absolute; left: 50%; top: 50%; width: auto; height: 92%; aspect-ratio: 1 / 1;
     transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; z-index: 0;
     background: radial-gradient(circle at 40% 34%, #18263e 0%, #0d1728 62%, #080f1c 88%, rgba(8, 15, 28, 0) 100%);
   }
