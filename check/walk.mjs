@@ -612,6 +612,26 @@ async function walkRegister() {
     await page.waitForSelector("#npAccountContent .np-sign-error:visible");
     return has(await page.textContent("#npAccountContent form .np-sign-error"), "already an account", "the refusal");
   });
+  /* 15 Oct 2026: a password the sign-in service refused showed only "Check
+     the details". Each refusal the registrant can put right is named, and
+     anything else carries the server's reason for the desk. The form is
+     still on step 2 from the step above, so each case just submits again. */
+  const refusedWith = async (status, body, needle, label) => {
+    world.api["POST /auth/register"] = () => [status, body];
+    await page.waitForSelector('form[data-np-step="2"] button[type=submit]:not([disabled])');
+    await submit();
+    await page.waitForFunction((n) => (document.querySelector("#npAccountContent form .np-sign-error") || {}).textContent?.includes(n), needle);
+    return has(await page.textContent("#npAccountContent form .np-sign-error"), needle, label);
+  };
+  await step("a password the sign-in service refuses is named, with its rule", () =>
+    refusedWith(422, { error: "weak_password", detail: "Password should be at least 12 characters." },
+      "That password was not accepted. Password should be at least 12 characters. Choose Go back", "the refusal"));
+  await step("an address the sign-in service refuses is named", () =>
+    refusedWith(422, { error: "email_invalid" }, "could not use that email address", "the refusal"));
+  await step("terms that changed under the form ask for a refresh", () =>
+    refusedWith(422, { error: "invalid terms_version_id" }, "Platform Terms have just been updated", "the refusal"));
+  await step("any other refusal carries the server's reason", () =>
+    refusedWith(502, { error: "organisation store failed (500)" }, 'quoting "organisation store failed (500)"', "the refusal"));
   clean(world, errors, "the register form");
   await context.close();
 }
