@@ -516,11 +516,22 @@
           resetTurnstile(); // clears the token and re-disables submit until a fresh one arrives
         } else {
           btn.disabled = false;
+          /* Every refusal the registrant can put right is named (15 Oct 2026:
+             a password the sign-in service refused showed only "Check the
+             details"). Anything else carries the server's reason as a
+             reference, so an email to the desk says which step failed. */
           err.textContent = d.error === 'account_exists'
             ? 'There\'s already an account for that email. Close this and choose Sign in instead.'
             : d.error === 'network'
             ? 'That did not save. Check your connection and try again, or email hello@nexpoint.co.uk.'
-            : 'That did not save. Check the details and try again, or email hello@nexpoint.co.uk.';
+            : d.error === 'weak_password'
+            ? 'That password was not accepted. ' + (d.detail ? String(d.detail).trim() + ' ' : '') + 'Choose Go back to pick another.'
+            : d.error === 'email_invalid' || d.error === 'valid email required'
+            ? 'We could not use that email address. Choose Go back to check it.'
+            : d.error === 'invalid terms_version_id'
+            ? 'The Platform Terms have just been updated. Refresh the page and try again.'
+            : 'That did not save. Try again, or email hello@nexpoint.co.uk' +
+              (d.error ? ' quoting "' + String(d.error).slice(0, 80) + '".' : '.');
         }
       }
     });
