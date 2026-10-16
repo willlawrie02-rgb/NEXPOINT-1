@@ -1214,6 +1214,12 @@ async function walkAccount() {
     eq(new URL(await page.getAttribute("#profile a.acct-edit", "href"), page.url()).pathname, "/hub/account/settings/", "where it goes");
     eq(await page.locator('#profile [data-act^="avatar"], #profile [data-act^="logo"]').count(), 0, "picture buttons on the banner");
   });
+  await step("the Edit account link sits under the logo, lined up with its left edge", async () => {
+    const pic = await page.locator("#acctPic").boundingBox();
+    const btn = await page.locator("#profile a.acct-edit").boundingBox();
+    eq(Math.round(btn.x), Math.round(pic.x), "the link's left edge");
+    eq(btn.y >= pic.y + pic.height, true, "the link is below the logo");
+  });
   await step("a resend the email provider refused says so, and gives the button back", async () => {
     world.api["POST /introductions/:id/resend"] = () => [502, { error: "send_failed" }];
     await page.click('[data-act="intro-resend"][data-intro="7"]');
