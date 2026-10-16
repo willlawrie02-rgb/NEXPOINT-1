@@ -201,9 +201,9 @@
       '<div class="acct-id">' +
         '<span class="acct-pic" id="acctPic" data-initials="' + esc(initials(s.name)) + '">' + monogram(initials(s.name)) + '</span>' +
         '<div class="acct-id__text"><h2>' + esc(s.name) + '</h2>' +
-        '<p class="hint">Site account' + (where ? ' · ' + esc(where) : '') + '</p>' +
-        '<a class="btn btn-outline acct-btn-sm acct-edit" href="settings/">Edit account or add users</a></div>' +
+        '<p class="hint">Site account' + (where ? ' · ' + esc(where) : '') + '</p></div>' +
       '</div>' +
+      '<a class="btn btn-outline acct-btn-sm acct-edit" href="settings/">Edit account or add users</a>' +
       (badges.length ? '<div class="acct-badges">' + badges.join('') + '</div>' : '') +
       (s.hidden ? '<div class="acct-notice">Your listing is hidden, so nobody searching the hub can see it. Email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a> and we will put it back.</div>' : '') +
       listingRows(d, s);
