@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Your agreement · NexPoint</title>
+<link rel="icon" href="../assets/nexpoint-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--canvas:#F5F7FA;--ink:#0E1626;--body:#2C3444;--muted:#5A6B84;--blue:#005CC8;--blue-hover:#0066DC;--blue-pressed:#004FAA;--green:#8BC53F;--border:#E3E8EF;--red:#B3261E}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--canvas);color:var(--ink);font:400 16px/1.6 'Inter',system-ui,sans-serif;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  body.is-wide{align-items:flex-start}
+  .card{max-width:560px;width:100%;text-align:center}
+  .card.wide{max-width:1040px}
+  .mark img{height:64px;width:64px;display:block;margin:0 auto}
+  .rule{width:44px;height:3px;background:var(--green);border-radius:9999px;margin:22px auto}
+  h1{font:700 clamp(22px,4vw,28px)/1.25 'Montserrat',sans-serif;letter-spacing:-.02em;margin:0 0 14px;overflow-wrap:anywhere}
+  h2{font:600 17px/1.3 'Montserrat',sans-serif;letter-spacing:-.01em;margin:0 0 14px;color:var(--ink)}
+  p{color:var(--muted)}
+  p+p{margin-top:12px}
+  a{color:var(--blue)}
+  .eyebrow{font:600 12px/1 'Inter',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin-bottom:16px}
+  .panel{margin-top:22px;padding:22px;background:#fff;border:1px solid var(--border);border-radius:8px;text-align:left}
+  .terms{display:grid;grid-template-columns:max-content 1fr;gap:12px 20px}
+  .terms dt{font:600 12px/1.6 'Inter',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding-top:1px}
+  .terms dd{font:400 15px/1.55 'Inter',sans-serif;color:var(--body);overflow-wrap:anywhere}
+  .terms dd strong{color:var(--ink);font-weight:600}
+  .note{font-size:14px;margin-top:18px}
+  .actions{display:flex;gap:12px;align-items:center;margin-top:22px;flex-wrap:wrap}
+  button,.btn{font:600 14px/1 'Inter',sans-serif;padding:13px 22px;border-radius:4px;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;
+              transition:background-color .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s cubic-bezier(.2,.8,.2,1)}
+  .yes{background:var(--blue);color:#fff}
+  .yes:hover{background:var(--blue-hover);box-shadow:0 10px 28px rgba(0,92,200,.35)}
+  .yes:active{background:var(--blue-pressed)}
+  .yes[disabled]{opacity:.6;cursor:default;box-shadow:none}
+  .quiet{background:transparent;color:var(--blue);border:1px solid var(--blue)}
+  .quiet:hover{background:rgba(0,92,200,.08)}
+  :is(a,button):focus-visible{outline:2px solid #3D8EEB;outline-offset:3px}
+  .msg{margin-top:16px;font-size:14px;color:var(--body)}
+  .msg:empty{display:none}
+  .msg.bad{color:var(--red)}
+  /* The signing panel: DocuSign's focused view mounts its own frame in here. */
+  .agreement{position:relative;width:100%;height:min(86vh,960px);min-height:600px;margin-top:22px;background:#fff;
+             border:1px solid var(--border);border-radius:8px;overflow:hidden;text-align:left}
+  .agreement iframe{position:relative;z-index:1;display:block;border:0}
+  .agreement .wait{position:absolute;inset:0;z-index:0;display:flex;align-items:center;justify-content:center;font-size:14px;pointer-events:none}
+  .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
+  @media (max-width:600px){
+    body{padding:24px 16px}
+    .panel{padding:18px}
+    .terms{grid-template-columns:1fr;gap:2px}
+    .terms dd{margin-bottom:12px}
+    .terms dd:last-child{margin-bottom:0}
+    .actions .btn,.actions button{width:100%}
+    /* On a phone the focused view needs the whole width and most of the height. */
+    .agreement{width:calc(100% + 32px);margin-left:-16px;border-left:0;border-right:0;border-radius:0;
+               height:calc(100vh - 96px);height:calc(100dvh - 96px);min-height:560px}
+  }
+</style>
+</head>
+<body>
+  <main class="card" id="card">
+    <div class="mark"><img src="../assets/nexpoint-logo.png" alt="NexPoint" width="64" height="64"></div>
+    <div class="rule"></div>
+    <div id="signBody">
+      <h1>One moment…</h1>
+      <p>Opening your agreement.</p>
+    </div>
+    <div class="foot">NexPoint Global Ltd, the commercial bridge for Orthotics &amp; Prosthetics worldwide.<br>
+      Questions? Email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</div>
+  </main>
+<script src="sign.js"></script>
+</body>
+</html>

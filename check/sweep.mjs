@@ -6,7 +6,7 @@ import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
-const PUBLIC_DIRS = ["hub", "printhub", "millhub", "opportunities", "portal"];
+const PUBLIC_DIRS = ["hub", "printhub", "millhub", "opportunities", "portal", "sign"];
 const fails = [];
 const fail = (msg) => fails.push(msg);
 const read = (rel) => readFileSync(join(ROOT, rel), "utf8");
@@ -21,7 +21,7 @@ function* walk(dir, ext) {
 }
 const pages = ["index.html", ...PUBLIC_DIRS.flatMap((d) => [...walk(d, ".html")])].sort();
 // A vendored library (hub/assets/vendor, plan 046's Leaflet) is not our copy.
-const scripts = [...walk("assets", ".js"), ...walk(join("hub", "assets"), ".js")]
+const scripts = [...walk("assets", ".js"), ...walk(join("hub", "assets"), ".js"), ...walk("sign", ".js")]
   .filter((f) => !f.includes(`${join("assets", "vendor")}/`));
 
 // ---------------------------------------------------------------- copy
@@ -208,7 +208,7 @@ for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.htm
 // and the old portal redirect are left out. And a link or button that carries
 // an aria-label hides its icon from assistive technology, or a screen reader
 // user hears "lock Global Portal" where the label says "Global Portal".
-const NO_DESCRIPTION = new Set(["hub/accept.html", "hub/check.html", "hub/confirm.html", "hub/email.html", "hub/invite.html", "hub/reset.html", "portal/index.html"]);
+const NO_DESCRIPTION = new Set(["hub/accept.html", "hub/check.html", "hub/confirm.html", "hub/email.html", "hub/invite.html", "hub/reset.html", "portal/index.html", "sign/index.html", "sign/done.html"]);
 const unescape = (t) => t.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
 for (const p of pages) {
   const t = read(p);

@@ -14,7 +14,8 @@
 //       the engine's source instead of this repo's deploy copy, to prove a
 //       change before the admin sync.
 //   WALK_BROWSER=/path/to/chrome   uses that browser.
-//   WALK_ONLY=boards (or public)   runs one half.
+//   WALK_ONLY=boards (or public)   runs one half; WALK_ONLY=sign runs the
+//       consultancy sign-up page alone.
 import { chromium } from "playwright-core";
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { join, dirname, resolve, extname, sep } from "node:path";
@@ -151,6 +152,43 @@ const readRendered = (root) => ({
   rules: root.querySelectorAll("hr").length,
 });
 
+/* The consultancy sign-up link (sign/), as the worker's /signup/* routes
+   describe it: one state shape for all three. */
+const SIGN_TOKEN = "e".repeat(64);
+const signupState = (status, over = {}) => Object.assign({
+  status, company: "Midlands 3D Printing & Co <Ltd>", signer_name: "Jo Bloggs",
+  fee: { amount: 5000, currency: "GBP", display: "£5,000" },
+  service: "Finding UK clinics for your insoles", territory: "United Kingdom",
+  signed_at: null, paid_at: null, invoice: null,
+}, over);
+const SIGN_BANK_GBP = { "Account name": "NexPoint Global Limited", "Sort code": "00-00-00", "Account number": "00000000" };
+const signupInvoice = (over = {}) => Object.assign({ number: "INV-1011", amount_display: "£5,000", due_date: "2026-11-18",
+  pay_url: "https://in.xero.com/walk-invoice", pay_by_bank: true, bank: SIGN_BANK_GBP }, over);
+const signupLink = (w, req) => (w.signup && req.body && req.body.token === w.signup.token ? w.signup : null);
+/* DocuSign's focused view, as the page meets it: loadDocuSign, signing,
+   on, mount. The walk ends the session itself (window.__npWalk.end), or
+   sends the frame to the return page (window.__npWalk.returnTo), and reads
+   back what the page asked for. */
+const FAKE_DOCUSIGN = `window.DocuSign = { loadDocuSign: function (key) {
+  var w = window.__npWalk = window.__npWalk || { keys: [], urls: [] };
+  w.keys.push(key);
+  return Promise.resolve({ signing: function (opts) {
+    var handlers = {};
+    var s = { on: function (ev, fn) { handlers[ev] = fn; return s; },
+      mount: function (sel) {
+        var box = document.querySelector(sel);
+        var f = document.createElement("iframe");
+        f.title = "Walk signing"; f.src = "about:blank"; box.appendChild(f);
+        w.opts = opts; w.urls.push(opts.url); w.mounted = sel;
+        w.end = function (type) { if (handlers.sessionEnd) handlers.sessionEnd({ type: type }); };
+        w.returnTo = function (ev) { f.src = "/sign/done.html?event=" + ev; };
+        setTimeout(function () { if (handlers.ready) handlers.ready({}); }, 0);
+        return s;
+      } };
+    return s;
+  } });
+} };`;
+
 /* The worker's answers, as the pages meet them. Keyed by method and path. */
 const API = {
   "GET /auth/me": (w) => (w.user ? [200, { ok: true, signed_in: true, member: w.user }] : [200, { ok: true, signed_in: false }]),
@@ -185,6 +223,30 @@ const API = {
   "GET /account/users": (w) => (w.user ? [200, { ok: true, users: w.users || [{ user_id: w.user.id, name: w.user.name,
     email: w.user.email, role: "owner", confirmed: true, joined_at: "2026-10-01T09:00:00Z", you: true }] }] : [401, { error: "sign in required" }]),
   "GET /account/invites": (w) => (w.user ? [200, { ok: true, invites: w.invites || [] }] : [401, { error: "sign in required" }]),
+  /* The consultancy sign-up page (sign/): one link, kept on world.signup as
+     { token, state, raised }. Signing moves a ready link to signed; the next
+     look after that finds the invoice raised (world.signup.raised), as the
+     worker's own invoicing would. Any other token is the one bad-link answer. */
+  "POST /signup/view": (w, req) => {
+    const s = signupLink(w, req);
+    if (!s) return [400, { error: "link_invalid" }];
+    if (s.state.status === "signed" && s.raised) s.state = s.raised;
+    return [200, { ok: true, state: s.state }];
+  },
+  "POST /signup/sign": (w, req) => {
+    const s = signupLink(w, req);
+    if (!s) return [400, { error: "link_invalid" }];
+    if (s.state.status !== "ready") return [409, { error: "already_signed", state: s.state }];
+    s.urls = (s.urls || 0) + 1;
+    return [200, { ok: true, signing: { url: `https://demo.docusign.net/Signing/walk-${s.urls}`,
+      integration_key: "walk-integration-key", js_src: "https://js-d.docusign.com/bundle.js" } }];
+  },
+  "POST /signup/complete": (w, req) => {
+    const s = signupLink(w, req);
+    if (!s) return [400, { error: "link_invalid" }];
+    if (s.state.status === "ready") s.state = signupState("signed", { signed_at: "2026-10-19T10:00:00Z" });
+    return [200, { ok: true, state: s.state }];
+  },
 };
 
 // ---------------------------------------------------------------- routing
@@ -319,6 +381,12 @@ async function routeAll(context, world) {
     if (host === "cdn.jsdelivr.net") return route.continue();
     if (host === "fonts.googleapis.com") return route.fulfill({ status: 200, contentType: "text/css", body: "" });
     if (host === "challenges.cloudflare.com") return route.fulfill({ status: 200, contentType: "text/javascript", body: TURNSTILE });
+    /* DocuSign's focused-view script (demo host), counted so the walk can
+       see the page loads it once however many sessions it opens. */
+    if (host === "js-d.docusign.com") {
+      world.docusignLoads = (world.docusignLoads || 0) + 1;
+      return route.fulfill({ status: 200, contentType: "text/javascript", body: FAKE_DOCUSIGN });
+    }
     if (host === "api.web3forms.com") {
       if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors(request) });
       world.copies.push(jsonBody(request));
@@ -1824,6 +1892,180 @@ async function walkLandings() {
   }
 }
 
+// ================================================================ the consultancy sign-up page
+/* A client who said yes on a call opens the private link, signs inside the
+   page in DocuSign's focused view, and is looking at an invoice they can pay
+   that minute (spec 2026-10-19, section 8). */
+const SIGN_STYLE = { branding: { primaryButton: { backgroundColor: "#005CC8", color: "#FFFFFF" } },
+  signingNavigationButton: { finishText: "Finish signing", position: "bottom-center" } };
+const fitsPhone = async (page, what) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  const wide = await page.evaluate(() => document.documentElement.scrollWidth);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  return eq(wide <= 375, true, `${what} width at 375px (${wide})`);
+};
+async function walkSign() {
+  area = "The consultancy sign-up page (sign/)";
+  {
+    const world = newWorld({ signup: { token: SIGN_TOKEN, state: signupState("ready"),
+      raised: signupState("invoiced", { signed_at: "2026-10-19T10:00:00Z", invoice: signupInvoice() }) } });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
+    await step("the link opens on Welcome, with the company's name exactly as written", async () => {
+      await page.waitForSelector("#signBtn");
+      eq(apiCalls(world, "POST /signup/view").map((c) => c.body), [{ token: SIGN_TOKEN }], "the looks sent");
+      return has(await page.textContent("h1"), "Welcome, Midlands 3D Printing & Co <Ltd>", "the heading");
+    });
+    await step("the summary names the retainer, the recurring fee and the two documents", async () => {
+      const t = await page.textContent("#signBody");
+      for (const part of ["£5,000 GBP", "six months of sales and marketing work", "6% of the revenue in the first year",
+        "falling to 2% in the fifth", "nothing after", "Introduction Agreement", "Master Terms of Business", "NexPoint Global Ltd",
+        "Finding UK clinics for your insoles", "United Kingdom", "Jo Bloggs"]) has(t, part, "the summary");
+      return has(await page.textContent("#signBtn"), "Review and sign the agreement", "the button");
+    });
+    await step("the ready page fits a phone's width", async () => fitsPhone(page, "the ready page"));
+    await step("Review and sign mounts DocuSign's focused view in the page, in NexPoint's blue", async () => {
+      await page.click("#signBtn");
+      await page.waitForFunction(() => window.__npWalk && window.__npWalk.mounted);
+      const got = await page.evaluate(() => ({ keys: window.__npWalk.keys, mounted: window.__npWalk.mounted, url: window.__npWalk.opts.url,
+        format: window.__npWalk.opts.displayFormat, style: window.__npWalk.opts.style, frames: document.querySelectorAll("#agreement iframe").length }));
+      eq(got, { keys: ["walk-integration-key"], mounted: "#agreement", url: "https://demo.docusign.net/Signing/walk-1",
+        format: "focused", style: SIGN_STYLE, frames: 1 }, "the signing");
+      return eq(apiCalls(world, "POST /signup/sign").map((c) => c.body), [{ token: SIGN_TOKEN }], "signing sessions asked for");
+    });
+    await step("on a phone the signing panel runs the full width and stands tall", async () => {
+      await page.setViewportSize({ width: 375, height: 800 });
+      const got = await page.evaluate(() => {
+        const r = document.getElementById("agreement").getBoundingClientRect();
+        return { wide: document.documentElement.scrollWidth, width: Math.round(r.width), height: Math.round(r.height) };
+      });
+      await page.setViewportSize({ width: 1280, height: 900 });
+      return eq([got.wide <= 375, got.width >= 375, got.height >= 560], [true, true, true], `page ${got.wide}, panel ${got.width}x${got.height}`);
+    });
+    await step("leaving without signing returns to Welcome and says nothing was signed", async () => {
+      await page.evaluate(() => window.__npWalk.end("cancel"));
+      await page.waitForSelector("#signBtn");
+      has(await page.textContent("#signMsg"), "Nothing was signed", "the line");
+      return eq(apiCalls(world, "POST /signup/complete").length, 0, "completions sent");
+    });
+    await step("signing again asks for a fresh signing address and loads DocuSign's script only once", async () => {
+      await page.click("#signBtn");
+      await page.waitForFunction(() => window.__npWalk.urls.length === 2);
+      eq(await page.evaluate(() => window.__npWalk.urls), ["https://demo.docusign.net/Signing/walk-1", "https://demo.docusign.net/Signing/walk-2"], "signing addresses");
+      return eq(world.docusignLoads, 1, "loads of DocuSign's script");
+    });
+    await step("finishing reports the signature and says the invoice is on its way", async () => {
+      await page.evaluate(() => window.__npWalk.end("signing_complete"));
+      await page.waitForFunction(() => /Your invoice is on its way/.test(document.body.textContent));
+      eq(await page.locator("#agreement iframe").count(), 0, "signing frames left");
+      return eq(apiCalls(world, "POST /signup/complete").map((c) => c.body), [{ token: SIGN_TOKEN }], "completions sent");
+    });
+    await step("the page asks again until the invoice is raised, then leads with Pay now", async () => {
+      await page.waitForSelector("#payNow", { timeout: 9000 });
+      eq(await page.textContent("#payNow"), "Pay now", "the main button");
+      eq([await page.getAttribute("#payNow", "href"), await page.getAttribute("#payNow", "target")], ["https://in.xero.com/walk-invoice", "_blank"], "where Pay now goes");
+      const t = await page.textContent("#signBody");
+      for (const part of ["Agreement signed", "INV-1011", "£5,000", "18 November 2026", "inbox"]) has(t, part, "the invoiced page");
+      eq(await page.locator("#bank dt").allTextContents(), ["Account name", "Sort code", "Account number"], "the bank details");
+      return eq(await page.evaluate(() => !!(document.getElementById("payNow").compareDocumentPosition(document.getElementById("bank")) & Node.DOCUMENT_POSITION_FOLLOWING)),
+        true, "the bank details sit below Pay now");
+    });
+    await step("the invoiced page fits a phone's width", async () => fitsPhone(page, "the invoiced page"));
+    clean(world, errors, "the sign-up page, ready to invoiced");
+    await context.close();
+  }
+  {
+    /* DocuSign's return page, loaded in the signing frame, tells the page the session ended. */
+    const world = newWorld({ signup: { token: SIGN_TOKEN, state: signupState("ready") } });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
+    await step("the return page, opened in the signing frame, finishes the signing too", async () => {
+      await page.click("#signBtn");
+      await page.waitForFunction(() => window.__npWalk && window.__npWalk.mounted);
+      await page.evaluate(() => window.__npWalk.returnTo("signing_complete"));
+      await page.waitForFunction(() => /Your invoice is on its way/.test(document.body.textContent));
+      return eq(apiCalls(world, "POST /signup/complete").length, 1, "completions sent");
+    });
+    await step("the return page opened on its own says the window can close", async () => {
+      await page.goto(`${APEX}/sign/done.html?event=signing_complete`);
+      return has(await page.textContent("body"), "You can close this window", "the page");
+    });
+    clean(world, errors, "the return page");
+    await context.close();
+  }
+  {
+    /* Two tabs: the signing service is down for the first press, and by the
+       second the other tab has signed. */
+    const world = newWorld({ signup: { token: SIGN_TOKEN, state: signupState("ready") } });
+    let presses = 0;
+    world.api["POST /signup/sign"] = () => (++presses === 1 ? [502, { error: "docusign_unavailable" }]
+      : [409, { error: "already_signed", state: signupState("invoiced", { invoice: signupInvoice() }) }]);
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
+    await step("a signing service that is down is said plainly, and Welcome stays", async () => {
+      await page.click("#signBtn");
+      await page.waitForFunction(() => /not answering/.test(document.getElementById("signMsg").textContent));
+      return eq(await page.isEnabled("#signBtn"), true, "the button");
+    });
+    await step("a link already signed in another tab goes straight to its invoice", async () => {
+      await page.click("#signBtn");
+      await page.waitForSelector("#payNow");
+      return eq(world.docusignLoads || 0, 0, "loads of DocuSign's script");
+    });
+    clean(world, errors, "the sign-up page, two tabs");
+    await context.close();
+  }
+  {
+    const usd = signupState("invoiced", { fee: { amount: 5000, currency: "USD", display: "US$5,000" }, signed_at: "2026-10-19T10:00:00Z",
+      invoice: signupInvoice({ amount_display: "US$5,000", pay_by_bank: false,
+        bank: { "Account name": "NexPoint Global Limited", IBAN: "GB00WALK00000000000000", "BIC / SWIFT": "WALKGB2L" } }) });
+    const world = newWorld({ signup: { token: SIGN_TOKEN, state: usd } });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
+    await step("a dollar invoice leads with the bank transfer, Copy bank details the main button", async () => {
+      await page.waitForSelector("#copyBank");
+      eq(await page.locator("#payNow").count(), 0, "Pay now buttons");
+      eq(await page.textContent("#copyBank"), "Copy bank details", "the main button");
+      has(await page.textContent("#signBody"), "US$5,000", "the amount");
+      eq(await page.locator("#bank dt").allTextContents(), ["Account name", "IBAN", "BIC / SWIFT"], "the bank details");
+      eq(await page.evaluate(() => !!(document.getElementById("bank").compareDocumentPosition(document.getElementById("copyBank")) & Node.DOCUMENT_POSITION_FOLLOWING)),
+        true, "the details come before the button");
+      return eq([await page.textContent("#viewInvoice"), await page.getAttribute("#viewInvoice", "href")],
+        ["View the invoice", "https://in.xero.com/walk-invoice"], "the invoice link");
+    });
+    await step("Copy bank details says it copied them", async () => {
+      await page.click("#copyBank");
+      return page.waitForFunction(() => /copied/i.test(document.getElementById("copyMsg").textContent)).then(() => true);
+    });
+    clean(world, errors, "the sign-up page, a dollar invoice");
+    await context.close();
+  }
+  {
+    const world = newWorld({ signup: { token: SIGN_TOKEN, state: signupState("paid", { signed_at: "2026-10-19T10:00:00Z",
+      paid_at: "2026-10-25T09:30:00Z", invoice: signupInvoice() }) } });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
+    await step("a paid link says paid, thank you, and what happens next", async () => {
+      await page.waitForFunction(() => /Paid, thank you/.test(document.body.textContent));
+      has(await page.textContent("#signBody"), "25 October 2026", "the date paid");
+      return eq(await page.locator("#payNow, #copyBank").count(), 0, "ways to pay");
+    });
+    await page.goto(`${APEX}/sign/?t=${"f".repeat(64)}`);
+    await step("a bad link says it is no longer valid and gives hello@", async () => {
+      await page.waitForFunction(() => /no longer valid/.test(document.body.textContent));
+      return has(await page.textContent("#signBody"), "hello@nexpoint.co.uk", "the help line");
+    });
+    const looks = apiCalls(world, "POST /signup/view").length;
+    await page.goto(`${APEX}/sign/`);
+    await step("a link with no token says the same, without asking the worker", async () => {
+      await page.waitForFunction(() => /no longer valid/.test(document.body.textContent));
+      return eq(apiCalls(world, "POST /signup/view").length, looks, "looks sent");
+    });
+    clean(world, errors, "the sign-up page, paid and bad links");
+    await context.close();
+  }
+}
+
 // ================================================================ the admin boards
 const boards = () => readdirSync(ADMIN_DIR).filter((f) => f.endsWith(".html")).sort();
 
@@ -2419,12 +2661,13 @@ const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
 const parts = []
-  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkLandings] : [])
+  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkLandings, walkSign] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm] : []);
 /* The settings page's You and Users (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
 /* The listing form's ship picker (plan 055) walks straight after the find map. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkFindMap) + 1, 0, walkOfferMap);
+if (ONLY === "sign") parts.splice(0, parts.length, walkSign);
 try {
   for (const part of parts) {
     try { await part(); } catch (e) {
