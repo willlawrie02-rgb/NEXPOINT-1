@@ -188,8 +188,8 @@
         '</dl>' +
         '<p class="note">The agreement is with NexPoint Global Ltd and has two parts: the Introduction Agreement, made out for ' +
           esc(s.company) + ', and the Master Terms of Business. You sign both at once.</p>' +
-        '<div class="actions"><button class="quiet" type="button" id="readBtn" aria-expanded="false" aria-controls="agreementText">Read the agreement</button></div>' +
-        '<div class="doc" id="agreementText" role="region" aria-label="The agreement" tabindex="0" hidden></div>' +
+        '<div class="actions"><button class="quiet" type="button" id="readBtn" aria-expanded="true" aria-controls="agreementText">Hide the agreement</button></div>' +
+        '<div class="doc" id="agreementText" role="region" aria-label="The agreement" tabindex="0"></div>' +
       '</div>' +
       '<form class="panel" id="signForm" novalidate>' +
         '<h2>Sign on behalf of ' + esc(company) + '</h2>' +
@@ -248,6 +248,8 @@
     'signer_name too long': 'That name is longer than the agreement can record. Shorten it and sign again.',
     'signer_position too long': 'That position is longer than the agreement can record. Shorten it and sign again.',
     'agreement not accepted': 'Tick the box to confirm you have read the agreement and agree to it.',
+    'signer_name has formatting characters': 'Take the ** and any line breaks out of your name, then sign again.',
+    'signer_position has formatting characters': 'Take the ** and any line breaks out of your position, then sign again.',
   };
 
   function sign(e) {

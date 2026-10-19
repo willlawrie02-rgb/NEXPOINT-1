@@ -1950,14 +1950,21 @@ async function walkSign() {
       for (const part of ["£5,000 for six months", "six months of sales and marketing work", "6% of the revenue in the first year",
         "falling to 2% in the fifth", "nothing after", "Introduction Agreement", "Master Terms of Business", "NexPoint Global Ltd",
         "Finding UK clinics for your insoles", "United Kingdom"]) has(t, part, "the summary");
-      return eq(await page.textContent("#readBtn"), "Read the agreement", "the reading button");
+      return eq(await page.textContent("#readBtn"), "Hide the agreement", "the reading button");
     });
     await step("the page loads nothing from DocuSign", async () => eq(await page.evaluate(() => !!window.DocuSign), false, "window.DocuSign"));
-    await step("the agreement stays folded until Read the agreement opens it", async () => {
-      eq(await page.isVisible("#agreementText"), false, "the agreement before the press");
+    await step("the page sends no referrer, so the link's token never leaves in one", async () =>
+      eq(await page.getAttribute('meta[name="referrer"]', "content"), "no-referrer", "the referrer policy"));
+    await step("the agreement is open on arrival; Hide the agreement folds it and Read the agreement opens it again", async () => {
+      eq(await page.isVisible("#agreementText"), true, "the agreement on arrival");
+      eq(await page.getAttribute("#readBtn", "aria-expanded"), "true", "the button's aria-expanded on arrival");
       await page.click("#readBtn");
-      eq(await page.isVisible("#agreementText"), true, "the agreement after the press");
-      eq(await page.getAttribute("#readBtn", "aria-expanded"), "true", "the button's aria-expanded");
+      eq(await page.isVisible("#agreementText"), false, "the agreement after Hide");
+      eq([await page.getAttribute("#readBtn", "aria-expanded"), await page.textContent("#readBtn")], ["false", "Read the agreement"],
+        "the button once folded");
+      await page.click("#readBtn");
+      eq(await page.isVisible("#agreementText"), true, "the agreement after Read");
+      eq(await page.getAttribute("#readBtn", "aria-expanded"), "true", "the button's aria-expanded once open");
       return eq(await page.textContent("#readBtn"), "Hide the agreement", "the button once open");
     });
     await step("the agreement reads as a document: headings, the fee table, the lists, the Master Terms under a title of its own", async () =>
@@ -2045,7 +2052,7 @@ async function walkSign() {
     await step("Reload the page shows the new text, and signing it sends the new hash", async () => {
       await page.click("#reloadBtn");
       await page.waitForSelector("#signBtn");
-      await page.click("#readBtn");
+      eq(await page.isVisible("#agreementText"), true, "the new agreement, open on arrival");
       has(await page.textContent("#agreementText"), "A clause added in the new version.", "the agreement");
       await signReady(page);
       await page.click("#signBtn");
@@ -2064,10 +2071,12 @@ async function walkSign() {
       ["signer_name too long", "That name is longer than the agreement can record. Shorten it and sign again."],
       ["signer_position too long", "That position is longer than the agreement can record. Shorten it and sign again."],
       ["agreement not accepted", "Tick the box to confirm you have read the agreement and agree to it."],
+      ["signer_name has formatting characters", "Take the ** and any line breaks out of your name, then sign again."],
+      ["signer_position has formatting characters", "Take the ** and any line breaks out of your position, then sign again."],
       ["something new", "That did not go through. Try again in a moment, or email hello@nexpoint.co.uk."],
     ];
     let n = 0;
-    world.api["POST /signup/accept"] = () => [n < 5 ? 422 : 500, { error: words[n++][0] }];
+    world.api["POST /signup/accept"] = () => [n < words.length - 1 ? 422 : 500, { error: words[n++][0] }];
     const { context, page, errors } = await visit(world);
     await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
     await page.waitForSelector("#signBtn");
