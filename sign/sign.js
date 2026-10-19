@@ -1,15 +1,17 @@
-/* The consultancy sign-up page (spec 2026-10-19, section 8). A client who
-   has said yes on a call gets a private link (/sign/?t=<token>), signs the
-   Introduction Agreement and the Master Terms of Business in DocuSign's
-   focused view inside this page, and is then looking at the Xero invoice for
-   the retainer with a way to pay it.
+/* The consultancy sign-up page (spec 2026-10-19, sections 2a and 8). A client
+   who has said yes on a call gets a private link (/sign/?t=<token>), reads
+   the Introduction Agreement and the Master Terms of Business on this page,
+   signs them here by typing the signer's name and position and ticking that
+   they agree, and is then looking at the Xero invoice for the retainer with
+   a way to pay it. There is no DocuSign (Will, 19 October 2026).
 
-   The worker answers three routes, each with the same `state`:
-     POST /signup/view      what the link stands at now
-     POST /signup/sign      a signing address for the focused view (works
-                            once, for 300 seconds: every session asks afresh)
-     POST /signup/complete  "the client finished signing": the worker checks
-                            DocuSign and raises the invoice
+   The worker answers two routes, each with the same `state`:
+     POST /signup/view    what the link stands at now; while it is ready,
+                          `state.agreement` is the text to sign and its hash
+     POST /signup/accept  the signature: name, position, the tick and the
+                          hash of the text this page showed. The worker
+                          refuses (agreement_changed) if the text has changed
+                          since, so nobody signs a version they were not shown.
    Any bad, expired, withdrawn or unknown link answers one way (link_invalid)
    and the page says one thing for it.
 
@@ -22,17 +24,11 @@
   var HELP = 'hello@nexpoint.co.uk';
   var POLL_EVERY_MS = 4000;
   var POLL_FOR_MS = 60000;
-  /* DocuSign's own script hosts (demo, production). The worker names which;
-     the page loads nothing from anywhere else. */
-  var DOCUSIGN_JS = /^https:\/\/js(-d)?\.docusign\.com\//;
   var token = new URLSearchParams(location.search).get('t') || '';
 
   var state = null;       // the latest state the worker gave
   var pollRun = 0;        // bumped to stop a running poll
-  var session = 0;        // bumped for every signing session
-  var sessionOpen = false;
-  var dsScript = null;    // the one load of DocuSign's script
-  var dsClients = {};     // integration key -> loadDocuSign promise
+  var sending = false;    // a signature is on its way to the worker
 
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -43,10 +39,10 @@
   }
   function say(title, line) { render('<h1>' + esc(title) + '</h1><p>' + line + '</p>'); }
   var helpLink = '<a href="mailto:' + HELP + '">' + HELP + '</a>';
-  function call(path) {
+  function call(path, extra) {
     return fetch(API + path, {
       method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: token }),
+      body: JSON.stringify(Object.assign({ token: token }, extra || {})),
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (d) { return { r: r, d: d || {} }; });
     });
@@ -59,6 +55,87 @@
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: zone || 'UTC' });
   }
   function safeHttps(u) { return /^https:\/\//i.test(String(u || '')) ? String(u) : ''; }
+  function companyName(s) { return String(s.company || '').replace(/\.+$/, ''); }
+
+  /* ── the agreement, as a document ────────────────────────────────── */
+
+  /* The worker sends the agreement as markdown: the Introduction Agreement,
+     then the Master Terms, each opening with its own "# " title (the page's
+     CSS sets the second title apart from the first). This reads only what
+     that text uses (headings, paragraphs, **bold**, one table, "- " lists)
+     and builds the document from elements and text nodes: nothing in the text is ever
+     parsed as HTML, so a client's name or address with markup in it shows
+     as typed. */
+  function inlineInto(el, text) {
+    var re = /\*\*(.+?)\*\*/g;
+    var at = 0;
+    var m;
+    while ((m = re.exec(text))) {
+      if (m.index > at) el.appendChild(document.createTextNode(text.slice(at, m.index)));
+      var b = document.createElement('strong');
+      b.textContent = m[1];
+      el.appendChild(b);
+      at = re.lastIndex;
+    }
+    if (at < text.length) el.appendChild(document.createTextNode(text.slice(at)));
+    return el;
+  }
+  function block(tag, text) { return inlineInto(document.createElement(tag), text); }
+  function cells(line) { return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(function (c) { return c.trim(); }); }
+  var TABLE_RULE = /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?$/;
+
+  function renderAgreement(md, box) {
+    var lines = String(md || '').replace(/\r\n?/g, '\n').split('\n');
+    var para = [];
+    var list = null;
+    var item = null;
+    function endPara() { if (para.length) box.appendChild(block('p', para.join(' '))); para = []; }
+    function endList() { list = null; item = null; }
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      var t = line.trim();
+      var m;
+      if (!t) { endPara(); endList(); continue; }
+      if ((m = /^(#{1,4})\s+(.*)$/.exec(t))) {
+        endPara(); endList();
+        box.appendChild(block('h' + (m[1].length + 1), m[2]));
+        continue;
+      }
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)) { endPara(); endList(); box.appendChild(document.createElement('hr')); continue; }
+      if (t.charAt(0) === '|' && i + 1 < lines.length && TABLE_RULE.test(lines[i + 1].trim())) {
+        endPara(); endList();
+        var wrap = document.createElement('div');
+        wrap.className = 'table';
+        var table = wrap.appendChild(document.createElement('table'));
+        var head = table.appendChild(document.createElement('thead')).appendChild(document.createElement('tr'));
+        cells(t).forEach(function (c) { head.appendChild(block('th', c)); });
+        var body = table.appendChild(document.createElement('tbody'));
+        for (i += 2; i < lines.length && lines[i].trim().charAt(0) === '|'; i++) {
+          var row = body.appendChild(document.createElement('tr'));
+          cells(lines[i]).forEach(function (c) { row.appendChild(block('td', c)); });
+        }
+        i--;
+        box.appendChild(wrap);
+        continue;
+      }
+      if ((m = /^[-*+]\s+(.*)$/.exec(t))) {
+        endPara();
+        if (!list) list = box.appendChild(document.createElement('ul'));
+        item = { li: list.appendChild(block('li', m[1])), raw: m[1] };
+        continue;
+      }
+      /* A list item that wraps onto an indented line. */
+      if (item && /^\s/.test(line)) {
+        item.raw += ' ' + t;
+        item.li.textContent = '';
+        inlineInto(item.li, item.raw);
+        continue;
+      }
+      endList();
+      para.push(t);
+    }
+    endPara();
+  }
 
   /* ── the states ──────────────────────────────────────────────────── */
 
@@ -77,21 +154,28 @@
   /* Whatever the worker says the link stands at. */
   function show(s) {
     pollRun++;
+    sending = false;
     state = s;
     if (!s || !s.status) { renderFailed(false); return; }
-    if (s.status === 'ready') renderReady('');
+    if (s.status === 'ready') renderReady();
     else if (s.status === 'signed') { renderSigned(); poll(); }
     else if (s.status === 'invoiced') renderInvoiced(s);
     else if (s.status === 'paid') renderPaid(s);
     else renderFailed(false);
   }
 
-  function renderReady(line, bad) {
+  function hasAgreement(s) {
+    var a = s.agreement;
+    return !!(a && typeof a.text === 'string' && a.text.trim() && /^[0-9a-f]{64}$/i.test(String(a.hash || '')));
+  }
+
+  function renderReady() {
     var s = state;
     var fee = s.fee || {};
+    var company = companyName(s);
     render(
-      '<h1>Welcome, ' + esc(String(s.company || '').replace(/\.+$/, '')) + '.</h1>' +
-      '<p>Thank you for choosing NexPoint. Here is the agreement in brief; the full terms are in the two documents you review next.</p>' +
+      '<h1>Welcome, ' + esc(company) + '.</h1>' +
+      '<p>Thank you for choosing NexPoint. Here is the agreement in brief. Read it in full below, then sign it on this page.</p>' +
       '<div class="panel">' +
         '<p class="eyebrow">Your agreement</p>' +
         '<dl class="terms">' +
@@ -102,16 +186,120 @@
           '<dt>Recurring fee</dt><dd>On the business that results: <strong>6% of the revenue in the first year</strong>, ' +
             'falling to 2% in the fifth, and nothing after.</dd>' +
         '</dl>' +
-        '<p class="note">You sign two documents with NexPoint Global Ltd: the Introduction Agreement, made out for ' + esc(s.company) +
-          ', and the Master Terms of Business. Both open here, on this page, for ' + esc(s.signer_name) + ' to read and sign.</p>' +
-        '<p class="msg' + (bad ? ' bad' : '') + '" id="signMsg" role="status">' + (line || '') + '</p>' +
-        '<div class="actions"><button class="yes" type="button" id="signBtn">Review and sign the agreement</button></div>' +
-      '</div>');
-    $('signBtn').addEventListener('click', startSigning);
+        '<p class="note">The agreement is with NexPoint Global Ltd and has two parts: the Introduction Agreement, made out for ' +
+          esc(s.company) + ', and the Master Terms of Business. You sign both at once.</p>' +
+        '<div class="actions"><button class="quiet" type="button" id="readBtn" aria-expanded="false" aria-controls="agreementText">Read the agreement</button></div>' +
+        '<div class="doc" id="agreementText" role="region" aria-label="The agreement" tabindex="0" hidden></div>' +
+      '</div>' +
+      '<form class="panel" id="signForm" novalidate>' +
+        '<h2>Sign on behalf of ' + esc(company) + '</h2>' +
+        '<div class="field"><label for="signerName">Full name</label>' +
+          '<input type="text" id="signerName" autocomplete="name" maxlength="200" spellcheck="false"></div>' +
+        '<div class="field"><label for="signerPosition">Position</label>' +
+          '<input type="text" id="signerPosition" autocomplete="organization-title" maxlength="200"></div>' +
+        '<label class="tick"><input type="checkbox" id="agree"><span id="agreeLabel">I have read the Introduction Agreement and the ' +
+          'Master Terms of Business and agree to them on behalf of ' + esc(company) + '.</span></label>' +
+        '<p class="msg" id="signMsg" role="status"></p>' +
+        '<div class="actions" id="signActions"><button class="yes" type="submit" id="signBtn" disabled>Sign the agreement</button></div>' +
+        '<p class="note">Signing records the name and position you type, the time, your IP address and your browser, ' +
+          'with the exact text you signed. A signed copy comes to your inbox with the invoice.</p>' +
+      '</form>', true);
+
+    var box = $('agreementText');
+    if (hasAgreement(s)) renderAgreement(s.agreement.text, box);
+    else {
+      box.innerHTML = '<p class="fail">The agreement did not load. Reload the page, or email ' + helpLink + '.</p>';
+      setMsg('The agreement did not load, so it cannot be signed yet. Reload the page, or email ' + helpLink + '.', true);
+    }
+    $('readBtn').addEventListener('click', function () {
+      var open = box.hidden;
+      box.hidden = !open;
+      this.setAttribute('aria-expanded', String(open));
+      this.textContent = open ? 'Hide the agreement' : 'Read the agreement';
+    });
+    $('signerName').value = s.signer_name || '';
+    ['signerName', 'signerPosition'].forEach(function (id) { $(id).addEventListener('input', update); });
+    $('agree').addEventListener('change', update);
+    $('signForm').addEventListener('submit', sign);
+    update();
+  }
+
+  function setMsg(html, bad) {
+    var m = $('signMsg');
+    if (!m) return;
+    m.className = 'msg' + (bad ? ' bad' : '');
+    m.innerHTML = html;
+  }
+  function filled() {
+    return hasAgreement(state) && !!$('signerName').value.trim() && !!$('signerPosition').value.trim() && $('agree').checked;
+  }
+  function update() {
+    var btn = $('signBtn');
+    if (btn) btn.disabled = sending || !filled();
+  }
+  function lock(on) {
+    ['signerName', 'signerPosition', 'agree'].forEach(function (id) { $(id).disabled = on; });
+  }
+
+  /* What the worker refuses, in plain words. Each is a fixed sentence. */
+  var REFUSED = {
+    'signer_name required': 'Enter the full name of the person signing.',
+    'signer_position required': 'Enter the position of the person signing.',
+    'signer_name too long': 'That name is longer than the agreement can record. Shorten it and sign again.',
+    'signer_position too long': 'That position is longer than the agreement can record. Shorten it and sign again.',
+    'agreement not accepted': 'Tick the box to confirm you have read the agreement and agree to it.',
+  };
+
+  function sign(e) {
+    e.preventDefault();
+    if (sending || !filled()) return;
+    sending = true;
+    update();
+    lock(true);
+    $('signBtn').textContent = 'Signing…';
+    setMsg('', false);
+    call('/signup/accept', {
+      signer_name: $('signerName').value.trim(),
+      signer_position: $('signerPosition').value.trim(),
+      agree: true,
+      agreement_hash: state.agreement.hash,
+    }).then(function (o) {
+      var d = o.d;
+      if (d.error === 'link_invalid') { renderInvalid(); return; }
+      if (o.r.ok && d.ok && d.state && d.state.status !== 'ready') { show(d.state); return; }
+      if (d.error === 'already_signed' && d.state) { show(d.state); return; }
+      if (d.error === 'agreement_changed') { changed(); return; }
+      back(REFUSED[d.error] ? esc(REFUSED[d.error]) : 'That did not go through. Try again in a moment, or email ' + helpLink + '.');
+    }, function () {
+      back('That did not reach us. Check your connection and try again.');
+    });
+  }
+  /* The form stays as the client filled it, with the reason above the button. */
+  function back(line) {
+    sending = false;
+    lock(false);
+    $('signBtn').textContent = 'Sign the agreement';
+    setMsg(line, true);
+    update();
+  }
+  /* A new version went live after this page opened. Signing it here would
+     sign text the client was not shown, so the only way on is a reload. */
+  function changed() {
+    sending = false;
+    setMsg('The agreement was updated since you opened this page. Reload to read the current version.', true);
+    $('signActions').innerHTML = '<button class="yes" type="button" id="reloadBtn">Reload the page</button>';
+    $('reloadBtn').addEventListener('click', function () { location.reload(); });
+  }
+
+  function signedBy(s) {
+    if (!s.signed_name) return '';
+    var when = longDate(s.signed_at, 'Europe/London');
+    return '<p class="note" id="signedBy">Signed by ' + esc(s.signed_name) + (s.signed_position ? ', ' + esc(s.signed_position) : '') +
+      (when ? ', on ' + esc(when) : '') + '.</p>';
   }
 
   function renderSigned(line) {
-    render('<h1>Agreement signed.</h1><p id="pendingLine" role="status">' +
+    render('<h1>Agreement signed.</h1>' + signedBy(state || {}) + '<p id="pendingLine" role="status">' +
       (line || 'Your invoice is on its way. It appears here in a moment.') + '</p>');
   }
 
@@ -142,6 +330,7 @@
     var ref = '<p class="note">Use <strong>' + esc(inv.number) + '</strong> as the payment reference.</p>';
     var html = '<h1>Agreement signed.</h1>' +
       '<p>Thank you. Here is the invoice for your retainer. A copy of the signed agreement and the invoice are on their way to your inbox.</p>' +
+      signedBy(s) +
       '<div class="panel"><p class="eyebrow">Your invoice</p>' + invoiceRows(s, inv);
     if (inv.pay_by_bank && pay) {
       html += '<div class="actions"><a class="btn yes" id="payNow" href="' + esc(pay) + '" target="_blank" rel="noopener">Pay now</a></div>' +
@@ -191,11 +380,8 @@
   /* ── asking again ────────────────────────────────────────────────── */
 
   /* `/signup/view` every 4 seconds for a minute, while the invoice is being
-     raised (or the worker has not yet seen a signature DocuSign reported).
-     Only ever the view: `/signup/complete` may read the envelope from
-     DocuSign, which allows few status reads, so the page sends it once per
-     signature (twice if the first never arrived). The cron pass finishes
-     the job either way. */
+     raised after the signature. The cron pass finishes the job either way,
+     and opening the link again shows wherever it has got to. */
   function poll() {
     var run = ++pollRun;
     var until = Date.now() + POLL_FOR_MS;
@@ -218,123 +404,6 @@
     }
     again();
   }
-
-  /* ── signing ─────────────────────────────────────────────────────── */
-
-  function loadScript(src) {
-    if (dsScript) return dsScript;
-    dsScript = new Promise(function (resolve, reject) {
-      var el = document.createElement('script');
-      el.src = src;
-      el.async = true;
-      el.onload = function () { if (window.DocuSign) resolve(window.DocuSign); else { dsScript = null; reject(new Error('no DocuSign')); } };
-      el.onerror = function () { dsScript = null; el.remove(); reject(new Error('script failed')); };
-      document.head.appendChild(el);
-    });
-    return dsScript;
-  }
-  function docusignFor(src, key) {
-    return loadScript(src).then(function (DS) {
-      if (!dsClients[key]) {
-        dsClients[key] = Promise.resolve(DS.loadDocuSign(key));
-        dsClients[key].catch(function () { delete dsClients[key]; });
-      }
-      return dsClients[key];
-    });
-  }
-
-  function backToReady(line, bad) {
-    sessionOpen = false;
-    session++;
-    renderReady(line, bad);
-  }
-
-  function startSigning() {
-    var btn = $('signBtn');
-    btn.disabled = true;
-    btn.textContent = 'Opening the agreement…';
-    var unavailable = 'The signing service is not answering just now. Try again in a few minutes, or email ' + helpLink + '.';
-    call('/signup/sign').then(function (o) {
-      if (o.d.error === 'link_invalid') { renderInvalid(); return; }
-      if (o.d.error === 'already_signed' && o.d.state) { show(o.d.state); return; }
-      var sg = o.r.ok && o.d.ok && o.d.signing;
-      if (!sg || !sg.url || !sg.integration_key || !DOCUSIGN_JS.test(sg.js_src || '')) { backToReady(unavailable, true); return; }
-      return docusignFor(sg.js_src, sg.integration_key).then(function (docusign) {
-        mount(docusign, sg.url);
-      }, function () {
-        backToReady('The signing panel did not load. Try again, or email ' + helpLink + '.', true);
-      });
-    }, function () {
-      backToReady('That did not reach us. Check your connection and try again.', true);
-    });
-  }
-
-  function mount(docusign, url) {
-    var my = ++session;
-    sessionOpen = true;
-    render('<h1>Review and sign.</h1>' +
-      '<p>Read both documents, then sign where DocuSign marks the place. When you finish, your invoice appears on this page.</p>' +
-      '<div class="agreement" id="agreement"><p class="wait" id="agreementWait">Loading the agreement…</p></div>', true);
-    try {
-      var signing = docusign.signing({
-        url: url,
-        displayFormat: 'focused',
-        style: {
-          branding: { primaryButton: { backgroundColor: '#005CC8', color: '#FFFFFF' } },
-          signingNavigationButton: { finishText: 'Finish signing', position: 'bottom-center' },
-        },
-      });
-      signing.on('ready', function () {
-        if (my === session && $('agreementWait')) $('agreementWait').remove();
-      });
-      signing.on('sessionEnd', function (e) { ended(my, e && e.type); });
-      signing.mount('#agreement');
-    } catch (e) {
-      backToReady('The signing panel did not load. Try again, or email ' + helpLink + '.', true);
-    }
-  }
-
-  /* The session is over: DocuSign said so (sessionEnd), or its return page
-     (done.html, loaded in the signing frame) told us. Whichever is first. */
-  function ended(my, type) {
-    if (my !== session || !sessionOpen) return;
-    sessionOpen = false;
-    if (type === 'signing_complete' || type === '') { finish(type === 'signing_complete'); return; }
-    if (type === 'session_timeout' || type === 'ttl_expired') {
-      backToReady('The signing session timed out, so nothing was signed. Press Review and sign the agreement to start again.');
-    } else if (type === 'decline') {
-      backToReady('You declined to sign, so nothing was signed. If something in the agreement needs changing, email ' + helpLink + '.');
-    } else {
-      backToReady('Nothing was signed. Review and sign the agreement whenever you are ready.');
-    }
-  }
-
-  /* `signed` is true when DocuSign reported signing_complete; false when
-     only the return page spoke and the worker's answer decides. */
-  function finish(signed, retried) {
-    session++;
-    if (!retried) render('<h1>One moment…</h1><p role="status">Recording your signature.</p>');
-    call('/signup/complete').then(function (o) {
-      if (o.d.error === 'link_invalid') { renderInvalid(); return; }
-      var s = o.r.ok && o.d.ok ? o.d.state : null;
-      if (s && s.status !== 'ready') { show(s); return; }
-      if (s && !signed) { state = s; renderReady('Nothing was signed. Review and sign the agreement whenever you are ready.'); return; }
-      renderSigned();
-      poll();
-    }, function () {
-      /* The report did not arrive: send it once more, then wait on the view. */
-      renderSigned();
-      if (!retried) setTimeout(function () { finish(signed, true); }, POLL_EVERY_MS);
-      else poll();
-    });
-  }
-
-  window.addEventListener('message', function (e) {
-    if (e.origin !== location.origin) return;
-    var d = e.data;
-    if (!d || d.source !== 'np-sign-done') return;
-    ended(session, typeof d.event === 'string' ? d.event : '');
-  });
 
   /* ── boot ────────────────────────────────────────────────────────── */
   if (!/^[0-9a-f]{64}$/.test(token)) { renderInvalid(); return; }
