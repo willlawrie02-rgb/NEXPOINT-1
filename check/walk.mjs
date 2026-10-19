@@ -1918,7 +1918,9 @@ async function walkSign() {
     });
     await step("the summary names the retainer, the recurring fee and the two documents", async () => {
       const t = await page.textContent("#signBody");
-      for (const part of ["£5,000 GBP", "six months of sales and marketing work", "6% of the revenue in the first year",
+      // The figure alone: "£5,000", never "£5,000 GBP" (final review, finding 8).
+      if (t.includes("£5,000 GBP")) throw new Error("the summary repeats the currency after the figure");
+      for (const part of ["£5,000 for six months", "six months of sales and marketing work", "6% of the revenue in the first year",
         "falling to 2% in the fifth", "nothing after", "Introduction Agreement", "Master Terms of Business", "NexPoint Global Ltd",
         "Finding UK clinics for your insoles", "United Kingdom", "Jo Bloggs"]) has(t, part, "the summary");
       return has(await page.textContent("#signBtn"), "Review and sign the agreement", "the button");
