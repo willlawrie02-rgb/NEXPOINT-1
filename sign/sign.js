@@ -143,7 +143,7 @@
 
   function renderInvalid() {
     pollRun++;
-    say('This link is no longer valid.', 'Sign-up links last 30 days and stop working once they are withdrawn or replaced. ' +
+    say('This link is no longer valid.', 'Agreement links last 30 days and stop working once they are withdrawn or replaced. ' +
       'Email ' + helpLink + ' and we will send you a fresh one.');
   }
   function renderFailed(offline) {
@@ -183,7 +183,6 @@
         '<p class="eyebrow">Your agreement</p>' +
         '<dl class="terms">' +
           (s.service ? '<dt>Service</dt><dd>' + esc(s.service) + '</dd>' : '') +
-          (s.territory ? '<dt>Territory</dt><dd>' + esc(s.territory) + '</dd>' : '') +
           '<dt>Retainer</dt><dd><strong>' + esc(fee.display) + '</strong> for six months of sales and marketing work, ' +
             'invoiced when you sign and due within 30 days.</dd>' +
           '<dt>Recurring fee</dt><dd>On the business that results: <strong>6% of the revenue in the first year</strong>, ' +

@@ -194,7 +194,7 @@ const SIGN_INVOICE_DEFAULT = "accounts@midlands3d.example";
 const signupState = (status, over = {}) => Object.assign({
   status, company: "Midlands 3D Printing & Co <Ltd>", signer_name: "Jo Bloggs",
   fee: { amount: 5000, currency: "GBP", display: "£5,000" },
-  service: "Finding UK clinics for your insoles", territory: "United Kingdom",
+  service: "Finding UK clinics for your insoles",
   signed_at: null, paid_at: null, invoice: null,
 }, status === "ready" ? { agreement: SIGN_AGREEMENT, invoice_email_default: SIGN_INVOICE_DEFAULT } : {}, over);
 const SIGN_BANK_GBP = { "Account name": "NexPoint Global Limited", "Sort code": "00-00-00", "Account number": "00000000" };
@@ -1960,7 +1960,9 @@ async function walkSign() {
       if (t.includes("£5,000 GBP")) throw new Error("the summary repeats the currency after the figure");
       for (const part of ["£5,000 for six months", "six months of sales and marketing work", "6% of the revenue in the first year",
         "falling to 2% in the fifth", "nothing after", "Introduction Agreement", "Master Terms of Business", "NexPoint Global Ltd",
-        "Finding UK clinics for your insoles", "United Kingdom"]) has(t, part, "the summary");
+        "Finding UK clinics for your insoles"]) has(t, part, "the summary");
+      // No territory (Will, 20 October 2026): the summary is the service, the retainer and the recurring fee.
+      eq(await page.locator("dl.terms dt").allTextContents(), ["Service", "Retainer", "Recurring fee"], "the summary's rows");
       return eq(await page.textContent("#readBtn"), "Hide the agreement", "the reading button");
     });
     await step("the page loads nothing from DocuSign", async () => eq(await page.evaluate(() => !!window.DocuSign), false, "window.DocuSign"));
@@ -2232,6 +2234,28 @@ async function walkSign() {
       return eq(apiCalls(world, "POST /signup/view").length, looks, "looks sent");
     });
     clean(world, errors, "the sign-up page, paid and bad links");
+    await context.close();
+  }
+  {
+    /* An older worker, or a link made before 20 October 2026, may still send a
+       territory: the page never shows one, and says "agreement link", never "sign-up". */
+    const world = newWorld({ signup: { token: SIGN_TOKEN, state: signupState("ready", { territory: "United Kingdom and Ireland" }) } });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
+    await step("a territory in the answer is never shown", async () => {
+      await page.waitForSelector("#signBtn");
+      const t = await page.textContent("#signBody > .panel dl.terms");
+      if (/territory/i.test(t) || t.includes("United Kingdom and Ireland")) throw new Error(`the summary shows a territory: ${t.slice(0, 160)}`);
+      return eq(await page.locator("dl.terms dt").allTextContents(), ["Service", "Retainer", "Recurring fee"], "the summary's rows");
+    });
+    await page.goto(`${APEX}/sign/?t=${"f".repeat(64)}`);
+    await step("the expired message says agreement links, not sign-up links", async () => {
+      await page.waitForFunction(() => /no longer valid/.test(document.body.textContent));
+      const t = await page.textContent("body");
+      if (/sign-up/i.test(t)) throw new Error("the page still says sign-up");
+      return has(await page.textContent("#signBody"), "Agreement links last 30 days", "the expired message");
+    });
+    clean(world, errors, "the sign-up page, no territory");
     await context.close();
   }
 }
