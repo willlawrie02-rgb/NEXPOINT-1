@@ -188,12 +188,15 @@ const SIGN_RENDERED = {
   divided: [false, true],
   pending: 3,
 };
+/* Where the invoice goes unless the signer says otherwise: the accounts
+   address NexPoint put on the link, or the signer's own (spec section 2b). */
+const SIGN_INVOICE_DEFAULT = "accounts@midlands3d.example";
 const signupState = (status, over = {}) => Object.assign({
   status, company: "Midlands 3D Printing & Co <Ltd>", signer_name: "Jo Bloggs",
   fee: { amount: 5000, currency: "GBP", display: "£5,000" },
   service: "Finding UK clinics for your insoles", territory: "United Kingdom",
   signed_at: null, paid_at: null, invoice: null,
-}, status === "ready" ? { agreement: SIGN_AGREEMENT } : {}, over);
+}, status === "ready" ? { agreement: SIGN_AGREEMENT, invoice_email_default: SIGN_INVOICE_DEFAULT } : {}, over);
 const SIGN_BANK_GBP = { "Account name": "NexPoint Global Limited", "Sort code": "00-00-00", "Account number": "00000000" };
 const signupInvoice = (over = {}) => Object.assign({ number: "INV-1011", amount_display: "£5,000", due_date: "2026-11-18",
   pay_url: "https://in.xero.com/walk-invoice", pay_by_bank: true, bank: SIGN_BANK_GBP }, over);
@@ -255,7 +258,13 @@ const API = {
     if (!name) return [422, { error: "signer_name required" }];
     if (!position) return [422, { error: "signer_position required" }];
     if (b.agree !== true) return [422, { error: "agreement not accepted" }];
-    s.state = signupState("signed", { signed_at: "2026-10-19T10:00:00Z", signed_name: name, signed_position: position });
+    const invoiceEmail = String(b.invoice_email || "").trim().toLowerCase();
+    if (!invoiceEmail) return [422, { error: "invoice_email required" }];
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invoiceEmail)) return [422, { error: "invalid invoice_email" }];
+    const po = String(b.purchase_order || "").trim();
+    if (po.length > 50) return [422, { error: "purchase_order too long" }];
+    s.state = signupState("signed", { signed_at: "2026-10-19T10:00:00Z", signed_name: name, signed_position: position,
+      invoice_email: invoiceEmail, purchase_order: po || null });
     return [200, { ok: true, state: s.state }];
   },
 };
@@ -1929,13 +1938,13 @@ const signReady = async (page, position = "Director") => {
   await page.check("#agree");
 };
 const SIGN_SENT = (over = {}) => Object.assign({ token: SIGN_TOKEN, signer_name: "Jo Bloggs", signer_position: "Director",
-  agree: true, agreement_hash: "a".repeat(64) }, over);
+  invoice_email: SIGN_INVOICE_DEFAULT, purchase_order: "", agree: true, agreement_hash: "a".repeat(64) }, over);
 async function walkSign() {
   area = "The consultancy sign-up page (sign/)";
   {
     const world = newWorld({ signup: { token: SIGN_TOKEN, state: signupState("ready"),
       raised: signupState("invoiced", { signed_at: "2026-10-19T10:00:00Z", signed_name: "Jo Bloggs", signed_position: "Director",
-        invoice: signupInvoice() }) } });
+        invoice_email: "finance@midlands3d.example", purchase_order: "PO-4471", invoice: signupInvoice() }) } });
     const { context, page, errors } = await visit(world);
     await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
     await step("the link opens on Welcome, with the company's name exactly as written", async () => {
@@ -1943,6 +1952,8 @@ async function walkSign() {
       eq(apiCalls(world, "POST /signup/view").map((c) => c.body), [{ token: SIGN_TOKEN }], "the looks sent");
       return has(await page.textContent("h1"), "Welcome, Midlands 3D Printing & Co <Ltd>", "the heading");
     });
+    await step("the welcome says this is the agreement that goes with the proposal", async () =>
+      has(await page.textContent("#signBody > p"), "the agreement that goes with the proposal we sent you", "the welcome line"));
     await step("the summary names the retainer, the recurring fee and the two documents", async () => {
       const t = await page.textContent("#signBody");
       // The figure alone: "£5,000", never "£5,000 GBP" (final review, finding 8).
@@ -2000,6 +2011,20 @@ async function walkSign() {
       has(await page.textContent("#agreeLabel"), "I have read the Introduction Agreement and the Master Terms of Business and agree to them on behalf of Midlands 3D Printing & Co <Ltd>", "the tick");
       return eq(await page.textContent("#signBtn"), "Sign the agreement", "the button");
     });
+    await step("under the name and position: where the invoice goes, filled in, and an optional purchase order number", async () => {
+      eq(await page.textContent("label[for=invoiceEmail]"), "Where should we send the invoice?", "the invoice email's label");
+      eq([await page.getAttribute("#invoiceEmail", "type"), await page.getAttribute("#invoiceEmail", "required"), await page.inputValue("#invoiceEmail")],
+        ["email", "", SIGN_INVOICE_DEFAULT], "the invoice email");
+      eq(await page.textContent("#invoiceHelp"), "Xero sends the invoice and any reminders here.", "the help text");
+      eq(await page.getAttribute("#invoiceEmail", "aria-describedby"), "invoiceHelp", "the help text's link");
+      eq(await page.textContent("label[for=purchaseOrder]"), "Purchase order number (optional)", "the purchase order's label");
+      eq([await page.getAttribute("#purchaseOrder", "maxlength"), await page.inputValue("#purchaseOrder")], ["50", ""], "the purchase order");
+      return eq(await page.evaluate(() => {
+        const at = (id) => document.getElementById(id);
+        const after = (a, b) => !!(at(a).compareDocumentPosition(at(b)) & Node.DOCUMENT_POSITION_FOLLOWING);
+        return [after("signerPosition", "invoiceEmail"), after("invoiceEmail", "purchaseOrder"), after("purchaseOrder", "agree")];
+      }), [true, true, true], "the order: position, invoice email, purchase order, the tick");
+    });
     await step("Sign the agreement waits for a name, a position and the tick", async () => {
       const off = async () => page.isDisabled("#signBtn");
       const seen = [await off()];
@@ -2011,19 +2036,31 @@ async function walkSign() {
       await page.fill("#signerPosition", "Director"); seen.push(await off());
       await page.uncheck("#agree"); seen.push(await off());
       await page.check("#agree"); seen.push(await off());
-      return eq(seen, [true, true, false, true, false, true, false, true, false], "disabled after each change");
+      await page.fill("#invoiceEmail", "  "); seen.push(await off());
+      await page.fill("#invoiceEmail", SIGN_INVOICE_DEFAULT); seen.push(await off());
+      await page.fill("#purchaseOrder", ""); seen.push(await off());
+      return eq(seen, [true, true, false, true, false, true, false, true, false, true, false, false], "disabled after each change");
     });
-    await step("signing sends the name, the position, the tick and the hash of the text read, once for two presses", async () => {
+    await step("signing sends the name, the position, the invoice email, the purchase order, the tick and the hash, once for two presses", async () => {
+      await page.fill("#invoiceEmail", "  Finance@Midlands3D.example ");
+      await page.fill("#purchaseOrder", "  PO-4471 ");
       await page.evaluate(() => { const b = document.getElementById("signBtn"); b.click(); b.click(); });
       await page.waitForFunction(() => /Your invoice is on its way/.test(document.body.textContent));
-      return eq(apiCalls(world, "POST /signup/accept").map((c) => c.body), [SIGN_SENT()], "acceptances sent");
+      return eq(apiCalls(world, "POST /signup/accept").map((c) => c.body),
+        [SIGN_SENT({ invoice_email: "Finance@Midlands3D.example", purchase_order: "PO-4471" })], "acceptances sent");
+    });
+    await step("the signed page says where the invoice goes, with the purchase order", async () => {
+      const t = await page.textContent("#invoiceTo");
+      has(t, "Invoice to finance@midlands3d.example", "the signed page");
+      return has(t, "purchase order PO-4471", "the signed page");
     });
     await step("the page asks again until the invoice is raised, then leads with Pay now", async () => {
       await page.waitForSelector("#payNow", { timeout: 9000 });
       eq(await page.textContent("#payNow"), "Pay now", "the main button");
       eq([await page.getAttribute("#payNow", "href"), await page.getAttribute("#payNow", "target")], ["https://in.xero.com/walk-invoice", "_blank"], "where Pay now goes");
       const t = await page.textContent("#signBody");
-      for (const part of ["Agreement signed", "Signed by Jo Bloggs, Director", "INV-1011", "£5,000", "18 November 2026", "inbox"]) has(t, part, "the invoiced page");
+      for (const part of ["Agreement signed", "Signed by Jo Bloggs, Director", "INV-1011", "£5,000", "18 November 2026", "inbox",
+        "Invoice to finance@midlands3d.example", "purchase order PO-4471"]) has(t, part, "the invoiced page");
       eq(await page.locator("#bank dt").allTextContents(), ["Account name", "Sort code", "Account number"], "the bank details");
       return eq(await page.evaluate(() => !!(document.getElementById("payNow").compareDocumentPosition(document.getElementById("bank")) & Node.DOCUMENT_POSITION_FOLLOWING)),
         true, "the bank details sit below Pay now");
@@ -2073,6 +2110,10 @@ async function walkSign() {
       ["agreement not accepted", "Tick the box to confirm you have read the agreement and agree to it."],
       ["signer_name has formatting characters", "Take the ** and any line breaks out of your name, then sign again."],
       ["signer_position has formatting characters", "Take the ** and any line breaks out of your position, then sign again."],
+      ["invoice_email required", "Enter the email address for the invoice."],
+      ["invalid invoice_email", "That invoice email address does not look right."],
+      ["purchase_order too long", "Keep the purchase order number to 50 characters."],
+      ["purchase_order has formatting characters", "Take ** and line breaks out of the purchase order number."],
       ["something new", "That did not go through. Try again in a moment, or email hello@nexpoint.co.uk."],
     ];
     let n = 0;
@@ -2088,7 +2129,8 @@ async function walkSign() {
         await until(() => n === before + 1, "the acceptance");
         await page.waitForFunction((l) => document.getElementById("signMsg").textContent === l, line);
         eq(await page.getAttribute("#signMsg", "class"), "msg bad", "the line's class");
-        return eq([await page.isEnabled("#signBtn"), await page.inputValue("#signerPosition")], [true, "Director"], "the button and the form");
+        return eq([await page.isEnabled("#signBtn"), await page.inputValue("#signerPosition"), await page.inputValue("#invoiceEmail")],
+          [true, "Director", SIGN_INVOICE_DEFAULT], "the button and the form");
       });
     }
     clean(world, errors, "the sign-up page, refusals");
@@ -2129,12 +2171,16 @@ async function walkSign() {
     await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
     await page.waitForSelector("#signBtn");
     world.signup.state = signupState("invoiced", { signed_at: "2026-10-19T10:00:00Z", signed_name: "Jo Bloggs", signed_position: "Director",
-      invoice: signupInvoice() });
+      invoice_email: SIGN_INVOICE_DEFAULT, purchase_order: null, invoice: signupInvoice() });
     await step("a link already signed in another tab goes straight to its invoice", async () => {
       await signReady(page);
       await page.click("#signBtn");
       await page.waitForSelector("#payNow");
       return has(await page.textContent("#signBody"), "Agreement signed", "the page");
+    });
+    await step("with no purchase order, the invoiced page says only where the invoice goes", async () => {
+      eq(await page.textContent("#invoiceTo"), `Invoice to ${SIGN_INVOICE_DEFAULT}.`, "the line");
+      return eq(/purchase order/i.test(await page.textContent("#signBody")), false, "a purchase order on the page");
     });
     clean(world, errors, "the sign-up page, two tabs");
     await context.close();

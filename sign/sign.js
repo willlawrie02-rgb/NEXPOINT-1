@@ -1,15 +1,17 @@
 /* The consultancy sign-up page (spec 2026-10-19, sections 2a and 8). A client
    who has said yes on a call gets a private link (/sign/?t=<token>), reads
    the Introduction Agreement and the Master Terms of Business on this page,
-   signs them here by typing the signer's name and position and ticking that
-   they agree, and is then looking at the Xero invoice for the retainer with
+   signs them here by typing the signer's name and position, saying where the
+   invoice should go (and a purchase order number, if they use them) and
+   ticking that they agree, and is then looking at the Xero invoice for the retainer with
    a way to pay it. There is no DocuSign (Will, 19 October 2026).
 
    The worker answers two routes, each with the same `state`:
      POST /signup/view    what the link stands at now; while it is ready,
                           `state.agreement` is the text to sign and its hash
-     POST /signup/accept  the signature: name, position, the tick and the
-                          hash of the text this page showed. The worker
+     POST /signup/accept  the signature: name, position, the invoice email,
+                          the purchase order (may be empty), the tick and
+                          the hash of the text this page showed. The worker
                           refuses (agreement_changed) if the text has changed
                           since, so nobody signs a version they were not shown.
    Any bad, expired, withdrawn or unknown link answers one way (link_invalid)
@@ -175,7 +177,8 @@
     var company = companyName(s);
     render(
       '<h1>Welcome, ' + esc(company) + '.</h1>' +
-      '<p>Thank you for choosing NexPoint. Here is the agreement in brief. Read it in full below, then sign it on this page.</p>' +
+      '<p>Thank you for choosing NexPoint. Here, in brief, is the agreement that goes with the proposal we sent you. ' +
+        'Read it in full below, then sign it on this page.</p>' +
       '<div class="panel">' +
         '<p class="eyebrow">Your agreement</p>' +
         '<dl class="terms">' +
@@ -197,6 +200,11 @@
           '<input type="text" id="signerName" autocomplete="name" maxlength="200" spellcheck="false"></div>' +
         '<div class="field"><label for="signerPosition">Position</label>' +
           '<input type="text" id="signerPosition" autocomplete="organization-title" maxlength="200"></div>' +
+        '<div class="field"><label for="invoiceEmail">Where should we send the invoice?</label>' +
+          '<input type="email" id="invoiceEmail" autocomplete="email" maxlength="200" spellcheck="false" required aria-describedby="invoiceHelp">' +
+          '<p class="hint" id="invoiceHelp">Xero sends the invoice and any reminders here.</p></div>' +
+        '<div class="field"><label for="purchaseOrder">Purchase order number (optional)</label>' +
+          '<input type="text" id="purchaseOrder" maxlength="50" spellcheck="false"></div>' +
         '<label class="tick"><input type="checkbox" id="agree"><span id="agreeLabel">I have read the Introduction Agreement and the ' +
           'Master Terms of Business and agree to them on behalf of ' + esc(company) + '.</span></label>' +
         '<p class="msg" id="signMsg" role="status"></p>' +
@@ -218,7 +226,8 @@
       this.textContent = open ? 'Hide the agreement' : 'Read the agreement';
     });
     $('signerName').value = s.signer_name || '';
-    ['signerName', 'signerPosition'].forEach(function (id) { $(id).addEventListener('input', update); });
+    $('invoiceEmail').value = s.invoice_email_default || '';
+    ['signerName', 'signerPosition', 'invoiceEmail', 'purchaseOrder'].forEach(function (id) { $(id).addEventListener('input', update); });
     $('agree').addEventListener('change', update);
     $('signForm').addEventListener('submit', sign);
     update();
@@ -231,14 +240,15 @@
     m.innerHTML = html;
   }
   function filled() {
-    return hasAgreement(state) && !!$('signerName').value.trim() && !!$('signerPosition').value.trim() && $('agree').checked;
+    return hasAgreement(state) && !!$('signerName').value.trim() && !!$('signerPosition').value.trim() &&
+      !!$('invoiceEmail').value.trim() && $('agree').checked;
   }
   function update() {
     var btn = $('signBtn');
     if (btn) btn.disabled = sending || !filled();
   }
   function lock(on) {
-    ['signerName', 'signerPosition', 'agree'].forEach(function (id) { $(id).disabled = on; });
+    ['signerName', 'signerPosition', 'invoiceEmail', 'purchaseOrder', 'agree'].forEach(function (id) { $(id).disabled = on; });
   }
 
   /* What the worker refuses, in plain words. Each is a fixed sentence. */
@@ -250,6 +260,10 @@
     'agreement not accepted': 'Tick the box to confirm you have read the agreement and agree to it.',
     'signer_name has formatting characters': 'Take the ** and any line breaks out of your name, then sign again.',
     'signer_position has formatting characters': 'Take the ** and any line breaks out of your position, then sign again.',
+    'invoice_email required': 'Enter the email address for the invoice.',
+    'invalid invoice_email': 'That invoice email address does not look right.',
+    'purchase_order too long': 'Keep the purchase order number to 50 characters.',
+    'purchase_order has formatting characters': 'Take ** and line breaks out of the purchase order number.',
   };
 
   function sign(e) {
@@ -263,6 +277,8 @@
     call('/signup/accept', {
       signer_name: $('signerName').value.trim(),
       signer_position: $('signerPosition').value.trim(),
+      invoice_email: $('invoiceEmail').value.trim(),
+      purchase_order: $('purchaseOrder').value.trim(),
       agree: true,
       agreement_hash: state.agreement.hash,
     }).then(function (o) {
@@ -300,8 +316,15 @@
       (when ? ', on ' + esc(when) : '') + '.</p>';
   }
 
+  /* Where the invoice goes, as the signer gave it, and their purchase order. */
+  function invoiceTo(s) {
+    if (!s.invoice_email) return '';
+    return '<p class="note" id="invoiceTo">Invoice to ' + esc(s.invoice_email) +
+      (s.purchase_order ? ', purchase order ' + esc(s.purchase_order) : '') + '.</p>';
+  }
+
   function renderSigned(line) {
-    render('<h1>Agreement signed.</h1>' + signedBy(state || {}) + '<p id="pendingLine" role="status">' +
+    render('<h1>Agreement signed.</h1>' + signedBy(state || {}) + invoiceTo(state || {}) + '<p id="pendingLine" role="status">' +
       (line || 'Your invoice is on its way. It appears here in a moment.') + '</p>');
   }
 
@@ -332,7 +355,7 @@
     var ref = '<p class="note">Use <strong>' + esc(inv.number) + '</strong> as the payment reference.</p>';
     var html = '<h1>Agreement signed.</h1>' +
       '<p>Thank you. Here is the invoice for your retainer. A copy of the signed agreement and the invoice are on their way to your inbox.</p>' +
-      signedBy(s) +
+      signedBy(s) + invoiceTo(s) +
       '<div class="panel"><p class="eyebrow">Your invoice</p>' + invoiceRows(s, inv);
     if (inv.pay_by_bank && pay) {
       html += '<div class="actions"><a class="btn yes" id="payNow" href="' + esc(pay) + '" target="_blank" rel="noopener">Pay now</a></div>' +

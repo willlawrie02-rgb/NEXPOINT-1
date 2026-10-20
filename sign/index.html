@@ -31,6 +31,7 @@
   .terms dd{font:400 15px/1.55 'Inter',sans-serif;color:var(--body);overflow-wrap:anywhere}
   .terms dd strong{color:var(--ink);font-weight:600}
   .note{font-size:14px;margin-top:18px}
+  #signedBy+#invoiceTo{margin-top:4px}
   .actions{display:flex;gap:12px;align-items:center;margin-top:22px;flex-wrap:wrap}
   button,.btn{font:600 14px/1 'Inter',sans-serif;padding:13px 22px;border-radius:4px;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;
               transition:background-color .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s cubic-bezier(.2,.8,.2,1)}
@@ -66,9 +67,10 @@
   /* The signing form. */
   .field{margin-top:16px}
   label{display:block;font:600 12px/1 'Inter',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
-  input[type=text]{width:100%;background:#fff;border:1px solid rgba(14,22,38,.18);border-radius:4px;color:var(--ink);
+  input:is([type=text],[type=email]){width:100%;background:#fff;border:1px solid rgba(14,22,38,.18);border-radius:4px;color:var(--ink);
         font:400 15px/1.4 'Inter',sans-serif;padding:12px 14px;outline:none}
-  input[type=text]:focus{border-color:var(--blue)}
+  input:is([type=text],[type=email]):focus{border-color:var(--blue)}
+  .hint{font-size:13px;margin-top:6px}
   input[disabled]{background:var(--canvas);color:var(--muted)}
   .tick{display:flex;gap:10px;align-items:flex-start;margin-top:18px;font:400 14px/1.5 'Inter',sans-serif;letter-spacing:0;text-transform:none;color:var(--ink);cursor:pointer}
   .tick input{width:17px;height:17px;margin-top:2px;flex-shrink:0;accent-color:var(--blue)}
