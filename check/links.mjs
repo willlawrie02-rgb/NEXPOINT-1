@@ -4,8 +4,12 @@
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, resolve, sep } from "node:path";
 
-const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
-const SKIP = new Set([".git", ".worktrees", "node_modules", ".claude", ".superpowers", ".impeccable"]);
+// LINKS_ROOT checks another folder instead, such as the built dist/
+// (`npm run check:dist`, plan 053): nothing a page links to is lost in the build.
+const ROOT = process.env.LINKS_ROOT
+  ? resolve(process.env.LINKS_ROOT)
+  : resolve(dirname(new URL(import.meta.url).pathname), "..");
+const SKIP = new Set([".git", ".worktrees", "node_modules", ".claude", ".superpowers", ".impeccable", "dist"]);
 
 function* htmlFiles(dir) {
   for (const name of readdirSync(dir)) {
