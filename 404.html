@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Page not found · NexPoint</title>
+<!-- The site's 404 (plan 053). It is answered at any address, on the apex and
+     on every hub subdomain, so it carries its own styles and uses absolute
+     links only: a relative path would break one folder down. -->
+<link rel="icon" href="https://nexpoint.co.uk/assets/nexpoint-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--canvas:#F5F7FA;--ink:#0E1626;--body:#2C3444;--muted:#5A6474;--blue:#005CC8;--blue-hover:#0066DC;--blue-pressed:#004FAA;--green:#8BC53F;--border:#E3E7ED}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--canvas);color:var(--body);font:400 16px/1.6 'Inter',system-ui,sans-serif;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{max-width:480px;width:100%;text-align:center}
+  .mark img{height:64px;width:64px;display:block;margin:0 auto}
+  .rule{width:44px;height:3px;background:var(--green);border-radius:9999px;margin:22px auto}
+  .eyebrow{font:600 12px/1 'Inter',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin-bottom:14px}
+  h1{font:700 clamp(24px,4.4vw,32px)/1.2 'Montserrat',sans-serif;letter-spacing:-.02em;color:var(--ink);margin:0 0 14px}
+  p{color:var(--muted)}
+  .actions{display:flex;gap:12px;justify-content:center;margin-top:28px;flex-wrap:wrap}
+  .btn{font:600 14px/1 'Inter',sans-serif;padding:13px 22px;border-radius:4px;display:inline-flex;align-items:center;text-decoration:none;
+       transition:background-color .2s cubic-bezier(.2,.8,.2,1),transform .15s cubic-bezier(.2,.8,.2,1)}
+  .btn:active{transform:scale(.97)}
+  .yes{background:var(--blue);color:#fff;border:1px solid var(--blue)}
+  .yes:hover{background:var(--blue-hover)}
+  .yes:active{background:var(--blue-pressed)}
+  .quiet{background:transparent;color:var(--blue);border:1px solid var(--blue)}
+  .quiet:hover{background:rgba(0,92,200,.08)}
+  a:focus-visible{outline:2px solid #3D8EEB;outline-offset:3px}
+  .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
+  .foot a{color:var(--blue)}
+  @media (prefers-reduced-motion:reduce){.btn{transition:none}.btn:active{transform:none}}
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="mark"><img src="https://nexpoint.co.uk/assets/nexpoint-logo.png" alt="NexPoint" width="64" height="64"></div>
+    <div class="rule"></div>
+    <p class="eyebrow">Error 404</p>
+    <h1>We cannot find that page.</h1>
+    <p>The address may be mistyped, or the page may have moved. Pick up from the home page or the NexPoint Global Portal.</p>
+    <div class="actions">
+      <a class="btn yes" href="https://nexpoint.co.uk/">Go to the home page</a>
+      <a class="btn quiet" href="https://nexpoint.co.uk/hub/">Enter the Global Portal</a>
+    </div>
+    <div class="foot">NexPoint, the commercial bridge for Orthotics &amp; Prosthetics worldwide.<br>
+      Still lost? Email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</div>
+  </main>
+</body>
+</html>
