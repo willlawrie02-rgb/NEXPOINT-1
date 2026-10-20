@@ -399,6 +399,7 @@ a.btn { text-decoration: none; }
 .stg-on            { background: var(--ok-wash);   color: var(--ok-ink); }
 .stg-paused        { background: var(--err-wash);  color: var(--err-ink); }
 .stg-removed       { background: var(--cold-wash); color: var(--cold-ink); }
+.stg-deleted       { background: var(--cold-wash); color: var(--cold-ink); }
 .when { color: var(--fg-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* The introductions register — same table voice as the Health jobs table. */
