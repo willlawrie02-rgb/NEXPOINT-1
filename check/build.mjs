@@ -16,8 +16,10 @@ import { dirname, join, relative, resolve } from "node:path";
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const OUT = join(ROOT, "dist");
 const DENY_DIRS = [".github/", "check/"];
+// vercel.json points the Vercel PR previews at dist/ too, now that the repo
+// has a build (a build without it makes Vercel look for public/ and fail).
 const DENY = new Set(["package.json", "package-lock.json", "CLAUDE.md", ".htmlvalidate.json",
-  ".gitignore", ".nojekyll", "CNAME"]);
+  ".gitignore", ".nojekyll", "CNAME", "vercel.json"]);
 // Cloudflare Pages' limits are 25 MiB a file and 20,000 files a deploy.
 const MAX_BYTES = 25 * 1024 * 1024;
 const MAX_FILES = 19000;
