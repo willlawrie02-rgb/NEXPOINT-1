@@ -1962,7 +1962,7 @@ async function walkSign() {
         "falling to 2% in the fifth", "nothing after", "Introduction Agreement", "Master Terms of Business", "NexPoint Global Ltd",
         "Finding UK clinics for your insoles"]) has(t, part, "the summary");
       // No territory (Will, 20 October 2026): the summary is the service, the retainer and the recurring fee.
-      eq(await page.locator("dl.terms dt").allTextContents(), ["Service", "Retainer", "Recurring fee"], "the summary's rows");
+      eq(await page.locator("dl.terms dt").allTextContents(), ["Purpose", "Retainer", "Recurring fee"], "the summary's rows");
       return eq(await page.textContent("#readBtn"), "Hide the agreement", "the reading button");
     });
     await step("the page loads nothing from DocuSign", async () => eq(await page.evaluate(() => !!window.DocuSign), false, "window.DocuSign"));
@@ -2246,7 +2246,7 @@ async function walkSign() {
       await page.waitForSelector("#signBtn");
       const t = await page.textContent("#signBody > .panel dl.terms");
       if (/territory/i.test(t) || t.includes("United Kingdom and Ireland")) throw new Error(`the summary shows a territory: ${t.slice(0, 160)}`);
-      return eq(await page.locator("dl.terms dt").allTextContents(), ["Service", "Retainer", "Recurring fee"], "the summary's rows");
+      return eq(await page.locator("dl.terms dt").allTextContents(), ["Purpose", "Retainer", "Recurring fee"], "the summary's rows");
     });
     await page.goto(`${APEX}/sign/?t=${"f".repeat(64)}`);
     await step("the expired message says agreement links, not sign-up links", async () => {

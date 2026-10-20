@@ -1,4 +1,4 @@
-/* The consultancy sign-up page (spec 2026-10-19, sections 2a and 8). A client
+/* The consultancy agreement page (spec 2026-10-19, sections 2a and 8). A client
    who has said yes on a call gets a private link (/sign/?t=<token>), reads
    the Introduction Agreement and the Master Terms of Business on this page,
    signs them here by typing the signer's name and position, saying where the
@@ -182,7 +182,7 @@
       '<div class="panel">' +
         '<p class="eyebrow">Your agreement</p>' +
         '<dl class="terms">' +
-          (s.service ? '<dt>Service</dt><dd>' + esc(s.service) + '</dd>' : '') +
+          (s.service ? '<dt>Purpose</dt><dd>' + esc(s.service) + '</dd>' : '') +
           '<dt>Retainer</dt><dd><strong>' + esc(fee.display) + '</strong> for six months of sales and marketing work, ' +
             'invoiced when you sign and due within 30 days.</dd>' +
           '<dt>Recurring fee</dt><dd>On the business that results: <strong>6% of the revenue in the first year</strong>, ' +
