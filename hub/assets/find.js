@@ -474,11 +474,23 @@
     if (err) { err.style.display = 'none'; err.textContent = ''; }
   }
 
-  /* The gate's button: the tick, then the search with the version ticked. */
+  /* The gate's button: the tick, then the search with the version ticked.
+     The ask is read off the form again here: the form stays open above the
+     gate, and a correction made while the terms were being read must be
+     what the search runs on (and what the pick then files, since the
+     request goes straight to the site). A fresh ask is a fresh object, so
+     the request that follows carries its own client key. */
   async function onSearchAccept() {
     if (searching) return;
     clearSearchTermsError();
-    if (!spec) { showSearchTermsError('Tell us what you need first.'); return; }
+    const built = buildSpec();
+    if (built.error) {
+      hide('stepTerms');
+      showFindError(built.error, built.focus);
+      return;
+    }
+    spec = built.spec;
+    searchId = null;
     if (!searchTerms || !searchTerms.id) {
       showSearchTermsError('We could not load the introduction terms. Refresh and try again.');
       return;

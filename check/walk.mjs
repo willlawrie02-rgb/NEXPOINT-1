@@ -1118,16 +1118,19 @@ async function walkFindMap() {
     eq(apiCalls(world, "GET /terms/current").length >= 1, true, "the introduction terms were fetched");
     await page.click("#searchAccept");
     has(await page.textContent("#searchTermsErr"), "Read the introduction terms and tick to accept them.", "refused until ticked");
+    /* The ask can still be corrected while the gate is open: the search must
+       run on what the form says at Accept, not on what it said at Find. */
+    await page.fill("#fQuantity", "250");
     return eq(apiCalls(world, "POST /listings/search").length, 0, "still no search");
   });
-  await step("the tick and Accept post the search with the terms version and the ask, and show the three by name", async () => {
+  await step("the tick and Accept post the search with the terms version and the ask as the form now says it, and show the three by name", async () => {
     await page.check("#searchTick");
     await page.click("#searchAccept");
     await page.waitForSelector("#step2:not([hidden]) #capGrid .cap");
     eq(await page.locator("#stepTerms:not([hidden])").count(), 0, "the gate closes");
     const body = apiCalls(world, "POST /listings/search")[0].body;
     eq([body.hub, body.town, body.country, body.max_lead_time_days, body.quantity, body.terms_version_id],
-      ["print", "Leeds", "United Kingdom", 10, 200, 12], "the search's hub, town, country, lead time, quantity and terms version");
+      ["print", "Leeds", "United Kingdom", 10, 250, 12], "the search's hub, town, country, lead time, the corrected quantity and terms version");
     eq(body.material, "pa12_nylon12", "the first material is `material`, as the vocabulary names it");
     eq(Array.isArray(body.materials) && body.materials[0], "pa12_nylon12", "`materials` carries the list");
     eq(await page.locator("#capGrid .cap").count(), 3, "cards");
