@@ -209,7 +209,7 @@
     };
     const labels = { address_line: 'Address', town: 'Town', postcode: 'Postcode', country: 'Country', ships_to: 'Ships to',
       services: 'Services', quality_notes: 'Quality systems', materials: 'Materials', notes: 'Notes', count: 'How many',
-      lead_time_days: 'Lead time', 'attr:monthly_capacity': 'Monthly capacity', 'attr:min_order': 'Minimum order', 'attr:process': 'Process' };
+      lead_time_days: 'Lead time', 'attr:monthly_capacity': 'Capacity', 'attr:min_order': 'Minimum order', 'attr:process': 'Process' };
     if (c.field === 'machine_added') return { label: 'New ' + noun, before: 'none', after: (c.after && c.after.name) || c.machine || '', unit: '' };
     if (c.field === 'machine_removed') return { label: cap(noun) + ' removed', before: c.machine || '', after: 'none', unit: '' };
     const label = labels[c.field] || (c.field.indexOf('attr:') === 0 ? attrLabel(c.machine ? 'machine' : 'listing', c.field.slice(5)) : c.field);
@@ -243,9 +243,9 @@
         ? '<div class="lsec"><div class="lsec__h">Live now</div>' + changeList(liveNow) +
           '<p>These needed no review and are already on the hub.</p></div>' : '') +
       (waiting.length
-        ? '<div class="lsec"><div class="lsec__h">Waiting for review</div>' + changeList(waiting) +
+        ? '<div class="lsec"><div class="lsec__h">Waiting for review</div>' + changeTable(waiting) +
           '<p>We check these personally. Your listing stays as it was until we approve them, and we will email you when we have.' +
-          (mixed ? ' A change we review holds the other changes saved with it, so the whole save waits.' : '') + '</p></div>'
+          (mixed ? ' A change we review holds the other changes saved with it, so the whole update waits.' : '') + '</p></div>'
         : '<p>Everything you changed is live.</p>') +
       '<div class="modal-actions" style="justify-content:center">' +
       '<a class="btn btn-outline" href="' + ACCOUNT_URL + '">Go to your account</a></div></div>';
@@ -429,9 +429,10 @@
         '<a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
     }
     if (m && m.billed) {
-      const period = words(m.period);
+      const has = m.period === 'monthly' ? 'a monthly membership, 100 a month'
+        : m.period === 'annual' ? 'a yearly membership, 1,000 a year' : 'its membership';
       return '<div class="lsec__h">Your membership</div>' +
-        '<p class="body">Your site already has its membership' + (period ? ', ' + esc(period) : '') + '. One membership covers both the ' +
+        '<p class="body">Your site already has ' + esc(has) + '. One membership covers both the ' +
         '3D Print Hub and the Mill Hub, so there is nothing more to choose.</p>';
     }
     const chosen = (d && d.prefill && d.prefill.billing_period) || '';
@@ -578,9 +579,9 @@
       (u.email ? ' (' + esc(u.email) + ')' : '') + '. ' +
       (editing
         /* D6 (plan 068; Host Agreement 1.3 §2), with P1: a mixed save waits in full. */
-        ? 'Your listing is live. A change to your capacity, a lead time or how many of a machine you have ' +
-          'goes live when you save it. Anything else is reviewed first, and your listing stays as it is meanwhile. ' +
-          'Save the two kinds together and the whole save waits for review.'
+        ? 'Your listing is live. A change to your capacity, a lead time or how many you have of a machine already ' +
+          'on your listing goes live when you save it. Anything else is reviewed first, and your listing stays as it is ' +
+          'meanwhile. If you change both kinds at once, the whole update waits for review.'
         : 'NexPoint checks every listing personally; nothing appears until we have approved it.') +
       '</p>' +
       '<form id="listingForm" novalidate>' +

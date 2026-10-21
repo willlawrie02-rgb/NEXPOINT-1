@@ -1397,12 +1397,12 @@ async function walkOfferCommit() {
       await page.click("#listingSubmit");
       await until(() => posted(world).length > 0, "the POST");
       eq(posted(world)[0].body.machines.length, 2, "two machines sent");
-      await page.waitForSelector("#hostAppBody .success");
+      await page.waitForSelector("#hostAppBody .success .ldiff");
       const text = await page.textContent("#hostAppBody");
-      has(text, "Waiting for review", "the waiting list");
-      has(text, "Lead time on HP MJF 5200: 5 to 4 days", "the lead time waits too");
-      has(text, "New printer: Form 4", "the new printer");
-      has(text, "holds the other changes saved with it", "why the whole save waits");
+      has(text, "Waiting for review", "the waiting heading");
+      const rows = await page.$$eval("#hostAppBody .ldiff tbody tr", (trs) => trs.map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent.trim())));
+      eq(rows, [["Lead time on HP MJF 5200", "5 days", "4 days"], ["New printer", "none", "Form 4"]], "the table: the lead time waits too, and the new printer");
+      has(text, "holds the other changes saved with it", "why the whole update waits");
       return eq(text.includes("Live now"), false, "nothing live now");
     });
     clean(world, errors, "the mixed save");
