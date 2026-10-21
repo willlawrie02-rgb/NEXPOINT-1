@@ -109,8 +109,8 @@
   let hostTerms = null;    /* {id, version, body_md} or null */
   let mine = null;         /* the last GET /listings/mine body */
   let termsRequired = false;
-  /* True while the form edits a LIVE listing: the billing period is then
-     already on file, so the form does not insist on it again (plan 045). */
+  /* True while the form edits a LIVE listing: the membership is then a
+     statement, never a choice (plan 068, P3), and a save is a change. */
   let editingLive = false;
   const TA = {};           /* type-ahead handles by input id */
   /* The "where you ship" map (hub/assets/world-map.js, plan 055): a handle
@@ -181,15 +181,74 @@
     });
   }
 
+  const TICK_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg>';
+
   function renderSuccess() {
     body().innerHTML =
       '<div class="success">' +
-      '<div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>' +
+      '<div class="ok">' + TICK_SVG + '</div>' +
       '<h2>Thank you.</h2>' +
       '<p>Received. Nothing is listed until we have checked it; you will get an email when it is live.</p>' +
       '<div class="modal-actions" style="justify-content:center">' +
       '<a class="btn btn-outline" href="' + ACCOUNT_URL + '">Go to your account</a></div>' +
       '</div>';
+  }
+
+  /* An edit's answer (plan 068, D6): what went live on save and what waits
+     for a person, line by line, in the host's words. A mixed save waits in
+     full (P1, Will's decision of 21 Oct 2026), and the page says why. */
+  function changeParts(c) {
+    const noun = machineNoun();
+    const cap = (str) => str.charAt(0).toUpperCase() + str.slice(1);
+    const plain = (f, v) => {
+      if (f === 'ships_to') return (v || []).map((t) => termLabel(vocab && vocab.regions, t)).join(', ') || 'none';
+      if (f === 'services') return (v || []).map((t) => termLabel(vocab && vocab.services, t)).join(', ') || 'none';
+      if (f === 'materials') return (Array.isArray(v) ? v.map((t) => termLabel(vocab && vocab.materials, t)).join(', ') : attrValueText(v)) || 'none';
+      if (f === 'attr:process') return termLabel(vocab && vocab.processes, v) || 'none';
+      const t = attrValueText(v); return t === '' ? 'none' : t;
+    };
+    const labels = { address_line: 'Address', town: 'Town', postcode: 'Postcode', country: 'Country', ships_to: 'Ships to',
+      services: 'Services', quality_notes: 'Quality systems', materials: 'Materials', notes: 'Notes', count: 'How many',
+      lead_time_days: 'Lead time', 'attr:monthly_capacity': 'Monthly capacity', 'attr:min_order': 'Minimum order', 'attr:process': 'Process' };
+    if (c.field === 'machine_added') return { label: 'New ' + noun, before: 'none', after: (c.after && c.after.name) || c.machine || '', unit: '' };
+    if (c.field === 'machine_removed') return { label: cap(noun) + ' removed', before: c.machine || '', after: 'none', unit: '' };
+    const label = labels[c.field] || (c.field.indexOf('attr:') === 0 ? attrLabel(c.machine ? 'machine' : 'listing', c.field.slice(5)) : c.field);
+    const unit = c.field === 'lead_time_days' ? ' days' : c.field === 'attr:monthly_capacity' ? ' a month' : '';
+    return { label: label + (c.machine ? ' on ' + c.machine : ''), before: plain(c.field, c.before), after: plain(c.field, c.after), unit: unit };
+  }
+  function withUnit(value, unit) { return value === 'none' ? value : value + unit; }
+  function changeLine(c) {
+    const p = changeParts(c);
+    if (c.field === 'machine_added') return p.label + ': ' + p.after;
+    if (c.field === 'machine_removed') return p.label + ': ' + p.before;
+    return p.label + ': ' + p.before + ' to ' + withUnit(p.after, p.unit);
+  }
+  function changeList(list) {
+    return '<ul class="lchanges">' + list.map((c) => '<li>' + esc(changeLine(c)) + '</li>').join('') + '</ul>';
+  }
+  function changeTable(list) {
+    return '<table class="ldiff"><thead><tr><th>Field</th><th>Now</th><th>Requested</th></tr></thead><tbody>' +
+      list.map((c) => {
+        const p = changeParts(c);
+        return '<tr><td>' + esc(p.label) + '</td><td>' + esc(withUnit(p.before, p.unit)) + '</td><td>' + esc(withUnit(p.after, p.unit)) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+  function renderSaved(a) {
+    const liveNow = Array.isArray(a.live_now) ? a.live_now : [];
+    const waiting = Array.isArray(a.waiting) ? a.waiting : [];
+    const mixed = waiting.some((c) => !c.review);
+    body().innerHTML =
+      '<div class="success"><div class="ok">' + TICK_SVG + '</div><h2>Saved.</h2>' +
+      (liveNow.length
+        ? '<div class="lsec"><div class="lsec__h">Live now</div>' + changeList(liveNow) +
+          '<p>These needed no review and are already on the hub.</p></div>' : '') +
+      (waiting.length
+        ? '<div class="lsec"><div class="lsec__h">Waiting for review</div>' + changeList(waiting) +
+          '<p>We check these personally. Your listing stays as it was until we approve them, and we will email you when we have.' +
+          (mixed ? ' A change we review holds the other changes saved with it, so the whole save waits.' : '') + '</p></div>'
+        : '<p>Everything you changed is live.</p>') +
+      '<div class="modal-actions" style="justify-content:center">' +
+      '<a class="btn btn-outline" href="' + ACCOUNT_URL + '">Go to your account</a></div></div>';
   }
 
   /* ══════════════ the read-only render ══════════════
@@ -256,14 +315,20 @@
     const liveBlock = d.live
       ? '<div class="lsec"><div class="lsec__h">Live now</div>' + revisionSummary(d.live) + '</div>'
       : '';
+    /* A pending edit (plan 068) is shown as what it changes, field by field,
+       not as the whole revision printed again under the live one. */
+    const changes = Array.isArray(d.pending_changes) ? d.pending_changes : [];
+    const waiting = d.live && changes.length ? changeTable(changes) : revisionSummary(d.pending);
     body().innerHTML =
-      '<div class="notice-warn notice-warn--block" id="listingLockNotice">' +
-      '<span>Under review. NexPoint checks every listing personally; you can edit again once it is approved.</span>' +
-      '</div>' +
+      '<div class="notice-warn notice-warn--block" id="listingLockNotice"><span>' +
+      (d.live
+        ? 'Under review. Your listing stays as it is until we have approved these changes; you can edit again once we have.'
+        : 'Under review. NexPoint checks every listing personally; you can edit again once it is approved.') +
+      '</span></div>' +
       liveBlock +
       '<div class="lsec"><div class="lsec__h">' +
       (d.live ? 'Waiting for review' : 'What you sent us') + '</div>' +
-      revisionSummary(d.pending) + '</div>';
+      waiting + '</div>';
   }
 
   /* ══════════════ the form ══════════════ */
@@ -345,6 +410,38 @@
     return '<label class="pick' + (on ? ' is-on' : '') + '">' +
       '<input type="radio" name="' + esc(name) + '" value="' + esc(value) + '"' + (on ? ' checked' : '') + '>' +
       '<span>' + esc(label) + '</span></label>';
+  }
+  /* The membership panel (D4, register 20 Oct 2026; Host Agreement 1.3 §3:
+     "you choose yearly or monthly on the listing form"; invoiced in pounds
+     whatever the host's country, the register's amendment of 21 Oct 2026).
+     Supersedes plan 055's decision 13. On an edit the membership is a
+     statement (P3: to change how they pay a host emails the desk); a billed
+     site is told nothing more is to choose (P4); a first listing chooses,
+     prefilled from a declined revision's choice when there is one. */
+  function membershipHtml(d, editing) {
+    const m = (d && d.membership) || (mine && mine.membership) || null;
+    const words = (p) => (p === 'monthly' ? 'monthly, 100 a month' : p === 'annual' ? 'yearly, 1,000 a year' : '');
+    if (editing) {
+      const period = words(m && m.period);
+      return '<div class="lsec__h">Your membership</div>' +
+        '<p class="body">' + (period ? 'Your membership is ' + esc(period) + '. ' : '') +
+        'One membership covers both the 3D Print Hub and the Mill Hub. To change how you pay, email ' +
+        '<a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
+    }
+    if (m && m.billed) {
+      const period = words(m.period);
+      return '<div class="lsec__h">Your membership</div>' +
+        '<p class="body">Your site already has its membership' + (period ? ', ' + esc(period) : '') + '. One membership covers both the ' +
+        '3D Print Hub and the Mill Hub, so there is nothing more to choose.</p>';
+    }
+    const chosen = (d && d.prefill && d.prefill.billing_period) || '';
+    return '<div class="lsec__h">Hosting membership</div>' +
+      '<p class="body"><strong>1,000 a year, or 100 a month</strong>, invoiced in pounds whatever your country. ' +
+      'One fee covers hosting on both the 3D Print Hub and the Mill Hub.</p>' +
+      '<div class="lgroup" role="radiogroup" aria-label="Billing period">' +
+      pickRadio('billing', 'annual', 'Yearly: 1,000 a year', chosen === 'annual') +
+      pickRadio('billing', 'monthly', 'Monthly: 100 a month', chosen === 'monthly') +
+      '</div><span class="np-hint">Choose one. Nothing is charged until we approve your listing.</span>';
   }
   /* The base service is fixed (Will, 6 Oct): every host prints or mills, so
      the first chip is a statement, not a choice. */
@@ -480,23 +577,21 @@
       '<p class="body" style="margin-bottom:20px">Listing <strong>' + esc(u.company || 'your site') + '</strong>' +
       (u.email ? ' (' + esc(u.email) + ')' : '') + '. ' +
       (editing
-        ? 'Your listing is live. Any change is reviewed before it replaces what is showing.'
+        /* D6 (plan 068; Host Agreement 1.3 §2), with P1: a mixed save waits in full. */
+        ? 'Your listing is live. A change to your capacity, a lead time or how many of a machine you have ' +
+          'goes live when you save it. Anything else is reviewed first, and your listing stays as it is meanwhile. ' +
+          'Save the two kinds together and the whole save waits for review.'
         : 'NexPoint checks every listing personally; nothing appears until we have approved it.') +
       '</p>' +
       '<form id="listingForm" novalidate>' +
 
-      /* No price and no period on the form (Will, 12 Oct 2026, plan 055): the
-         commercial conversation is had in person after the application, and
-         the desk chooses the period when it approves. Supersedes the 5 Oct
-         cost-first rule. */
-      '<p class="body lnote" style="margin-bottom:20px">Nothing is listed or charged until we have approved your listing. ' +
-      'We will talk through the commercial side with you personally first.</p>' +
-
 '<div class="lsec"><div class="lsec__h">Your site</div><div class="form-grid">' +
       /* Not an input, so not a `for`: the site name is read off the account
-         and shown, and a label pointing at a paragraph labels nothing. */
+         and shown, and a label pointing at a paragraph labels nothing. The
+         hint is D7 (plan 068), in the Host Agreement's words. */
       '<div class="field full"><label>Site name' +
-      '<span class="np-hint">Taken from your hub account.</span></label>' +
+      '<span class="np-hint">Taken from your hub account, and shown to seekers who have accepted the introduction terms; ' +
+      'your contact details are released only when you accept an introduction.</span></label>' +
       '<p class="body" id="siteName" style="margin:0">' + esc(u.company || 'Your site') + '</p></div>' +
       '<div class="field full"><label for="siteAddress1">Business address</label>' +
       '<input id="siteAddress1" value="' + esc((rev && rev.address_line) || '') + '"></div>' +
@@ -547,10 +642,17 @@
       '<textarea id="qualityNotes">' + esc((rev && rev.quality_notes) || '') + '</textarea></div>' +
       '</div></div>' +
 
-      '<div id="hostTermsBlock" style="margin-top:20px"></div>' +
+      /* The membership beside the Host Agreement (D4, register 20 Oct 2026;
+         Host Agreement 1.3 §3: "you choose yearly or monthly on the listing
+         form"). Supersedes plan 055's decision 13. The panel states the
+         membership only; the recurring fee is in the agreement beside it. */
+      '<div class="lsec lcommit" id="hostCommit">' +
+      '<div class="lmember" id="hostMembership">' + membershipHtml(d, editing) + '</div>' +
+      '<div id="hostTermsBlock"></div>' +
+      '</div>' +
       '<p class="np-sign-error" id="listingErr" style="display:none"></p>' +
       '<div class="modal-actions"><button class="btn btn-primary" type="submit" id="listingSubmit">' +
-      (editing ? 'Submit changes for review' : 'Submit your listing for review') + '</button></div>' +
+      (editing ? 'Save changes' : 'Submit your listing for review') + '</button></div>' +
       '</form>';
 
     TA.siteCountry = NPTypeahead.attach(el('siteCountry'), {
@@ -561,7 +663,7 @@
 
     /* chips toggle their own class; one delegated listener per group. A
        radio in the billing group moves the class to the one chosen. */
-    ['shipsTo', 'services'].forEach((groupId) => {
+    ['shipsTo', 'services', 'hostMembership'].forEach((groupId) => {
       const group = el(groupId);
       if (!group) return;
       group.addEventListener('change', (e) => {
@@ -792,6 +894,15 @@
       }
     }
 
+    /* The membership (D4, plan 068): a first listing chooses yearly or
+       monthly before it goes; a billed site has chosen already (P4); an edit
+       never changes it (P3). */
+    const billed = !!(mine && mine.membership && mine.membership.billed);
+    const period = (document.querySelector('#hostMembership input[name="billing"]:checked') || {}).value || '';
+    if (!editingLive && !billed && period !== 'annual' && period !== 'monthly') {
+      return { error: 'Choose yearly or monthly hosting.', focus: 'hostMembership' };
+    }
+
     const line1 = [val('siteAddress1'), val('siteAddress2')].filter(Boolean).join(', ');
     const listingDefs = ((vocab && vocab.attributes && vocab.attributes.listing) || []).filter((d) => d.key !== 'min_order_units');
 
@@ -805,6 +916,7 @@
       machines: machines,
     };
     if (termsRequired && hostTerms && hostTerms.id) payload.terms_version_id = hostTerms.id;
+    if (!editingLive && !billed && period) payload.billing_period = period;
     return { payload: payload };
   }
 
@@ -819,6 +931,8 @@
     if (d.error === 'listing_locked_pending') {
       return 'You already have a listing under review, so this one was not sent. Refresh the page to see it.';
     }
+    if (d.error === 'billing_period required') return 'Choose yearly or monthly hosting.';
+    if (d.error === 'nothing_changed') return 'Nothing has changed since your listing was last saved.';
     if (d.error === 'unknown_attribute') {
       return 'One of the fields on this form is no longer in use. Refresh the page and fill it in again.';
     }
@@ -872,7 +986,10 @@
     const d = await submitPayload(payload);
     submitting = false;
     if (d && d.ok) {
-      renderSuccess();
+      /* An edit's answer carries what went live and what waits (plan 068);
+         a first listing, or an older worker, gets the thank-you. */
+      if (editingLive && (Array.isArray(d.live_now) || Array.isArray(d.waiting))) renderSaved(d);
+      else renderSuccess();
       return;
     }
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = orig; }
