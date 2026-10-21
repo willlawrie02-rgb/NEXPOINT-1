@@ -1,30 +1,34 @@
-/* NexPoint Global Portal - the seeker's find flow (spec 2026-09-03).
-   The find page's own module, and the replacement for the placeholder map
-   the page used to lead with. Three numbered steps:
+/* NexPoint Global Portal - the seeker's find flow (spec 2026-09-03; plan
+   067, Terms 1.3, 21 October 2026). The find page's own module. Four steps:
 
      1  the ask       what you need, in the network's own vocabulary
-     2  the shortlist the best three anonymous cards and a map of them; pick one
-     3  the request   the Introduction Acceptance terms, then one submission
+     2  the terms     the Introduction Acceptance terms, accepted for this
+                      search before any name shows (one acceptance per search)
+     3  the results   the three best fits by name, and a map of every ranked
+                      site; pick one
+     4  the request   one call that goes straight to the site picked
 
-   The shortlist (plan 052, items 23 and 24, answers of 8 Oct): hard
-   filters first (material, process, lead time), then the nearest by town,
-   no weights. The worker ranks up to ten and marks the best three
-   `shortlist`. Those three are shown as cards, each tagged "Best fit for
-   your request"; every ranked site is a pin on the map (match-map.js),
-   numbered by rank, the best three filled and the rest outlined (plan
-   055, decision 15). A pin opens the card of a site outside the three,
-   below them and without the tag. Sites in one town share a numbered
-   pin. The seeker picks one site, on a card or on the map, and the two
-   stay in step.
+   The ranking is the worker's (POST /listings/search): material, region and
+   the volume asked for are hard filters, then a weighted score on every
+   field the seeker filled in (material, capacity, location, lead time). The
+   worker records the search and the acceptance, ranks up to ten and names
+   the best three (`named`, with `company`). Those three are shown as cards,
+   each tagged "Best fit for your request"; every ranked site is a pin on
+   the map (match-map.js), numbered by rank, the best three filled and the
+   rest outlined. A pin beyond the three is a town and a rank only: no name,
+   no Choose (what was accepted and shown is what is picked, Q4). Sites in
+   one town share a numbered pin. The seeker picks one of the three, on a
+   card or on the map, and the two stay in step.
 
-   Nothing here names a site. A card carries a town, a country, machines,
-   materials, services and a lead time; who the site is, and where exactly,
-   travels only inside an introduction both sides have accepted.
+   The three named cards are the only names on this page. A card carries a
+   town, a country, machines, materials, services and a lead time; the
+   site's address and contact details travel only inside an introduction it
+   has accepted.
 
-   Two calls make a request: POST /seeker-requests files the ask and gets a
-   request id, POST /seeker-requests/picks attaches the sites chosen. The id
-   is kept between them, so a failure on the second call is retried against
-   the request already filed rather than filing a second one.
+   One call makes the request: POST /seeker-requests {search_id,
+   listing_id, client_key}. The worker files the request, writes the
+   introduction and emails the site its offer; a retry carries the same
+   client key, so a timeout that landed the row is answered with that row.
 
    Started by portal.js's np:modules boot, like every other page module.   */
 (function () {
@@ -121,17 +125,16 @@
 
   let vocab = null;            /* NPVocab.load(HUB) */
   const TA = {};               /* live type-ahead handles by input id */
-  let spec = null;             /* the ask, as POST /seeker-requests takes it */
+  let spec = null;             /* the ask, as POST /listings/search takes it */
   let matches = [];            /* every ranked result the worker sent, in rank order (up to ten) */
-  let shortlistIds = [];       /* the best three of them, by listing id: the cards shown first */
-  let revealed = new Set();    /* ids opened from the map; their cards sit after the three */
+  let shortlistIds = [];       /* the best three of them, by listing id: the cards shown */
+  let named = [];              /* the ids the worker named (company on the card): the only pickable ones */
   let seekerPoint = null;      /* the seeker's own town point, for the map */
-  let matchMap = null;         /* NPMatchMap handle while step 2 shows one */
+  let matchMap = null;         /* NPMatchMap handle while the results show one */
   let noMatch = false;         /* nothing met the hard filter, so this is the pool */
   let picks = [];              /* listing ids, at most MAX_PICKS, in tick order */
-  let introTerms = null;       /* {id, version, body_md} for layer=introduction */
-  let requestId = null;        /* set by the first call, reused by a retry */
-  let filedSpec = null;        /* the ask `requestId` belongs to (by identity) */
+  let searchTerms = null;      /* {id, version, body_md} for layer=introduction, shown at the gate */
+  let searchId = null;         /* the search the worker recorded; the pick names it */
   let searching = false;
   let sending = false;
   let step3Shell = null;       /* step 3's panel before a success card replaced it */
@@ -245,9 +248,9 @@
          account". Since the one-door register nobody reaches this form without
          one, so only the half that still tells them something is left. */
       '<p class="np-hint" id="findGateHint">Nothing goes to any ' + esc(siteNoun()) +
-      ' until you ask for the introductions.</p>' +
+      ' until you pick one.</p>' +
       '<div class="modal-actions"><button class="btn btn-primary" type="submit" id="findSubmit">' +
-      'Show the ' + esc(siteNounPlural()) + ' that fit</button></div>' +
+      'Find the ' + esc(siteNounPlural()) + ' that fit</button></div>' +
       '</form>';
 
     TA.fMaterial = window.NPTypeahead ? NPTypeahead.attach(el('fMaterial'), {
@@ -331,12 +334,11 @@
     return Number.isInteger(n) ? n : NaN;
   }
 
-  /* The ask, read off the form once. It is wider than the worker's request
-     body on purpose: `materials` and `quantity_unit` have no
-     column of their own there, so they stay on this object (which drives
-     the notes sentence) and are dropped by bodyFor
-     before anything is posted. Nothing the seeker typed is lost: what has
-     no column reaches the desk as a plain sentence on the notes. */
+  /* The ask, read off the form once. Since plan 067 the worker's search
+     takes every field here (`materials` and `quantity_unit` included: the
+     search records the whole ask), so bodyFor sends it as it is. The notes
+     sentence still spells the volume and the other materials out for the
+     desk, which reads the request's notes. */
   function buildSpec() {
     const materials = TA.fMaterial ? TA.fMaterial.value() : [];
     if (!materials.length) return { error: 'Name the material you need.', focus: 'fMaterial' };
@@ -406,44 +408,117 @@
     return notes ? notes + '\n\n' + tail : tail;
   }
 
-  /* ══════════════ the search ══════════════ */
+  /* ══════════════ the search, behind the terms ══════════════ */
 
+  /* A new ask opens the terms gate (P9: one acceptance per search, before
+     any name shows). The search itself runs only from the gate's button,
+     once the tick is in. */
   async function onSearch(e) {
     e.preventDefault();
     if (searching) return;
     clearFindError();
     const built = buildSpec();
     if (built.error) { showFindError(built.error, built.focus); return; }
-    /* A new ask is a new object, which is how sendRequestAndPicks knows the
-       request already filed does not belong to it. */
+    /* A new ask is a new object: its own acceptance, its own search, and
+       its own client key for the request that follows. */
     spec = built.spec;
+    searchId = null;
+    await openTermsGate();
+  }
+
+  /* Layer 3 of the three terms layers, read fresh every time the gate
+     opens, because the id ticked here is the id the worker checks against
+     the current one (stale_terms when it has moved on). */
+  async function openTermsGate() {
+    hide('step2');
+    hide('step3');
+    resetStep3();
+    if (matchMap) { matchMap.destroy(); matchMap = null; }
+    reveal('stepTerms');
+    clearSearchTermsError();
+    await renderSearchTerms();
+    scrollTo('stepTerms');
+  }
+
+  async function renderSearchTerms() {
+    const box = el('searchTermsBlock');
+    if (!box) return;
+    box.innerHTML = '<p class="body" style="margin:0">Loading the introduction terms…</p>';
+    const d = await api('/terms/current?layer=introduction');
+    if (!el('searchTermsBlock')) return;
+    if (!d || d.error || !d.id) {
+      searchTerms = null;
+      el('searchTermsBlock').innerHTML =
+        '<p class="np-sign-error" style="display:block">We could not load the introduction terms. ' +
+        'Refresh and try again, or email hello@nexpoint.co.uk.</p>';
+      return;
+    }
+    searchTerms = d;
+    el('searchTermsBlock').innerHTML =
+      '<div class="terms-scroll">' + NP.markdownLite(d.body_md) + '</div>' +
+      '<label class="np-terms-tick"><input type="checkbox" id="searchTick"> ' +
+      'I accept the introduction terms, version ' + esc(d.version) + '</label>';
+  }
+
+  function showSearchTermsError(message, focusId) {
+    const err = el('searchTermsErr');
+    if (err) { err.style.display = 'block'; err.textContent = message; }
+    const node = focusId ? el(focusId) : null;
+    if (node) {
+      if (node.scrollIntoView) node.scrollIntoView({ block: 'center' });
+      if (typeof node.focus === 'function') node.focus();
+    }
+  }
+  function clearSearchTermsError() {
+    const err = el('searchTermsErr');
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+  }
+
+  /* The gate's button: the tick, then the search with the version ticked. */
+  async function onSearchAccept() {
+    if (searching) return;
+    clearSearchTermsError();
+    if (!spec) { showSearchTermsError('Tell us what you need first.'); return; }
+    if (!searchTerms || !searchTerms.id) {
+      showSearchTermsError('We could not load the introduction terms. Refresh and try again.');
+      return;
+    }
+    const tick = el('searchTick');
+    if (!tick || !tick.checked) {
+      showSearchTermsError('Read the introduction terms and tick to accept them.', 'searchTick');
+      return;
+    }
     await runSearch(false);
   }
 
   async function runSearch(retried) {
-    const btn = el('findSubmit');
+    const btn = el('searchAccept');
     const orig = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Looking…'; }
     searching = true;
-    const q = new URLSearchParams();
-    q.set('hub', spec.hub);
-    q.set('material', spec.material);
-    if (spec.process) q.set('process', spec.process);
-    q.set('town', spec.town);
-    q.set('country', spec.country);
-    if (spec.max_lead_time_days !== null) q.set('max_lead_time_days', String(spec.max_lead_time_days));
-    const d = await api('/listings/search?' + q.toString());
+    const d = await postJson('/listings/search',
+      Object.assign(bodyFor(spec), { terms_version_id: searchTerms.id }));
     searching = false;
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = orig; }
 
     if (d && (d.error === 'sign in required' || d.error === 'email_unconfirmed' || d.http_status === 401)) {
-      /* The session lapsed mid-visit: sign in over the page, the ask stays
-         as typed, then the same search runs again (one-door register, Q5). */
-      if (retried || !window.NPAccount) { showFindError('Sign in and run the search again.'); return; }
+      /* The session lapsed mid-visit: sign in over the page, the ask and
+         the tick stay as they are, then the same search runs again (Q5). */
+      if (retried || !window.NPAccount) { showSearchTermsError('Sign in and run the search again.'); return; }
       NPAccount.requireConfirmed(() => runSearch(true));
       return;
     }
-    if (!d || d.error) { showFindError(searchErrorText(d)); return; }
+    if (d && d.error === 'stale_terms') {
+      /* The version ticked is no longer the current one: fetch the new
+         text and ask for the tick again rather than searching on a stale
+         consent. The ask stays as typed. */
+      showSearchTermsError(TERMS_MOVED);
+      await renderSearchTerms();
+      const tick = el('searchTick');
+      if (tick && tick.scrollIntoView) tick.scrollIntoView({ block: 'center' });
+      return;
+    }
+    if (!d || d.error) { showSearchTermsError(searchErrorText(d)); return; }
 
     /* Chris, on being asked for his country a second time. The next hub
        page reads this back through NP.loadLoc(), which is where step 1's
@@ -452,12 +527,15 @@
       NP.saveLoc(regionOf(spec.country) || spec.country, spec.country, spec.town);
     }
 
+    searchId = d.search_id || null;
     matches = Array.isArray(d.matches) ? d.matches.filter(Boolean) : [];
+    named = matches.filter((c) => c.named === true || typeof c.company === 'string')
+      .map((c) => String(c.listing_id));
     shortlistIds = shortlistOf(matches).map((c) => String(c.listing_id));
-    revealed = new Set();
     noMatch = !!d.no_match;
     seekerPoint = d.seeker_point || null;
     picks = [];
+    hide('stepTerms');
     renderResults();
     reveal('step2');
     renderMap();
@@ -470,7 +548,15 @@
     const e = d && d.error;
     if (e === 'network') return 'That did not go through. Check your connection and try again, or email hello@nexpoint.co.uk.';
     if (e === 'hub must be print or mill') return 'This page could not tell us which hub it belongs to. Refresh and try again.';
-    if (e === 'http_404' || e === 'not found') return 'Searching is not switched on here just yet. Tell the desk what you need and we will route it by hand.';
+    if (e === 'terms acceptance store failed' || e === 'search store failed' || e === 'search record failed') {
+      return 'We could not record your acceptance just now. Try again in a moment, or email hello@nexpoint.co.uk.';
+    }
+    if (e === 'http_404' || e === 'not found' || e === 'POST only') {
+      return 'Searching is not switched on here just yet. Tell the desk what you need and we will route it by hand.';
+    }
+    if (typeof e === 'string' && e && e !== 'http_500' && e !== 'http_502') {
+      return e.charAt(0).toUpperCase() + e.slice(1).replace(/_/g, ' ') + '.';
+    }
     return 'We could not run that search just now. Try again, or email hello@nexpoint.co.uk.';
   }
 
@@ -483,22 +569,15 @@
     return (marked.length ? marked : all).slice(0, SHORTLIST);
   }
   function isBest(id) { return shortlistIds.indexOf(String(id)) !== -1; }
-  /* The cards on the page: the best three and any site opened from the map,
-     in rank order, each with its rank (the number its pin carries). */
+  /* Only a site the worker named may be picked (Q4): the search's record
+     is the record of the pick. A worker from before plan 067 names none,
+     in which case the three it marked stand in, nameless. */
+  function isNamed(id) { return named.length ? named.indexOf(String(id)) !== -1 : isBest(id); }
+  /* The cards on the page: the three best fits, in rank order, each with
+     its rank (the number its pin carries). A site beyond them is a pin. */
   function visibleMatches() {
     return matches.map((c, i) => ({ card: c, position: i + 1 }))
-      .filter((m) => isBest(m.card.listing_id) || revealed.has(String(m.card.listing_id)));
-  }
-  /* A pin on the map opens the cards of the sites under it (decision 15,
-     plan 055): a site outside the best three gets its card below them,
-     without the tag, and the page scrolls to it. */
-  function revealFromMap(id) {
-    id = String(id);
-    if (isBest(id) || revealed.has(id) || !matches.some((c) => String(c.listing_id) === id)) return;
-    revealed.add(id);
-    renderResults();
-    const card = document.querySelector('#capGrid [data-card="' + cssEscape(id) + '"]');
-    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      .filter((m) => isBest(m.card.listing_id));
   }
 
   /* The map above the cards. Made after step 2 is shown, because Leaflet
@@ -523,20 +602,17 @@
         best: isBest(c.listing_id),
       })),
       onPick: chooseFromMap,
-      onReveal: revealFromMap,
     });
     if (!matchMap) { box.hidden = true; return; }
     matchMap.refresh();
     matchMap.select(picks[0] || null);
   }
 
-  /* Choose on the map ticks that card, exactly as a click on it would. */
+  /* Choose on the map ticks that card, exactly as a click on it would. A
+     pin beyond the three has no Choose; an id that is not named is ignored. */
   function chooseFromMap(id) {
-    let box = document.querySelector('#capGrid input[data-pick="' + cssEscape(id) + '"]');
-    if (!box) {
-      revealFromMap(id);
-      box = document.querySelector('#capGrid input[data-pick="' + cssEscape(id) + '"]');
-    }
+    if (!isNamed(id)) return;
+    const box = document.querySelector('#capGrid input[data-pick="' + cssEscape(id) + '"]');
     if (!box || box.disabled) return;
     if (!box.checked) box.click();
     const card = box.closest('.cap');
@@ -553,7 +629,7 @@
     if (grid) {
       grid.innerHTML = visibleMatches().map((m) => cardHtml(m.card, m.position, isBest(m.card.listing_id))).join('');
       grid.querySelectorAll('input[data-pick]').forEach((box) => {
-        /* a re-render (a site revealed from the map) keeps the pick */
+        /* a re-render keeps the pick */
         box.checked = picks.indexOf(box.getAttribute('data-pick')) !== -1;
         box.addEventListener('change', onPickChange);
       });
@@ -591,14 +667,14 @@
     const more = extra > 0
       ? words(extra, true) + ' more ' + (extra === 1 ? siteNoun() : siteNounPlural()) + ' on the map. ' : '';
     box.style.display = 'block';
-    /* The page's own hint already says "ranked by fit, pick one" and the
-       privacy line; this line carries only what the numbers say. When
-       nothing met the ask, the count is the size of the pool, not a claim
-       that any of them fit: #noMatch says what these actually are. */
+    /* The page's own hint already says "ranked by fit, pick one"; this line
+       carries only what the numbers say. When nothing met the ask, the
+       count is the size of the pool, not a claim that any of them fit:
+       #noMatch says what these actually are. */
     box.textContent = (noMatch
-      ? 'The nearest ' + siteNounPlural() + ' to you, wherever they are. '
-      : (n === 1 ? 'One ' + siteNoun() + ' can take this. '
-                 : 'The ' + words(k) + ' ' + siteNounPlural() + ' that fit best. ')) + more;
+      ? 'The nearest ' + siteNounPlural() + ' to you, wherever they are, by name. '
+      : (n === 1 ? 'One ' + siteNoun() + ' can take this, by name. '
+                 : 'The ' + words(k) + ' ' + siteNounPlural() + ' that fit best, by name. ')) + more;
     box.textContent = box.textContent.trim();
   }
 
@@ -673,6 +749,11 @@
     const exactMatch = !card.no_match_flag;
     const who = siteNounTitle() + ' ' + position;
     const where = [card.town, card.country].filter(Boolean).join(', ');
+    /* Plan 067: a named card (one of the three) leads with the company and
+       carries the town beneath; a card without a name keeps its shape. Only
+       a named card carries the tick. */
+    const company = typeof card.company === 'string' && card.company.trim() ? card.company.trim() : '';
+    const pickable = isNamed(id);
     const tick = 'Introduce me to this ' + siteNoun();
 
     /* The tick is a real label around a real checkbox, and the card is a
@@ -687,14 +768,23 @@
         (card.verified ? '<span class="badge-verified">Verified</span>' : '') +
         (exactMatch ? '' : '<span class="badge-nomatch">no exact match</span>') +
       '</span>' +
-      '<h3>' + esc(where) + '</h3>' +
+      (company
+        ? '<h3>' + esc(company) + '</h3>' +
+          /* styled inline: the shared stylesheet is cached for four hours and
+             this line is new with the names (the shared-asset cache rule) */
+          '<p class="cap__where" style="margin:-10px 0 16px;font:400 13px/1.4 var(--font-body);color:var(--on-surface-var)">' +
+          esc(where) + '</p>'
+        : '<h3>' + esc(where) + '</h3>') +
       '<dl>' + rows.map((r) =>
         '<div><dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd></div>').join('') + '</dl>' +
-      '<label class="cap__tick">' +
-        '<input type="checkbox" id="pick-' + esc(id) + '" data-pick="' + esc(id) + '" ' +
-        'aria-label="' + esc(tick + ': ' + who + ', ' + where) + '">' +
-        '<span>' + esc(tick) + '</span>' +
-      '</label></div>';
+      (pickable
+        ? '<label class="cap__tick">' +
+          '<input type="checkbox" id="pick-' + esc(id) + '" data-pick="' + esc(id) + '" ' +
+          'aria-label="' + esc(tick + ': ' + who + ', ' + (company || where)) + '">' +
+          '<span>' + esc(tick) + '</span>' +
+          '</label>'
+        : '') +
+      '</div>';
   }
 
   /* One site (plan 052, item 24): ticking a second card moves the pick to
@@ -752,7 +842,6 @@
     const box = el('step3Body');
     if (!box || step3Shell === null || box.innerHTML === step3Shell) return;
     box.innerHTML = step3Shell;
-    introTerms = null;
     bindRequestSubmit();
   }
 
@@ -765,48 +854,38 @@
     if (!picks.length) return;
     renderPickSummary();
     reveal('step3');
-    renderTermsBlock();
     scrollTo('step3');
+  }
+
+  /* The site picked, by name (plan 067): the terms were accepted at the
+     search, so this step only says where the request goes. */
+  function pickedCard() {
+    if (!picks.length) return null;
+    const i = matches.findIndex((c) => String(c.listing_id) === picks[0]);
+    return i === -1 ? null : { card: matches[i], position: i + 1 };
+  }
+  function pickedName() {
+    const p = pickedCard();
+    if (!p) return '';
+    const company = typeof p.card.company === 'string' ? p.card.company.trim() : '';
+    return company || (siteNounTitle() + ' ' + p.position);
   }
 
   function renderPickSummary() {
     const box = el('pickSummary');
     if (!box) return;
-    const chosen = picks.map((id) => {
-      const i = matches.findIndex((c) => String(c.listing_id) === id);
-      return { card: matches[i], position: i + 1 };
-    }).filter((c) => c.card);
+    const p = pickedCard();
+    if (!p) { box.innerHTML = ''; return; }
+    const where = [p.card.town, p.card.country].filter(Boolean).join(', ');
+    const company = typeof p.card.company === 'string' ? p.card.company.trim() : '';
+    const line = 'The ' + siteNoun() + ' you picked: ' + siteNounTitle() + ' ' + p.position +
+      (company ? ', ' + company : '') + (where ? ', ' + where : '') + '.';
     box.innerHTML =
-      '<p class="body">' + esc('The ' + siteNoun() + ' you picked:') + '</p>' +
-      '<ul class="pick-summary">' + chosen.map((c) =>
-        '<li><b>' + esc(siteNounTitle()) + ' ' + c.position + '</b> ' +
-        esc([c.card.town, c.card.country].filter(Boolean).join(', ')) + '</li>').join('') +
-      '</ul>' +
-      '<p class="np-hint">Nothing is sent to a ' + esc(siteNoun()) +
-      ' until we have read your request. Contact details are exchanged only once both sides accept.</p>';
-  }
-
-  /* Layer 3 of the three terms layers: what a seeker accepts each time an
-     introduction is asked for. Read fresh every time step 3 opens, because
-     the id ticked here is the id the worker checks against the current one. */
-  async function renderTermsBlock() {
-    const box = el('introTermsBlock');
-    if (!box) return;
-    box.innerHTML = '<p class="body" style="margin:0">Loading the introduction terms…</p>';
-    const d = await api('/terms/current?layer=introduction');
-    if (!el('introTermsBlock')) return;
-    if (!d || d.error || !d.id) {
-      introTerms = null;
-      el('introTermsBlock').innerHTML =
-        '<p class="np-sign-error" style="display:block">We could not load the introduction terms. ' +
-        'Refresh and try again, or email hello@nexpoint.co.uk.</p>';
-      return;
-    }
-    introTerms = d;
-    el('introTermsBlock').innerHTML =
-      '<div class="terms-scroll">' + NP.markdownLite(d.body_md) + '</div>' +
-      '<label class="np-terms-tick"><input type="checkbox" id="introTick"> ' +
-      'I accept the introduction terms, version ' + esc(d.version) + '</label>';
+      '<p class="body">' + esc(line) + '</p>' +
+      '<p class="np-hint">Your request goes straight to this ' + esc(siteNoun()) +
+      '. Contact details are exchanged once it accepts.</p>';
+    const btn = el('requestSubmit');
+    if (btn) btn.textContent = 'Send my request to ' + pickedName();
   }
 
   function showRequestError(message, focusId) {
@@ -831,13 +910,8 @@
       showRequestError('Pick a ' + siteNoun() + ' before you send this.');
       return;
     }
-    if (!introTerms || !introTerms.id) {
-      showRequestError('We could not load the introduction terms. Refresh and try again.');
-      return;
-    }
-    const tick = el('introTick');
-    if (!tick || !tick.checked) {
-      showRequestError('Read the introduction terms and tick to accept them.', 'introTick');
+    if (!searchId) {
+      showRequestError('Run the search again.');
       return;
     }
 
@@ -845,41 +919,30 @@
     if (!A) { showRequestError(requestErrorText({ error: 'network' })); return; }
 
     /* A lapsed session signs in over the page and then sends (Q5). */
-    A.requireConfirmed(() => send(spec, picks.slice(), introTerms.id, false));
+    A.requireConfirmed(() => send(spec, searchId, picks[0], false));
   }
 
-  /* The two calls, in order, against the values they were handed rather
-     than a re-read of the page: a refresh mid-flight can rebuild the panel
-     and what the seeker chose must not depend on what is still on screen.
-     `requestId` survives a failed second call so a retry attaches picks to
-     the request already filed instead of filing a second one. */
-  async function send(theSpec, thePicks, termsVersionId, retried) {
+  /* One call, against the values it was handed rather than a re-read of
+     the page: a refresh mid-flight can rebuild the panel and what the
+     seeker chose must not depend on what is still on screen. The client
+     key rides with it, so a retry after a timeout that landed the row is
+     answered with that row rather than filing twice. */
+  async function send(theSpec, theSearchId, theListingId, retried) {
     const btn = el('requestSubmit');
     const orig = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
     sending = true;
-    const d = await sendRequestAndPicks(theSpec, thePicks, termsVersionId);
+    const d = await postJson('/seeker-requests', {
+      search_id: theSearchId, listing_id: theListingId, client_key: clientKeyFor(theSpec),
+    });
     sending = false;
 
-    if (d && d.ok) { renderSuccess(); return d; }
+    if (d && d.ok) { renderSuccess(d); return d; }
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = orig; }
-
-    if (d && d.error === 'stale_terms') {
-      /* The version ticked is no longer the current one: fetch the new text
-         and ask for the tick again rather than sending on a stale consent. */
-      showRequestError(TERMS_MOVED);
-      await renderTermsBlock();
-      const tick = el('introTick');
-      if (tick && tick.scrollIntoView) tick.scrollIntoView({ block: 'center' });
-      return d;
-    }
     showRequestError(requestErrorText(d), pickErrorFocus(d));
     return d;
   }
 
-  /* The request is filed once per ask. A retry after a failed picks call
-     hands back the same ask object, so it attaches to the request already
-     filed instead of filing a second one; a different ask files its own. */
   /* Plan 037: one client key per ask. A retry after a timeout that landed
      the row is answered with that row (the worker reads the key back)
      instead of filing a second request and sending a second pair of emails.
@@ -896,31 +959,16 @@
     return clientKey;
   }
 
-  async function sendRequestAndPicks(theSpec, thePicks, termsVersionId) {
-    if (!requestId || filedSpec !== theSpec) {
-      const filed = await postJson('/seeker-requests', bodyFor(theSpec, clientKeyFor(theSpec)));
-      if (!filed || !filed.ok || !filed.request_id) return filed || { error: 'network' };
-      requestId = filed.request_id;
-      filedSpec = theSpec;
-    }
-    return postJson('/seeker-requests/picks', {
-      request_id: requestId, listing_ids: thePicks, terms_version_id: termsVersionId,
-    });
-  }
-
-  /* The request body the worker takes, and nothing else. POST
-     /seeker-requests reads exactly these eleven names plus `client_key`
-     (plan 037); `materials` and `quantity_unit` have no column and no
-     reader there, so sending them would be a contract the worker never
-     agreed to. They stay on the internal `spec` and reach the desk as a
-     sentence on the notes. */
-  function bodyFor(s, key) {
+  /* The search body the worker takes (plan 067): the whole ask. `materials`
+     carries every material named and `material` the first; `quantity_unit`
+     and the rest are recorded on the search and copied onto the request at
+     the pick. The terms version is added by runSearch. */
+  function bodyFor(s) {
     return {
-      hub: s.hub, material: s.material, process: s.process,
-      quantity: s.quantity, cadence: s.cadence,
+      hub: s.hub, material: s.material, materials: s.materials, process: s.process,
+      quantity: s.quantity, quantity_unit: s.quantity_unit, cadence: s.cadence,
       max_lead_time_days: s.max_lead_time_days, needed_by: s.needed_by,
       town: s.town, country: s.country, services: s.services, notes: s.notes,
-      client_key: key,
     };
   }
 
@@ -933,26 +981,21 @@
     const e = d && d.error;
     const site = siteNoun();
     if (e === 'network') return 'That did not send. Check your connection and try again, or email hello@nexpoint.co.uk.';
-    if (e === 'too_many_picks') return 'One ' + siteNoun() + ' per request. Keep one ticked and send again.';
-    if (e === 'listing_ids required') return 'Pick a ' + site + ' before you send this.';
-    if (e === 'listing_not_matched' || e === 'listing_not_live') {
-      return 'The ' + site + ' you picked is no longer on your shortlist. ' +
-        'Run the search again and pick from the new list.';
+    if (e === 'listing_id required') return 'Pick a ' + site + ' before you send this.';
+    if (e === 'listing_not_named') return 'Pick one of the three named ' + siteNounPlural() + ', or search again.';
+    if (e === 'not your search' || e === 'search_id required') return 'Run the search again.';
+    if (e === 'request_already_made') {
+      return 'Your request for this search is already in; search again to ask another ' + site + '.';
+    }
+    if (e === 'listing_not_live') {
+      return 'The ' + site + ' you picked is no longer on the hub. Run the search again and pick from the new list.';
     }
     if (e === 'own_listing') {
       return 'That is your own ' + site + ', so we cannot introduce you to it. Untick it and send again.';
     }
-    if (e === 'listing_already_closed') {
-      return 'We have already closed an introduction to that ' + site + ' for this request. Pick another one.';
-    }
-    if (e === 'picks_already_made') {
-      return 'Your pick is already in. You can follow this request on your account.';
-    }
     if (e === 'request_not_open') {
       return 'This request is no longer open. Tell the desk and we will pick it up by hand.';
     }
-    if (e === 'not your request') return 'That request belongs to another account. Start again from the search.';
-    if (e === 'request not found') return 'We could not find that request any more. Run the search again.';
     if (e === 'organisation required') {
       return 'Your account is not attached to a company yet. Email hello@nexpoint.co.uk and we will sort it out.';
     }
@@ -966,15 +1009,21 @@
     return 'That did not send. Try again, or email hello@nexpoint.co.uk.';
   }
 
-  function renderSuccess() {
+  /* The request went straight to the site (D8): the card says so, by name,
+     and `offer_sent` false means the engine sends the offer at 06:15. */
+  function renderSuccess(d) {
     const box = el('step3Body');
     if (!box) return;
+    const name = pickedName() || ('the ' + siteNoun() + ' you picked');
+    const sent = !(d && d.offer_sent === false);
+    const line = sent
+      ? 'Sent. Your request has gone to ' + name + ', who have 14 days to answer. We tell you as soon as they do.'
+      : 'Sent. Your request goes to ' + name + ' shortly; they then have 14 days to answer.';
     box.innerHTML =
       '<div class="success">' +
       '<div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>' +
       '<h2>Thank you.</h2>' +
-      '<p>Received. We check every request personally and put it to the ' + esc(siteNoun()) +
-      ' you picked. You can follow it on your account.</p>' +
+      '<p>' + esc(line) + ' You can follow it on your account.</p>' +
       '<div class="modal-actions" style="justify-content:center">' +
       '<a class="btn btn-outline" href="' + esc(accountUrl()) + '">Go to your account</a></div>' +
       '</div>';
@@ -1000,6 +1049,8 @@
     if (!mount()) return;
     const cont = el('pickContinue');
     if (cont) cont.addEventListener('click', onContinue);
+    const accept = el('searchAccept');
+    if (accept) accept.addEventListener('click', onSearchAccept);
     const shell = el('step3Body');
     if (shell) step3Shell = shell.innerHTML;
     bindRequestSubmit();

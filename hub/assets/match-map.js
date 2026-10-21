@@ -4,12 +4,13 @@
 
    The seeker's map, after Find capacity: the seeker's own town and one pin
    per ranked site, numbered as the cards are (plan 055: every ranked site
-   is on the map, the best three filled, the rest outlined; a pin opens the
-   card of a site outside the three). Sites in the same town share one pin,
-   which shows how many are there and opens a short anonymous list ("Site
-   2", "Site 3", with lead time and distance), each with its own Choose
-   button. Choosing on the map ticks the card; ticking a card lights its
-   pin.
+   is on the map, the best three filled, the rest outlined). Sites in the
+   same town share one pin, which shows how many are there and opens a short
+   anonymous list ("Site 2", "Site 3", with lead time and distance). Only a
+   site among the best three carries a Choose button (plan 067, Q4: what was
+   accepted and shown by name is what is picked); a pin beyond the three
+   says so instead. Choosing on the map ticks the card; ticking a card
+   lights its pin.
 
    The provider's map, on an offer: the seeker's town and the lab's own.
 
@@ -105,13 +106,23 @@
       if (s.distance != null) bits.push('~' + s.distance + ' km');
       facts.textContent = bits.join(' · ');
       li.appendChild(facts);
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn btn-primary np-pop__go';
-      btn.setAttribute('data-choose', String(s.listing_id));
-      btn.textContent = 'Choose ' + Noun + ' ' + s.position;
-      btn.addEventListener('click', function () { opts.onPick(String(s.listing_id)); });
-      li.appendChild(btn);
+      if (s.best) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-primary np-pop__go';
+        btn.setAttribute('data-choose', String(s.listing_id));
+        btn.textContent = 'Choose ' + Noun + ' ' + s.position;
+        btn.addEventListener('click', function () { opts.onPick(String(s.listing_id)); });
+        li.appendChild(btn);
+      } else {
+        /* Plan 067 (Q3, Q4): a pin beyond the three is a town and a rank;
+           it cannot be picked, and it says what can. */
+        var note = document.createElement('span');
+        note.className = 'np-pop__note';
+        note.textContent = 'Only the three best fits are named and can be picked. ' +
+          'Change your ask to see others, or tell the desk.';
+        li.appendChild(note);
+      }
       list.appendChild(li);
     });
     root.appendChild(list);
