@@ -216,12 +216,17 @@
     const unit = c.field === 'lead_time_days' ? ' days' : c.field === 'attr:monthly_capacity' ? ' a month' : '';
     return { label: label + (c.machine ? ' on ' + c.machine : ''), before: plain(c.field, c.before), after: plain(c.field, c.after), unit: unit };
   }
-  function withUnit(value, unit) { return value === 'none' ? value : value + unit; }
+  function withUnit(value, unit) {
+    if (value === 'none' || !unit) return value;
+    return value + (unit === ' days' && value === '1' ? ' day' : unit);
+  }
+  /* A line says which figure is new and which is old, never "400 to 600",
+     which a host reads as a range. */
   function changeLine(c) {
     const p = changeParts(c);
     if (c.field === 'machine_added') return p.label + ': ' + p.after;
     if (c.field === 'machine_removed') return p.label + ': ' + p.before;
-    return p.label + ': ' + p.before + ' to ' + withUnit(p.after, p.unit);
+    return p.label + ': now ' + withUnit(p.after, p.unit) + ' (was ' + p.before + ')';
   }
   function changeList(list) {
     return '<ul class="lchanges">' + list.map((c) => '<li>' + esc(changeLine(c)) + '</li>').join('') + '</ul>';
@@ -245,7 +250,7 @@
       (waiting.length
         ? '<div class="lsec"><div class="lsec__h">Waiting for review</div>' + changeTable(waiting) +
           '<p>We check these personally. Your listing stays as it was until we approve them, and we will email you when we have.' +
-          (mixed ? ' A change we review holds the other changes saved with it, so the whole update waits.' : '') + '</p></div>'
+          (mixed ? ' A change we review holds back the other changes saved with it, so the whole update waits.' : '') + '</p></div>'
         : '<p>Everything you changed is live.</p>') +
       '<div class="modal-actions" style="justify-content:center">' +
       '<a class="btn btn-outline" href="' + ACCOUNT_URL + '">Go to your account</a></div></div>';
@@ -438,7 +443,7 @@
     const chosen = (d && d.prefill && d.prefill.billing_period) || '';
     return '<div class="lsec__h">Hosting membership</div>' +
       '<p class="body"><strong>1,000 a year, or 100 a month</strong>, invoiced in pounds whatever your country. ' +
-      'One fee covers hosting on both the 3D Print Hub and the Mill Hub.</p>' +
+      'One membership covers hosting on both the 3D Print Hub and the Mill Hub.</p>' +
       '<div class="lgroup" role="radiogroup" aria-label="Billing period">' +
       pickRadio('billing', 'annual', 'Yearly: 1,000 a year', chosen === 'annual') +
       pickRadio('billing', 'monthly', 'Monthly: 100 a month', chosen === 'monthly') +

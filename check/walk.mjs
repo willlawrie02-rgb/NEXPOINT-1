@@ -1373,7 +1373,7 @@ async function walkOfferCommit() {
       await page.waitForSelector("#hostAppBody .success");
       const text = await page.textContent("#hostAppBody");
       has(text, "Saved.", "the heading"); has(text, "Live now", "the live list");
-      has(text, "Lead time on HP MJF 5200: 5 to 4 days", "the line");
+      has(text, "Lead time on HP MJF 5200: now 4 days (was 5)", "the line");
       has(text, "Everything you changed is live.", "the sentence");
       return eq(text.includes("Waiting for review"), false, "no waiting list");
     });
@@ -1402,7 +1402,7 @@ async function walkOfferCommit() {
       has(text, "Waiting for review", "the waiting heading");
       const rows = await page.$$eval("#hostAppBody .ldiff tbody tr", (trs) => trs.map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent.trim())));
       eq(rows, [["Lead time on HP MJF 5200", "5 days", "4 days"], ["New printer", "none", "Form 4"]], "the table: the lead time waits too, and the new printer");
-      has(text, "holds the other changes saved with it", "why the whole update waits");
+      has(text, "holds back the other changes saved with it", "why the whole update waits");
       return eq(text.includes("Live now"), false, "nothing live now");
     });
     clean(world, errors, "the mixed save");
