@@ -2546,13 +2546,15 @@ async function walkProspectsCrm() {
     world.rows.prospect_notes = [{ id: 1, company: "zz-walk-601", body: "Met at the fair.", by: ADMIN_EMAIL, at: ago(5) }];
   };
   const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+  /* The page ships two skeleton .row placeholders, so wait for a rendered card. */
+  const ROW = "#sections .row:not(.skeleton)";
   const one = async (name, act, expect) => {
     const world = newWorld({ dialogAnswer: "the scripted walk" });
     seed(world);
     const { context, page, errors } = await visit(world, { seedAdmin: true });
     await page.goto(`${APEX}/admin/leads.html`);
     await page.waitForSelector("#admin", { state: "visible" });
-    await page.waitForSelector("#sections .row");
+    await page.waitForSelector(ROW);
     await step(name, async () => {
       await act(page);
       await until(() => world.writes.length > 0, "the intent write");
@@ -2601,7 +2603,7 @@ async function walkProspectsCrm() {
     await page.goto(`${APEX}/admin/leads.html`);
     await step("Known contact greys the Campaign; the parked card cannot be graded; notes show", async () => {
       await page.waitForSelector("#admin", { state: "visible" });
-      await page.waitForSelector("#sections .row");
+      await page.waitForSelector(ROW);
       has(await page.textContent("#sections"), "Met at the fair.", "the note");
       await page.selectOption("#type-601", "Known contact");
       eq(await page.isDisabled("#camp-601"), true, "campaign disabled");
@@ -2625,7 +2627,7 @@ async function walkProspectsCrm() {
     await page.goto(`${APEX}/admin/leads.html`);
     await step("Before migration 0065 the page says so and Accept still raises one accept-prospect", async () => {
       await page.waitForSelector("#admin", { state: "visible" });
-      await page.waitForSelector("#sections .row");
+      await page.waitForSelector(ROW);
       has(await page.textContent("#banner"), "0065", "the banner");
       await page.click('#act-601 button[onclick^="accept("]');
       await until(() => world.writes.length > 0, "the intent write");
