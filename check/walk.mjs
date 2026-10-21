@@ -1211,6 +1211,27 @@ async function walkFindMap() {
     for (const leak of ["listing-", "HP MJF"]) if (success.includes(leak)) throw new Error(`the success card shows ${leak}`);
     return has(await page.getAttribute("#step3Body .success a.btn", "href"), "/hub/account/", "the account button");
   });
+  await step("nothing passing the hard filters: the pool is the closest fits, not the nearest, and the three best are still named", async () => {
+    /* Plan 067, Q1: the fallback pool is every listing, flagged, ranked by the
+       same weighted score; the page must not call it "the nearest". */
+    world.api["POST /listings/search"] = () => [200, { ok: true, search_id: 78, no_match: true, terms_version: 12,
+      matches: MATCHES.map((c) => ({ ...c, no_match_flag: true })),
+      seeker_point: { lat: 53.8, lng: -1.55 }, region: "uk", region_unknown: false }];
+    await page.click("#findSubmit");
+    await page.waitForSelector("#stepTerms:not([hidden]) #searchTick");
+    await page.check("#searchTick");
+    await page.click("#searchAccept");
+    await page.waitForSelector("#step2:not([hidden]) #capGrid .cap");
+    const intro = await page.textContent("#matchIntro");
+    has(intro, "Nothing fits your ask exactly. These are the closest fits we have, wherever they are; the three best are named.", "the intro");
+    has(intro, "One more site on the map", "the intro still counts the fourth");
+    if (intro.includes("nearest")) throw new Error("the intro still says nearest");
+    const note = await page.textContent("#noMatch");
+    has(note, "No exact match yet. These are the closest fits we have; pick one you would still like to meet, or tell the desk and we will route it by hand.", "the no-match note");
+    if (note.includes("nearest")) throw new Error("the note still says nearest");
+    const names = await page.$$eval("#capGrid .cap h3", (els) => els.map((e) => e.textContent.trim()));
+    return eq(names, ["Acme Orthotics", "Bravo Labs", "Charlie Print"], "the three best of the pool are named");
+  });
   await step("at phone width the map and the cards fit the screen", async () => {
     await page.setViewportSize({ width: 375, height: 740 });
     await page.waitForTimeout(150);

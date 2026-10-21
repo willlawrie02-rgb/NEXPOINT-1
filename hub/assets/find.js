@@ -672,7 +672,7 @@
        count is the size of the pool, not a claim that any of them fit:
        #noMatch says what these actually are. */
     box.textContent = (noMatch
-      ? 'The nearest ' + siteNounPlural() + ' to you, wherever they are, by name. '
+      ? 'Nothing fits your ask exactly. These are the closest fits we have, wherever they are; the three best are named. '
       : (n === 1 ? 'One ' + siteNoun() + ' can take this, by name. '
                  : 'The ' + words(k) + ' ' + siteNounPlural() + ' that fit best, by name. ')) + more;
     box.textContent = box.textContent.trim();
@@ -688,9 +688,9 @@
     if (!box) return;
     if (matches.length && !noMatch) { box.innerHTML = ''; box.hidden = true; return; }
     const line = matches.length
-      ? 'No exact match yet. These are the nearest ' + esc(siteNounPlural()) +
-        '; pick one you would still like to meet, or tell the desk and we will route it by hand.'
-      : 'No ' + esc(siteNounPlural()) + ' are listed on ' + esc(hubName()) +
+      ? 'No exact match yet. These are the closest fits we have; ' +
+        'pick one you would still like to meet, or tell the desk and we will route it by hand.'
+      : 'No ' + esc(siteNounPlural()) + ' are listed on the ' + esc(hubName()) +
         ' yet. Tell the desk what you need and we will route it by hand.';
     box.hidden = false;
     box.innerHTML =
@@ -991,7 +991,7 @@
       return 'The ' + site + ' you picked is no longer on the hub. Run the search again and pick from the new list.';
     }
     if (e === 'own_listing') {
-      return 'That is your own ' + site + ', so we cannot introduce you to it. Untick it and send again.';
+      return 'That is your own ' + site + ', so we cannot introduce you to it. Pick another ' + site + ' and send again.';
     }
     if (e === 'request_not_open') {
       return 'This request is no longer open. Tell the desk and we will pick it up by hand.';

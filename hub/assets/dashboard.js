@@ -345,7 +345,9 @@
         ? empty('No match yet. We are still looking, and will write the moment there is one.', 'travel_explore')
         : empty('With NexPoint. Nothing has been put forward yet.', 'hourglass_top');
     } else {
-      body = '<p class="hint">The ' + (picks.length === 1 ? 'site you picked' : 'sites on this request (' + picks.length + ')') + '</p>' +
+      body = '<p class="hint">The ' + (picks.length === 1
+          ? (r.hub === 'mill' ? 'cell' : 'site') + ' you picked'
+          : (r.hub === 'mill' ? 'cells' : 'sites') + ' on this request (' + picks.length + ')') + '</p>' +
         picks.map(function (p) { return pickBlock(p, byId[p.introduction_id], r.hub); }).join('');
     }
     return '<div class="acct-card">' +
