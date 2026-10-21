@@ -2,8 +2,8 @@
   "name": "nexpoint-website",
   "private": true,
   "scripts": {
-    "check:js": "bash -c 'set -e; for f in assets/*.js hub/assets/*.js; do node --check \"$f\"; done; echo js-ok'",
-    "check:html": "html-validate 'index.html' '404.html' 'hub/**/*.html' 'printhub/*.html' 'millhub/*.html' 'opportunities/*.html' 'portal/*.html' 'admin/*.html'",
+    "check:js": "bash -c 'set -e; for f in assets/*.js hub/assets/*.js sign/*.js; do node --check \"$f\"; done; echo js-ok'",
+    "check:html": "html-validate 'index.html' '404.html' 'hub/**/*.html' 'printhub/*.html' 'millhub/*.html' 'opportunities/*.html' 'portal/*.html' 'admin/*.html' 'sign/*.html'",
     "check:links": "node check/links.mjs",
     "check": "npm run check:js && npm run check:html && npm run check:links && npm run check:sweep && npm run check:review && npm run check:dist",
     "check:sweep": "node check/sweep.mjs",

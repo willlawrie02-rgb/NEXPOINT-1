@@ -3,4 +3,5 @@ Allow: /
 Disallow: /admin/
 Disallow: /hub/account/
 Disallow: /primetime/
+Disallow: /sign/
 Sitemap: https://nexpoint.co.uk/sitemap.xml
