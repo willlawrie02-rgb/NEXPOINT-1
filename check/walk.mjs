@@ -237,7 +237,9 @@ const API = {
   "GET /attributes": () => [200, { ok: true, attributes: [] }],
   "GET /listings/mine": () => [200, { ok: true, listing: null }],
   "GET /host/application": () => [200, { ok: true, application: null }],
-  "GET /listings/search": () => [200, { ok: true, results: [] }],
+  // plan 067: the search is a POST that accepts the introduction terms; no site by default
+  "POST /listings/search": () => [200, { ok: true, search_id: 1, matches: [], no_match: true,
+    seeker_point: null, region: null, region_unknown: true, terms_version: 12 }],
   // the account page's people sections (plan 052, wave 3): the user, the users, the invitations
   "GET /account/profile": (w) => (w.user ? [200, { ok: true, profile: w.profile || { name: w.user.name, email: w.user.email,
     phone: null, town: w.user.town, country: w.user.country, region: null, role: "owner", pending_email: null },
@@ -1061,31 +1063,33 @@ async function walkSignedIn() {
 }
 
 /* The seeker's shortlist and its map (plan 052, items 23 and 24; plan 055,
-   decision 15): the best three cards, each tagged, a map with the seeker's
-   town and every ranked site's town, two sites in one town sharing one
-   numbered pin, a fourth site on the map only until its pin is clicked, and
-   one pick, on the map or a card. */
-const MATCH_CARD = (id, town, lat, lng, lead, km, shortlist) => ({
+   decision 15; plan 067, D7 and Q3/Q4): the seeker accepts the introduction
+   terms for the search before any name shows, the best three cards are
+   named, a map with the seeker's town and every ranked site's town, two
+   sites in one town sharing one numbered pin, a fourth site on the map only
+   (a pin with no name and no Choose), and one pick, on the map or a card,
+   sent in one call that goes straight to the site. */
+const MATCH_CARD = (id, town, lat, lng, lead, km, shortlist, company) => ({
   listing_id: id, town, country: "United Kingdom", point: lat === null ? null : { lat, lng },
   machines: [{ name: "HP MJF 5200", materials: ["pa12_nylon12"], count: 1, lead_time_days: lead, monthly_capacity: 600, min_order: null }],
   materials: ["pa12_nylon12"], processes: ["mjf"], services: [], min_lead_time_days: lead,
   verified: true, distance_km: km, meets_lead_time: true, no_match_flag: false, shortlist,
+  named: shortlist, ...(company ? { company } : {}),
 });
 const MATCHES = [
-  MATCH_CARD("listing-a", "Leeds", 53.8, -1.55, 3, 5, true),
-  MATCH_CARD("listing-b", "Leeds", 53.8, -1.55, 6, 5, true),
-  MATCH_CARD("listing-c", "Bristol", 51.45, -2.59, 4, 270, true),
+  MATCH_CARD("listing-a", "Leeds", 53.8, -1.55, 3, 5, true, "Acme Orthotics"),
+  MATCH_CARD("listing-b", "Leeds", 53.8, -1.55, 6, 5, true, "Bravo Labs"),
+  MATCH_CARD("listing-c", "Bristol", 51.45, -2.59, 4, 270, true, "Charlie Print"),
   MATCH_CARD("listing-d", "Glasgow", 55.86, -4.25, 2, 300, false),
 ];
 
 async function walkFindMap() {
-  area = "Finding capacity: the best three and the map";
+  area = "Finding capacity: the terms, the three by name, and the map";
   const world = newWorld({ user: USER });
-  world.api["GET /listings/search"] = () => [200, { matches: MATCHES, no_match: false,
-    seeker_point: { lat: 53.8, lng: -1.55 }, region: "uk", region_unknown: false }];
-  world.api["POST /seeker-requests"] = () => [200, { ok: true, request_id: 501, ref: "PS-0501" }];
-  world.api["POST /seeker-requests/picks"] = (w, req) => [200, { ok: true,
-    introductions: req.body.listing_ids.map((id, i) => ({ id: 900 + i, ref: `INTRO-090${i}`, stage: "proposed" })) }];
+  world.api["POST /listings/search"] = () => [200, { ok: true, search_id: 77, matches: MATCHES, no_match: false,
+    seeker_point: { lat: 53.8, lng: -1.55 }, region: "uk", region_unknown: false, terms_version: 12 }];
+  world.api["POST /seeker-requests"] = () => [200, { ok: true, request_id: 501, ref: "PS-0501",
+    introduction: { id: 900, ref: "INTRO-0900", stage: "awaiting_acceptance" }, offer_sent: true }];
   const { context, page, errors } = await visit(world);
   await page.goto(`${PRINT}/find.html`);
   await page.waitForSelector("body[data-np-open]");
@@ -1099,17 +1103,40 @@ async function walkFindMap() {
     eq(order, true, "Is this a one off? sits above How many");
     return has(await page.textContent("#fCadenceLabel"), "one off", "the cadence question");
   });
-  await step("a search shows the three the worker marked, not the fourth", async () => {
+  await step("Find the sites that fit opens the terms gate: no search, no card, before the tick", async () => {
+    has(await page.textContent("#findSubmit"), "Find the sites that fit", "the button");
     await page.fill("#fMaterial", "PA12"); await page.press("#fMaterial", "Enter");
     await page.fill("#fQuantity", "200");
     await page.fill("#fMaxLead", "10");
     await page.click("#findSubmit");
+    await page.waitForSelector("#stepTerms:not([hidden]) #searchTick");
+    has(await page.textContent("#stepTerms h2"), "Before we show you who fits", "the gate's heading");
+    has(await page.textContent("#stepTerms"), "I accept the introduction terms, version 1.0", "the tick's words");
+    eq(await page.locator("#step2:not([hidden])").count(), 0, "step 2 stays hidden");
+    eq(await page.locator("#capGrid .cap").count(), 0, "no card before the tick");
+    eq(apiCalls(world, "POST /listings/search").length, 0, "no search before the tick");
+    eq(apiCalls(world, "GET /terms/current").length >= 1, true, "the introduction terms were fetched");
+    await page.click("#searchAccept");
+    has(await page.textContent("#searchTermsErr"), "Read the introduction terms and tick to accept them.", "refused until ticked");
+    return eq(apiCalls(world, "POST /listings/search").length, 0, "still no search");
+  });
+  await step("the tick and Accept post the search with the terms version and the ask, and show the three by name", async () => {
+    await page.check("#searchTick");
+    await page.click("#searchAccept");
     await page.waitForSelector("#step2:not([hidden]) #capGrid .cap");
+    eq(await page.locator("#stepTerms:not([hidden])").count(), 0, "the gate closes");
+    const body = apiCalls(world, "POST /listings/search")[0].body;
+    eq([body.hub, body.town, body.country, body.max_lead_time_days, body.quantity, body.terms_version_id],
+      ["print", "Leeds", "United Kingdom", 10, 200, 12], "the search's hub, town, country, lead time, quantity and terms version");
+    eq(body.material, "pa12_nylon12", "the first material is `material`, as the vocabulary names it");
+    eq(Array.isArray(body.materials) && body.materials[0], "pa12_nylon12", "`materials` carries the list");
     eq(await page.locator("#capGrid .cap").count(), 3, "cards");
     eq(await page.locator('#capGrid [data-card="listing-d"]').count(), 0, "the fourth card");
-    has(await page.textContent("#matchIntro"), "One more site on the map", "the intro counts the fourth");
-    const q = apiCalls(world, "GET /listings/search")[0].query;
-    return eq([q.town, q.country, q.max_lead_time_days], ["Leeds", "United Kingdom", "10"], "the search's town, country and lead time");
+    const names = await page.$$eval("#capGrid .cap h3", (els) => els.map((e) => e.textContent.trim()));
+    eq(names, ["Acme Orthotics", "Bravo Labs", "Charlie Print"], "the three are named");
+    has(await page.textContent('#capGrid [data-card="listing-a"]'), "Leeds, United Kingdom", "the town line beneath the name");
+    has(await page.textContent("#matchIntro"), "The three sites that fit best, by name.", "the intro");
+    return has(await page.textContent("#matchIntro"), "One more site on the map", "the intro counts the fourth");
   });
   await step("the three cards carry Best fit for your request", async () => {
     eq(await page.locator("#capGrid .cap .badge-best").count(), 3, "tags");
@@ -1128,21 +1155,23 @@ async function walkFindMap() {
     const titles = await page.$$eval("#matchMap .leaflet-marker-icon", (els) => els.map((e) => e.getAttribute("title")));
     has(titles.join(" | "), "2 sites in Leeds, United Kingdom", "the Leeds pin's name");
   });
-  await step("the Glasgow pin reveals Site 4's card below the three, without the tag", async () => {
+  await step("the Glasgow pin is a town and a rank: no name, no Choose, and the three-best-fits line; no card appears", async () => {
     await page.click("#matchMap .np-pin--more");
-    await page.waitForSelector('#capGrid [data-card="listing-d"]');
-    const cards = await page.$$eval("#capGrid .cap", (els) => els.map((e) => e.getAttribute("data-card")));
-    eq(cards, ["listing-a", "listing-b", "listing-c", "listing-d"], "the cards, in rank order");
-    eq(await page.locator('#capGrid [data-card="listing-d"] .badge-best').count(), 0, "no tag on the fourth");
-    eq(await page.locator("#capGrid .cap .badge-best").count(), 3, "the three keep theirs");
-    has(await page.textContent('#capGrid [data-card="listing-d"] .cap__num'), "Site 4", "its number is its rank");
     await page.waitForSelector("#matchMap .np-pop");
-    has(await page.textContent("#matchMap .np-pop"), "Site 4", "its popup opens too");
+    const pop = await page.textContent("#matchMap .np-pop");
+    has(pop, "Site 4", "its rank");
+    has(pop, "Glasgow", "its town");
+    has(pop, "Only the three best fits are named and can be picked. Change your ask to see others, or tell the desk.", "the note");
+    eq(await page.locator("#matchMap .np-pop [data-choose]").count(), 0, "no Choose on a pin beyond the three");
+    for (const leak of ["listing-", "HP MJF", "Ltd", "Acme", "Bravo", "Charlie"]) if (pop.includes(leak)) throw new Error(`the popup shows ${leak}`);
+    await page.waitForTimeout(150);
+    eq(await page.locator('#capGrid [data-card="listing-d"]').count(), 0, "no fourth card");
+    eq(await page.locator("#capGrid .cap").count(), 3, "the three cards stay");
     /* closed, and gone (Leaflet fades a popup out), before the next step opens another */
     await page.click("#matchMap .leaflet-popup-close-button");
     await page.waitForSelector("#matchMap .np-pop", { state: "detached" });
   });
-  await step("the shared pin opens a short anonymous list, and Choose ticks that card", async () => {
+  await step("the shared pin opens a short list of the two named sites, and Choose ticks that card", async () => {
     await page.click("#matchMap .np-pin--group");
     await page.waitForSelector("#matchMap .np-pop");
     const pop = await page.textContent("#matchMap .np-pop");
@@ -1163,14 +1192,24 @@ async function walkFindMap() {
     const lit = await page.$$eval("#matchMap .np-pin.is-on", (els) => els.map((e) => e.textContent.trim()));
     return eq(lit, ["3"], "the lit pin");
   });
-  await step("the request goes with the one site picked", async () => {
+  await step("the request names the site picked and goes to it in one call, and the success card names it", async () => {
     await page.click("#pickContinue");
-    await page.waitForSelector("#introTick");
-    has(await page.textContent("#pickSummary"), "Bristol", "the summary");
-    await page.check("#introTick");
+    await page.waitForSelector("#step3:not([hidden]) #requestSubmit");
+    const summary = await page.textContent("#pickSummary");
+    has(summary, "The site you picked: Site 3, Charlie Print, Bristol, United Kingdom.", "the summary names the site");
+    has(summary, "Your request goes straight to this site. Contact details are exchanged once it accepts.", "the summary's hint");
+    eq(await page.locator("#introTermsBlock").count(), 0, "no second terms block: the terms were accepted at the search");
+    has(await page.textContent("#requestSubmit"), "Send my request to Charlie Print", "the button names the site");
     await page.click("#requestSubmit");
     await page.waitForSelector("#step3Body .success");
-    return eq(apiCalls(world, "POST /seeker-requests/picks")[0].body.listing_ids, ["listing-c"], "the picks sent");
+    const body = apiCalls(world, "POST /seeker-requests")[0].body;
+    eq([body.search_id, body.listing_id], [77, "listing-c"], "the request's search and listing");
+    eq(typeof body.client_key, "string", "a client key rides with it");
+    eq(apiCalls(world, "POST /seeker-requests/picks").length, 0, "the retired picks route is never called");
+    const success = await page.textContent("#step3Body .success");
+    has(success, "Sent. Your request has gone to Charlie Print, who have 14 days to answer. We tell you as soon as they do.", "the success card");
+    for (const leak of ["listing-", "HP MJF"]) if (success.includes(leak)) throw new Error(`the success card shows ${leak}`);
+    return has(await page.getAttribute("#step3Body .success a.btn", "href"), "/hub/account/", "the account button");
   });
   await step("at phone width the map and the cards fit the screen", async () => {
     await page.setViewportSize({ width: 375, height: 740 });
@@ -1265,7 +1304,7 @@ async function walkAccount() {
       requests: [
         { id: 3, ref: "PS-0046", hub: "print", material: "pa12_nylon12", quantity: 500, cadence: "recurring", status: "picked",
           created_at: "2026-10-01T09:00:00Z", no_match: false,
-          picks: [{ introduction_id: 8, ref: "INTRO-0008", stage: "proposed", card: { town: "Leeds", country: "United Kingdom", materials: ["pa12_nylon12"], services: ["finishing_dyeing"],
+          picks: [{ introduction_id: 8, ref: "INTRO-0008", stage: "proposed", card: { company: "Acme Orthotics", town: "Leeds", country: "United Kingdom", materials: ["pa12_nylon12"], services: ["finishing_dyeing"],
             machines: [{ name: "HP MJF 5200", materials: ["pa12_nylon12"], count: 2, lead_time_days: 5 }] } },
             { introduction_id: 9, ref: "INTRO-0009", stage: "introduced", card: { town: "Derby", country: "United Kingdom", materials: ["pa12_nylon12"] } },
             { introduction_id: 10, ref: "INTRO-0010", stage: "awaiting_acceptance", card: { town: "Hull", country: "United Kingdom", materials: ["pa12_nylon12"] } }] },
@@ -1317,6 +1356,11 @@ async function walkAccount() {
     has(block, "HP MJF 5200", "the machine name");
     has(block, "PA12", "the labelled material");
     has(block, "Services", "the services row");
+    /* plan 067: the seeker saw the site's name at the search, so its pick is named */
+    has(block, "Acme Orthotics", "the site's name on the pick");
+    const text = await page.textContent("#introductions");
+    has(text, "The site you picked", "the picks heading");
+    if (text.includes("What we put forward")) throw new Error("the account page still says What we put forward");
   });
   await step("the progress bar has four steps, filled when done, ringed when waited on, green once introduced, the same for both sides (plan 052, items 12-14)", async () => {
     await page.waitForSelector("#introductions:not([hidden])");
