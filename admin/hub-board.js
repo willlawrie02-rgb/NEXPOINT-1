@@ -181,6 +181,12 @@ const STATUS_HELP={
     declined:'Sent back with a reason; a resubmission shows up here as a pending revision',
     hidden:'Taken off the hub',
   },
+  /* Plan 068: an edit to a live listing, and the period the host chose. */
+  change:{
+    change:'An edit to the live listing waiting on your review; the live listing stays as it is until you approve it',
+    annual:'Chosen by the host on the listing form',
+    monthly:'Chosen by the host on the listing form',
+  },
   seeker:{
     open:'The seeker has searched but not yet picked; nothing for the desk yet',
     picked:'The seeker picked sites. Approve the picks, or add a provider first',
@@ -240,7 +246,7 @@ async function load(){
     const orgIds=[...new Set([...listings.map(l=>l.org_id),
       ...seekReqs.map(r=>r.org_id)].filter(Boolean))];
     if(orgIds.length){
-      const oq=await sb.from('organisations').select('id,name,domain,hidden_at,removed_at,paused_reason,removed_reason').in('id',orgIds);
+      const oq=await sb.from('organisations').select('id,name,domain,hidden_at,removed_at,paused_reason,removed_reason,sub_status,sub_period').in('id',orgIds);
       (oq.data||[]).forEach(o=>{orgById[o.id]=o;});
     }
   }
@@ -355,17 +361,13 @@ function retry(intentId){
 /* ── Hub v2 actions ────────────────────────────────────────────────── */
 
 function approveListing(id){
-  /* Approval makes the host and starts billing (plan 044). The membership
-     is fixed at 1,000 a year or 100 a month; the board asks only which,
-     with no default (Will, 6 Oct), prefilled with the host's own choice
-     once the form carries one (plan 045). */
-  const l=listingById(id)||{};
-  const rev=revById[l.pending_revision_id]||{};
-  const asked=prompt("Billing period for this host: type 'annual' (1,000 a year) or 'monthly' (100 a month)",rev.billing_period||'');
-  if(asked===null)return;
-  const period=asked.trim().toLowerCase();
-  if(period!=='annual'&&period!=='monthly'){alert("Type 'annual' or 'monthly'.");return;}
-  raise('approve-listing',{listing_id:id,period},'lst-'+id,'Approved');
+  /* One click (D4, register 20 Oct 2026; plan 068). The host chose yearly or
+     monthly on the listing form and the engine reads it off the revision, or
+     keeps the membership a billed site already has (one fee covers both
+     hubs). The board sends nothing and never chooses for a host; a pre-plan
+     submission with no period is declined with a note (listingCard withholds
+     Approve and says why). */
+  raise('approve-listing',{listing_id:id},'lst-'+id,'Approved');
 }
 function declineListing(id){
   const note=prompt('What needs changing before this listing can go live? (sent to the host)');
@@ -586,8 +588,20 @@ function listingCard(r,l){
   if(q&&!failed){
     actions=`<div class="actions">${QUEUED_LINE}</div>`;
   }else if(l.status!=='live'&&pending){
-    actions=`<div class="actions">${failed}
-      <button class="btn btn-grn btn-sm" onclick="approveListing('${esc(l.id)}')"><span class="material-symbols-outlined" aria-hidden="true">check</span>Approve</button>
+    /* Approve is one click (plan 068): the period is the host's choice on the
+       revision, or the membership a billed site already has. A submission
+       filed before the form carried the choice, on a site not yet billed,
+       cannot be approved by the board choosing for the host (P8). */
+    const org=orgById[l.org_id]||{};
+    /* Billed: a status that is not none AND a period on record, the worker's
+       and the engine's rule; a status with no period is approved on the
+       period the host chose on the form. */
+    const billed=!!org.sub_status&&org.sub_status!=='none'&&(org.sub_period==='annual'||org.sub_period==='monthly');
+    const chosen=pending.billing_period==='annual'||pending.billing_period==='monthly';
+    const approve=(billed||chosen)
+      ?`<button class="btn btn-grn btn-sm" onclick="approveListing('${esc(l.id)}')"><span class="material-symbols-outlined" aria-hidden="true">check</span>Approve</button>`
+      :`<span class="status">No billing period on this submission: the host chooses yearly or monthly on the listing form. Decline with a note asking them to choose.</span>`;
+    actions=`<div class="actions">${failed}${approve}
       <button class="btn btn-danger btn-sm" onclick="declineListing('${esc(l.id)}')"><span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button></div>`;
   }else if(l.status==='live'&&pending){
     actions=`<div class="actions">${failed}
@@ -613,19 +627,26 @@ function listingCard(r,l){
         <span>${stg('stage',i.stage,STAGE_LABEL[i.stage]||i.stage)} ${esc(introRef(i))} · ${esc(partyB(i))}</span>
         <div id="iact-${i.id}" class="actions" style="margin-top:0">${introManage(i)}</div></div>`).join('')
     :'';
-  const changes=pending&&live&&l.status==='live'?revisionDiff(live,pending):[];
+  /* An edit is a change to a live listing, never a new listing (D6, plan
+     068): a change badge, "What changed" open, the diff field by field and
+     machine by machine. A first listing shows the period the host chose. */
+  const isChange=l.status==='live'&&!!pending&&!!live;
+  const changes=isChange?revisionDiff(live,pending):[];
+  const membership=l.status!=='live'&&pending&&(pending.billing_period==='annual'||pending.billing_period==='monthly')
+    ?stg('change',pending.billing_period,pending.billing_period==='monthly'?'MONTHLY, 100 A MONTH':'YEARLY, 1,000 A YEAR','change'):'';
   const wanted=location.hash==='#listing-'+l.id;
   return `<div class="row req s-${esc(l.status==='pending'?'new':l.status==='live'?'approved':l.status)}" id="lst-card-${esc(l.id)}">
     <div class="row-top">
       <span class="ref">${esc(reqRef(r))}</span>
       <span class="company">${esc((orgById[l.org_id]||{}).name||r.company||'(no company given)')}${
         rev.town?` <span style="color:var(--fg-2);font-weight:400">· ${esc(rev.town)}</span>`:''}</span>
-      ${stg('listing',l.status,LISTING_BADGE[l.status]||l.status)}${orgStateMarker(orgById[l.org_id])}
+      ${stg('listing',l.status,LISTING_BADGE[l.status]||l.status)}${
+        isChange?stg('change','change','Change to a live listing'):''}${membership}${orgStateMarker(orgById[l.org_id])}
     </div>
     <div class="meta">${meta}</div>
     ${linked}
-    <details class="pl"${wanted?' open':''}><summary><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>What they submitted</summary>${
-      changes.length?diffTable(changes):submittedTable(rev)}</details>
+    <details class="pl"${wanted||isChange?' open':''}><summary><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>${isChange?'What changed':'What they submitted'}</summary>${
+      isChange?(changes.length?diffTable(changes):'<p class="why">Nothing differs from the live listing.</p>'):submittedTable(rev)}</details>
     <div id="lst-${esc(l.id)}">${actions}</div>
   </div>`;
 }
@@ -830,23 +851,40 @@ const sameSet=(a,b)=>JSON.stringify((a||[]).map(String).sort())===JSON.stringify
 const sameVal=(a,b)=>Array.isArray(a)||Array.isArray(b)?sameSet(a,b)
   :JSON.stringify(a==null?null:a)===JSON.stringify(b==null?null:b);
 
-function machineList(rev){
-  return ((rev&&machinesByRev[rev.id])||[]).map(m=>[
-    m.name,m.count>1?`x${m.count}`:'',
-    (m.materials||[]).length?`(${m.materials.map(t=>lab('material',t)).join(', ')})`:'',
-    m.lead_time_days!=null?`${m.lead_time_days}d`:'',
-  ].filter(Boolean).join(' '));
-}
-
 function revisionDiff(oldRev,newRev){
   const rows=[];
   REV_FIELDS.forEach(([f,label])=>{
     if(!sameVal((oldRev||{})[f],(newRev||{})[f]))
       rows.push([label,fmtVal((oldRev||{})[f],KIND_OF[f]),fmtVal((newRev||{})[f],KIND_OF[f])]);
   });
-  const om=machineList(oldRev),nm=machineList(newRev);
-  if(om.join(' | ')!==nm.join(' | '))
-    rows.push(['Machines',om.length?om.join('; '):'—',nm.length?nm.join('; '):'—']);
+  rows.push(...machineDiff(oldRev,newRev));
+  return rows;
+}
+
+/* The machines compared one by one (plan 068): the same name, slug for slug, is
+   the same machine, and two rows with one name pair up in position order, the
+   rule the worker's classifyChanges and the engine's _change_lines use. */
+const mslug=s=>String(s==null?'':s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const NONE=String.fromCharCode(8212);   /* the board's own "nothing here" mark, as fmtVal prints it */
+function machineDiff(oldRev,newRev){
+  const rows=[];
+  const line=m=>[m.name,m.count>1?`x${m.count}`:'',(m.materials||[]).length?`(${m.materials.map(t=>lab('material',t)).join(', ')})`:'',
+    m.lead_time_days!=null?`${m.lead_time_days}d`:'',(m.attributes||{}).monthly_capacity!=null?`${m.attributes.monthly_capacity}/month`:''].filter(Boolean).join(' ');
+  const pool=new Map();
+  ((oldRev&&machinesByRev[oldRev.id])||[]).forEach(m=>{const k=mslug(m.name);if(!pool.has(k))pool.set(k,[]);pool.get(k).push(m);});
+  ((newRev&&machinesByRev[newRev.id])||[]).forEach(m=>{
+    const twin=(pool.get(mslug(m.name))||[]).shift();
+    if(!twin){rows.push(['Machine added',NONE,line(m)]);return;}
+    const a=twin.attributes||{},b=m.attributes||{};
+    if(!sameVal(twin.materials,m.materials))rows.push([`${m.name}: materials`,fmtVal(twin.materials,'material'),fmtVal(m.materials,'material')]);
+    if(twin.count!==m.count)rows.push([`${m.name}: how many`,String(twin.count),String(m.count)]);
+    if(twin.lead_time_days!==m.lead_time_days)rows.push([`${m.name}: lead time`,`${twin.lead_time_days} days`,`${m.lead_time_days} days`]);
+    [...new Set([...Object.keys(a),...Object.keys(b)])].sort().forEach(k=>{
+      if(!sameVal(a[k],b[k]))rows.push([`${m.name}: ${k==='monthly_capacity'?'monthly capacity':k==='min_order'?'minimum order':k.replace(/_/g,' ')}`,fmtVal(a[k],KIND_OF[k]),fmtVal(b[k],KIND_OF[k])]);
+    });
+    if((twin.notes||'')!==(m.notes||''))rows.push([`${m.name}: notes`,twin.notes||NONE,m.notes||NONE]);
+  });
+  [...pool.values()].flat().forEach(m=>rows.push(['Machine removed',line(m),NONE]));
   return rows;
 }
 
