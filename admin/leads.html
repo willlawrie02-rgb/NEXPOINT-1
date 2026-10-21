@@ -32,6 +32,7 @@
          font: 600 12px/1 var(--font-body); color: var(--info-ink);
          background: var(--info-wash); border-radius: var(--radius-sm); padding: 5px 9px; }
   .opp .material-symbols-outlined { font-size: 15px; }
+  .opps .finder-label { align-self: center; font: 600 12px/1 var(--font-body); color: var(--fg-2); margin-right: 2px; }
 
   /* The judge's evidence: what they do that makes them a fit. */
   .fit { color: var(--fg-1); font-size: 14.5px; max-width: 78ch; margin-bottom: 10px; }
@@ -175,6 +176,7 @@ finish review, the verdict, and DESIGN.md
           <a href="organisations.html">Accounts</a>
           <a href="members.html">Users</a>
           <a href="orders.html">Orders</a>
+          <a href="consultancy.html">Consultancy</a>
         </span>
         <span class="navgroup">
           <a href="health.html">Health</a>
@@ -211,6 +213,7 @@ finish review, the verdict, and DESIGN.md
           <label>Lead quality <select id="f-quality" onchange="filtersChanged()"><option value="">All</option></select></label>
           <label>Campaign <select id="f-campaign" onchange="filtersChanged()"><option value="">All</option></select></label>
           <label>Source <select id="f-source" onchange="filtersChanged()"><option value="">All</option></select></label>
+          <label>Finder <select id="f-finder" onchange="filtersChanged()"><option value="">All</option></select></label>
           <button class="btn btn-gh btn-sm" id="addOpen" type="button" onclick="toggleAdd()"><span class="material-symbols-outlined" aria-hidden="true">add_business</span>Add a company</button>
         </div>
         <div class="row addform" id="addForm" hidden>
@@ -248,7 +251,7 @@ const $=id=>document.getElementById(id);
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
 // PLAN065 (Chris's CRM categorisation, Will 2026-10-14): five fields, Park and Kill, notes, edits, add.
 let prospects=[],parked=[],leads=[],rejected=[],campaigns=[],members={},pendingFor={},me=null,tab='prospects',pre0047=false,pre0065=false;
-let opts={sector:[],company_type:[]},notes={};
+let opts={sector:[],company_type:[]},notes={},opportunities=[];
 // Review fix: a dropdown changed but not yet saved survives every re-render.
 const choices={},drafts={};
 function choose(id,field,value){(choices[id]=choices[id]||{})[field]=value;}
@@ -287,7 +290,7 @@ function showAdmin(user){
   $('who').textContent=user.email;
   try{const t=localStorage.getItem('nx-prospects-tab');if(t)tab=t;}catch(e){}
   try{const f=JSON.parse(localStorage.getItem('nx-prospects-filters')||'{}');
-    for(const k of ['f-search','f-type','f-sector','f-ctype','f-quality','f-campaign','f-source'])if(f[k]!=null)$(k).dataset.saved=f[k];}catch(e){}
+    for(const k of ['f-search','f-type','f-sector','f-ctype','f-quality','f-campaign','f-source','f-finder'])if(f[k]!=null)$(k).dataset.saved=f[k];}catch(e){}
   load();
 }
 
@@ -308,6 +311,24 @@ function siteLabel(w){
 const nameOf=r=>r.display_name||r.company;
 const typeOf=r=>r.prospect_type||r.category;
 const campaignName=id=>{const c=campaigns.find(c=>String(c.id)===String(id));return c?c.name:null;};
+/* The finder search that surfaced a row: its matched opportunities (Will,
+   2026-10-20), apart from the Campaign. Only rows the finders proposed
+   (source finder, or none before 0047): a Fit360 wave row's entries come
+   from its wave, not from a search. */
+const fromFinder=r=>(r.source||'finder')==='finder';
+const finderIds=r=>fromFinder(r)?(r.matched_json||[]).filter(e=>typeof e==='string'&&e):[];
+const isOpportunity=e=>opportunities.some(o=>o.id===e);
+function finderLabel(e){
+  const o=opportunities.find(o=>o.id===e);if(o)return o.title;
+  if(e.startsWith('email-discovered:'))return 'Email discovery ('+e.slice('email-discovered:'.length)+')';
+  if(e==='portal-enquiry')return 'Portal enquiry';
+  return e;
+}
+function finderTags(r){
+  const ids=finderIds(r);
+  return ids.length?`<div class="opps"><span class="finder-label">Finder</span>${ids.map(e=>
+    `<span class="opp" title="Found by this finder search"><span class="material-symbols-outlined" aria-hidden="true">travel_explore</span>${esc(finderLabel(e))}</span>`).join('')}</div>`:'';
+}
 
 const BASE='id,company,category,matched_json,reasoning,judge_reason,website,quality,judged,judge_confidence,proposed_at,decided_at,decided_by,decision_note,status';
 const PLAN043=',prospect_type,recommended_campaign_id,campaign_id,source,display_name,list_overlap';
@@ -391,6 +412,8 @@ async function load(){
 
   const {data:camps}=await sb.from('nx_campaigns').select('id,name,opportunity_id,active').eq('active',true).order('name',{ascending:true});
   campaigns=camps||[];
+  const {data:opps}=await sb.from('opportunities').select('id,title').order('title',{ascending:true});
+  opportunities=opps||[];
   const mem=await readMembers('id,company,campaign_id,version,status,reason,contact_email,updated_at');
   members={};mem.forEach(m=>{members[m.company]=m;});
 
@@ -416,7 +439,7 @@ async function load(){
 
 function fillFilters(){
   const keep=id=>$(id).dataset.saved!=null?$(id).dataset.saved:$(id).value;
-  const vals={};for(const k of ['f-search','f-type','f-sector','f-ctype','f-quality','f-campaign','f-source'])vals[k]=keep(k);
+  const vals={};for(const k of ['f-search','f-type','f-sector','f-ctype','f-quality','f-campaign','f-source','f-finder'])vals[k]=keep(k);
   const unset='<option value="__unset">Not set</option>';
   $('f-type').innerHTML='<option value="">All</option>'+TYPES.map(x=>`<option value="${esc(x)}">${esc(typeLabel(x))}</option>`).join('');
   $('f-sector').innerHTML='<option value="">All</option>'+unset+opts.sector.map(x=>`<option>${esc(x)}</option>`).join('');
@@ -425,11 +448,13 @@ function fillFilters(){
   $('f-campaign').innerHTML='<option value="">All</option><option value="none">None</option>'
     +campaigns.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
   $('f-source').innerHTML='<option value="">All</option>'+Object.entries(SOURCES).map(([k,v])=>`<option value="${esc(k)}">${esc(v)}</option>`).join('');
+  $('f-finder').innerHTML='<option value="">All</option>'+opportunities.map(o=>`<option value="${esc(o.id)}">${esc(o.title)}</option>`).join('')
+    +'<option value="__none">Not from a finder search</option>';
   for(const k in vals){$(k).value=vals[k]||'';delete $(k).dataset.saved;}
   fillAddForm();
 }
 function filtersChanged(){
-  const f={};for(const k of ['f-search','f-type','f-sector','f-ctype','f-quality','f-campaign','f-source'])f[k]=$(k).value;
+  const f={};for(const k of ['f-search','f-type','f-sector','f-ctype','f-quality','f-campaign','f-source','f-finder'])f[k]=$(k).value;
   try{localStorage.setItem('nx-prospects-filters',JSON.stringify(f));}catch(e){}
   render();
 }
@@ -443,6 +468,9 @@ function passes(r,campaignId){
   if(!matchField($('f-ctype').value,r.company_type))return false;
   if(q&&gradeOf(r)!==q)return false;
   if(src&&(r.source||'finder')!==src)return false;
+  const fd=$('f-finder').value;
+  if(fd==='__none'&&finderIds(r).some(isOpportunity))return false;
+  if(fd&&fd!=='__none'&&!finderIds(r).includes(fd))return false;
   if(c==='none'&&campaignId!=null)return false;
   if(c&&c!=='none'&&String(campaignId)!==c)return false;
   return true;
@@ -551,6 +579,7 @@ function prospectCard(r,isParked){
   }
   return `<div class="row">
     <div class="row-top"><span class="company">${esc(nameOf(r))}</span><span class="src">${esc(src)}</span></div>
+    ${finderTags(r)}
     <div class="fit"><span class="lead-in">Why it fits:</span> ${esc(why)||'Not yet assessed by the checking pass.'}</div>
     ${r.list_overlap?`<div class="overlap">Already on the campaign list (${esc(r.list_overlap)}).</div>`:''}
     ${fields(r,isParked)}
@@ -577,6 +606,7 @@ function leadCard(r){
   return `<div class="row">
     <div class="row-top"><span class="company">${esc(nameOf(r))}</span>
       <span class="src">${esc(typeLabel(typeOf(r)))} · ${esc(cap(gradeOf(r)))}</span></div>
+    ${finderTags(r)}
     ${fields(r,false)}
     <div class="meta"><span>${site(r)}</span>${r.decided_at?`<span>accepted ${esc(String(r.decided_at).slice(0,10))}${r.decided_by?' by '+esc(r.decided_by):''}</span>`:''}</div>
     <div class="grade-row">${where}</div>
@@ -596,6 +626,7 @@ function rejectedCard(r){
       :`<button class="btn btn-gh btn-sm" data-id="${esc(r.id)}" onclick="unblock(this.dataset.id)"><span class="material-symbols-outlined" aria-hidden="true">undo</span>Restore</button>`);
   return `<div class="row done">
     <div class="row-top"><span class="company">${esc(nameOf(r))}</span><span class="src">${esc(r.status==='blocked'?'Killed':'Rejected')}</span></div>
+    ${finderTags(r)}
     <div class="meta"><span>${site(r)}</span><span>${esc(String(r.decided_at||'').slice(0,10))}${r.decided_by?' by '+esc(r.decided_by):''}</span>${r.decision_note?`<span>${esc(r.decision_note)}</span>`:''}</div>
     <div class="grade-row" id="act-${esc(r.id)}">${failed}${action}</div>
   </div>`;

@@ -16,6 +16,10 @@
 //   WALK_BROWSER=/path/to/chrome   uses that browser.
 //   WALK_ONLY=boards (or public)   runs one half; WALK_ONLY=sign runs the
 //       consultancy sign-up page alone.
+//   WALK_ORIGIN=cloudflare-pages   serves the pages the way Cloudflare Pages
+//       will (plan 053) instead of the way GitHub Pages does: .html
+//       addresses redirect, unknown ones get 404.html, and the hub
+//       subdomains go through the subdomain router's mapping.
 import { chromium } from "playwright-core";
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { join, dirname, resolve, extname, sep } from "node:path";
@@ -24,6 +28,11 @@ import { homedir } from "node:os";
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const ADMIN_DIR = process.env.WALK_ADMIN_DIR ? resolve(process.env.WALK_ADMIN_DIR) : join(ROOT, "admin");
 const ONLY = process.env.WALK_ONLY || "";
+const ORIGIN = process.env.WALK_ORIGIN || "github-pages";
+if (!["github-pages", "cloudflare-pages"].includes(ORIGIN)) {
+  console.error(`walk: WALK_ORIGIN must be github-pages or cloudflare-pages, not ${ORIGIN}`);
+  process.exit(2);
+}
 
 const APEX = "https://nexpoint.co.uk";
 const PRINT = "https://printhub.nexpoint.co.uk";
@@ -366,6 +375,7 @@ async function answerDb(world, route, request, url) {
 }
 
 function serveFile(world, route, url) {
+  if (ORIGIN === "cloudflare-pages") return servePages(world, route, url);
   const folder = FOLDERS[url.hostname];
   let rel = decodeURIComponent(url.pathname);
   let base = join(ROOT, folder);
@@ -383,6 +393,84 @@ function serveFile(world, route, url) {
   }
   return route.fulfill({ status: 200, contentType: MIME[extname(file)] || "application/octet-stream",
     headers: { "access-control-allow-origin": "*" }, body: readFileSync(file) });
+}
+
+/* WALK_ORIGIN=cloudflare-pages (plan 053): answer the way Cloudflare Pages
+   will. /x.html is a 308 to /x and /x/index.html a 308 to /x/, query kept;
+   /x serves x.html; a folder without its slash is a 308 to the slash; a file
+   asked for with a trailing slash is a 308 to drop it; anything missing gets
+   the site's 404.html with status 404. `path` is the address on the apex,
+   still URL-encoded; the answer is { file }, { redirect } or { missing }. */
+function pagesAnswer(path) {
+  if (path.endsWith("/index.html")) return { redirect: path.slice(0, -"index.html".length) };
+  if (path.endsWith(".html")) return { redirect: path.slice(0, -".html".length) };
+  if (path === "/admin") return { redirect: "/admin/" };
+  let rel = decodeURIComponent(path);
+  let base = ROOT;
+  if (rel.startsWith("/admin/")) { base = ADMIN_DIR; rel = rel.slice("/admin".length); }
+  const file = resolve(join(base, rel));
+  if (file !== base && !file.startsWith(base + sep)) return { missing: true };
+  const isFile = (f) => existsSync(f) && statSync(f).isFile();
+  if (rel.endsWith("/")) {
+    if (isFile(join(file, "index.html"))) return { file: join(file, "index.html") };
+    if (file !== base && isFile(file + ".html")) return { redirect: path.replace(/\/+$/, "") };
+    return { missing: true };
+  }
+  if (isFile(file)) return { file };
+  if (isFile(file + ".html")) return { file: file + ".html" };
+  if (isFile(join(file, "index.html"))) return { redirect: path + "/" };
+  return { missing: true };
+}
+
+/* A redirect the walk answers is not routed again: Playwright sends the
+   browser's next hop to the real network, which here is the live site (seen
+   on 20 Oct: the live pages' Cloudflare email script turned up as a missing
+   file). So a page load gets a stub that moves to the target itself, which
+   the walk does route, keeping the hash as a real redirect would; any other
+   request gets the target's answer straight away. */
+function pagesRedirect(world, route, target, hops) {
+  if (route.request().isNavigationRequest()) {
+    return route.fulfill({ status: 200, contentType: MIME[".html"],
+      body: `<!doctype html><script>location.replace(${JSON.stringify(target)} + location.hash)</script>` });
+  }
+  return servePages(world, route, new URL(target), hops + 1);
+}
+
+function servePages(world, route, url, hops = 0) {
+  if (hops > 4) {
+    world.missing.push(`${url.href} (more than four redirects)`);
+    return route.fulfill({ status: 508, contentType: "text/plain", body: "too many redirects" });
+  }
+  const folder = FOLDERS[url.hostname];
+  let path = url.pathname;
+  if (folder) {
+    /* The subdomain router's mapping, exactly as
+       ~/Documents/Claude/Projects/Nexpoint/_system/subdomain-router/worker.js
+       does it (plan 053 A1): a trailing index.html goes, any other .html goes,
+       and the hub's folder goes in front. Keep the two in step. */
+    if (path.endsWith("/index.html")) path = path.slice(0, -"index.html".length);
+    else if (path.endsWith(".html")) path = path.slice(0, -".html".length);
+    path = `/${folder}${path}`;
+  }
+  const answer = pagesAnswer(path);
+  if (answer.redirect) {
+    if (!folder) return pagesRedirect(world, route, url.origin + answer.redirect + url.search, hops);
+    /* The router turns the origin's redirect into a 302 on the subdomain, and
+       answers 502 rather than redirect an address to itself. */
+    const back = answer.redirect.replace(new RegExp(`^/${folder}(?=[/?#]|$)`), "") || "/";
+    const target = `${url.origin}${back}${url.search}`;
+    if (target === url.origin + url.pathname + url.search) {
+      world.missing.push(`${url.href} (the router would redirect it to itself)`);
+      return route.fulfill({ status: 502, contentType: "text/plain", body: "redirect to itself" });
+    }
+    return pagesRedirect(world, route, target, hops);
+  }
+  if (answer.missing) {
+    if (!/favicon\.ico$/.test(path)) world.missing.push(url.href);
+    return route.fulfill({ status: 404, contentType: MIME[".html"], body: readFileSync(join(ROOT, "404.html")) });
+  }
+  return route.fulfill({ status: 200, contentType: MIME[extname(answer.file)] || "application/octet-stream",
+    headers: { "access-control-allow-origin": "*" }, body: readFileSync(answer.file) });
 }
 
 const TURNSTILE = `window.turnstile = {

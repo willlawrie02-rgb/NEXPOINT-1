@@ -80,6 +80,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <a href="organisations.html">Accounts</a>
           <a href="members.html" aria-current="page">Users</a>
           <a href="orders.html">Orders</a>
+          <a href="consultancy.html">Consultancy</a>
         </span>
         <span class="navgroup">
           <a href="health.html">Health</a>
@@ -99,8 +100,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           email and the Pipedrive person they are tied to. Users of an account with an approved
           listing are hosts' users. Users manage their own details; there is nothing to edit here. Delete
           user removes the person and their sign-in and cannot be undone. When it is the only user
-          of an account, the whole account goes too, with everything filed under it; when the account
-          has other users, only that user goes.
+          of an account, the account is deleted too: its fee and agreement records stay, anonymised,
+          in the Accounts archive; when the account has other users, only that user goes.
         </p>
         <div id="banner"></div>
         <div class="register">
@@ -243,7 +244,7 @@ function deleteUser(userId){
   const who = p.name || p.email;
   const acct = accountNames[p.org_id] || p.company || 'their account';
   const msg = last
-    ? `Delete ${who} (${p.email})? They are the only user of ${acct}, so the whole account goes too, with every listing, request and introduction filed under it. This cannot be undone.`
+    ? `Delete ${who} (${p.email})? They are the only user of ${acct}, so the account is deleted too. Its introductions, declarations, statements and agreements stay, anonymised, because fees and invoice records outlive the account. This cannot be undone.`
     : `Delete ${who} (${p.email})? Their sign-in is removed and ${p.org_id ? `the rest of ${acct}'s users stay` : 'they have no account to lose'}. This cannot be undone.`;
   if (!confirm(msg)) return;
   raise('delete-user',{user_id:userId},'Delete queued');
