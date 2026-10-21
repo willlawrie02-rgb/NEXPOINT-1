@@ -395,6 +395,8 @@ a.btn { text-decoration: none; }
 .stg-closed        { background: var(--cold-wash); color: var(--cold-ink); }
 .stg-proposed      { background: var(--info-wash); color: var(--info-ink); }
 .stg-awaiting_acceptance { background: var(--warn-wash); color: var(--warn-ink); }
+/* Plan 068: an edit to a live listing, and the period the host chose. */
+.stg-change        { background: rgba(0,92,200,.12); color: #005CC8; }
 .stg-expired       { background: var(--cold-wash); color: var(--cold-ink); }
 .stg-on            { background: var(--ok-wash);   color: var(--ok-ink); }
 .stg-paused        { background: var(--err-wash);  color: var(--err-ink); }
