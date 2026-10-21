@@ -1246,6 +1246,192 @@ async function walkOfferMap() {
   }
 }
 
+/* The membership beside the Host Agreement, the name line, and an edit as a
+   change (plan 068, D4, D6, D7 of the register of 20 Oct 2026): a first
+   listing chooses yearly or monthly before the tick; a billed site is told
+   nothing more is to choose; an edit saves and says what went live and what
+   waits (a mixed save waiting in full, P1); a pending edit shows the change
+   table. The 3D Print Hub page carries all of it; the Mill Hub loads the same
+   module, and walkOfferMap proves both pages render the form. */
+async function walkOfferCommit() {
+  area = "Offering capacity: the membership, the name, and an edit as a change";
+  const MINE_NONE = { ok: true, listing: null, live: null, pending: null, status: "none", host_terms_accepted_version_id: null,
+    membership: { billed: false, period: null, rate: null }, pending_changes: [] };
+  const LIVE_REV = { id: 2, listing_id: "listing-1", revision_no: 2, status: "approved", address_line: "1 Works Road", town: "Leeds",
+    postcode: "LS1 1AA", country: "United Kingdom", lat: 53.8, lng: -1.55, geocoded_at: "2026-10-01T09:00:00Z", ships_to: ["uk"],
+    services: [], quality_notes: "ISO 13485", billing_period: "annual", attributes: {}, materials_all: ["pa12_nylon12"],
+    processes_all: ["mjf"], min_lead_time_days: 5, submitted_at: "2026-10-01T09:00:00Z",
+    machines: [{ revision_id: 2, position: 0, name: "HP MJF 5200", materials: ["pa12_nylon12"], count: 2, lead_time_days: 5,
+      notes: null, attributes: { monthly_capacity: 400 } }] };
+  const MINE_LIVE = { ok: true, listing: { id: "listing-1", hub: "print", status: "live" }, live: LIVE_REV, pending: null,
+    status: "live", host_terms_accepted_version_id: 12, membership: { billed: true, period: "annual", rate: 1000 }, pending_changes: [] };
+  const open = async (mine) => {
+    const world = newWorld({ user: USER });
+    world.api["GET /listings/mine"] = () => [200, mine];
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${PRINT}/offer.html`);
+    await page.waitForSelector("body[data-np-open]");
+    await page.waitForSelector("#listingForm");
+    return { world, context, page, errors };
+  };
+  const fillFirst = async (page) => {
+    await page.fill("#siteTown", "Leeds");
+    await page.fill("#siteCountry", "United Kingdom"); await page.press("#siteCountry", "Enter");
+    await page.click('#shipsTo input[data-region="uk"] + span');
+    await page.fill("#m-1-machine", "HP MJF 5200"); await page.press("#m-1-machine", "Enter");
+    await page.fill("#m-1-materials", "PA12"); await page.press("#m-1-materials", "Enter");
+    await page.fill("#m-1-lead", "5");
+    await page.fill("#m-1-capacity", "400");
+    await page.waitForSelector("#hostTick");
+    await page.check("#hostTick");
+  };
+  const posted = (world) => apiCalls(world, "POST /listings");
+
+  // 1. a first listing
+  {
+    const { world, context, page, errors } = await open(MINE_NONE);
+    await step("the membership panel sits beside the Host Agreement, before it, with Yearly and Monthly and neither ticked", async () => {
+      await page.waitForSelector("#hostCommit #hostMembership");
+      await page.waitForSelector("#hostCommit #hostTermsBlock .terms-scroll");
+      const order = await page.evaluate(() => {
+        const box = document.getElementById("hostCommit"), m = document.getElementById("hostMembership"), t = document.getElementById("hostTermsBlock");
+        return m.parentElement === box && t.parentElement === box && !!(m.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING);
+      });
+      eq(order, true, "the membership first, the terms beside it, both in #hostCommit");
+      eq(await page.locator('#hostMembership input[name="billing"]').count(), 2, "the two choices");
+      eq(await page.locator('#hostMembership input[name="billing"]:checked').count(), 0, "nothing ticked yet");
+      const panel = await page.textContent("#hostMembership");
+      has(panel, "1,000 a year", "the yearly price"); has(panel, "100 a month", "the monthly price");
+      has(panel, "invoiced in pounds", "the currency");
+      return has(panel, "covers hosting on both the 3D Print Hub and the Mill Hub", "one fee, both hubs");
+    });
+    await step("the Site name says it is shown to seekers who have accepted the introduction terms", async () =>
+      has(await page.textContent("#listingForm"), "shown to seekers who have accepted the introduction terms", "the name line"));
+    await step("submitting without a choice says Choose yearly or monthly hosting. and posts nothing", async () => {
+      await fillFirst(page);
+      await page.click("#listingSubmit");
+      await page.waitForSelector("#listingErr:not([style*='display: none'])");
+      has(await page.textContent("#listingErr"), "Choose yearly or monthly hosting.", "the error line");
+      return eq(posted(world).length, 0, "posts");
+    });
+    await step("choosing Monthly sends billing_period monthly and the page says thank you", async () => {
+      world.api["POST /listings"] = () => [200, { ok: true, listing_id: "listing-1", revision_id: 1, revision_no: 1, status: "pending", geocoded: true }];
+      await page.click('#hostMembership input[value="monthly"] + span');
+      eq(await page.$eval('#hostMembership input[value="monthly"]', (b) => b.closest(".pick").classList.contains("is-on")), true, "the pill lights");
+      await page.click("#listingSubmit");
+      await until(() => posted(world).length > 0, "the POST");
+      eq(posted(world)[0].body.billing_period, "monthly", "the period sent");
+      await page.waitForSelector("#hostAppBody .success");
+      return has(await page.textContent("#hostAppBody"), "Nothing is listed until we have checked it", "the thank-you");
+    });
+    clean(world, errors, "the first listing's form");
+    await context.close();
+  }
+
+  // 2. a billed site (a Mill host listing on the 3D Print Hub)
+  {
+    const { world, context, page, errors } = await open({ ...MINE_NONE, membership: { billed: true, period: "monthly", rate: 100 } });
+    await step("a billed site is told its membership covers both hubs, with nothing to choose", async () => {
+      await page.waitForSelector("#hostMembership");
+      const panel = await page.textContent("#hostMembership");
+      has(panel, "covers both", "one fee"); has(panel, "nothing more to choose", "nothing to choose");
+      has(panel, "100 a month", "the membership it has");
+      return eq(await page.locator('#hostMembership input[name="billing"]').count(), 0, "no radios");
+    });
+    await step("its submission carries no billing_period", async () => {
+      world.api["POST /listings"] = () => [200, { ok: true, listing_id: "listing-2", revision_id: 1, revision_no: 1, status: "pending", geocoded: true }];
+      await fillFirst(page);
+      await page.click("#listingSubmit");
+      await until(() => posted(world).length > 0, "the POST");
+      return eq("billing_period" in posted(world)[0].body, false, "billing_period in the body");
+    });
+    clean(world, errors, "the billed site's form");
+    await context.close();
+  }
+
+  // 3. an edit made only of a lead time: live on save
+  {
+    const { world, context, page, errors } = await open(MINE_LIVE);
+    await step("editing a live listing: the intro says what goes live on save, the button says Save changes, the membership is a statement", async () => {
+      has(await page.textContent("#hostAppBody"), "goes live when you save it", "the intro line");
+      eq((await page.textContent("#listingSubmit")).trim(), "Save changes", "the button");
+      const panel = await page.textContent("#hostMembership");
+      has(panel, "Your membership", "the heading"); has(panel, "yearly, 1,000 a year", "the membership on record");
+      has(panel, "To change how you pay", "the route to change it");
+      eq(await page.locator('#hostMembership input[name="billing"]').count(), 0, "no radios on an edit");
+      return has(await page.textContent("#hostTermsBlock"), "still applies", "the accepted agreement");
+    });
+    await step("a lead time saved alone is Live now, and the page says everything is live", async () => {
+      world.api["POST /listings"] = () => [200, { ok: true, listing_id: "listing-1", revision_id: 3, live_revision_id: 3, revision_no: 3, status: "live", geocoded: true,
+        live_now: [{ field: "lead_time_days", machine: "HP MJF 5200", before: 5, after: 4, review: false }], waiting: [] }];
+      await page.fill("#m-1-lead", "4");
+      await page.click("#listingSubmit");
+      await until(() => posted(world).length > 0, "the POST");
+      const body = posted(world)[0].body;
+      eq(body.machines[0].lead_time_days, 4, "the lead time sent");
+      eq("billing_period" in body, false, "no period on an edit");
+      await page.waitForSelector("#hostAppBody .success");
+      const text = await page.textContent("#hostAppBody");
+      has(text, "Saved.", "the heading"); has(text, "Live now", "the live list");
+      has(text, "Lead time on HP MJF 5200: now 4 days (was 5)", "the line");
+      has(text, "Everything you changed is live.", "the sentence");
+      return eq(text.includes("Waiting for review"), false, "no waiting list");
+    });
+    clean(world, errors, "the edit that went live");
+    await context.close();
+  }
+
+  // 4. an edit that mixes a lead time with a new machine: waits in full (P1)
+  {
+    const { world, context, page, errors } = await open(MINE_LIVE);
+    await step("a lead time saved with a new printer waits in full: every line under Waiting for review, nothing Live now", async () => {
+      world.api["POST /listings"] = () => [200, { ok: true, listing_id: "listing-1", revision_id: 3, live_revision_id: 2, revision_no: 3, status: "pending", geocoded: true,
+        live_now: [], waiting: [{ field: "lead_time_days", machine: "HP MJF 5200", before: 5, after: 4, review: false },
+          { field: "machine_added", machine: "Form 4", before: null, after: { name: "Form 4", materials: ["resin_sla"] }, review: true }] }];
+      await page.fill("#m-1-lead", "4");
+      await page.click("#addMachineRow");
+      await page.fill("#m-2-machine", "Form 4"); await page.press("#m-2-machine", "Enter");
+      await page.fill("#m-2-materials", "Resin SLA"); await page.press("#m-2-materials", "Enter");
+      await page.fill("#m-2-lead", "3");
+      await page.fill("#m-2-capacity", "50");
+      await page.click("#listingSubmit");
+      await until(() => posted(world).length > 0, "the POST");
+      eq(posted(world)[0].body.machines.length, 2, "two machines sent");
+      await page.waitForSelector("#hostAppBody .success .ldiff");
+      const text = await page.textContent("#hostAppBody");
+      has(text, "Waiting for review", "the waiting heading");
+      const rows = await page.$$eval("#hostAppBody .ldiff tbody tr", (trs) => trs.map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent.trim())));
+      eq(rows, [["Lead time on HP MJF 5200", "5 days", "4 days"], ["New printer", "none", "Form 4"]], "the table: the lead time waits too, and the new printer");
+      has(text, "holds back the other changes saved with it", "why the whole update waits");
+      return eq(text.includes("Live now"), false, "nothing live now");
+    });
+    clean(world, errors, "the mixed save");
+    await context.close();
+  }
+
+  // 5. a pending edit, on return
+  {
+    const pending = { ...LIVE_REV, id: 3, revision_no: 3, status: "pending", town: "Bradford" };
+    const world = newWorld({ user: USER });
+    world.api["GET /listings/mine"] = () => [200, { ...MINE_LIVE, pending, status: "live_pending_edit",
+      pending_changes: [{ field: "town", before: "Leeds", after: "Bradford", review: true }] }];
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${PRINT}/offer.html`);
+    await page.waitForSelector("body[data-np-open]");
+    await step("a pending edit shows the change table, Town from Leeds to Bradford, and not the whole pending revision again", async () => {
+      await page.waitForSelector("#hostAppBody .ldiff");
+      const text = await page.textContent("#hostAppBody");
+      has(text, "Under review. Your listing stays as it is until we have approved these changes", "the lock line");
+      has(text, "Live now", "the live summary"); has(text, "Waiting for review", "the waiting heading");
+      const cells = await page.$$eval("#hostAppBody .ldiff tbody tr:first-child td", (els) => els.map((e) => e.textContent.trim()));
+      eq(cells, ["Town", "Leeds", "Bradford"], "the row");
+      return eq(text.split("1 Works Road").length - 1, 1, "the address printed once, under Live now");
+    });
+    clean(world, errors, "the pending edit");
+    await context.close();
+  }
+}
+
 async function walkAccount() {
   area = "The account page";
   const soon = new Date(Date.now() + 3 * 864e5).toISOString();
@@ -2951,6 +3137,8 @@ const parts = []
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
 /* The listing form's ship picker (plan 055) walks straight after the find map. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkFindMap) + 1, 0, walkOfferMap);
+/* The membership beside the terms and an edit as a change (plan 068) walk straight after the ship picker. */
+if (ONLY !== "boards") parts.splice(parts.indexOf(walkOfferMap) + 1, 0, walkOfferCommit);
 if (ONLY === "sign") parts.splice(0, parts.length, walkSign);
 try {
   for (const part of parts) {

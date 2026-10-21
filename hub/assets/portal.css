@@ -610,6 +610,23 @@ button.notice-warn:hover,a.notice-warn:hover{background:rgba(245,166,35,.22)}
 .lsec{margin-top:28px}
 .lsec:first-child{margin-top:0}
 .lsec__h{font:600 11px/1 var(--font-body);letter-spacing:.12em;text-transform:uppercase;color:var(--on-surface-var);margin-bottom:14px}
+/* The membership beside the Host Agreement (plan 068): two columns from 960px,
+   the panel first on a phone so the price is read before the tick. */
+.lcommit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:20px;align-items:start}
+@media(max-width:960px){.lcommit{grid-template-columns:1fr}}
+.lmember{border:1px solid rgba(0,92,200,.20);background:rgba(0,92,200,.05);border-radius:var(--radius-xl);padding:16px 16px 14px}
+.lmember .body{margin:0 0 14px;font-size:14px;line-height:1.55}
+.lmember .lgroup{flex-direction:column;align-items:stretch;gap:8px;margin-bottom:10px}
+.lmember .pick{justify-content:flex-start;padding:10px 12px;white-space:nowrap}
+/* What an edit changed (plan 068): the lines on the save screen, the table of a pending edit. */
+.success .lsec{max-width:520px;margin:24px auto 0;text-align:left}
+.lchanges{list-style:none;margin:0 0 10px;padding:0;text-align:left;font-size:14px;line-height:1.5;color:var(--on-surface)}
+.lchanges li{padding:6px 0;border-bottom:1px solid var(--border-soft)}
+.lchanges li:last-child{border-bottom:none}
+.ldiff{width:100%;border-collapse:collapse;font-size:13.5px;line-height:20px}
+.ldiff th{text-align:left;font:600 11px/1 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-var);padding:0 10px 8px 0}
+.ldiff td{padding:8px 10px 8px 0;border-top:1px solid var(--border-soft);vertical-align:top;color:#0E1626;overflow-wrap:anywhere}
+.ldiff td:first-child{color:var(--on-surface-var);font-weight:500}
 .lgroup{display:flex;flex-wrap:wrap;gap:10px}
 .lread{display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px 20px;margin:0;font-size:13.5px;line-height:20px}
 .lread dt{color:var(--on-surface-var);font-weight:500}

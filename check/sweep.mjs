@@ -72,12 +72,22 @@ for (const p of pages) {
     'Monthly capacity (units/pairs)']) {
     if (!lf.includes(want)) fail(`hub/assets/listing-form.js: missing "${want}" (plan 045)`);
   }
-  // Plan 055 (Will, 12 Oct 2026): no price and no period on the form; the
-  // desk chooses the period when it approves.
-  for (const gone of ['What hosting costs', 'billing_period', 'pickRadio(\'billing\'']) {
-    if (lf.includes(gone)) fail(`hub/assets/listing-form.js: still carries "${gone}"; the cost box and the period choice left the form (plan 055)`);
+  // Plan 068 (D4 of the register, 20 Oct 2026, which supersedes plan 055's
+  // decision 13): the membership pricing options sit beside the Host
+  // Agreement and the host chooses; invoiced in pounds whatever the host's
+  // country (the register's amendment of 21 Oct 2026); the name line (D7);
+  // edits as changes (D6), a mixed save waiting in full (P1).
+  for (const want of ['hostMembership', 'lcommit', 'billing_period', "pickRadio('billing'", 'Yearly: 1,000 a year',
+    'Monthly: 100 a month', 'invoiced in pounds',
+    'shown to seekers who have accepted the introduction terms', 'Save changes', 'goes live when you save it',
+    'renderSaved', 'pending_changes', 'Nothing has changed since your listing was last saved']) {
+    if (!lf.includes(want)) fail(`hub/assets/listing-form.js: missing "${want}" (plan 068)`);
   }
-  if (!lf.includes('We will talk through the commercial side with you personally first.')) fail('hub/assets/listing-form.js: the one line that replaced the cost box is missing (plan 055)');
+  for (const gone of ['We will talk through the commercial side with you personally first.',
+    'Any change is reviewed before it replaces what is showing', 'Submit changes for review', 'What hosting costs',
+    'the same number in pounds, US dollars or euros']) {
+    if (lf.includes(gone)) fail(`hub/assets/listing-form.js: still says "${gone}" (plan 068)`);
+  }
   for (const gone of ['Services you offer', '(pairs), optional', 'Type and press Enter', 'Add a service we have not listed']) {
     if (lf.includes(gone)) fail(`hub/assets/listing-form.js: still says "${gone}" (plan 045)`);
   }
