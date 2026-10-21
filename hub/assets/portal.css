@@ -614,6 +614,9 @@ button.notice-warn:hover,a.notice-warn:hover{background:rgba(245,166,35,.22)}
    the panel first on a phone so the price is read before the tick. */
 .lcommit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:20px;align-items:start}
 @media(max-width:960px){.lcommit{grid-template-columns:1fr}}
+/* The agreement settled (an edit, or a version already accepted): one column, the sentence under the panel. */
+.lcommit--settled{grid-template-columns:1fr}
+.lcommit--settled #hostTermsBlock .body{color:var(--on-surface-var)}
 .lmember{border:1px solid rgba(0,92,200,.20);background:rgba(0,92,200,.05);border-radius:var(--radius-xl);padding:16px 16px 14px}
 .lmember .body{margin:0 0 14px;font-size:14px;line-height:1.55}
 .lmember .lgroup{flex-direction:column;align-items:stretch;gap:8px;margin-bottom:10px}

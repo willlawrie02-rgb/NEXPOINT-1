@@ -726,6 +726,15 @@
      Layer 2 of the three terms layers. Accepted once per site per hub: the
      tick appears on a first listing, or when the current version is not the
      one this site accepted. Otherwise the page just says which one applies. */
+  /* The commit row has two columns while the Host Agreement text and tick
+     sit beside the membership panel; once the agreement is settled the right
+     column holds one sentence, so the row collapses to one column and the
+     sentence sits under the panel (Will, 21 Oct 2026). */
+  function settledRow(on) {
+    const row = el('hostCommit');
+    if (row) row.classList.toggle('lcommit--settled', !!on);
+  }
+
   async function renderTermsBlock() {
     const box = el('hostTermsBlock');
     if (!box) return;
@@ -737,6 +746,7 @@
       hostTerms = null;
       if (accepted) {
         termsRequired = false;
+        settledRow(true);
         el('hostTermsBlock').innerHTML = '<p class="body" style="margin:0">Your Host Agreement still applies.</p>';
         return;
       }
@@ -749,11 +759,13 @@
     hostTerms = d;
     if (accepted && accepted === d.id) {
       termsRequired = false;
+      settledRow(true);
       el('hostTermsBlock').innerHTML = '<p class="body" style="margin:0">Your Host Agreement v' +
         esc(d.version) + ' still applies.</p>';
       return;
     }
     termsRequired = true;
+    settledRow(false);
     el('hostTermsBlock').innerHTML =
       '<div class="terms-scroll">' + NP.markdownLite(d.body_md) + '</div>' +
       '<label class="np-terms-tick"><input type="checkbox" id="hostTick"> ' +
