@@ -213,7 +213,27 @@ const signupLink = (w, req) => (w.signup && req.body && req.body.token === w.sig
 
 /* The worker's answers, as the pages meet them. Keyed by method and path. */
 const API = {
-  "GET /auth/me": (w) => (w.user ? [200, { ok: true, signed_in: true, member: w.user }] : [200, { ok: true, signed_in: false }]),
+  "GET /auth/me": (w) => (w.user ? [200, { ok: true, signed_in: true, member: w.user, closed: !!w.closed }] : [200, { ok: true, signed_in: false }]),
+  /* Plan 069: the holder closes and reopens from the account page. A closed
+     scenario sets w.closed = { at }; w.host says whether the account hosts
+     (the dialog's words); w.live is the live-relationship count. A scenario
+     with closeRoutes: false stands for a worker without the routes, whose
+     profile answer carries no `closed` key. */
+  "POST /account/close": (w, req) => {
+    if (!w.user) return [401, { error: "sign in required" }];
+    if (w.closed) return [409, { error: "already_closed" }];
+    const typed = String((req.body || {}).confirm_name || "").trim().toLowerCase();
+    if (typed !== w.user.company.toLowerCase()) return [422, { error: "name_mismatch" }];
+    if ((req.body || {}).current_password !== PASSWORD) return [400, { error: "current_password_wrong" }];
+    w.closed = { at: "2026-10-22T09:00:00Z" };
+    return [200, { ok: true, closed_at: w.closed.at, host: !!w.host, relationships_live: w.live || 0 }];
+  },
+  "POST /account/reopen": (w) => {
+    if (!w.user) return [401, { error: "sign in required" }];
+    if (!w.closed) return [409, { error: "not_closed" }];
+    w.closed = null;
+    return [200, { ok: true, paused: false }];
+  },
   "POST /auth/login": (w, req) => {
     if (req.body && req.body.email === USER.email && req.body.password === PASSWORD) { w.user = USER; return [200, { ok: true, member: USER }]; }
     return [401, { error: "invalid_credentials" }];
@@ -229,7 +249,16 @@ const API = {
   "GET /terms/current": (w, req) => [200, { ok: true, id: 12, layer: req.query.layer || "platform", version: "1.0",
     title: "NexPoint terms (walk)", body_md: WRAPPED_TERMS }],
   "POST /requests": () => [200, { ok: true }],
-  "GET /account/summary": (w) => (w.user ? [200, w.summary || EMPTY_SUMMARY] : [401, { error: "unauthenticated" }]),
+  "GET /account/summary": (w) => {
+    if (!w.user) return [401, { error: "unauthenticated" }];
+    const s = w.summary || EMPTY_SUMMARY;
+    if (!w.closed) return [200, Object.assign({}, s, { closed: null })];
+    return [200, Object.assign({}, s, {
+      closed: { at: w.closed.at, by_you: true, host_was: !!w.host, relationships_live: w.live || 0,
+        retention_until: w.retentionUntil === undefined ? "2032-10-22" : w.retentionUntil, reopen: true },
+      site: Object.assign({}, s.site || {}, { closed: true, removed: true }),
+    })];
+  },
   // the account's logo (plan 055, decision 25): none until a scenario says otherwise
   "GET /account/logo": (w) => (w.user ? [200, { ok: true, url: w.logo || null, expires_in: 60 }] : [401, { error: "sign in required" }]),
   "GET /opportunities/briefs": () => [200, { ok: true, briefs: [] }],
@@ -243,7 +272,9 @@ const API = {
   // the account page's people sections (plan 052, wave 3): the user, the users, the invitations
   "GET /account/profile": (w) => (w.user ? [200, { ok: true, profile: w.profile || { name: w.user.name, email: w.user.email,
     phone: null, town: w.user.town, country: w.user.country, region: null, role: "owner", pending_email: null },
-    account: { name: w.user.company, website: null } }] : [401, { error: "sign in required" }]),
+    account: w.closeRoutes === false ? { name: w.user.company, website: null }
+      : { id: "org-walk", name: w.user.company, website: null, closed: w.closed || null, host: !!w.host } }]
+    : [401, { error: "sign in required" }]),
   "GET /account/users": (w) => (w.user ? [200, { ok: true, users: w.users || [{ user_id: w.user.id, name: w.user.name,
     email: w.user.email, role: "owner", confirmed: true, joined_at: "2026-10-01T09:00:00Z", you: true }] }] : [401, { error: "sign in required" }]),
   "GET /account/invites": (w) => (w.user ? [200, { ok: true, invites: w.invites || [] }] : [401, { error: "sign in required" }]),
@@ -550,6 +581,171 @@ async function until(fn, what, ms = 5000) {
 }
 const apiCalls = (world, key) => world.calls.filter((c) => `${c.method} ${c.path}` === key);
 const settled = (page) => page.waitForLoadState("networkidle").catch(() => {});
+
+// ================================================================ close and reopen (plan 069)
+/* A host or seeker closes its own account from the settings page, behind the
+   account's name typed and the current password; the account page then shows
+   the closed notice with the date the records may go, keeps only what still
+   applies, and offers Reopen; the hub forms show a notice in place of the
+   form; a worker without the routes shows no Closing section. */
+async function walkClose() {
+  area = "Closing and reopening the account (plan 069)";
+  const LINE = { line_id: 71, ref: "INTRO-0071", period: "2026-09", units: 40, value: 800, currency: "GBP", declared_at: "2026-10-02T09:00:00Z" };
+  const hostSummary = () => Object.assign({}, EMPTY_SUMMARY, {
+    org: { id: "org-walk", name: USER.company, role: "owner", host_print: "approved", host_mill: "none" },
+    site: { org_id: "org-walk", name: USER.company, town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
+      sub_status: "active", founding: false, paused: false, removed: false, verified: true },
+    listings: [{ hub: "print", status: "live", live: { revision_id: 2, approved_at: "2026-10-01T09:00:00Z", summary: "PA12" }, pending: null }],
+    statements: [{ quarter: "2026-Q3", status: "issued", issued_at: "2026-10-23", invoiced_at: null, paid_at: null, lines: [], totals: {} }],
+    declarations: { current: null, history: [], lines: [], due_state: "none", items: [], awaiting_my_confirmation: [] },
+  });
+  const seekerSummary = () => Object.assign({}, EMPTY_SUMMARY, {
+    org: { id: "org-walk", name: USER.company, role: "owner", host_print: "none", host_mill: "none" },
+    site: { org_id: "org-walk", name: USER.company, town: "Leeds", country: "United Kingdom", host_print: "none", host_mill: "none",
+      sub_status: "none", founding: false, paused: false, removed: false, verified: false },
+    requests: [{ id: 5, ref: "PS-0005", hub: "print", material: "pa12_nylon12", quantity: 500, cadence: "recurring", status: "closed",
+      created_at: "2026-10-01T09:00:00Z", no_match: false, picks: [] }],
+    declarations: { current: null, history: [], lines: [], due_state: "none", items: [], awaiting_my_confirmation: [LINE] },
+  });
+  const worldFor = (over) => newWorld(Object.assign({ user: USER, users: [{ user_id: USER.id, name: USER.name, email: USER.email,
+    role: "owner", confirmed: true, joined_at: "2026-10-01T09:00:00Z", you: true }] }, over));
+
+  // a host closes, sees the closed page, and reopens
+  {
+    const world = worldFor({ host: true, live: 1, summary: hostSummary() });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/settings/`);
+    await step("the Closing section shows for an open account, after Users", async () => {
+      await page.waitForSelector("#closing:not([hidden])");
+      has(await page.textContent("#closing"), "Closing your account", "the section");
+      return eq(await page.locator('#closing [data-act="close-open"]').count(), 1, "the Close this account button");
+    });
+    await step("the dialog says the host text, and its Close button waits for the name", async () => {
+      await page.click('[data-act="close-open"]');
+      await page.waitForSelector("#closeOverlay.open");
+      const t = await page.textContent("#closeText");
+      has(t, "ends your Host Agreement now", "the host text");
+      has(t, "six years after the last invoice", "the retention line");
+      eq(await page.getAttribute("#closeGo", "disabled") !== null, true, "disabled before the name");
+      await page.fill("#closeName", "zz walk test ltd");
+      return eq(await page.getAttribute("#closeGo", "disabled"), null, "enabled once the name matches, case ignored");
+    });
+    await step("a wrong password shows the worker's words and closes nothing", async () => {
+      await page.fill("#closePassword", "not-it");
+      await page.click("#closeGo");
+      await page.waitForSelector("#closeMsg:not([hidden])");
+      has(await page.textContent("#closeMsg"), "That password is not right.", "the message");
+      return eq(!!world.closed, false, "the account closed");
+    });
+    await step("the right pair posts the typed name and the password, and the page moves to the account page", async () => {
+      await page.fill("#closePassword", PASSWORD);
+      await page.click("#closeGo");
+      await page.waitForURL((u) => u.pathname === "/hub/account/");
+      const b = apiCalls(world, "POST /account/close").pop().body;
+      eq(b, { confirm_name: "zz walk test ltd", current_password: PASSWORD }, "the body");
+      return eq(!!world.closed, true, "the account");
+    });
+    await step("the closed account page shows the notice with the retention date, keeps declarations and fees for a host, and offers Reopen", async () => {
+      await page.waitForSelector("#acctClosed");
+      const t = await page.textContent("#acctClosed");
+      has(t, "You closed this account on 22 Oct 2026", "the notice");
+      has(t, "Host Agreement has ended", "the host line");
+      has(t, "22 Oct 2032", "the retention date");
+      await page.waitForSelector("#declarations:not([hidden])");
+      await page.waitForSelector("#fees:not([hidden])");
+      eq(await page.locator("#goHub:not([hidden])").count(), 0, "the hub door");
+      eq(await page.locator("#waiting:not([hidden]), #introductions:not([hidden])").count(), 0, "sections that no longer apply");
+      has(await page.textContent("#profile"), "Closed", "the profile card");
+      return eq(await page.locator('#acctClosed [data-act="reopen"]').count(), 1, "the Reopen button");
+    });
+    await step("Reopen posts, and the page is open again", async () => {
+      await page.click('#acctClosed [data-act="reopen"]');
+      await page.waitForSelector("#waiting:not([hidden])");
+      eq(apiCalls(world, "POST /account/reopen").length, 1, "reopen posts");
+      eq(world.closed, null, "the account");
+      return eq(await page.locator("#acctClosed").count(), 0, "the closed notice");
+    });
+    clean(world, errors, "closing as a host");
+    await context.close();
+  }
+
+  // a seeker's dialog and closed page
+  {
+    // the closing day: the engine has not stamped retention_until yet
+    const world = worldFor({ host: false, summary: seekerSummary(), retentionUntil: null });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/settings/`);
+    await step("the dialog says the seeker text for an account that does not host", async () => {
+      await page.waitForSelector("#closing:not([hidden])");
+      await page.click('[data-act="close-open"]');
+      await page.waitForSelector("#closeOverlay.open");
+      const t = await page.textContent("#closeText");
+      has(t, "Your open requests close", "the seeker text");
+      return eq(/Host Agreement/.test(t), false, "the host text on a seeker's dialog");
+    });
+    await step("a closed seeker's account page keeps the lines to confirm and nothing of a host's", async () => {
+      world.closed = { at: "2026-10-22T09:00:00Z" };
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("#acctClosed");
+      has(await page.textContent("#acctClosed"), "Your requests are closed", "the seeker line");
+      has(await page.textContent("#acctClosed"), "or for six years from closure if there was none", "the rule, before the date is stamped");
+      await page.waitForSelector("#waiting:not([hidden])");
+      has(await page.textContent("#waiting"), "INTRO-0071", "the line to confirm");
+      return eq(await page.locator("#declarations:not([hidden]), #fees:not([hidden]), #introductions:not([hidden])").count(), 0, "a host's sections");
+    });
+    await step("the settings page in closed mode shows This account is closed, You, and Reopen, and hides Logo and Users", async () => {
+      await page.goto(`${APEX}/hub/account/settings/`);
+      await page.waitForSelector("#closing:not([hidden])");
+      await page.waitForSelector("#you:not([hidden])");
+      has(await page.textContent("#closing"), "This account is closed", "the section");
+      eq(await page.locator("#logo:not([hidden]), #users:not([hidden])").count(), 0, "Logo and Users");
+      return eq(await page.locator('#closing [data-act="reopen"]').count(), 1, "the Reopen button");
+    });
+    await step("Reopen from the settings page posts and goes to the account page", async () => {
+      await page.click('#closing [data-act="reopen"]');
+      await page.waitForURL((u) => u.pathname === "/hub/account/");
+      return eq(apiCalls(world, "POST /account/reopen").length, 1, "reopen posts");
+    });
+    clean(world, errors, "closing as a seeker");
+    await context.close();
+  }
+
+  // the hub forms refuse a closed account with a notice, not a form
+  {
+    const world = worldFor({ host: false, closed: { at: "2026-10-22T09:00:00Z" }, summary: seekerSummary() });
+    world.api["GET /listings/mine"] = () => [200, { ok: true, listing: null, status: "none" }];
+    const { context, page, errors } = await visit(world);
+    await step("Find shows the closed notice in place of the form", async () => {
+      await page.goto(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-closed]");
+      await page.waitForSelector("#findMount .acct-closed-notice");
+      has(await page.textContent("#findMount"), "This account is closed", "the notice");
+      return eq(await page.locator("#findForm").count(), 0, "the form");
+    });
+    await step("the listing form shows the closed notice in place of the form", async () => {
+      await page.goto(`${PRINT}/offer.html`);
+      await page.waitForSelector("#hostAppBody .acct-closed-notice");
+      has(await page.textContent("#hostAppBody"), "to list capacity", "the notice");
+      return eq(await page.locator("#listingForm").count(), 0, "the form");
+    });
+    clean(world, errors, "the hub forms for a closed account");
+    await context.close();
+  }
+
+  // a worker without the routes: the profile answer carries no `closed` key
+  {
+    const world = worldFor({ closeRoutes: false });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/settings/`);
+    await step("a worker without the close routes shows no Closing section", async () => {
+      await page.waitForSelector("#users:not([hidden])");
+      await settled(page);
+      return eq(await page.locator("#closing:not([hidden])").count(), 0, "the Closing section");
+    });
+    clean(world, errors, "the settings page before the worker deploys");
+    await context.close();
+  }
+}
 
 // ================================================================ the public pages
 async function walkDoor() {
@@ -2236,7 +2432,7 @@ async function walkLandings() {
     await context.close();
   }
   for (const [name, url, sign] of [
-    ["the privacy page", `${APEX}/hub/privacy.html`, "hosted in the UK"],
+    ["the privacy page", `${APEX}/hub/privacy.html`, "six years after the last invoice"],
     ["the reset page", `${APEX}/hub/reset.html`, ""],
     ["the old portal address", `${APEX}/portal/`, ""],
   ]) {
@@ -3057,7 +3253,7 @@ async function walkPeople() {
     await step("the sections come in order: Logo, You, Users, each with its own read, and nothing of the account page's", async () => {
       await page.waitForSelector("#logo:not([hidden])");
       const ids = await page.$$eval(".acct-section:not([hidden])", (els) => els.map((e) => e.id));
-      eq(ids, ["logo", "you", "users"], "the sections");
+      eq(ids, ["logo", "you", "users", "closing"], "the sections");
       for (const k of ["GET /account/profile", "GET /account/users", "GET /account/invites", "GET /account/logo"]) eq(apiCalls(world, k).length, 1, `${k} reads`);
       eq(apiCalls(world, "GET /account/summary").length, 0, "summary reads");
       eq(await page.locator("#acctNav, #profile, #waiting, #introductions").count(), 0, "the account page's parts");
@@ -3120,6 +3316,7 @@ async function walkPeople() {
   }
 
   area = "The invitation page (plan 052, wave 3)";
+  // (plan 069's close and reopen walk follows in walkClose)
   {
     const world = newWorld();
     world.api["POST /auth/invite"] = (w, req) => (req.body.token === INVITE_TOKEN
@@ -3203,6 +3400,8 @@ const parts = []
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm] : []);
 /* The settings page's You and Users (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
+/* Closing and reopening the account (plan 069) walks straight after the settings page. */
+if (ONLY !== "boards") parts.splice(parts.indexOf(walkPeople) + 1, 0, walkClose);
 /* The listing form's ship picker (plan 055) walks straight after the find map. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkFindMap) + 1, 0, walkOfferMap);
 /* The membership beside the terms and an edit as a change (plan 068) walk straight after the ship picker. */
