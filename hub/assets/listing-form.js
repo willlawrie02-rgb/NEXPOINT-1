@@ -147,6 +147,12 @@
 
   /* ══════════════ the states that are not a form ══════════════ */
 
+  /* Plan 069: a closed account's session reaches nothing on the hubs. */
+  function renderClosed() {
+    const url = (window.NPAccount && NPAccount.accountUrl) || 'https://nexpoint.co.uk/hub/account/';
+    body().innerHTML = '<div class="acct-closed-notice">This account is closed. ' +
+      '<a href="' + esc(url) + '">Reopen it from your account page</a> to list capacity.</div>';
+  }
   function renderSignedOut() {
     body().innerHTML =
       '<p class="body">Sign in or create your hub account to list your site. NexPoint checks every listing personally, and nothing is listed until we have approved it.</p>' +
@@ -1165,6 +1171,7 @@
     if (!window.NPAccount) { renderSignedOut(); return; }
     await NPAccount.ready;
     if (!NPAccount.user) { renderSignedOut(); return; }
+    if (NPAccount.closed) { renderClosed(); return; }
 
     const [d, v] = await Promise.all([
       api('/listings/mine?hub=' + encodeURIComponent(HUB)),

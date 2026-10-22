@@ -44,6 +44,14 @@ img,svg{max-width:100%}
    its submit until the human check and the terms box are both done, and a
    button that stayed full blue through that read as broken: it could be
    pressed and nothing happened. After the variants, so it outranks them. */
+/* Plan 069: the final Close this account button, and nothing else. An outline
+   in the danger colour, filled on hover; never a fill elsewhere. */
+.btn-danger{background:transparent;border:1px solid #E5484D;color:#E5484D}
+.btn-danger:hover{background:#E5484D;color:#fff}
+.btn-danger:disabled:hover,.btn-danger[disabled]:hover{background:transparent;color:#E5484D}
+/* Plan 069: what a closed account sees in place of a hub form. */
+.acct-closed-notice{border:1px solid rgba(14,22,38,.14);border-radius:var(--radius-lg);background:var(--surface);padding:18px 20px;font-size:14.5px;line-height:1.55;color:#0E1626}
+.acct-closed-notice a{color:var(--blue);font-weight:600}
 .btn:disabled,.btn[disabled]{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none}
 .btn-primary:disabled:hover,.btn-primary[disabled]:hover{background:var(--blue);box-shadow:none}
 :is(a,button):focus-visible{outline:2px solid var(--blue-bright);outline-offset:3px}

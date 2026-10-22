@@ -100,6 +100,7 @@
        the worker's TURNSTILE_SECRET before ever doing that. */
     TURNSTILE_SITE_KEY: '0x4AAAAAAE-v1pLLNA7WlqfZ',
     user: null,
+    closed: false,
     ready: null,
     async refresh() {
       /* Until /auth/me has answered, the door shows neither the stranger's
@@ -126,7 +127,10 @@
         }
         const signedIn = d.signed_in != null ? d.signed_in : !!(d.ok && d.member);
         A.user = signedIn ? normalise(d.member) : null;
-      } catch (e) { A.user = null; }
+        /* Plan 069: a closed account keeps its sign-in for what survives; the
+           hub forms read this and show a notice in place of the form. */
+        A.closed = !!(signedIn && d.closed);
+      } catch (e) { A.user = null; A.closed = false; }
       document.dispatchEvent(new CustomEvent('npaccount:change'));
       renderChip();
       whenDom(enforceDoor);
@@ -188,6 +192,7 @@
     if (!b) return;
     b.removeAttribute('data-np-checking');
     b.toggleAttribute('data-np-signed-in', !!A.user);
+    b.toggleAttribute('data-np-closed', !!(A.user && A.closed));
     if (!b.hasAttribute('data-np-wall')) return;
     if (A.user) { b.setAttribute('data-np-open', ''); return; }
     location.replace(DOOR_URL + '?signin=1&return=' + encodeURIComponent(location.href));
