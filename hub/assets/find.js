@@ -1074,8 +1074,18 @@
       window.NPAccount ? NPAccount.ready.catch(() => null) : Promise.resolve(null),
     ]);
     vocab = v;
+    if (window.NPAccount && NPAccount.closed) { renderClosed(); return; }
     renderForm();
     syncConditionalFields();
+  }
+
+  /* Plan 069: a closed account's session reaches nothing on the hubs; the
+     worker would answer 403 account_closed, so the form never shows. */
+  function renderClosed() {
+    const box = mount();
+    if (!box) return;
+    box.innerHTML = '<div class="acct-closed-notice">This account is closed. ' +
+      '<a href="' + esc(accountUrl()) + '">Reopen it from your account page</a> to search the hubs.</div>';
   }
 
   window.NPFind = { init: init, errorText: requestErrorText };

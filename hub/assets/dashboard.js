@@ -174,9 +174,18 @@
       founding: !!pick(site.founding, org.founding),
       hidden: site.hidden != null ? !!site.hidden : (org.sub_status === 'hidden'),
       verified: !!site.verified,
+      /* Plan 069: the closed shape, when the holder closed the account. */
+      closed: d.closed && typeof d.closed === 'object' ? d.closed : null,
     };
   }
   function isHost(s) { return s.host_print === 'approved' || s.host_mill === 'approved'; }
+  /* A closed host's declarations and statements carry on for the customers
+     it was introduced to (Host Agreement 1.3 section 10), so those two
+     sections stay while anything is inside its fee years or on a statement. */
+  function closedHost(d, s) {
+    return !!(s.closed && s.closed.host_was &&
+      ((Number(s.closed.relationships_live) || 0) > 0 || (Array.isArray(d.statements) && d.statements.length)));
+  }
   function hostHubs(s) {
     return HUBS.filter(function (h) { return s['host_' + h] === 'approved'; });
   }
@@ -203,8 +212,9 @@
         '<div class="acct-id__text"><h2>' + esc(s.name) + '</h2>' +
         '<p class="hint">Site account' + (where ? ' · ' + esc(where) : '') + '</p></div>' +
       '</div>' +
-      '<a class="btn btn-outline acct-btn-sm acct-edit" href="settings/">Edit account or add users</a>' +
-      (badges.length ? '<div class="acct-badges">' + badges.join('') + '</div>' : '') +
+      '<a class="btn btn-outline acct-btn-sm acct-edit" href="settings/">' + (s.closed ? 'Account settings' : 'Edit account or add users') + '</a>' +
+      (s.closed ? '<div class="acct-badges"><span class="acct-badge">Closed ' + esc(fmtDate(s.closed.at)) + '</span></div>' : '') +
+      (badges.length && !s.closed ? '<div class="acct-badges">' + badges.join('') + '</div>' : '') +
       (s.hidden ? '<div class="acct-notice">Your listing is hidden, so nobody searching the hub can see it. Email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a> and we will put it back.</div>' : '') +
       listingRows(d, s);
     fill('profile', html);
@@ -628,7 +638,7 @@
   }
 
   function renderDeclarations(d, s, byId) {
-    if (!isHost(s)) { hide('declarations'); return; }
+    if (!isHost(s) && !closedHost(d, s)) { hide('declarations'); return; }
     var dec = d.declarations;
     var body;
     if (!dec) body = empty('Declarations open soon.', 'event_upcoming');
@@ -694,6 +704,14 @@
     var dec = d.declarations || null;
     var intros = Array.isArray(d.introductions) ? d.introductions : [];
     var lines = confirmLines(d);
+    /* The closed mode (plan 069, D2): the lines to confirm are all that
+       waits on a closed account; nothing else here applies. */
+    if (s.closed) {
+      if (!lines.length) { hide('waiting'); return 0; }
+      fill('waiting', head('pending_actions', 'Declared orders to confirm', 'Confirm what matches your records, or query what does not.') +
+        lines.map(confirmRow).join(''));
+      return lines.length;
+    }
     var asked = intros.filter(function (i) { return i.role === 'provider' && i.stage === 'awaiting_acceptance'; });
     var due = isHost(s) && dec && ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
       Array.isArray(dec.items) && dec.items.length;
@@ -740,7 +758,7 @@
 
   /* ═══════════ 5. fees and standing (host) ═══════════ */
   function renderFees(d, s) {
-    if (!isHost(s)) { hide('fees'); return; }
+    if (!isHost(s) && !closedHost(d, s)) { hide('fees'); return; }
     var statements = Array.isArray(d.statements) ? d.statements : null;
     var feesBody;
     if (statements && statements.length) {
@@ -889,6 +907,49 @@
   function showRemoved() {
     showNotice('This account has been removed from the hub, so there is nothing to show here. Nothing has been deleted. If you were not expecting this, email ' + HELLO + ' and we will look at it with you.');
   }
+  /* A closed account refused the summary: a worker that has the gate but
+     not yet the closed shape. The holder is told where Reopen lives. */
+  function showClosedRefused() {
+    showNotice('This account is closed, so there is nothing to show here. Nothing has been deleted; reopen it from <a href="settings/">your account settings</a> and everything is as you left it.');
+  }
+
+  /* ═══════════ the closed account (plan 069) ═══════════ */
+  /* The notice above the sections: who closed it and when, what carries on,
+     when the records go, and Reopen. Drawn into acctError's slot so the
+     page's one notice position is reused. */
+  function renderClosed(d, s) {
+    var c = s.closed;
+    var who = c.by_you === false && c.by_name ? esc(c.by_name) + ' closed this account on ' : 'You closed this account on ';
+    var lines = [
+      '<p>' + who + esc(fmtDate(c.at)) + '.</p>',
+      c.host_was
+        ? '<p>Your listing is off the hubs and your Host Agreement has ended; the declarations and statements below carry on for the customers we introduced.</p>'
+        : '<p>Your requests are closed; any order lines that name you still appear below for you to confirm.</p>',
+      /* retention_until is stamped by the engine's 06:15 run, so on the
+         closing day it is empty: then the page states the rule itself. */
+      c.retention_until
+        ? '<p>We keep the records until ' + esc(fmtDate(c.retention_until)) + ', then delete them.</p>'
+        : '<p>We keep the records for six years after the last invoice raised for the account, or for six years from closure if there was none, then delete them.</p>',
+      c.reopen === false
+        ? '<p>This account was also removed from the portal by NexPoint, so it cannot be reopened from here. Email ' + HELLO + ' if you were not expecting this.</p>'
+        : '<div class="modal-actions" style="margin-top:14px"><button class="btn btn-primary acct-btn-sm" type="button" data-act="reopen" id="reopenGo">Reopen your account</button></div>',
+      '<p class="acct-msg" id="closedMsg" hidden></p>',
+    ];
+    var e = el('acctError');
+    if (!e) return;
+    e.innerHTML = '<div id="acctClosed">' + lines.join('') + '</div>';
+    e.hidden = false;
+    var go = el('goHub');
+    if (go) go.hidden = true;
+  }
+  function reopenAccount() {
+    var done = busy(el('reopenGo'), 'Reopening…');
+    post('/account/reopen', {}).then(function (d) {
+      if (d && d.ok) { load(); return; }
+      done();
+      say(el('closedMsg'), d && d.error === 'not_closed' ? 'This account is open already.' : 'That did not go through. Try again, or email hello@nexpoint.co.uk.', true);
+    });
+  }
 
   /* Why the worker would not hand over the summary. It refuses in its own
      words ("sign in required" on a 401, "email_unconfirmed" or
@@ -900,6 +961,7 @@
   function refusalOf(d) {
     if (!d) return '';
     if (d.error === 'account_removed') return 'removed';
+    if (d.error === 'account_closed') return 'closed';
     if (d.http_status === 401 || d.http_status === 403 ||
         d.error === 'http_401' || d.error === 'http_403' ||
         d.error === 'sign in required' || d.error === 'email_unconfirmed') return 'signed-out';
@@ -908,14 +970,19 @@
 
   function render(d) {
     if (el('acctLoading')) el('acctLoading').hidden = true;
-    if (el('acctError')) el('acctError').hidden = true;
+    /* Emptied as well as hidden: a reopened account must not keep the
+       closed notice (plan 069) in the page, out of sight but still there. */
+    if (el('acctError')) { el('acctError').hidden = true; el('acctError').innerHTML = ''; }
     if (el('signInPrompt')) el('signInPrompt').hidden = true;
     var s = siteOf(d);
     var byId = {};
     (Array.isArray(d.introductions) ? d.introductions : []).forEach(function (i) { byId[i.id] = i; });
+    var go = el('goHub');
+    if (go) go.hidden = !!s.closed;
     renderProfile(d, s);
+    if (s.closed) renderClosed(d, s);
     var open = renderWaiting(d, s);
-    renderIntroductions(d);
+    if (s.closed) hide('introductions'); else renderIntroductions(d);
     renderDeclarations(d, s, byId);
     renderFees(d, s);
     renderEducation();
@@ -942,6 +1009,7 @@
       if (!d || d.error) {
         var refusal = refusalOf(d);
         if (refusal === 'removed') showRemoved();
+        else if (refusal === 'closed') showClosedRefused();
         else if (refusal === 'signed-out') showSignedOut();
         else showError();
         return;
@@ -1199,6 +1267,7 @@
     if (act === 'signin') { if (window.openSignIn) openSignIn(); return; }
     if (act === 'join') { if (window.NPAccount) NPAccount.openQuestionnaire({}); return; }
     if (act === 'education') { if (window.openEducationList) openEducationList(); return; }
+    if (act === 'reopen') { reopenAccount(); return; }
     if (act === 'line-query') {
       var box = el('lineNote-' + btn.getAttribute('data-line'));
       if (box) box.hidden = !box.hidden;
