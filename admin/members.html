@@ -147,7 +147,7 @@ async function doLogin(){
   showAdmin(data.user);
 }
 async function signOut(){await sb.auth.signOut();location.reload();}
-let me=null, people=[], pendingByUser={}, accountNames={};
+let me=null, people=[], pendingByUser={}, accountNames={}, closedAccounts=new Set();
 function showAdmin(u){$('login').style.display='none';$('admin').style.display='block';$('who').textContent=u.email;me=u;loadMembers();}
 
 const fmtDate = v => v
@@ -165,8 +165,10 @@ async function loadMembers(){
   }
   people = members;
   accountNames = {};
-  const { data: orgRows } = await sb.from('organisations').select('id,name');
-  (orgRows || []).forEach(o => { accountNames[o.id] = o.name; });
+  closedAccounts = new Set();
+  /* closed_at (0074, plan 069): a user of a closed account is marked so. */
+  const { data: orgRows } = await sb.from('organisations').select('id,name,closed_at');
+  (orgRows || []).forEach(o => { accountNames[o.id] = o.name; if (o.closed_at) closedAccounts.add(o.id); });
   /* A queued delete replaces the button it came from; a failed one shows its
      reason with Try again (the Accounts board's pattern). */
   const { data: ints } = await sb.from('engine_intents').select('id,type,payload_json,status,result_note')
@@ -204,7 +206,7 @@ async function loadMembers(){
   $('membersBody').innerHTML = members.length ? members.map(m => `
     <tr>
       <td><strong>${esc(m.name)}</strong><br><span class="muted">${esc(m.email)}</span></td>
-      <td>${esc(m.company)}</td>
+      <td>${esc(m.company)}${closedAccounts.has(m.org_id) ? ' <span class="muted">closed</span>' : ''}</td>
       <td>${esc([m.town, m.country].filter(Boolean).join(', ') || m.region || '—')}</td>
       <td>${esc((m.interests || []).join(', ') || '—')}</td>
       <td>${fmtDate(m.created_at)}</td>
