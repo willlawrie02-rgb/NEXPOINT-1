@@ -320,7 +320,11 @@
     if (card.services && card.services.length) rows.push(['Services', list(card.services.map(function (t) { return lab('service', hub, t); }))]);
 
     var accepted = acceptedStage(p.stage);
+    /* Plan 067: the seeker saw the site's name at the search, so its pick
+       is named; a card from before carries no company and reads as before. */
+    var company = (card.company && typeof card.company === 'string') ? card.company.trim() : '';
     return '<div class="acct-pick">' +
+      (company ? '<b class="acct-company">' + esc(company) + '</b>' : '') +
       (p.ref ? '<b class="acct-ref">' + esc(p.ref) + '</b>' : '') +
       (rows.length ? '<dl>' + rows.map(function (r) {
         return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>';
@@ -341,7 +345,9 @@
         ? empty('No match yet. We are still looking, and will write the moment there is one.', 'travel_explore')
         : empty('With NexPoint. Nothing has been put forward yet.', 'hourglass_top');
     } else {
-      body = '<p class="hint">What we put forward (' + picks.length + ')</p>' +
+      body = '<p class="hint">The ' + (picks.length === 1
+          ? (r.hub === 'mill' ? 'cell' : 'site') + ' you picked'
+          : (r.hub === 'mill' ? 'cells' : 'sites') + ' on this request (' + picks.length + ')') + '</p>' +
         picks.map(function (p) { return pickBlock(p, byId[p.introduction_id], r.hub); }).join('');
     }
     return '<div class="acct-card">' +
