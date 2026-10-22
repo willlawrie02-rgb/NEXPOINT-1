@@ -370,6 +370,97 @@
     });
   }
 
+  /* ═══════════ Closing (plan 069) ═══════════ */
+  /* Platform Terms 1.3 section 8: a host or seeker closes its own account from
+     this page, behind the account's name typed (the Delete rule) and the
+     current password (the email change's check). The section is drawn only
+     when the profile answer carries `account.closed`, so a worker without
+     the routes leaves it hidden (plan 052's 404 convention). Once closed, the
+     section becomes This account is closed, with Reopen; Logo and Users hide. */
+  var closed = function () { return !!(state.account && state.account.closed); };
+  var HOST_TEXT = 'Closing ends your Host Agreement now and takes your listing off the 3D Print Hub and the Mill Hub. ' +
+    'Fees already paid are not refunded, and an invoice already raised is still payable. Introductions already made keep ' +
+    'their five fee years: the recurring fee on work for those customers and the monthly declaration carry on, and you can ' +
+    'still sign in to declare and to see your statements. Everything else on the portal closes to you.';
+  var SEEKER_TEXT = 'Closing ends your use of the portal. Your open requests close. Introductions already made stay on ' +
+    'record, and you may still be asked once a quarter to confirm the order lines that name you, which you can do by signing in.';
+  var BOTH_TEXT = 'We keep the account\'s records for six years after the last invoice raised for it, or for six years from ' +
+    'today if there was none, and then delete them. You can reopen the account at any time before then.';
+  function nameMatches(typed, name) {
+    var t = String(typed || '').trim().toLowerCase(), n = String(name || '').trim().toLowerCase();
+    return t !== '' && t === n;
+  }
+  function renderClosing() {
+    var a = state.account;
+    if (!a || !('closed' in a)) { hide('closing'); return; }
+    if (a.closed) {
+      fill('closing',
+        head('history', 'This account is closed', 'Closed on ' + fmtDate(a.closed.at) + '.') +
+        '<div class="acct-card">' +
+          '<p class="hint" style="margin:0 0 14px">Reopen it and everything is as you left it; to host on a hub, apply from your account page.</p>' +
+          '<p class="acct-msg" id="closingMsg" hidden></p>' +
+          '<div class="modal-actions" style="margin-top:0">' +
+            '<button class="btn btn-primary acct-btn-sm" type="button" data-act="reopen" id="reopenGo">Reopen this account</button>' +
+          '</div>' +
+        '</div>');
+      return;
+    }
+    fill('closing',
+      head('visibility_off', 'Closing your account', 'Closing ends your use of the portal; the records are kept for six years after the last invoice, and you can reopen at any time before then.') +
+      '<div class="modal-actions" style="margin-top:0">' +
+        '<button class="btn btn-outline acct-btn-sm" type="button" data-act="close-open">Close this account</button>' +
+      '</div>');
+  }
+  function closeCheck() {
+    var go = el('closeGo');
+    if (!go) return;
+    go.disabled = !nameMatches(el('closeName') && el('closeName').value, state.account && state.account.name);
+  }
+  function openClose() {
+    var a = state.account || {};
+    if (el('closeText')) {
+      el('closeText').innerHTML = '<p class="body">' + esc(a.host ? HOST_TEXT : SEEKER_TEXT) + '</p>' +
+        '<p class="body" style="margin-top:12px">' + esc(BOTH_TEXT) + '</p>';
+    }
+    if (el('closeNameShown')) el('closeNameShown').textContent = a.name || '';
+    if (el('closeName')) el('closeName').value = '';
+    if (el('closePassword')) el('closePassword').value = '';
+    if (el('closeMsg')) el('closeMsg').hidden = true;
+    closeCheck();
+    if (window.openOverlay) openOverlay('closeOverlay');
+    if (el('closeName')) el('closeName').focus();
+  }
+  var CLOSE_ERRORS = {
+    name_mismatch: 'That is not the account\'s name.',
+    current_password_required: 'Enter your current password.',
+    current_password_wrong: 'That password is not right.',
+    too_many_attempts: 'Too many wrong passwords. Wait ten minutes, then try again.',
+    already_closed: 'This account is closed already.',
+  };
+  function closeAccount() {
+    var msg = el('closeMsg');
+    var typed = (el('closeName') && el('closeName').value || '').trim();
+    var pass = el('closePassword') && el('closePassword').value || '';
+    if (!nameMatches(typed, state.account && state.account.name)) { say(msg, CLOSE_ERRORS.name_mismatch, true); return; }
+    if (!pass) { say(msg, CLOSE_ERRORS.current_password_required, true); if (el('closePassword')) el('closePassword').focus(); return; }
+    var done = busy(el('closeGo'), 'Closing…');
+    post('/account/close', { confirm_name: typed, current_password: pass }).then(function (d) {
+      if (d && d.ok) { location.href = '../'; return; }
+      done();
+      closeCheck();
+      say(msg, CLOSE_ERRORS[d && d.error] || GENERIC, true);
+    });
+  }
+  function reopenAccount() {
+    var msg = el('closingMsg');
+    var done = busy(el('reopenGo'), 'Reopening…');
+    post('/account/reopen', {}).then(function (d) {
+      if (d && d.ok) { location.href = '../'; return; }
+      done();
+      say(msg, d && d.error === 'not_closed' ? 'This account is open already.' : GENERIC, true);
+    });
+  }
+
   /* ═══════════ loading ═══════════ */
   function loadUsers() {
     return api('/account/users').then(function (d) { state.users = d && d.ok ? (d.users || []) : null; });
@@ -385,12 +476,13 @@
       }),
       loadUsers(), loadInvites(), loadLogo(),
     ]).then(function () {
-      renderLogo();
+      /* The closed mode (plan 069): You stays, Logo and Users go. */
+      if (closed()) { hide('logo'); hide('users'); } else { renderLogo(); renderUsers(); }
       renderYou();
-      renderUsers();
+      renderClosing();
     });
   }
-  function clear() { hide('logo'); hide('you'); hide('users'); }
+  function clear() { hide('logo'); hide('you'); hide('users'); hide('closing'); }
 
   /* ═══════════ page states (the settings page) ═══════════ */
   function showLoading() {
@@ -463,24 +555,32 @@
     if (act === 'you-cancel') { openForm(''); return; }
     if (act === 'invite-withdraw') { withdrawInvite(btn); return; }
     if (act === 'user-remove') { removeUser(btn); return; }
+    if (act === 'close-open') { openClose(); return; }
+    if (act === 'close-keep') { if (window.closeAll) closeAll(); return; }
+    if (act === 'reopen') { reopenAccount(); return; }
   }
   function onSubmit(e) {
     var id = e.target && e.target.id;
     if (id === 'youEdit') { e.preventDefault(); saveDetails(); }
     else if (id === 'youEmail') { e.preventDefault(); changeEmail(); }
     else if (id === 'inviteForm') { e.preventDefault(); sendInvite(); }
+    else if (id === 'closeForm') { e.preventDefault(); closeAccount(); }
+  }
+  function onInput(e) {
+    if (e.target && e.target.id === 'closeName') closeCheck();
   }
   function onChange(e) {
     if (e.target && e.target.id === 'logoFile') gate(function () { uploadLogo(e.target); });
   }
   function wire() {
-    ['logo', 'you', 'users', 'signInPrompt'].forEach(function (id) {
+    ['logo', 'you', 'users', 'closing', 'signInPrompt', 'closeOverlay'].forEach(function (id) {
       var n = el(id);
       if (!n || n.dataset.npWired) return;
       n.dataset.npWired = '1';
       n.addEventListener('click', onClick);
       n.addEventListener('submit', onSubmit);
       n.addEventListener('change', onChange);
+      n.addEventListener('input', onInput);
     });
   }
 

@@ -137,6 +137,34 @@ Nothing here renders from inline script.
     <section class="acct-section" id="logo" hidden></section>
     <section class="acct-section" id="you" hidden></section>
     <section class="acct-section" id="users" hidden></section>
+    <!-- Plan 069: Closing your account (or, once closed, This account is closed
+         with Reopen). Drawn by people.js only when the worker's profile answer
+         carries `account.closed`, so a worker without the routes leaves it hidden. -->
+    <section class="acct-section" id="closing" hidden></section>
+  </div>
+</div>
+
+<!-- Plan 069: the close dialog. The words are filled by people.js from the
+     account (a host reads the host text, a seeker the seeker text); the final
+     button stays disabled until the account's name is typed. -->
+<div class="overlay" id="closeOverlay" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="closeTitle" style="max-width:560px">
+    <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    <h2 id="closeTitle">Close this account</h2>
+    <div class="body" id="closeText"></div>
+    <form id="closeForm" novalidate>
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="field"><label for="closeName">Type the account's name to confirm: <span id="closeNameShown"></span></label>
+          <input id="closeName" type="text" autocomplete="off" maxlength="200"></div>
+        <div class="field"><label for="closePassword">Your current password</label>
+          <input id="closePassword" type="password" autocomplete="current-password"></div>
+      </div>
+      <p class="acct-msg" id="closeMsg" hidden></p>
+      <div class="modal-actions">
+        <button class="btn btn-outline" type="button" data-act="close-keep">Keep the account</button>
+        <button class="btn btn-danger" type="submit" id="closeGo" disabled>Close this account</button>
+      </div>
+    </form>
   </div>
 </div>
 
