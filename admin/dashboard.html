@@ -252,10 +252,11 @@ async function load(){
   $('t_lst_s').textContent=lstQ.error?notYet
     :(toReview.length?'waiting on a listing review':'review queue clear');
 
-  const openReqs=(sreqQ.data||[]).filter(r=>r.status==='open'||r.status==='picked'||r.status==='desk');
+  // Plan 067: a picked request waits on nobody (its offer went to the site).
+  const openReqs=(sreqQ.data||[]).filter(r=>r.status==='open'||r.status==='desk');
   $('t_sreq').textContent=sreqQ.error?'—':openReqs.length;
   $('t_sreq_s').textContent=sreqQ.error?notYet
-    :(openReqs.length?`${openReqs.filter(r=>r.status==='picked').length} with picks to approve`
+    :(openReqs.length?`${openReqs.filter(r=>r.status==='desk').length} at the desk`
       :'nothing waiting on a match');
 
   const homeless=(evQ.data||[]).filter(e=>e.status==='unmatched'||(e.disputed_at&&!e.resolved_at));
@@ -269,9 +270,10 @@ async function load(){
     :(issued.length?'issued, not yet invoiced':'nothing awaiting an invoice');
 
   // Needs attention. Since plan 026 the list is the `inbox` view (migration
-  // 0039): every open item of every kind with its age, longest wait first,
-  // one row each, so a seeker request in `picked` and an education sign-up
-  // are on it too. The tiles keep counting from the base tables. Until the
+  // 0039, replaced by 0072): every open item of every kind with its age,
+  // longest wait first, one row each, so a declined or expired offer with
+  // nothing after it (plan 067) and an education sign-up are on it too. The
+  // tiles keep counting from the base tables. Until the
   // migration is applied the view is missing: the banner says so and the
   // older hand-built list stands in (legacyAttentionRows), rather than an
   // empty section that reads as nothing to do.
@@ -279,7 +281,7 @@ async function load(){
   const ibx=await sb.from('inbox').select('*').order('age_hours',{ascending:false}).limit(200);
   if(ibx.error){
     $('banner').innerHTML+=`<div class="banner">Migration 0039 not applied: the attention list is unavailable (${esc(ibx.error.message)}).
-      Showing the older list, which has no ages and leaves out picked seeker requests and education sign-ups.</div>`;
+      Showing the older list, which has no ages and leaves out declined or expired offers to re-route and education sign-ups.</div>`;
     legacyAttentionRows(rows,fresh,toReview,sreqQ.data||[]);
   }else{
     (ibx.data||[]).forEach(r=>rows.push(inboxRow(r)));
@@ -334,8 +336,9 @@ async function load(){
   $('attnN').textContent=rows.length;
   $('attn').innerHTML=rows.length?rows.join('')
     :`<div class="empty">Nothing needs attention. New requests and education sign-ups, seeker requests
-       open or with picks, listings awaiting review, offers not yet sent to a
-       provider, registrations unconfirmed for a day, unpaid invoices, companies needing a decision,
+       at the desk, declined or expired offers to resend or re-route, listings awaiting review,
+       offers not yet sent to a provider, registrations unconfirmed for a day, unpaid invoices,
+       companies needing a decision,
        homeless order emails and statements awaiting an invoice all appear here.</div>`;
   await renderEducation(requests.filter(r=>r.hub==='education'&&r.status==='new'));
 }
@@ -351,9 +354,10 @@ const INBOX_KIND={
   listing:{icon:'storefront',verb:'Review listing'},
   host_application:{icon:'how_to_reg',verb:'Review application'},
   introduction:{icon:'forward_to_inbox',verb:'Open the register'},
+  reroute:{icon:'alt_route',verb:'Decide on the board'},
   registration:{icon:'mark_email_unread',verb:'Open Accounts'},
 };
-const SREQ_WAIT={open:'waiting on a match',picked:'with picks to approve',desk:'at the desk'};
+const SREQ_WAIT={open:'waiting on a match',desk:'at the desk'};
 function inboxRow(r){
   const k=INBOX_KIND[r.kind]||{icon:'inbox',verb:'Open the board'};
   const hub=r.hub?` in the ${esc(HUB_NAME[r.hub]||r.hub)}`:'';
@@ -372,6 +376,8 @@ function inboxRow(r){
       <span class="sub">${waited}${ref}</span>`;
   else if(r.kind==='introduction')text=`<strong>${esc(r.ref||'')}</strong>: provider not yet asked (${esc(r.name)})${hub}
       <span class="sub">${waited} · the offer email has not gone; the 06:15 retry sends it</span>`;
+  else if(r.kind==='reroute')text=`<strong>${esc(r.ref||'')}</strong> ${r.status==='declined'?'declined':'expired'} and nothing after it: resend or re-route${hub}
+      <span class="sub">${waited} · the seeker is ${esc(r.name)}; send the offer to the same site again or re-route to the next best</span>`;
   else text=`<strong>${esc(r.name||r.ref||r.kind)}</strong>: ${esc(r.kind)}${hub}
       <span class="sub">${waited}</span>`;
   return `<div class="row attn">
