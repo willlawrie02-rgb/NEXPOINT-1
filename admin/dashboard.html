@@ -356,6 +356,7 @@ const INBOX_KIND={
   introduction:{icon:'forward_to_inbox',verb:'Open the register'},
   reroute:{icon:'alt_route',verb:'Decide on the board'},
   registration:{icon:'mark_email_unread',verb:'Open Accounts'},
+  retention:{icon:'auto_delete',verb:'Open the archive'},
 };
 const SREQ_WAIT={open:'waiting on a match',desk:'at the desk'};
 function inboxRow(r){
@@ -378,6 +379,10 @@ function inboxRow(r){
       <span class="sub">${waited} · the offer email has not gone; the 06:15 retry sends it</span>`;
   else if(r.kind==='reroute')text=`<strong>${esc(r.ref||'')}</strong> ${r.status==='declined'?'declined':'expired'} and nothing after it: resend or re-route${hub}
       <span class="sub">${waited} · the seeker is ${esc(r.name)}; send the offer to the same site again or re-route to the next best</span>`;
+  // Plan 069 (D9): a closed or deleted account's six years have run. The
+  // view's created_at is the day the clock ran out.
+  else if(r.kind==='retention')text=`<strong>${esc(r.name)}</strong>: retention period over, erase the records
+      <span class="sub">the records may go from ${esc(String(r.created_at||'').slice(0,10))} · nothing is deleted until you press Erase</span>`;
   else text=`<strong>${esc(r.name||r.ref||r.kind)}</strong>: ${esc(r.kind)}${hub}
       <span class="sub">${waited}</span>`;
   return `<div class="row attn">
