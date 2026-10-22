@@ -178,7 +178,7 @@ const STAGE_LABEL={proposed:'PROPOSED',awaiting_acceptance:'AWAITING ACCEPTANCE'
    loaded: every non-hub board is self-contained, and this page must never
    pick up the hub module's intent-raising controls. */
 const STAGE_HELP={
-  proposed:'A pick the seeker made. Nobody has been asked yet; approve the picks to ask the provider',
+  proposed:'A pick made before plan 067; nothing new arrives here. Nobody was asked: add a provider to the request or decline it',
   awaiting_acceptance:'The provider has been asked and has not yet accepted or declined',
   approved:'Both sides approved; the introduction email has not gone yet',
   introduced:'The parties have been put together',
@@ -198,9 +198,10 @@ const SIDE_PREFIX={offer_capacity:'H',request_capacity:'S',list_opportunity:'L',
 /* A website enquiry's ref carries its OWN hub's letter: this page mixes hubs. */
 const reqRef=r=>`${String(r.hub||'r')[0].toUpperCase()}${SIDE_PREFIX[r.side]||'R'}-${String(r.id).padStart(4,'0')}`;
 /* The PS-/MS- code of the request's web_requests mirror; REQ- is retired. */
+/* Plan 067: the request's own PS-/MS- code (the web_requests mirror is no
+   longer filed), the same string the worker and the hub board show. */
 function seekRef(r){
-  if(r.web_request_id==null)return `Request #${r.id}`;
-  return `${String(r.hub||'r')[0].toUpperCase()}S-${String(r.web_request_id).padStart(4,'0')}`;
+  return `${String(r.hub||'r')[0].toUpperCase()}S-${String(r.id).padStart(4,'0')}`;
 }
 const day=v=>v?String(v).slice(0,10):'—';
 const QUIET_DAYS=30;

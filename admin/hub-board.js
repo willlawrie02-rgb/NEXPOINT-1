@@ -20,9 +20,10 @@
 
    Every action inserts an engine_intents row; the UI marks the card
    "Queued for the engine" until the executed intent's result lands.
-   The browser never changes an external system itself — and approving
-   records a decision only: the introduction email is sent by Will or
-   Chris from Outlook, then logged here. */
+   The browser never changes an external system itself. On Print and Mill
+   a recorded introduction, a re-route and a resend each emails the site its offer
+   through the engine (plan 067); only an Opportunities pairing is still
+   emailed by Will or Chris by hand, then logged here. */
 
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -36,6 +37,9 @@ let orgById={};
 let vocabMap={};
 /* Hub v2: the listing review queue and the seeker request queue. */
 let listings=[],revById={},machinesByRev={},seekReqs=[];
+/* Plan 067: each seeker request's search (hub_searches), by id: the ranked
+   list the seeker saw and the names it was shown. */
+let searchById={};
 let pendingByListing={},pendingBySeekReq={};
 const HOSTS_HUB=()=>HUB.hub==='print'||HUB.hub==='mill';
 
@@ -121,28 +125,25 @@ const STAGE_LABEL={proposed:'PROPOSED',awaiting_acceptance:'AWAITING ACCEPTANCE'
   expired:'EXPIRED',declined:'DECLINED'};
 /* A provider said no, or never answered: the desk may re-route round it. */
 const SPENT_STAGES=['declined','expired'];
-/* The ask is still open, or lapsed unanswered: the same provider may be
-   asked again with a fresh window. A declined one is re-routed, not re-asked. */
-const REISSUABLE_STAGES=['awaiting_acceptance','expired'];
+/* The ask is still open, lapsed unanswered, or declined: the same site may
+   be asked again with a fresh window (plan 067; screen 2 of the acceptance
+   says "we may offer it to you again"), or the request re-routed to the
+   next best. */
+const REISSUABLE_STAGES=['awaiting_acceptance','expired','declined'];
 const LISTING_INTENTS=['approve-listing','decline-listing',
   'approve-listing-revision','decline-listing-revision'];
-/* All three carry `request_id`, and it means a seeker_requests row — NOT the
-   web_requests id review-web-request's own request_id means. */
-const SEEKER_INTENTS=['approve-intro-request','add-provider','decline-intro-request'];
+/* Both carry `request_id`, and it means a seeker_requests row, NOT the
+   web_requests id review-web-request's own request_id means. (approve-intro-
+   request is retired since plan 067: a pick goes straight to the site.) */
+const SEEKER_INTENTS=['add-provider','decline-intro-request'];
 const LISTING_BADGE={pending:'PENDING',live:'LIVE',declined:'DECLINED',hidden:'HIDDEN'};
 const SREQ_BADGE={open:'OPEN',picked:'PICKED',desk:'DESK RE-ROUTE',declined:'DECLINED',closed:'CLOSED'};
-/* A seeker request is known by the PS-/MS- code of its web_requests mirror
-   until an introduction exists (REQ- is retired, plan 052 item 4). The link
-   is seeker_requests.web_request_id, or the mirror's payload when only that
-   side was written; a legacy request with neither has no code. */
+/* A seeker request is known by its own PS-/MS- code (the hub's initial, S,
+   its id padded to four) everywhere: the worker, the engine, the inbox view
+   and this board (plan 067: the web_requests mirror is no longer filed).
+   REQ- is retired (plan 052 item 4). */
 function seekRef(r){
-  let wid=r.web_request_id;
-  if(wid==null){
-    const m=requests.find(q=>(q.payload||{}).seeker_request_id!=null&&String(q.payload.seeker_request_id)===String(r.id));
-    wid=m?m.id:null;
-  }
-  if(wid==null)return `Request #${r.id}`;
-  return `${String(r.hub||HUB.hub)[0].toUpperCase()}S-${String(wid).padStart(4,'0')}`;
+  return `${String(r.hub||HUB.hub)[0].toUpperCase()}S-${String(r.id).padStart(4,'0')}`;
 }
 const introRef=i=>i.ref||('INTRO-'+String(i.id).padStart(4,'0'));
 const SIDE_PREFIX={offer_capacity:'H',request_capacity:'S',list_opportunity:'L',request_intro:'I'};
@@ -163,7 +164,7 @@ const REQ_BADGE={new:'NEW',reviewing:'REVIEWING',approved:'APPROVED',declined:'D
    the stage lines: it is self-contained like every non-hub board. */
 const STATUS_HELP={
   stage:{
-    proposed:'A pick the seeker made. Nobody has been asked yet; approve the picks to ask the provider',
+    proposed:'A pick made before plan 067; nothing new arrives here. Nobody was asked: add a provider to the request or decline it',
     awaiting_acceptance:'The provider has been asked and has not yet accepted or declined',
     approved:'Both sides approved; the introduction email has not gone yet',
     introduced:'The parties have been put together',
@@ -172,8 +173,8 @@ const STATUS_HELP={
     dead:'Went nowhere. Kept in the database and the archive, off the working board',
     invoiced:'Commission invoiced, payment outstanding',
     paid:'Commission paid; closed',
-    expired:'The provider never answered in time. Re-route the seeker to another site',
-    declined:'The provider said no. Re-route the seeker to another site',
+    expired:'The provider never answered in time. Send the offer again, or re-route the seeker to the next best site',
+    declined:'The provider said no. Send the offer again (we may offer it to them again), or re-route the seeker to the next best site',
   },
   listing:{
     pending:'A first submission waiting on your review',
@@ -189,7 +190,7 @@ const STATUS_HELP={
   },
   seeker:{
     open:'The seeker has searched but not yet picked; nothing for the desk yet',
-    picked:'The seeker picked sites. Approve the picks, or add a provider first',
+    picked:'The seeker picked a site and the offer went to it. Nothing for the desk unless the site declines or the offer expires',
     desk:'The seeker told the desk the shortlist did not fit. Add a provider to re-route, or decline',
     declined:'The desk declined the request and the seeker was told',
     closed:'Nothing left to do on this request',
@@ -310,6 +311,20 @@ async function loadHubV2(){
   }else{
     seekReqs=sq.data||[];
   }
+  /* Plan 067: each request's search, for "Re-route to the next best" (the
+     ranked list the seeker saw, in order) and the names it was shown. */
+  searchById={};
+  const searchIds=[...new Set(seekReqs.map(r=>r.search_id).filter(v=>v!=null))];
+  if(searchIds.length){
+    const hq=await sb.from('hub_searches').select('id,ranked,named_org_ids').in('id',searchIds);
+    if(hq.error){
+      $('banner').innerHTML+=`<div class="banner">Could not read hub searches: ${esc(hq.error.message)}.
+        If this says the table does not exist or permission is denied, migration 0072
+        (hub searches, plan 067) may not be applied yet; re-routing offers the dropdown only.</div>`;
+    }else{
+      (hq.data||[]).forEach(s=>{searchById[s.id]=s;});
+    }
+  }
 }
 
 /* ── Intents ───────────────────────────────────────────────────────── */
@@ -335,11 +350,13 @@ function declineReq(id){
 }
 function setStage(id,stage){raise('update-introduction',{introduction_id:id,stage},'iact-'+id,'Updated');}
 function reissueAcceptance(id){
-  /* reissue-acceptance: stage back to awaiting_acceptance with a fresh
-     14-day window, nothing else cleared (handlers._reissue_acceptance). */
+  /* reissue-acceptance (plan 067): stage back to awaiting_acceptance, the
+     provider_notified_at stamp cleared and the offer emailed again with a
+     fresh 14-day window; a declined row may be re-asked. Nothing else
+     changes (handlers._reissue_acceptance). */
   const i=intros.find(x=>x.id===id)||{id};
-  if(!confirm(`Reissue the acceptance link for ${introRef(i)}? The provider gets a fresh 14-day window to accept or decline; nothing else on the introduction changes.`))return;
-  raise('reissue-acceptance',{introduction_id:id},'iact-'+id,'Acceptance reissued');
+  if(!confirm(`Send the offer for ${introRef(i)} to the same site again? It gets the email again and a fresh 14-day window; nothing else on the introduction changes.`))return;
+  raise('reissue-acceptance',{introduction_id:id},'iact-'+id,'Offer sent again');
 }
 function recordCommission(id){
   const current=(intros.find(x=>x.id===id)||{}).commission_amount||'';
@@ -383,16 +400,6 @@ function declineRevision(id){
   raise('decline-listing-revision',{listing_id:id,note},'lst-'+id,'Revision declined');
 }
 
-function approveRequest(id){
-  /* Every pick is ticked by default; untick one and only the rest are sent,
-     so the engine's own default (all of them) still covers a retry. */
-  const boxes=[...document.querySelectorAll('.pick-'+id)];
-  const chosen=boxes.filter(b=>b.checked).map(b=>b.value);
-  if(boxes.length&&!chosen.length){alert('Tick the provider to approve.');return;}
-  const payload={request_id:id};
-  if(boxes.length&&chosen.length<boxes.length)payload.listing_ids=chosen;
-  raise('approve-intro-request',payload,'sreq-'+id,'Approved');
-}
 function addProvider(id){
   const sel=$('addp-'+id);
   if(!sel||!sel.value){alert('Choose a provider to add first.');return;}
@@ -408,15 +415,19 @@ function offerToSeeker(listingId){
   /* "Offer to a seeker" on a live host card (Will, 6 Oct): the existing
      add-provider path, so the host is emailed the offer with its accept
      and decline links and contact details are released only on
-     acceptance. Nothing is sent from Outlook. */
+     acceptance. Nothing is sent by hand. */
   const sel=$('offer-'+listingId);
   if(!sel||!sel.value){alert('Choose a seeker request to offer this host to.');return;}
   raise('add-provider',{request_id:Number(sel.value),listing_id:listingId},'lst-'+listingId,'Offered');
 }
-function reroute(id){
+function reroute(id,listingId){
+  /* The next best from the seeker's own search (plan 067) when given, else
+     the dropdown's choice. The engine opens the new row, emails that site
+     its offer and tells the seeker which site it went to. */
   const sel=$('rr-'+id);
-  if(!sel||!sel.value){alert('Choose a listing to re-route to.');return;}
-  raise('reroute-introduction',{introduction_id:id,listing_id:sel.value},'iact-'+id,'Re-routed');
+  const chosen=listingId||(sel&&sel.value);
+  if(!chosen){alert('Choose a listing to re-route to.');return;}
+  raise('reroute-introduction',{introduction_id:id,listing_id:chosen},'iact-'+id,'Re-routed');
 }
 
 /* ── Rendering ─────────────────────────────────────────────────────── */
@@ -735,11 +746,25 @@ function introManage(i){
   /* In the acceptance flow: the provider, the worker and the engine move
      these, not a dropdown. A spent one may be re-routed to another host. */
   let manage=`<span style="color:var(--fg-2);font-size:12.5px">With the provider</span>`;
-  if(SPENT_STAGES.includes(i.stage))manage=rerouteControl(i)
-    ||`<span style="color:var(--fg-2);font-size:12.5px">No other visible listing to re-route to (hidden accounts are left out)</span>`;
+  if(SPENT_STAGES.includes(i.stage)){
+    /* Plan 067 (Q7, D9): a spent offer with a successor is history. The
+       engine refuses a resend or a re-route of it, so neither is offered. */
+    const later=successorOf(i);
+    if(later)return failed+`<span style="color:var(--fg-2);font-size:12.5px">Superseded by ${esc(introRef(later))} (${esc(STAGE_LABEL[later.stage]||later.stage)})</span>`;
+    manage=rerouteControl(i)
+      ||`<span style="color:var(--fg-2);font-size:12.5px">No other visible listing to re-route to (hidden accounts are left out)</span>`;
+  }
   if(REISSUABLE_STAGES.includes(i.stage))manage+=`
-    <button class="btn btn-gh btn-sm" onclick="reissueAcceptance(${i.id})">Reissue acceptance link</button>`;
+    <button class="btn btn-gh btn-sm" onclick="reissueAcceptance(${i.id})">Send the offer again</button>`;
   return failed+manage;
+}
+
+/* The row that supersedes a spent offer: one re-routed from it, or any
+   offer on its request still live (not declined, expired or dead). */
+function successorOf(i){
+  if(i.seeker_request_id==null)return null;
+  return intros.find(x=>x.id!==i.id&&x.seeker_request_id===i.seeker_request_id
+    &&(x.rerouted_from===i.id||(!SPENT_STAGES.includes(x.stage)&&x.stage!=='dead')))||null;
 }
 
 function renderRegister(){
@@ -810,12 +835,20 @@ function rerouteControl(i){
   const options=listings.filter(l=>l.status==='live'&&!taken.has(String(l.id))
     &&shipsTo(l,req&&req.region)
     &&orgVisible(orgById[l.org_id]));
-  if(!options.length)return '';
-  return `<select id="rr-${i.id}" aria-label="Re-route ${esc(introRef(i))}">
+  /* Plan 067 (D9): the next best from the search the seeker ran, in the
+     order it was ranked: the first listing still live, visible and not yet
+     on this request (the spent one is on it, so it never comes back). */
+  const search=req&&req.search_id!=null?searchById[req.search_id]:null;
+  const next=search?(search.ranked||[]).map(e=>listingById(e.listing_id))
+    .find(l=>l&&l.status==='live'&&!taken.has(String(l.id))&&orgVisible(orgById[l.org_id])):null;
+  const best=next?`<button class="btn btn-gh btn-sm" onclick="reroute(${i.id},'${esc(next.id)}')">Re-route to the next best: ${esc(listingLabel(next))}</button>`:'';
+  if(!options.length&&!best)return '';
+  const pick=options.length?`<select id="rr-${i.id}" aria-label="Re-route ${esc(introRef(i))}">
       <option value="">Re-route to…</option>
       ${options.map(l=>`<option value="${esc(l.id)}">${esc(listingLabel(l))}</option>`).join('')}
     </select>
-    <button class="btn btn-gh btn-sm" onclick="reroute(${i.id})">Re-route</button>`;
+    <button class="btn btn-gh btn-sm" onclick="reroute(${i.id})">Re-route</button>`:'';
+  return best+pick;
 }
 
 /* ── Listings (hub v2) ─────────────────────────────────────────────── */
@@ -1000,23 +1033,22 @@ function needLines(r){
 
 function seekerCard(r){
   const q=pendingBySeekReq[r.id];
-  const mine=intros.filter(i=>i.seeker_request_id===r.id);
-  const picks=mine.filter(i=>i.stage==='proposed');
-  const running=mine.filter(i=>i.stage!=='proposed');
+  /* Plan 067: the request's introductions, every stage but dead, each with
+     its own controls (introManage: send the offer again, re-route, the
+     stage), as the host card's linked block renders them. Nothing here is
+     approved: the pick went straight to the site. */
+  const all=intros.filter(i=>i.seeker_request_id===r.id);
+  const mine=all.filter(i=>i.stage!=='dead');
   const need=needLines(r);
   const where=[r.town,r.country].filter(Boolean).join(', ');
 
-  const pickList=picks.length
-    ?`<div class="picks">${picks.map(i=>`<label>
-        <input type="checkbox" class="pick-${r.id}" value="${esc(i.listing_id)}" checked>
-        <span>${esc(cardSummary(i))}</span></label>`).join('')}</div>`
-    :'';
-  const runningList=running.length
-    ?`<div class="meta">${running.map(i=>`<span>${stg('stage',i.stage,STAGE_LABEL[i.stage]||i.stage)} ${
-        esc(introRef(i))} · ${esc(cardSummary(i))}</span>`).join('')}</div>`
+  const linked=mine.length
+    ?mine.map(i=>`<div class="meta" style="align-items:center">
+        <span>${stg('stage',i.stage,STAGE_LABEL[i.stage]||i.stage)} ${esc(introRef(i))} · ${esc(cardSummary(i))}</span>
+        <div id="iact-${i.id}" class="actions" style="margin-top:0">${introManage(i)}</div></div>`).join('')
     :'';
 
-  const taken=new Set(mine.map(i=>String(i.listing_id)));
+  const taken=new Set(all.map(i=>String(i.listing_id)));
   const spare=listings.filter(l=>l.status==='live'&&!taken.has(String(l.id))
     &&(shipsTo(l,r.region)||shipsToUnset(l))
     &&orgVisible(orgById[l.org_id]));
@@ -1045,8 +1077,6 @@ function seekerCard(r){
        branch's statuses to the handler's PROVIDER_ADDABLE_STATUSES. */
     actions=`<div class="actions">${failed}
       ${r.no_match?'<span class="status" style="flex-basis:100%">The search matched nobody; add a provider by hand or decline.</span>':''}
-      ${picks.length?`<button class="btn btn-grn btn-sm" onclick="approveRequest(${r.id})">
-        <span class="material-symbols-outlined" aria-hidden="true">check</span>Approve the pick</button>`:''}
       ${adder}
       <button class="btn btn-danger btn-sm" onclick="declineRequest(${r.id})">
         <span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button></div>`;
@@ -1065,8 +1095,7 @@ function seekerCard(r){
       r.created_at?`<span>received ${esc(String(r.created_at).slice(0,10))}</span>`:'',
       r.no_match?'<span>no automatic match</span>':''].filter(Boolean).join('')}</div>
     ${need?`<div class="why" style="margin-top:8px">${need}</div>`:''}
-    ${pickList}
-    ${runningList}
+    ${linked}
     <div id="sreq-${r.id}">${actions}</div>
   </div>`;
 }
@@ -1097,8 +1126,9 @@ function openIntroModal(reqId){
       <input id="m_basis" placeholder="e.g. 5% per order, introduction fee"></div>
     <div class="field" style="margin-bottom:18px"><label>Notes <span class="opt">(optional)</span></label>
       <textarea id="m_notes"></textarea></div>
-    <div class="note-box">This records the introduction — you send the email yourselves from Outlook,
-      then mark it introduced here.</div>
+    <div class="note-box">${HOSTS_HUB()
+      ?'This records the introduction and emails the site its offer; the seeker is told when it answers. Nothing to send from Outlook.'
+      :'This records the introduction: you send the email yourselves from Outlook, then mark it introduced here.'}</div>
     <div style="display:flex;justify-content:flex-end;gap:10px">
       <button class="btn btn-gh" onclick="closeIntroModal()">Cancel</button>
       <button class="btn btn-pri" onclick="createIntro(${r.id})" ${partners.length?'':'disabled'}>Record introduction</button>
