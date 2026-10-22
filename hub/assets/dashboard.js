@@ -194,9 +194,12 @@
      one; its Declarations and Fees sections show for it too. */
   function boardSeller(d) {
     return (Array.isArray(d.introductions) ? d.introductions : []).some(function (i) {
-      return i.hub === 'opportunities' && i.seller && acceptedStage(i.stage);
+      return onBoard(i) && i.seller && acceptedStage(i.stage) && i.fee_model !== 'success_fee';
     });
   }
+  /* A board introduction, as the worker decides it (its hub); the opportunity
+     may be missing when an old row's brief no longer resolves. */
+  function onBoard(i) { return !!i && (i.hub === 'opportunities' || !!i.opportunity); }
 
   /* ═══════════ 1. profile ═══════════ */
   function renderProfile(d, s) {
@@ -378,7 +381,7 @@
   function providerLine(i) {
     /* Plan 070: on the Opportunities Board the company behind the
        opportunity answers; the company that asked waits on it. */
-    if (i.opportunity && !i.asked && i.stage === 'awaiting_acceptance') return 'With the company behind the opportunity.';
+    if (onBoard(i) && !i.asked && i.stage === 'awaiting_acceptance') return 'With the company behind the opportunity.';
     if (i.stage === 'awaiting_acceptance') return 'Waiting for your answer.';
     if (i.stage === 'approved') return 'Approved by NexPoint.';
     if (i.stage === 'introduced') return 'Introduced.';
@@ -416,11 +419,11 @@
     var id = esc(i.id);
     /* Plan 070: the owner of an opportunity accepts screen 1 of the
        Opportunity Terms; the company that asked is told, not a seeker. */
-    var board = !!i.opportunity;
+    var board = onBoard(i);
     return '<div class="acct-answer" id="introAnswer-' + id + '" hidden>' +
         '<p class="hint">' + (board
           ? 'Accept and the introduction goes to you both by email, with each other\'s details. ' +
-            'Decline and they are told the company said no, and nothing else.'
+            'Decline and the other company is told only that you said no, never why.'
           : 'Accept and the introduction goes to you both by email, with each other\'s details. ' +
             'Decline and the seeker is told a site said no, and nothing else.') + '</p>' +
         '<div class="acct-answer__terms" id="introTerms-' + id + '"></div>' +
@@ -428,8 +431,9 @@
       '</div>' +
       '<div class="acct-answer" id="introDecline-' + id + '" hidden>' +
         '<label class="hint" for="introReason-' + id + '">Tell us why, if you like. This goes to the NexPoint desk, not to ' +
-          (board ? 'the company that asked' : 'the seeker') + '.</label>' +
-        '<textarea id="introReason-' + id + '" rows="3" placeholder="Too far out, wrong material, no capacity that month"></textarea>' +
+          (board ? 'the other company' : 'the seeker') + '.</label>' +
+        '<textarea id="introReason-' + id + '" rows="3" placeholder="' + (board ? 'Not the right fit for us at the moment'
+          : 'Too far out, wrong material, no capacity that month') + '"></textarea>' +
         '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-decline-send" data-intro="' + id + '">Send my decline</button>' +
       '</div>';
   }
@@ -509,7 +513,9 @@
        what the company asking said and where it is (never who). */
     if (i.opportunity) extra.push(['Opportunity ' + (i.opportunity.ref || ''), i.opportunity.title].filter(Boolean).join(', '));
     if (i.ask) {
-      var said = [i.ask.what_they_said ? 'What they said: ' + i.ask.what_they_said : '',
+      /* the member's own words, or the desk's summary of what it wants */
+      var said = [i.ask.what_they_said ? (i.ask.from_request === false ? 'What they are looking for: ' : 'What they said: ') +
+          i.ask.what_they_said : '',
         [i.ask.town, i.ask.country].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
       if (said) extra.push(said);
     }
@@ -1205,18 +1211,19 @@
   function isBoardIntro(id) {
     var i = (lastSummary && Array.isArray(lastSummary.introductions) ? lastSummary.introductions : [])
       .filter(function (x) { return String(x.id) === String(id); })[0];
-    return i && i.opportunity ? i : null;
+    return onBoard(i) ? i : null;
   }
   function loadBoardTerms(id, force) {
     var i = isBoardIntro(id);
-    if (boardTerms[id] && !force) return Promise.resolve(boardTerms[id]);
     var box = el('introTerms-' + id);
+    /* A redraw of the page empties the box; the terms are drawn again then. */
+    if (boardTerms[id] && !force && box && box.querySelector('[data-np-terms-tick]')) return Promise.resolve(boardTerms[id]);
     if (!window.NPAccount || typeof NPAccount.termsBlock !== 'function') {
       if (box) box.innerHTML = '<p class="hint">This page has been updated since it loaded. Refresh it, then answer.</p>';
       return Promise.resolve(null);
     }
     return NPAccount.termsBlock(box, 'opportunity', 1, {
-      fill: { reference: i && i.opportunity ? i.opportunity.ref : '', date: fmtDate(new Date().toISOString()) },
+      fill: { reference: i && i.opportunity ? i.opportunity.ref || '' : '', date: fmtDate(new Date().toISOString()) },
       note: force ? 'The Opportunity Terms have been updated. Read them again and tick to accept them.' : '',
     }).then(function (t) {
       boardTerms[id] = t && t.ok ? t : null;
@@ -1310,7 +1317,7 @@
       if (d && d.ok) {
         say(msg, action === 'accept'
           ? 'Accepted. The introduction is on its way to your inbox.'
-          : board ? 'Declined. They are told the company said no, and nothing else.'
+          : board ? 'Declined. The other company is told only that you said no.'
             : 'Declined. The seeker is told a site said no, and nothing else.');
         load();
         return;

@@ -570,13 +570,13 @@
     (termsFetch || loadPlatformTerms()).then(apply);
   }
 
-  function successCard(line) {
+  function successCard(line, back) {
     content().innerHTML = `
       <div class="success">
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>Received, in confidence.</h2>
         <p>${esc(line)}</p>
-        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" data-np-done>Back to the hub</button></div>
+        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" data-np-done>${esc(back || 'Back to the hub')}</button></div>
       </div>`;
     content().querySelector('[data-np-done]').addEventListener('click', hide);
   }
@@ -769,7 +769,7 @@
         <p><strong>${esc(u.name)}</strong> · ${esc(u.company)}<br>${esc([u.town, u.country].filter(Boolean).join(', '))} · ${esc(u.email)}</p>
       </div>
       ${action.terms ? '<div data-np-terms></div>' : ''}
-      <div class="field full"><label for="gNotes">Anything specific? (optional)</label><textarea id="gNotes" placeholder="Timing, volumes, the machine in question"></textarea></div>
+      <div class="field full"><label for="gNotes">${esc(action.notesLabel || 'Anything specific? (optional)')}</label><textarea id="gNotes" placeholder="${esc(action.notesPlaceholder || 'Timing, volumes, the machine in question')}"></textarea></div>
       <p class="np-sign-error" data-np-gate-err style="display:none"></p>
       <div class="modal-actions"><button class="btn btn-primary" data-np-send>${esc(label)}</button></div>`;
     show();
@@ -800,7 +800,8 @@
       delete sent.terms;
       const d = await A.submitRequest(sent);
       if (d.ok) {
-        successCard(action.successLine || 'The NexPoint desk reads every request personally. Expect to hear within two working days.');
+        successCard(action.successLine || 'The NexPoint desk reads every request personally. Expect to hear within two working days.',
+          action.backLabel);
         return;
       }
       btn.textContent = label;
