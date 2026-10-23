@@ -416,11 +416,12 @@ async function answerDb(world, route, request, url) {
 }
 
 /* The tables whose reads the new pages filter (plan 072): the Inbox reads
-   our open tasks (done_at is null) and the ones done in the last 14 days;
+   our open tasks (done_at is null) and the ones done in the last 14 days,
+   and the cards still set aside (restored_at is null);
    System reads the Inbox's failed-run cards and a job's newest run that did
    work. For these the stub answers as PostgREST would: the filters, the
    order and the limit. Every other table answers its rows as given. */
-const FILTERED = new Set(["crm_tasks", "inbox", "engine_runs"]);
+const FILTERED = new Set(["crm_tasks", "crm_inbox_dismissals", "inbox", "engine_runs"]);
 const NOT_FILTERS = new Set(["select", "order", "limit", "offset", "on_conflict", "columns"]);
 function postgrest(rows, params) {
   const unquote = (v) => v.replace(/^"(.*)"$/, "$1");
@@ -3425,6 +3426,14 @@ async function walkInboxAndSystem() {
     const world = newWorld({ rows: inboxRows() });
     const { context, page, errors } = await visit(world, { seedAdmin: true });
     await page.goto(`${APEX}/admin/inbox.html`);
+    await step("Inbox: a card set aside with Not now shows under Set aside, with Put back", async () => {
+      const aside = page.locator("details.archive", { hasText: "Set aside" });
+      await aside.waitFor({ state: "attached" });
+      has(await aside.locator("summary").textContent(), "Set aside (1)", "the archive's summary");
+      has(await aside.textContent(), "Waiting for them to confirm", "the reason");
+      eq(await aside.locator('[data-act="putBack"][data-key="registration:00000000-0000-4000-8000-0000000000c9"]').count(),
+        1, "Put back on that card");
+    });
     await step("Inbox: They wrote last lists the company whose newest email came in", async () => {
       const panel = page.locator("section.panel", { hasText: "They wrote last" });
       await panel.waitFor();
