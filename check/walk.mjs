@@ -69,6 +69,14 @@ async function step(name, fn) {
     check(name, false, String(e && e.message ? e.message : e).split("\n")[0].slice(0, 300));
   }
 }
+/* The one row a write carried: a write of two rows, or of none, fails. */
+const oneRow = (w) => {
+  const rows = [].concat(w.body);
+  if (rows.length !== 1) throw new Error(`the write carried ${rows.length} rows, want 1`);
+  return rows[0];
+};
+const sortedKeys = (o) => (o && typeof o === "object" && !Array.isArray(o)
+  ? Object.fromEntries(Object.keys(o).sort().map((k) => [k, sortedKeys(o[k])])) : o);
 const eq = (got, want, what) => {
   if (JSON.stringify(got) !== JSON.stringify(want)) throw new Error(`${what}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
   return true;
@@ -387,7 +395,7 @@ async function answerDb(world, route, request, url) {
   if (table) {
     if (method === "GET" || method === "HEAD") {
       world.reads.push({ table });
-      const rows = world.rows[table] || [];
+      const rows = FILTERED.has(table) ? postgrest(world.rows[table] || [], url.searchParams) : (world.rows[table] || []);
       const range = rows.length ? `0-${rows.length - 1}/${rows.length}` : "*/0";
       if ((request.headers().accept || "").includes("vnd.pgrst.object+json")) {
         if (rows.length === 1) return send(200, rows[0], { "content-range": range });
@@ -405,6 +413,34 @@ async function answerDb(world, route, request, url) {
   }
   world.strays.push(`DB ${method} ${p}`);
   return send(404, { message: "the walk has no stub for this" });
+}
+
+/* The tables whose reads the new pages filter (plan 072): the Inbox reads
+   our open tasks (done_at is null) and the ones done in the last 14 days;
+   System reads the Inbox's failed-run cards and a job's newest run that did
+   work. For these the stub answers as PostgREST would: the filters, the
+   order and the limit. Every other table answers its rows as given. */
+const FILTERED = new Set(["crm_tasks", "inbox", "engine_runs"]);
+const NOT_FILTERS = new Set(["select", "order", "limit", "offset", "on_conflict", "columns"]);
+function postgrest(rows, params) {
+  const unquote = (v) => v.replace(/^"(.*)"$/, "$1");
+  const test = (cell, expr) => {
+    if (expr.startsWith("not.")) return !test(cell, expr.slice(4));
+    const dot = expr.indexOf("."), op = expr.slice(0, dot), arg = expr.slice(dot + 1);
+    const v = cell == null ? null : String(cell);
+    if (op === "is") return arg === "null" ? cell == null : String(cell) === arg;
+    if (op === "in") return v != null && arg.replace(/^\(|\)$/g, "").split(",").map(unquote).includes(v);
+    if (v == null) return false;
+    return { eq: v === arg, neq: v !== arg, gt: v > arg, gte: v >= arg, lt: v < arg, lte: v <= arg }[op] ?? true;
+  };
+  let out = rows.filter((r) => [...params].every(([k, expr]) => NOT_FILTERS.has(k) || test(r[k], expr)));
+  const order = params.get("order");
+  if (order) {
+    const [col, dir] = order.split(",")[0].split(".");
+    out = out.slice().sort((a, b) => (a[col] > b[col] ? 1 : a[col] < b[col] ? -1 : 0) * (dir === "desc" ? -1 : 1));
+  }
+  if (params.get("limit")) out = out.slice(0, Number(params.get("limit")));
+  return out;
 }
 
 function serveFile(world, route, url) {
@@ -2811,14 +2847,22 @@ const boards = () => adminPages().filter((f) => !movedTo(f));
    Health became System), on Health before. */
 const DOOR_PAGE = existsSync(join(ADMIN_DIR, "system.html")) ? "system.html" : "health.html";
 /* A CRM section whose plan has not built it yet still draws the shell's
-   "Not built yet" panel; its own checks wait for the build. */
-const built = (f) => existsSync(join(ADMIN_DIR, f)) && !/NXShell\.comingHtml\(/.test(adminText(f));
+   "Not built yet" panel, by the placeholder's own call (comingHtml({plan:'072',
+   ...}) and so on); its own checks wait for the build. */
+const built = (f) => existsSync(join(ADMIN_DIR, f)) && !/NXShell\.comingHtml\(\{plan:'\d{3}',/.test(adminText(f));
 
+/* The door is walked on a CRM page and on two old-style boards (each has its
+   own boot and doLogin; the hub boards share hub-board.js's). */
 async function walkAdminDoor() {
-  area = "The admin door (password, then the second factor)";
+  for (const file of [DOOR_PAGE, "leads.html", "print-hub.html"]) {
+    if (existsSync(join(ADMIN_DIR, file))) await walkDoorOn(file);
+  }
+}
+async function walkDoorOn(file) {
+  area = `The admin door on ${file} (password, then the second factor)`;
   const world = newWorld();
   const { context, page, errors } = await visit(world);
-  await page.goto(`${APEX}/admin/${DOOR_PAGE}`);
+  await page.goto(`${APEX}/admin/${file}`);
   await step("a board shows only its sign-in card to a stranger, and reads no table", async () => {
     await page.waitForSelector("#login", { state: "visible" });
     eq(await page.isVisible("#admin"), false, "the board is showing");
@@ -2850,7 +2894,7 @@ async function walkAdminDoor() {
     has(await page.textContent("#who"), ADMIN_EMAIL, "who is signed in");
     if (world.reads.length === 0) throw new Error("the board opened and read nothing");
   });
-  clean(world, errors, "the admin door");
+  clean(world, errors, `the admin door on ${file}`);
   await context.close();
 }
 
@@ -2872,19 +2916,30 @@ const systemRows = () => ({
     detail: "Smartlead timed out after 30 seconds", recorded_at: ago(0.49) }],
   engine_intents: [], engine_lead_queue: [],
 });
+const WALK_ORG = "00000000-0000-4000-8000-0000000000b1";
 const inboxRows = () => ({
   inbox: [
-    { kind: "listing", ref: "L-0001", hub: "print", name: "ZZ Walk Test Ltd", status: "pending", created_at: ago(30), age_hours: 30,
-      board: "company.html?org=org-walk", item_id: "1", org_id: "org-walk", item_key: "listing:1:new" },
+    { kind: "listing", ref: "1", hub: "print", name: "ZZ Walk Test Ltd", status: "pending", created_at: ago(30), age_hours: 30,
+      board: `company.html?org=${WALK_ORG}`, item_id: "1", org_id: WALK_ORG, item_key: "listing:1:new" },
     { kind: "failed_run", ref: "hub-sync", hub: null, name: "hub-sync", status: "failed", created_at: ago(0.5), age_hours: 0.5,
       board: "system.html", item_id: "run-hub-2", org_id: null, item_key: "failed_run:run-hub-2" }],
-  crm_tasks: [{ id: 1, title: "Ring ZZ Walk Test Ltd about pricing", company_id: 1, due_on: null, source: "admin",
-    pipedrive_activity_id: null, created_at: ago(5), created_by: ADMIN_EMAIL, updated_at: ago(5), updated_by: null,
-    done_at: null, done_by: null }],
-  crm_inbox_dismissals: [],
+  /* One open task and one done this week: the page reads each with its own filter. */
+  crm_tasks: [
+    { id: 1, title: "Ring ZZ Walk Test Ltd about pricing", company_id: 1, due_on: null, source: "admin",
+      pipedrive_activity_id: null, created_at: ago(5), created_by: ADMIN_EMAIL, updated_at: ago(5), updated_by: null,
+      done_at: null, done_by: null },
+    { id: 2, title: "Send the walk its notes", company_id: null, due_on: null, source: "admin",
+      pipedrive_activity_id: null, created_at: ago(50), created_by: ADMIN_EMAIL, updated_at: ago(20), updated_by: ADMIN_EMAIL,
+      done_at: ago(20), done_by: ADMIN_EMAIL }],
+  /* A card set aside with Not now, still live (the view leaves its card out). */
+  crm_inbox_dismissals: [{ id: 1, item_key: "registration:00000000-0000-4000-8000-0000000000c9", kind: "registration",
+    reason: "Waiting for them to confirm", dismissed_at: ago(20), dismissed_by: ADMIN_EMAIL, restored_at: null, restored_by: null }],
   engine_tasks: [{ id: 1, owner: "Will", task: "Send the walk notes", source: "deals/zz-walk-test/notes/2026-10-23_walk.md", collected_at: ago(3) }],
   crm_companies: [{ id: 1, name: "ZZ Walk Test Ltd", slug: "zz-walk-test", archived_at: null }],
-  crm_email_index: [], engine_intents: [],
+  /* Their newest filed email came in this week, so They wrote last lists them. */
+  crm_email_index: [{ company_id: 1, sent_at: ago(26), subject: "Re: pricing for the walk", from_text: "Jo Walk <jo@zzwalk.example>",
+    direction: "inbound", gone_at: null }],
+  engine_intents: [],
 });
 const BOARD_ROWS = { "inbox.html": inboxRows, "system.html": systemRows };
 
@@ -2927,7 +2982,7 @@ async function walkBoards() {
       await page.waitForFunction(() => /queued for the engine/.test(document.body.textContent));
       eq(world.writes.length, 1, "writes");
       const w = world.writes[0];
-      const row = Array.isArray(w.body) ? w.body[0] : w.body;
+      const row = oneRow(w);
       eq([w.method, w.table, row.type, row.payload_json.queue_row, row.payload_json.reason, row.requested_by],
         ["POST", "engine_intents", "reject-lead", 501, "the scripted walk", ADMIN_EMAIL], "the intent");
     });
@@ -2946,7 +3001,7 @@ async function walkBoards() {
       await page.waitForFunction(() => /queued|requested/i.test(document.getElementById("deal-status").textContent));
       eq(world.writes.length, 1, "writes");
       const w = world.writes[0];
-      const row = Array.isArray(w.body) ? w.body[0] : w.body;
+      const row = oneRow(w);
       eq([w.table, row.type, row.payload_json.deal_slug, row.payload_json.draft, row.payload_json.active],
         ["engine_intents", "set-opportunity", "zz-walk-test", true, false], "the intent");
     });
@@ -2963,7 +3018,9 @@ const notes = [];
 /* Health's checks walk the page that carries Health: System once health.html
    has moved there (plan 072, D7), Health before. */
 const HEALTH_PAGE = movedTo("health.html") || "health.html";
-const REVIEWED = existsSync(join(ADMIN_DIR, HEALTH_PAGE)) && /failedSince/.test(adminText(HEALTH_PAGE));
+/* Both copies have carried the review's fixes since 4 October, so the checks
+   run whenever the page is there. */
+const REVIEWED = existsSync(join(ADMIN_DIR, HEALTH_PAGE));
 const SAME_NAME = /function sameName\(/.test(readFileSync(join(ADMIN_DIR, "organisations.html"), "utf8"));
 const ago = (hours) => new Date(Date.now() - hours * 36e5).toISOString();
 
@@ -3061,7 +3118,7 @@ async function walkProspectsCrm() {
       await pause(300);
       eq(world.writes.length, 1, "writes");
       const w = world.writes[0];
-      const body = Array.isArray(w.body) ? w.body[0] : w.body;
+      const body = oneRow(w);
       eq([w.method, w.table, body.type], ["POST", "engine_intents", expect.type], "the intent");
       expect.check && expect.check(body.payload_json);
       has(await page.innerText("body"), "queued for the engine", "the page's confirmation");
@@ -3134,7 +3191,7 @@ async function walkProspectsCrm() {
       await pause(300);
       eq(world.writes.length, 1, "writes");
       const w = world.writes[0];
-      const body = Array.isArray(w.body) ? w.body[0] : w.body;
+      const body = oneRow(w);
       eq([w.method, w.table, body.type, body.payload_json.queue_row], ["POST", "engine_intents", "accept-prospect", 601], "the intent");
     });
     clean(world, errors, "the Prospects page");
@@ -3175,13 +3232,19 @@ async function walkReviewedBoards() {
       await step("System: a job that failed after the morning report gets its banner and is named in the report's findings", async () => {
         await page.waitForSelector('.banner.err[data-job="intent-drain"]');
         const found = await page.$$eval(".find .item-main", (els) => els.map((e) => e.textContent).join(" | "));
-        has(found, "intent-drain failed", "the findings");
-        has(found, "morning report", "the findings");
+        has(found, "intent-drain failed after the morning report", "the findings");
+        const note = await page.$eval('#page tbody tr[data-job="intent-drain"] td:last-child small', (e) => e.textContent.trim());
+        eq(note, "Since the morning report", "the Result note");
+      });
+      await step("System: the drain, which the handler refuses, gets no Re-run now and says why", async () => {
+        eq(await page.locator('[data-act="rerun"][data-job="intent-drain"]').count(), 0, "Re-run now buttons for the drain");
+        has(await page.textContent('.banner.err[data-job="intent-drain"]'),
+          "This job starts on its own within a minute of any button being pressed, so it has no Re-run here.", "the banner");
       });
       await step("System: that job's row says Failed, and the other still says OK", async () => {
         const rows = await page.$$eval("#page tbody tr", (trs) => trs.map((tr) =>
           [tr.dataset.job, tr.cells[5].querySelector(".st").lastChild.textContent.trim()]));
-        eq(rows, [["hub-sync", "OK"], ["intent-drain", "Failed"]], "the job table");
+        eq(rows.sort(), [["hub-sync", "OK"], ["intent-drain", "Failed"]], "the job table, by name");
       });
       clean(world, errors, "System");
     }
@@ -3222,7 +3285,7 @@ async function walkReviewedBoards() {
       world.dialog = "accept";
       await page.selectOption(pick("enquired"), "3102");
       await until(() => world.writes.length === 1, "one write");
-      const row = [].concat(world.writes[0].body)[0];
+      const row = oneRow(world.writes[0]);
       eq([world.writes[0].table, row.type, row.payload_json.campaign_id, row.payload_json.version, Number(row.payload_json.smartlead_campaign_id)],
         ["engine_intents", "link-campaign-version", 1, "enquired", 3102], "the intent");
     });
@@ -3275,6 +3338,20 @@ async function walkReviewedBoards() {
    nothing, so a bookmark still works and no old button is left live. */
 async function walkMovedPages() {
   area = "The moved admin pages (plan 072)";
+  /* Once a section is built, its old pages must point at it, and a pointer
+     must point at a built page: a sync that carried half of plan 072 fails
+     here rather than walking past it. */
+  await step("the moved pages and the built sections agree", async () => {
+    const wrong = [];
+    const there = (f) => existsSync(join(ADMIN_DIR, f));
+    if (built("inbox.html") || adminPages().some((f) => movedTo(f) === "inbox.html")) {
+      for (const f of ["dashboard.html", "tasks.html"]) if (there(f) && movedTo(f) !== "inbox.html") wrong.push(`${f} does not point at inbox.html`);
+    }
+    if (built("system.html") && there("health.html") && movedTo("health.html") !== "system.html") wrong.push("health.html does not point at system.html");
+    for (const f of adminPages()) if (movedTo(f) && !built(movedTo(f))) wrong.push(`${f} points at ${movedTo(f)}, which is not built`);
+    if (built("system.html") && !REVIEWED) wrong.push("System is built but the review's checks would not run");
+    if (wrong.length) throw new Error(wrong.join("; "));
+  });
   const moved = adminPages().filter((f) => movedTo(f));
   if (!moved.length) {
     notes.push("No admin page in this copy has moved yet, so the moved-page checks were not run. " +
@@ -3286,8 +3363,13 @@ async function walkMovedPages() {
     const world = newWorld();
     const { context, page, errors } = await visit(world);
     await step(`${file} moves to ${target} and reads nothing`, async () => {
-      if (/<script/i.test(adminText(file))) throw new Error(`${file} carries a script`);
-      if (!existsSync(join(ADMIN_DIR, target))) throw new Error(`${file} moves to ${target}, which is not in the admin directory`);
+      const text = adminText(file);
+      if (/<script/i.test(text)) throw new Error(`${file} carries a script`);
+      if (/\son\w+\s*=/i.test(text)) throw new Error(`${file} carries an event handler`);
+      if (/javascript:/i.test(text)) throw new Error(`${file} carries a javascript: address`);
+      const refresh = (text.match(/<meta http-equiv="refresh" content="([^"]*)"/i) || [])[1];
+      eq(refresh, `0; url=${target}`, "the refresh");
+      if (!built(target)) throw new Error(`${file} moves to ${target}, which is not built`);
       const lands = [`/admin/${target}`, `/admin/${target.replace(/\.html$/, "")}`];
       await page.goto(`${APEX}/admin/${file}`);
       await page.waitForURL((u) => lands.includes(new URL(u).pathname));
@@ -3317,13 +3399,13 @@ async function walkInboxAndSystem() {
       has(await page.textContent('.banner.err[data-job="hub-sync"]'), "smartlead-pull", "the banner");
       eq(await page.locator('.banner.err[data-job="hub-sync"] [data-act="rerun"][data-job="hub-sync"]').count(), 1, "Re-run now buttons");
       eq(await page.evaluate(() => {
-        const banner = document.querySelector('.banner.err[data-job="hub-sync"]'), table = document.querySelector("#page table");
-        return !!(banner && table && (banner.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING));
-      }), true, "the banner comes before the jobs table");
+        const banner = document.querySelector('.banner.err[data-job="hub-sync"]'), panel = document.querySelector("#page .panel");
+        return !!(banner && panel && (banner.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING));
+      }), true, "the banner comes before the first panel");
     });
     await step("System: each job's row says when it runs, from the morning report", async () => {
       const runs = await page.$$eval("#page tbody tr", (trs) => trs.map((tr) => [tr.dataset.job, tr.cells[2].textContent.trim()]));
-      eq(runs, [["hourly-sync", "Every 2 hours"], ["hub-sync", "Every 2 hours at :20"], ["intent-drain", "On demand"]], "the Runs column");
+      eq(runs.sort(), [["hourly-sync", "Every 2 hours"], ["hub-sync", "Every 2 hours at :20"], ["intent-drain", "On demand"]], "the Runs column");
     });
     await step("System: Re-run now raises one rerun-job intent for that job and touches no other table", async () => {
       eq(world.writes, [], "writes before the click");
@@ -3331,8 +3413,8 @@ async function walkInboxAndSystem() {
       await until(() => world.writes.length >= 1, "one write");
       await settled(page);
       eq(world.writes.length, 1, "writes");
-      const w = world.writes[0], row = [].concat(w.body)[0];
-      eq([w.method, w.table, row.type, row.payload_json, row.requested_by],
+      const w = world.writes[0], row = oneRow(w);
+      eq([w.method, w.table, row.type, sortedKeys(row.payload_json), row.requested_by],
         ["POST", "engine_intents", "rerun-job", { job: "hub-sync" }, ADMIN_EMAIL], "the intent");
     });
     clean(world, errors, "System");
@@ -3343,6 +3425,12 @@ async function walkInboxAndSystem() {
     const world = newWorld({ rows: inboxRows() });
     const { context, page, errors } = await visit(world, { seedAdmin: true });
     await page.goto(`${APEX}/admin/inbox.html`);
+    await step("Inbox: They wrote last lists the company whose newest email came in", async () => {
+      const panel = page.locator("section.panel", { hasText: "They wrote last" });
+      await panel.waitFor();
+      has(await panel.textContent(), "ZZ Walk Test Ltd", "the panel");
+      has(await panel.textContent(), "Re: pricing for the walk", "the panel");
+    });
     await step("Inbox: Add task with a title raises one add-task intent and touches no other table", async () => {
       await page.waitForSelector('[data-act="taskOpen"]');
       eq(world.writes, [], "writes before the click");
@@ -3352,11 +3440,36 @@ async function walkInboxAndSystem() {
       await until(() => world.writes.length >= 1, "one write");
       await settled(page);
       eq(world.writes.length, 1, "writes");
-      const w = world.writes[0], row = [].concat(w.body)[0];
-      eq([w.method, w.table, row.type, row.payload_json.title, row.requested_by],
-        ["POST", "engine_intents", "add-task", "Ring the walk about its pricing", ADMIN_EMAIL], "the intent");
+      const w = world.writes[0], row = oneRow(w);
+      eq([w.method, w.table, row.type, sortedKeys(row.payload_json), row.requested_by],
+        ["POST", "engine_intents", "add-task", { company_id: null, due_on: null, title: "Ring the walk about its pricing" }, ADMIN_EMAIL],
+        "the intent");
     });
     clean(world, errors, "the Inbox");
+    await context.close();
+  }
+  if (built("inbox.html")) {
+    const world = newWorld({ rows: inboxRows() });
+    const { context, page, errors } = await visit(world, { seedAdmin: true });
+    await page.goto(`${APEX}/admin/inbox.html`);
+    await step("Inbox: Add task with a company picked from the list and a due date sends both", async () => {
+      await page.waitForSelector('[data-act="taskOpen"]');
+      await page.click('[data-act="taskOpen"]');
+      await page.fill("#tk-title", "Send ZZ Walk the price list");
+      /* Picking from the datalist puts the option's value in the box, as typing it does. */
+      const name = await page.$eval("#tk-co-list option", (o) => o.value);
+      eq(name, "ZZ Walk Test Ltd", "the first company offered");
+      await page.fill("#tk-co", name);
+      await page.fill("#tk-due", "2026-11-02");
+      await page.click('[data-act="taskAdd"]');
+      await until(() => world.writes.length >= 1, "one write");
+      await settled(page);
+      eq(world.writes.length, 1, "writes");
+      const w = world.writes[0], row = oneRow(w);
+      eq([w.table, row.type, sortedKeys(row.payload_json)],
+        ["engine_intents", "add-task", { company_id: 1, due_on: "2026-11-02", title: "Send ZZ Walk the price list" }], "the intent");
+    });
+    clean(world, errors, "the Inbox, a task with a company and a date");
     await context.close();
   }
   const named = later.join(" and ");
