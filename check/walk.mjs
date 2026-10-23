@@ -2263,6 +2263,326 @@ async function walkAccountAnswers() {
   }
 }
 
+// ================================================================ the Opportunities Board (plan 070)
+/* The Opportunity Terms have three screens, each shown on its own, and a
+   records section that is never shown. The walk's stand-in has all four. */
+const OPP_TERMS_ID = 31;
+const OPP_TERMS = "# Opportunity Terms (walk)\n\n*Version 1.0*\n\n" +
+  "## Screen 1: Posting an opportunity\n\nDated [date]. Screen one words.\n\n[ Post the opportunity ]\n\n---\n\n" +
+  "## Screen 2: Asking for an introduction\n\nRef [reference], dated [date]. Screen two words.\n\n[ Request the introduction ]\n\n---\n\n" +
+  "## Screen 3: Seeing a discount code\n\nRef [reference]. Screen three words.\n\n---\n\n" +
+  "## Records written\n\nThe records line, never shown.\n";
+const oppTerms = (w, req) => (req.query.layer === "opportunity"
+  ? (w.oppTermsLive === false ? [404, { error: "not found" }]
+    : [200, { ok: true, id: OPP_TERMS_ID, layer: "opportunity", version: "1.0", title: "Opportunity Terms (walk)", body_md: OPP_TERMS }])
+  : API["GET /terms/current"](w, req));
+const BRIEF = (n, over) => Object.assign({ id: `nx-${n}`, ref: `BRIEF NX-${n}`, cat: "distribution", dir: "OFFERING",
+  title: `ZZ Walk opportunity ${n}`, sum: "A scanning app that wants UK clinics. It sells by subscription.",
+  regions: ["UK"], tags: ["Scanning"], detail: "<p>Detail.</p>", fit: "Clinics with a scanner.",
+  signals: [["Stage", "Trading"]], locked: [["Company", "Shared on introduction"]],
+  naming: "anonymised", owner_name: null, kind: "introduction", code_terms: null }, over);
+const BRIEFS = [
+  BRIEF(2620),
+  BRIEF(2621, { naming: "named", owner_name: "Acme Orthotics" }),
+  BRIEF(2622, { kind: "discount_code", code_terms: "10% off the first order" }),
+];
+
+async function walkBoard() {
+  area = "The Opportunities Board (plan 070)";
+  const boardWorld = (over) => {
+    const w = newWorld(Object.assign({ user: USER }, over));
+    w.api["GET /opportunities/briefs"] = () => [200, { ok: true, briefs: BRIEFS }];
+    w.api["GET /terms/current"] = oppTerms;
+    w.api["POST /opportunities/code"] = () => [200, { ok: true, code: "WALK10", code_terms: "10% off the first order" }];
+    return w;
+  };
+  const open = async (page) => {
+    await page.goto(`${OPPS}/`);
+    await page.waitForSelector("body[data-np-open]");
+    await page.waitForFunction(() => document.querySelectorAll("#grid .op").length === 3, null, { timeout: 8000 });
+  };
+  const card = (n) => `#grid .op[data-ref="BRIEF NX-${n}"]`;
+  const termsReads = (w) => apiCalls(w, "GET /terms/current").filter((c) => c.query.layer === "opportunity").length;
+
+  const world = boardWorld();
+  const { context, page, errors } = await visit(world);
+  await step("a named company is named on its card, an anonymous one is not, and a discount code says so without the code", async () => {
+    await open(page);
+    // the fact's icon is a ligature, so its word leads the text
+    eq(await page.$eval(`${card(2621)} .op__owner`, (e) => e.lastChild.textContent.trim()), "Acme Orthotics", "the named card's company");
+    eq(await page.locator(`${card(2620)} .op__owner`).count(), 0, "a company on the anonymous card");
+    eq((await page.textContent(`${card(2622)} .code-chip`)).trim(), "Discount code", "the code card's chip");
+    has(await page.textContent(`${card(2622)} .op__cta`), "See the code", "the code card's call to action");
+    has(await page.textContent(`${card(2622)} .op__hook`), "10% off the first order", "what the code gives");
+    eq((await page.textContent("#grid")).includes("WALK10"), false, "the code on the board");
+  });
+  await step("Request an introduction shows screen 2 of the Opportunity Terms alone, filled, and the button waits for the tick", async () => {
+    await page.click(card(2620));
+    await page.click('#briefContent [data-id="nx-2620"]');
+    await page.waitForSelector("[data-np-terms] .terms-scroll");
+    const text = await page.textContent("[data-np-terms]");
+    has(text, "Screen two words", "screen 2");
+    has(text, "Ref NX-2620, dated", "the reference filled in");
+    for (const absent of ["Screen one words", "Screen three words", "never shown", "[ Request the introduction ]"])
+      eq(text.includes(absent), false, `"${absent}" in the screen`);
+    has(text, "I accept the Opportunity Terms, version 1.0", "the tick's label");
+    eq(await page.isDisabled("[data-np-send]"), true, "the button before the tick");
+    eq((await page.textContent("[data-np-send]")).trim(), "Request the introduction", "the button");
+    eq(apiCalls(world, "POST /requests").length, 0, "requests sent unticked");
+  });
+  await step("ticked, the request carries the opportunity's reference, the terms version and the member's own words", async () => {
+    // the owner reads these words without the asker's name, and the box says so
+    has(await page.textContent("label[for=gNotes]"), "before it knows who you are", "the notes label");
+    await page.fill("#gNotes", "Two clinics in Bath, 60 pairs a month.");
+    await page.check("[data-np-terms] [data-np-terms-tick]");
+    await page.click("[data-np-send]");
+    await until(() => apiCalls(world, "POST /requests").length === 1, "the request");
+    const b = apiCalls(world, "POST /requests")[0].body;
+    eq([b.hub, b.side, b.brief_ref, b.terms_version_id], ["opportunities", "request_intro", "NX-2620", OPP_TERMS_ID], "the request");
+    has(b.payload.notes, "Two clinics in Bath", "the member's words, where the worker reads them");
+    await page.waitForFunction(() => /If it agrees, we introduce you both by email/.test(document.body.textContent));
+    has(await page.textContent("[data-np-done]"), "Back to the board", "the way back");
+  });
+  await step("Post an opportunity asks how to be named and shows screen 1; the button waits for the tick", async () => {
+    await open(page);
+    await page.click('#post button.btn-primary');
+    await page.waitForSelector("#formContent [data-post-terms] .terms-scroll");
+    const text = await page.textContent("#formContent");
+    has(text, "Screen one words", "screen 1");
+    for (const absent of ["Screen two words", "Records written", "never shown", "[ Post the opportunity ]"])
+      eq(text.includes(absent), false, `"${absent}" in the post form`);
+    eq(await page.isChecked('#formContent input[name="naming"][value="anonymised"]'), true, "anonymous by default");
+    eq(await page.isDisabled('#formContent button[type="submit"]'), true, "the button before the tick");
+    eq((await page.textContent('#formContent button[type="submit"]')).trim(), "Post the opportunity", "the button");
+  });
+  await step("a named post carries its naming and the terms version", async () => {
+    await page.check('#formContent input[name="naming"][value="named"]');
+    await page.fill('#formContent textarea[name="fit"]', "Spare MJF capacity, 400 parts a month.");
+    await page.check("#formContent [data-np-terms-tick]");
+    await page.click('#formContent button[type="submit"]');
+    await until(() => apiCalls(world, "POST /requests").length === 2, "the post");
+    const b = apiCalls(world, "POST /requests")[1].body;
+    eq([b.hub, b.side, b.payload.naming, b.terms_version_id], ["opportunities", "list_opportunity", "named", OPP_TERMS_ID], "the post");
+    await page.waitForSelector("#formContent .success");
+    has(await page.textContent("#formContent .success"), "We read every post.", "the success line");
+  });
+  await step("a discount code shows only after screen 3's tick, in one call that names the opportunity and the terms version", async () => {
+    await open(page);
+    await page.click(card(2622));
+    eq((await page.textContent("#briefContent")).includes("Shared in a personal introduction only"), false,
+      "the introduction's locked box on a code card");
+    await page.click('#briefContent [data-id="nx-2622"]');
+    await page.waitForSelector("#codeTerms .terms-scroll");
+    has(await page.textContent("#codeTerms"), "Screen three words", "screen 3");
+    for (const absent of ["Records written", "never shown", "Screen two words"])
+      eq((await page.textContent("#codeTerms")).includes(absent), false, `"${absent}" on screen 3`);
+    eq(await page.isDisabled("#codeBtn"), true, "the button before the tick");
+    eq((await page.textContent("body")).includes("WALK10"), false, "the code before the tick");
+    await page.check("#codeTerms [data-np-terms-tick]");
+    await page.click("#codeBtn");
+    await page.waitForSelector("#formContent [data-code]");
+    eq((await page.textContent("#formContent [data-code]")).trim(), "WALK10", "the code");
+    eq(apiCalls(world, "POST /opportunities/code").map((c) => c.body), [{ id: "nx-2622", terms_version_id: OPP_TERMS_ID }], "the reveal");
+  });
+  clean(world, errors, "the Opportunities Board");
+  await context.close();
+
+  {
+    const world = boardWorld();
+    let first = true;
+    world.api["POST /requests"] = () => {
+      if (first) { first = false; return [422, { error: "stale_terms" }]; }
+      return [200, { ok: true }];
+    };
+    const { context, page, errors } = await visit(world);
+    await step("terms that moved on under the tick come back unticked, with the reason, and the second send goes", async () => {
+      await open(page);
+      await page.click(card(2621));
+      await page.click('#briefContent [data-id="nx-2621"]');
+      await page.waitForSelector("[data-np-terms] .terms-scroll");
+      await page.check("[data-np-terms] [data-np-terms-tick]");
+      await page.click("[data-np-send]");
+      await page.waitForFunction(() => /The terms have moved on/.test((document.querySelector("[data-np-terms]") || {}).textContent || ""));
+      eq(await page.isChecked("[data-np-terms] [data-np-terms-tick]"), false, "the tick after the refusal");
+      eq(await page.isDisabled("[data-np-send]"), true, "the button after the refusal");
+      await page.check("[data-np-terms] [data-np-terms-tick]");
+      await page.click("[data-np-send]");
+      await until(() => apiCalls(world, "POST /requests").length === 2, "the second send");
+    });
+    clean(world, errors, "terms that moved on");
+    await context.close();
+  }
+
+  {
+    const world = boardWorld({ oppTermsLive: false });
+    const { context, page, errors } = await visit(world);
+    await step("while the Opportunity Terms are not live, the line says so and nothing can be sent", async () => {
+      await open(page);
+      await page.click(card(2620));
+      await page.click('#briefContent [data-id="nx-2620"]');
+      await page.waitForFunction(() => /The Opportunity Terms are not live yet/.test(document.body.textContent));
+      eq(await page.isDisabled("[data-np-send]"), true, "the button");
+      eq(apiCalls(world, "POST /requests").length, 0, "requests sent");
+    });
+    await step("while the Opportunity Terms are not live, a post and a code cannot be sent either", async () => {
+      await open(page);
+      await page.click('#post button.btn-primary');
+      await page.waitForFunction(() => /The Opportunity Terms are not live yet/.test(document.getElementById("formContent").textContent));
+      eq(await page.isDisabled('#formContent button[type="submit"]'), true, "the post button");
+      await open(page);
+      await page.click(card(2622));
+      await page.click('#briefContent [data-id="nx-2622"]');
+      await page.waitForFunction(() => /The Opportunity Terms are not live yet/.test(document.getElementById("codeTerms").textContent));
+      eq(await page.isDisabled("#codeBtn"), true, "the code button");
+      eq([apiCalls(world, "POST /requests").length, apiCalls(world, "POST /opportunities/code").length], [0, 0], "sends");
+    });
+    clean(world, errors, "terms not live");
+    await context.close();
+  }
+
+  {
+    const world = boardWorld();
+    const { context, page, errors } = await visit(world);
+    await step("an account module cached from before the board's terms asks for a refresh and sends nothing", async () => {
+      await open(page);
+      await page.evaluate(() => { delete window.NPAccount.termsBlock; });
+      await page.click(card(2620));
+      await page.click('#briefContent [data-id="nx-2620"]');
+      await page.waitForFunction(() => /Refresh the page/.test((document.getElementById("formContent") || {}).textContent || ""));
+      eq(termsReads(world), 0, "terms read");
+      eq(apiCalls(world, "POST /requests").length, 0, "requests sent");
+    });
+    await step("the same stale module meets a post and a code with the refresh notice", async () => {
+      for (const go of [async () => page.click('#post button.btn-primary'),
+        async () => { await page.click(card(2622)); await page.click('#briefContent [data-id="nx-2622"]'); }]) {
+        await open(page);
+        await page.evaluate(() => { delete window.NPAccount.termsBlock; });
+        await go();
+        await page.waitForFunction(() => /Refresh the page/.test((document.getElementById("formContent") || {}).textContent || ""));
+      }
+      eq([termsReads(world), apiCalls(world, "POST /requests").length, apiCalls(world, "POST /opportunities/code").length],
+        [0, 0, 0], "terms read, requests and reveals");
+    });
+    clean(world, errors, "a stale account module");
+    await context.close();
+  }
+}
+
+/* Plan 070 on the account page: the owner of an opportunity answers an
+   introduction after screen 1 of the Opportunity Terms and is told what the
+   company asking said and where it is; the company that asked sees whose
+   answer it waits on; a company that sold through an accepted board
+   introduction sees Declarations without being a host. */
+async function walkAccountBoard() {
+  area = "The account page (an introduction on the Opportunities Board, plan 070)";
+  const soon = new Date(Date.now() + 3 * 864e5).toISOString();
+  const intro = (id, over) => Object.assign({ id, ref: `INTRO-00${id}`, hub: "opportunities", stage: "awaiting_acceptance",
+    seeker_request_id: id, accepted_a_at: null, accepted_b_at: null, acceptance_expires_at: soon, declined_at: null,
+    created_at: "2026-10-20T09:00:00Z", introduced_at: null, ask: null, fee_model: "recurring" }, over);
+  const introduced = (i) => Object.assign({}, i, { stage: "introduced", accepted_a_at: "2026-10-22T10:00:00Z",
+    introduced_at: "2026-10-22T10:00:00Z", acceptance_expires_at: null });
+  const ASKED = intro(21, { role: "provider", asked: true, seller: true,
+    opportunity: { ref: "NX-2620", title: "UK clinics for a scanning app" },
+    ask: { what_they_said: "We run six clinics in Bristol.", from_request: true, town: "Bristol", country: "United Kingdom" } });
+  const ASKING = intro(22, { role: "seeker", asked: false, seller: false,
+    opportunity: { ref: "NX-2621", title: "Insole capacity wanted" } });
+  // a second offer to the owner, on a SEEKING opportunity: the owner buys
+  const ASKED_TOO = intro(23, { role: "provider", asked: true, seller: false,
+    opportunity: { ref: "NX-2623", title: "Scanners wanted" },
+    ask: { what_they_said: "We make scanners.", from_request: false, town: "Leeds", country: "United Kingdom" } });
+  // sold on a success fee: nothing is ever declared on it
+  const SUCCESS = introduced(intro(24, { role: "seeker", asked: false, seller: true, fee_model: "success_fee",
+    opportunity: { ref: "NX-2624", title: "A clinic group for sale" } }));
+  const summary = (intros) => Object.assign({}, EMPTY_SUMMARY, {
+    org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", founding: true, host_print: "none", host_mill: "none", fee_exempt_note: null },
+    site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "none", host_mill: "none",
+      sub_status: "trial", founding: true, paused: false, removed: false, verified: true },
+    introductions: intros,
+  });
+  const world = newWorld({ user: USER, summary: summary([ASKED, ASKING, ASKED_TOO, SUCCESS]) });
+  world.api["GET /terms/current"] = oppTerms;
+  world.api["POST /introductions/accept"] = (w, req) => {
+    const id = req.body.introduction_id;
+    w.summary = summary(w.summary.introductions.map((i) => (i.id === id ? introduced(i) : i)));
+    return [200, { ok: true, stage: "introduced", ref: `INTRO-00${id}` }];
+  };
+  const { context, page, errors } = await visit(world);
+  await page.goto(`${APEX}/hub/account/`);
+
+  await step("the owner's row names the opportunity and what the company asking said, and where it is, and no more", async () => {
+    await page.waitForSelector("#intro-21");
+    const text = await page.textContent("#intro-21");
+    has(text, "Opportunity NX-2620, UK clinics for a scanning app", "the opportunity");
+    has(text, "What they said: We run six clinics in Bristol. · Bristol, United Kingdom", "what they said");
+    has(text, "Waiting for your answer.", "the owner's line");
+    has(text, "Opportunities Board", "the board's pill");
+    eq(await page.locator('[data-act="intro-accept-open"][data-intro="21"]').count(), 1, "Accept on the owner's row");
+  });
+  await step("the company that asked sees whose answer it waits on, and cannot answer", async () => {
+    const text = await page.textContent("#intro-22");
+    has(text, "With the company behind the opportunity.", "the asker's line");
+    has(text, "Opportunity NX-2621, Insole capacity wanted", "the opportunity");
+    eq(await page.locator('[data-act="intro-accept-open"][data-intro="22"]').count(), 0, "Accept on the asker's row");
+  });
+  await step("no Declarations for a company that has sold nothing through the board, or only on a success fee", async () =>
+    eq(await page.locator("#declarations:not([hidden])").count(), 0, "a Declarations section"));
+  await step("Review and accept shows screen 1 of the Opportunity Terms with the reference, and the decline box speaks of the company that asked", async () => {
+    await page.click('[data-act="intro-accept-open"][data-intro="21"]');
+    await page.waitForSelector("#introTerms-21 .terms-scroll");
+    const text = await page.textContent("#introAnswer-21");
+    has(text, "Screen one words", "screen 1");
+    has(text, "I accept the Opportunity Terms, version 1.0", "the tick's label");
+    has(text, "the other company is told only that you said no, never why", "the board's hint");
+    eq(apiCalls(world, "GET /terms/current").at(-1).query.layer, "opportunity", "the layer read");
+    await page.click('[data-act="intro-accept-send"][data-intro="21"]');
+    await page.waitForSelector("#introMsg-21:not([hidden])");
+    has(await page.textContent("#introMsg-21"), "tick to accept", "the message unticked");
+    eq(apiCalls(world, "POST /introductions/accept").length, 0, "accepts sent unticked");
+    has(await page.textContent("#introDecline-21"), "not to the other company", "the decline box");
+  });
+  await step("an introduction the desk started shows its summary as what they are looking for, not their words", async () => {
+    has(await page.textContent("#intro-23"), "What they are looking for: We make scanners.", "the desk's summary");
+    eq((await page.textContent("#intro-23")).includes("What they said"), false, "their words on a desk introduction");
+  });
+  await step("accepting another board introduction redraws the page, and reopening the first shows its terms and tick again", async () => {
+    await page.click('[data-act="intro-accept-open"][data-intro="23"]');
+    await page.waitForSelector("#introTerms-23 [data-np-terms-tick]");
+    await page.check("#introTerms-23 [data-np-terms-tick]");
+    await page.click('[data-act="intro-accept-send"][data-intro="23"]');
+    await until(() => apiCalls(world, "POST /introductions/accept").length === 1, "the accept of 23");
+    await page.waitForFunction(() => document.querySelectorAll('[data-act="intro-accept-open"][data-intro="23"]').length === 0);
+    await page.click('[data-act="intro-accept-open"][data-intro="21"]');
+    await page.waitForSelector("#introTerms-21 [data-np-terms-tick]");
+    has(await page.textContent("#introTerms-21"), "Screen one words", "screen 1 after the redraw");
+  });
+  await step("ticked, Accept sends the Opportunity Terms version; the row becomes introduced; Declarations show for the seller", async () => {
+    await page.check("#introTerms-21 [data-np-terms-tick]");
+    await page.click('[data-act="intro-accept-send"][data-intro="21"]');
+    await until(() => apiCalls(world, "POST /introductions/accept").length === 2, "the accept of 21");
+    eq(apiCalls(world, "POST /introductions/accept")[1].body, { introduction_id: 21, terms_version_id: OPP_TERMS_ID }, "the body");
+    await page.waitForSelector("#declarations:not([hidden])");
+    has(await page.textContent("#declarations"), "for what you sell through accepted introductions", "the seller's line");
+  });
+  clean(world, errors, "the account page's board introductions");
+  await context.close();
+
+  {
+    const world = newWorld({ user: USER, summary: summary([ASKED]) });
+    world.api["GET /terms/current"] = oppTerms;
+    const { context, page, errors } = await visit(world);
+    await step("an account module cached from before the board's terms asks the owner to refresh, and sends nothing", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("#intro-21");
+      await page.evaluate(() => { delete window.NPAccount.termsBlock; });
+      await page.click('[data-act="intro-accept-open"][data-intro="21"]');
+      await page.waitForFunction(() => /Refresh it, then answer/.test(document.getElementById("introTerms-21").textContent));
+      eq(apiCalls(world, "POST /introductions/accept").length, 0, "accepts sent");
+    });
+    clean(world, errors, "the account page with a stale module");
+    await context.close();
+  }
+}
+
 async function walkHomepage() {
   area = "The homepage";
   const world = newWorld();
@@ -2344,6 +2664,8 @@ async function walkHomepage() {
     const b = sent[0].body;
     eq([b.hub, b.side, b.contact_name, b.email, b.company, b.payload.source, b.company_url],
       ["opportunities", "request_intro", "Walk Tester", "walk@example.com", "ZZ Walk Test Ltd", "homepage intro call", ""], "the request body");
+    // Plan 070: the homepage's call is no board request; it carries no brief and accepts no terms.
+    eq([b.brief_ref || "", "terms_version_id" in b], ["", false], "a brief or a terms version on the homepage's call");
     eq(world.copies.length, 1, "copies sent");
   });
   clean(world, errors, "the homepage");
@@ -2918,6 +3240,72 @@ const SAME_NAME = /function sameName\(/.test(readFileSync(join(ADMIN_DIR, "organ
 const ago = (hours) => new Date(Date.now() - hours * 36e5).toISOString();
 
 
+/* Plan 070: the Opportunities list (index.html) reads board_opportunities.
+   Its one direct write is the status; Set live then raises one publish, a
+   refused live is said in words, and End raises one intent with its reason.
+   Like the reviewed boards, this waits for an admin copy that has it. */
+const BOARD_070 = /board_opportunities/.test(readFileSync(join(ADMIN_DIR, "index.html"), "utf8"));
+async function walkBoardAdmin() {
+  area = "The Opportunities list (plan 070)";
+  if (!BOARD_070) {
+    notes.push("the Opportunities list's plan 070 checks were skipped: this admin copy is from before plan 070 (set WALK_ADMIN_DIR to the engine's app/)");
+    return;
+  }
+  const world = newWorld({ dialogAnswer: "the scripted walk" });
+  world.rows.board_opportunities = [
+    { id: "nx-2620", ref: "NX-2620", status: "draft", owner_company_id: 7, owner_org_id: null, naming: "named",
+      kind: "introduction", dir: "OFFERING", public: { title: "ZZ Walk opportunity" }, sort: 1 },
+    { id: "nx-2621", ref: "NX-2621", status: "posted", owner_company_id: null, owner_org_id: null, naming: "anonymised",
+      kind: "introduction", public: {}, sort: 2 },
+    { id: "nx-2622", ref: "NX-2622", status: "draft", owner_company_id: null, owner_org_id: null, naming: "anonymised",
+      kind: "introduction", public: { title: "ZZ Walk opportunity with no owner" }, sort: 3 },
+  ];
+  world.rows.crm_companies = [{ id: 7, name: "ZZ Walk Owner Ltd" }];
+  const { context, page, errors } = await visit(world, { seedAdmin: true });
+  await page.goto(`${APEX}/admin/index.html`);
+  const writesTo = (table) => world.writes.filter((w) => w.table === table);
+  const intentRow = (w) => (Array.isArray(w.body) ? w.body[0] : w.body);
+  await step("each opportunity shows its owner; a posted one has no Set live", async () => {
+    await page.waitForSelector("#opp-nx-2620");
+    has(await page.textContent("#opp-nx-2620"), "Owner: ZZ Walk Owner Ltd (no portal account set)", "the owner");
+    has(await page.textContent("#opp-nx-2622"), "Owner: No owner", "no owner");
+    eq(await page.locator('#opp-nx-2621 button:has-text("Set live")').count(), 0, "Set live on a posted row");
+    eq(await page.locator('#opp-nx-2620 button:has-text("Set live")').count(), 1, "Set live on a draft");
+  });
+  await step("Set live writes the status and its time alone, then raises one publish", async () => {
+    await page.click('#opp-nx-2620 button:has-text("Set live")');
+    await until(() => writesTo("engine_intents").length === 1, "the publish");
+    const status = writesTo("board_opportunities");
+    eq(status.length, 1, "status writes");
+    eq([status[0].method, Object.keys(status[0].body).sort(), status[0].body.status], ["PATCH", ["status", "updated_at"], "live"], "the status write");
+    eq(intentRow(writesTo("engine_intents")[0]).type, "publish-to-live-site", "the intent");
+  });
+  await step("the database's refusal of a live row with no owner is said in words, and nothing is published", async () => {
+    await context.route("**/rest/v1/board_opportunities*", (route) => {
+      const request = route.request();
+      if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors(request) });
+      if (request.method() !== "PATCH") return route.fallback();
+      return route.fulfill({ status: 400, headers: cors(request), contentType: "application/json", body: JSON.stringify({ code: "23514",
+        message: 'new row for relation "board_opportunities" violates check constraint "board_opportunities_live_needs_owner"' }) });
+    });
+    const before = writesTo("engine_intents").length;
+    await page.click('#opp-nx-2622 button:has-text("Set live")');
+    await page.waitForFunction(() => /goes live only with an owner company/.test(document.getElementById("err-nx-2622").textContent));
+    has(await page.textContent("#err-nx-2622"), "An opportunity goes live only with an owner company: set it on the board", "the words");
+    eq(writesTo("engine_intents").length, before, "intents raised");
+    await context.unroute("**/rest/v1/board_opportunities*");
+  });
+  await step("End asks why, then raises one end-board-opportunity with the reason", async () => {
+    const before = writesTo("engine_intents").length;
+    await page.click('#opp-nx-2620 button:has-text("End")');
+    await until(() => writesTo("engine_intents").length === before + 1, "the end intent");
+    const row = intentRow(writesTo("engine_intents").at(-1));
+    eq([row.type, row.payload_json], ["end-board-opportunity", { id: "nx-2620", reason: "the scripted walk" }], "the intent");
+  });
+  clean(world, errors, "the Opportunities list");
+  await context.close();
+}
+
 /* Plan 050 (record B6): two sites with one company name are told apart on the
    Organisations board by the town, read off the site's listing revision, and
    only while another row in the same list shares the name. */
@@ -3397,9 +3785,13 @@ const started = Date.now();
    failed check with the reason, and the parts after it still run. */
 const parts = []
   .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkLandings, walkSign] : [])
-  .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm] : []);
+  .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm, walkBoardAdmin] : []);
 /* The settings page's You and Users (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
+/* The Opportunities Board (plan 070) walks straight after the signed-in pages, and its
+   account-page answers straight after the hub answers. */
+if (ONLY !== "boards") parts.splice(parts.indexOf(walkSignedIn) + 1, 0, walkBoard);
+if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountAnswers) + 1, 0, walkAccountBoard);
 /* Closing and reopening the account (plan 069) walks straight after the settings page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkPeople) + 1, 0, walkClose);
 /* The listing form's ship picker (plan 055) walks straight after the find map. */
