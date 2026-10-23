@@ -78,9 +78,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <a href="opportunities.html">Opportunities</a>
         </span>
         <span class="navgroup">
+          <a href="contacts.html">Contacts</a>
           <a href="introductions.html">Introductions</a>
-          <a href="organisations.html">Accounts</a>
-          <a href="members.html">Users</a>
           <a href="orders.html">Orders</a>
           <a href="consultancy.html">Consultancy</a>
         </span>
@@ -310,14 +309,14 @@ async function load(){
     <span class="t"><strong>${esc(o.name)}</strong> has ${openStrikes[o.id]} uncured strikes and needs a decision
       <span class="sub">pause it, cure a strike, or leave it on: your call, the engine will not act</span></span>
     <span class="spacer"></span>
-    <a class="btn btn-gh btn-sm" href="organisations.html">Decide on the Accounts board</a>
+    <a class="btn btn-gh btn-sm" href="company.html?org=${encodeURIComponent(o.id)}">Decide on the company page</a>
   </div>`));
   onHub.filter(o=>o.sub_status==='active'&&o.sub_due_at&&days(o.sub_due_at)>=30).forEach(o=>rows.push(`<div class="row attn">
     <span class="material-symbols-outlined" aria-hidden="true">payments</span>
     <span class="t"><strong>${esc(o.name)}</strong> is ${days(o.sub_due_at)} days overdue and needs a decision
       <span class="sub">record the payment, pause it, or leave it on: your call, the engine will not act</span></span>
     <span class="spacer"></span>
-    <a class="btn btn-gh btn-sm" href="organisations.html">Decide on the Accounts board</a>
+    <a class="btn btn-gh btn-sm" href="company.html?org=${encodeURIComponent(o.id)}">Decide on the company page</a>
   </div>`));
   if(homeless.length)rows.push(`<div class="row attn">
     <span class="material-symbols-outlined" aria-hidden="true">mark_email_unread</span>
@@ -356,7 +355,7 @@ const INBOX_KIND={
   introduction:{icon:'forward_to_inbox',verb:'Open the register'},
   reroute:{icon:'alt_route',verb:'Decide on the board'},
   registration:{icon:'mark_email_unread',verb:'Open Accounts'},
-  retention:{icon:'auto_delete',verb:'Open the archive'},
+  retention:{icon:'auto_delete',verb:'Open the company page'},
 };
 const SREQ_WAIT={open:'waiting on a match',desk:'at the desk'};
 function inboxRow(r){
@@ -389,9 +388,13 @@ function inboxRow(r){
     <span class="material-symbols-outlined" aria-hidden="true">${k.icon}</span>
     <span class="t">${text}</span>
     <span class="spacer"></span>
-    <a class="btn btn-gh btn-sm" href="${esc(r.board||'dashboard.html')}">${k.verb}</a>
+    <a class="btn btn-gh btn-sm" href="${esc(boardFor(r))}">${k.verb}</a>
   </div>`;
 }
+/* Erase moved from the Accounts archive to the company page (plan 071 PR 3),
+   so a retention row opens the account's company page; the view's board
+   column still names the archive. */
+const boardFor=r=>r.kind==='retention'&&r.item_id?`company.html?org=${encodeURIComponent(r.item_id)}`:(r.board||'dashboard.html');
 
 /* ── Education list (plan 026) ─────────────────────────────────────── */
 
