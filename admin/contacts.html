@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint CRM: Contacts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
+<link rel="stylesheet" href="crm.css?v=1">
+<style>
+  /* The two lists' columns, as the prototype draws them. */
+  .lrow.cos2, .lrow-head.cos2 { grid-template-columns: minmax(0, 2.1fr) 112px minmax(0, 1.7fr) minmax(0, 1.5fr) 84px; }
+  .lrow.ppl, .lrow-head.ppl { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.5fr) 140px 72px; }
+  .lrow-edit { padding: 12px 16px; border-bottom: 1px solid var(--border-faint); background: var(--info-wash); }
+  .co .fail { font-size: 12px; color: var(--err-ink); white-space: normal; }
+  .cell-act { display: flex; justify-content: flex-end; }
+  @media (max-width: 1080px) {
+    .lrow.cos2, .lrow-head.cos2 { grid-template-columns: minmax(0, 2.1fr) 104px minmax(0, 1.7fr) 80px; }
+    .cos2 > :nth-child(4) { display: none; }
+    .lrow.ppl, .lrow-head.ppl { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1.5fr) 130px 72px; }
+    .ppl > :nth-child(3) { display: none; }
+  }
+  @media (max-width: 860px) {
+    .lrow.cos2, .lrow.ppl { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; }
+    .lrow.cos2 > .cell:nth-child(2) { display: flex; }
+    .lrow.ppl > .cell-act { display: flex; }
+  }
+</style>
+</head>
+<body>
+<div id="login" class="door" style="display:none">
+  <span class="brand"><img src="nexpoint-mark.png" alt="" width="30" height="26"><span class="wordmark"><span class="nex">Nex</span><span class="pt">Point</span></span></span>
+  <h1>Sign in to the CRM</h1>
+  <p>For Will and Chris only: the database admits the two of you and nobody else.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <label class="sr" for="email">Email</label>
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <label class="sr" for="pw">Password</label>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+</div>
+
+<div id="admin" class="app" style="display:none">
+  <aside class="rail" id="rail" aria-label="Main"></aside>
+  <main class="main" id="main" tabindex="-1"><div class="page" id="page"></div></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
+        integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script src="admin-auth.js"></script>
+<script src="crm-shell.js?v=1"></script>
+<script src="crm.js?v=071"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a hint for which screen to show; the database decides (is_brief_admin, a second factor since plan 035)
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const PAGE_SECTION='contacts';
+let me=null;
+
+async function boot(){
+  const {data}=await sb.auth.getSession();const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)){if(await NXAdminAuth.requireAal2(sb))showAdmin(s.user);else showLogin(s);}else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))$('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pw').value});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  if(!(await NXAdminAuth.requireAal2(sb)))return;
+  showAdmin(data.user);
+}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,PAGE_SECTION);startUi();load();}
+
+/* Contacts (plan 071 PR 3): every company and every person in the crm_
+   tables, searchable. A company opens its page; a person is edited in
+   place. Every change is an engine_intents row the engine acts on within a
+   minute or two; nothing here writes anything else. */
+const esc=NXCRM.esc, ms=NXShell.ms, plural=(n,a,b)=>`${n} ${n===1?a:(b||a+'s')}`;
+const CRM_INTENTS=['add-person','edit-person','delete-user'];   // the intents this page raises, and so watches
+const CAP=200;
+const UI={tab:'companies',q:'',kind:'all',fit:'all',acct:'all',pstatus:'active',pportal:'all',open:null,edit:null};
+let D=null, state='loading', problem='', banners=[];
+let intentById={}, pendingByPerson={}, pendingByUser={}, addsQueued=[];
+
+function startUi(){
+  try{const t=localStorage.getItem('nx-contacts-tab');if(t==='people'||t==='companies')UI.tab=t;}catch(e){}
+  const q=new URLSearchParams(location.search);
+  if(q.get('view')==='people')UI.tab='people';
+  if(q.get('portal')==='portal')UI.pportal='portal';
+}
+
+async function load(){
+  banners=[];
+  const st=await sb.from('crm_settings').select('key,value');
+  if(st.error){state=/crm_/.test(st.error.message||'')?'missing':'error';problem=st.error.message;render();return;}
+  if(!(st.data||[]).some(r=>r.key==='imported_at')){state='empty';render();return;}
+  const [cq,fq,dq,tq,lq,sq,pq,eq,mq,oq,iq,uq]=await Promise.all([
+    NXCRM.readAll(()=>sb.from('crm_companies').select('id,name,slug,area,website,archived_at,archived_reason').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_company_folders').select('company_id,area,slug,gone_at').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_company_domains').select('company_id,domain,retired_at').order('id',{ascending:true})),
+    sb.from('crm_tags').select('id,grp,label,position,active'),
+    NXCRM.readAll(()=>sb.from('crm_company_tags').select('company_id,tag_id,position,retired_at').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_sites').select('id,company_id,org_id,name,town,country').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_people').select('id,company_id,site_id,name,role,phones,kind,position,user_id,archived_at,archived_reason').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_person_emails').select('person_id,email,is_primary,retired_at').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_email_index').select('company_id,sent_at,gone_at').order('id',{ascending:true})),
+    sb.from('organisations').select('id,name,host_print,host_mill,hidden_at,removed_at,closed_at,deleted_at,erased_at,sub_status'),
+    sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at')
+      .in('status',['pending','claimed','failed','done']).in('type',CRM_INTENTS)
+      .order('id',{ascending:false}).limit(1000),
+    sb.from('member_profiles').select('user_id,org_id'),
+  ]);
+  const failed=[['companies',cq],['folders',fq],['domains',dq],['tags',tq],['tag links',lq],['sites',sq],['people',pq],['addresses',eq]].filter(([,q])=>q.error);
+  if(failed.length){state='error';problem=failed.map(([w,q])=>`${w}: ${q.error.message}`).join('; ');render();return;}
+  if(mq.error)banners.push(`Could not read the filed emails, so Last email is blank: ${mq.error.message}.`);
+  if(oq.error)banners.push(`Could not read the accounts, so Where it stands is blank: ${oq.error.message}.`);
+  if(iq.error)banners.push(`Could not read the queued changes: ${iq.error.message}.`);
+  if(uq.error)banners.push(`Could not read the portal users: ${uq.error.message}.`);
+  if((iq.data||[]).length===1000)banners.push('Showing the newest 1,000 intent rows; older ones are not on this page.');
+  index(cq.data,fq.data,dq.data,tq.data||[],lq.data,sq.data,pq.data,eq.data,mq.data||[],oq.data||[]);
+  D.profileOf={};(uq.data||[]).forEach(u=>{D.profileOf[u.user_id]=u;});
+  watch(iq.data||[]);
+  state='ready';render();
+}
+
+function index(cos,folders,domains,tags,links,sites,people,emails,mail,orgs){
+  const by=(rows,k)=>{const m={};rows.forEach(r=>{(m[r[k]]=m[r[k]]||[]).push(r);});return m;};
+  const tagById={};tags.forEach(t=>{tagById[t.id]=t;});
+  const orgById={};orgs.forEach(o=>{orgById[o.id]=o;});
+  const lastMail={};mail.forEach(m=>{if(m.gone_at||!m.sent_at)return;if(!lastMail[m.company_id]||m.sent_at>lastMail[m.company_id])lastMail[m.company_id]=m.sent_at;});
+  D={companies:cos.slice().sort((a,b)=>a.name.localeCompare(b.name)),byId:{},folders:by(folders.filter(f=>!f.gone_at),'company_id'),
+     domains:by(domains.filter(d=>!d.retired_at),'company_id'),sites:by(sites,'company_id'),people:people,
+     peopleOf:by(people,'company_id'),emails:by(emails.filter(e=>!e.retired_at),'person_id'),
+     tags:tags,tagById,links:by(links.filter(l=>!l.retired_at).sort((a,b)=>a.position-b.position),'company_id'),orgById,lastMail};
+  cos.forEach(c=>{D.byId[c.id]=c;});
+}
+
+/* The newest intent per person decides what its row shows (ascending id,
+   last write wins; a done one clears it). New people still queued are
+   listed above the people. */
+function watch(rows){
+  intentById={};pendingByPerson={};pendingByUser={};
+  const adds={};
+  rows.slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    intentById[i.id]=i;
+    const p=i.payload_json||{};
+    let map=null,key=null;
+    if(i.type==='edit-person'){map=pendingByPerson;key=p.person_id;}
+    else if(i.type==='delete-user'){map=pendingByUser;key=p.user_id;}
+    else if(i.type==='add-person'){map=adds;key=`${p.company_id}:${String(p.name||'').toLowerCase()}`;}
+    if(map&&key!=null){if(i.status==='done')delete map[key];else map[key]=i;}
+  });
+  addsQueued=Object.values(adds);
+}
+
+const fitOf=c=>(D.links[c.id]||[]).map(l=>D.tagById[l.tag_id]).filter(t=>t&&t.grp==='fit').map(t=>t.label);
+const emailsOf=pid=>(D.emails[pid]||[]).sort((a,b)=>(b.is_primary?1:0)-(a.is_primary?1:0)).map(e=>e.email);
+const orgsOf=c=>(D.sites[c.id]||[]).map(s=>D.orgById[s.org_id]).filter(Boolean);
+const companyName=id=>(D.byId[id]||{}).name||'';
+
+function companiesShown(){
+  const q=UI.q.trim().toLowerCase();
+  return D.companies.filter(c=>{
+    if(UI.kind!=='all'&&NXCRM.kindLabel(c)!==UI.kind)return false;
+    if(UI.fit!=='all'&&!fitOf(c).includes(UI.fit))return false;
+    const hasAccount=(D.sites[c.id]||[]).some(s=>s.org_id);
+    if(UI.acct==='with'&&!hasAccount)return false;
+    if(UI.acct==='without'&&hasAccount)return false;
+    if(!q)return true;
+    const people=(D.peopleOf[c.id]||[]).map(p=>p.name+' '+emailsOf(p.id).join(' ')).join(' ');
+    const hay=[c.name,c.website,(D.folders[c.id]||[]).map(f=>f.slug).join(' '),(D.domains[c.id]||[]).map(d=>d.domain).join(' '),people].join(' ');
+    return hay.toLowerCase().includes(q);
+  });
+}
+function peopleShown(){
+  const q=UI.q.trim().toLowerCase();
+  return D.people.filter(p=>{
+    if((UI.pstatus==='archived')!==!!p.archived_at)return false;
+    if(UI.pportal==='portal'&&!p.user_id)return false;
+    if(UI.pportal==='not'&&p.user_id)return false;
+    if(!q)return true;
+    return [p.name,p.role,companyName(p.company_id),emailsOf(p.id).join(' '),(p.phones||[]).join(' ')].join(' ').toLowerCase().includes(q);
+  }).sort((a,b)=>a.name.localeCompare(b.name));
+}
+
+function companyRow(c){
+  const sites=D.sites[c.id]||[], accounts=sites.filter(s=>s.org_id).length, people=(D.peopleOf[c.id]||[]).filter(p=>!p.archived_at).length;
+  const first=sites.find(s=>s.town||s.country);
+  const what=[first?[first.town,first.country].filter(Boolean).join(', '):'',plural(people,'person','people'),
+    sites.length?plural(sites.length,'site')+(accounts?', '+plural(accounts,'account'):''):''].filter(Boolean).join(', ');
+  const kind=NXCRM.kindLabel(c), fit=fitOf(c), pills=orgsOf(c).map(NXCRM.accountPill);
+  const last=D.lastMail[c.id];
+  return `<a class="lrow cos2" href="company.html?id=${encodeURIComponent(c.id)}"><span class="co"><span class="co-name">${esc(c.name)}</span><span class="co-what">${esc(what)}</span></span>`+
+    `<span class="cell"><span class="kindb">${esc(kind)}</span></span>`+
+    `<span class="cell pills">${pills.length?pills.join(''):'<span class="muted-t">Nothing open</span>'}</span>`+
+    `<span class="cell pills">${fit.map(NXCRM.fitTag).join('')}</span>`+
+    `<span class="cell muted num">${last?esc(NXCRM.fmtDate(last)):'None'}</span>`+
+    `<span class="row-meta">${esc([kind].concat(fit).join(', '))}</span></a>`;
+}
+
+function personRow(p){
+  if(UI.edit===p.id)return `<div class="lrow-edit">${NXCRM.personForm(p,emailsOf(p.id),moveOpts(p))}</div>`;
+  const q=pendingByPerson[p.id], queued=q&&q.status!=='failed';
+  const act=p.archived_at
+    ?`<button type="button" class="btn sm quiet" data-act="restorePerson" data-person="${esc(p.id)}">Restore</button>`
+    :queued?'<span class="status-line">Queued for the engine</span>'
+    :`<button type="button" class="btn sm quiet" data-act="editPerson" data-person="${esc(p.id)}">Edit</button>`;
+  const note=(p.archived_at?`<span class="co-what">${esc(p.archived_reason||'Archived')}</span>`
+    :q&&q.status==='failed'?`<span class="fail">Failed: ${esc(q.result_note||'no reason recorded')}</span>`:'')+noAccountUser(p);
+  const emails=emailsOf(p.id), company=p.company_id!=null?`<a class="linkish" href="company.html?id=${encodeURIComponent(p.company_id)}">${esc(companyName(p.company_id))}</a>`:'<span class="muted-t">No company</span>';
+  return `<div class="lrow ppl"><span class="co"><span class="co-name">${esc(p.name)}${p.user_id?' <span class="tag mini">Portal user</span>':''}</span>${note}</span>`+
+    `<span class="cell">${company}</span><span class="cell">${esc(p.role||'')}</span><span class="cell">${esc(emails.join(', '))}</span>`+
+    `<span class="cell muted num">${esc((p.phones||[]).join(', '))}</span><span class="cell-act">${act}</span>`+
+    `<span class="row-meta">${esc([companyName(p.company_id),p.role,emails[0]].filter(Boolean).join(', '))}</span></div>`+
+    (UI.open==='deluser:'+p.user_id?`<div class="lrow-edit"><div class="inline-choice"><span>Delete ${esc(p.name)}’s sign-in? They have no account, so they have no account to lose. This cannot be undone.</span>`+
+      `<button type="button" class="btn sm danger" data-act="confirmDeleteUser" data-user="${esc(p.user_id)}">Delete user</button><button type="button" class="btn sm quiet" data-act="closeUi">Cancel</button></div></div>`:'');
+}
+/* A portal user with no account has no company page to be deleted from (the
+   Users board did this until plan 071 PR 3): their row offers Delete user. */
+function noAccountUser(p){
+  const u=p.user_id&&D.profileOf&&D.profileOf[p.user_id];
+  if(!u||u.org_id)return '';
+  const q=pendingByUser[p.user_id];
+  if(q&&q.status!=='failed')return '<span class="status-line">Delete queued</span>';
+  return `${q?`<span class="fail">Failed: ${esc(q.result_note||'')}</span>`:''}<span><button type="button" class="btn sm danger" data-act="deleteUser" data-user="${esc(p.user_id)}">Delete user</button></span>`;
+}
+const moveOpts=p=>({companies:D.companies.filter(c=>!c.archived_at||c.id===p.company_id),sites:p.company_id!=null?(D.sites[p.company_id]||[]):[]});
+
+function listHtml(){
+  if(UI.tab==='people'){
+    const rows=peopleShown();
+    const queued=addsQueued.length?`<div class="hint">${ms('schedule')}<span>${addsQueued.map(i=>{const p=i.payload_json||{};
+      return i.status==='failed'?`Could not add ${esc(p.name)}: ${esc(i.result_note||'no reason recorded')}`:`Queued for the engine: ${esc(p.name)}${p.company_id!=null?', '+esc(companyName(p.company_id)):''}`;}).join('. ')}.</span></div>`:'';
+    if(!rows.length)return queued+`<div class="list"><div class="empty-state">${ms('person_search')}<span>No people match. Try another word, or another filter.</span></div></div>`;
+    return queued+`<div class="list"><div class="lrow-head ppl"><span>Name</span><span>Company</span><span>Role</span><span>Email</span><span>Phone</span><span></span></div>`+
+      rows.slice(0,CAP).map(personRow).join('')+(rows.length>CAP?`<div class="list-foot">Showing ${CAP} of ${rows.length}. Narrow the search to see the rest.</div>`:'')+'</div>';
+  }
+  const rows=companiesShown();
+  if(!rows.length)return `<div class="list"><div class="empty-state">${ms('search_off')}<span>No companies match. Try another word, or clear a filter.</span></div></div>`;
+  return `<div class="list"><div class="lrow-head cos2"><span>Company</span><span>Kind</span><span>Where it stands</span><span>Fit</span><span>Last email</span></div>`+
+    rows.slice(0,CAP).map(companyRow).join('')+(rows.length>CAP?`<div class="list-foot">Showing ${CAP} of ${rows.length}. Narrow the search to see the rest.</div>`:'')+'</div>';
+}
+
+const sel=(id,opts,cur,label)=>`<label class="sr" for="${id}">${label}</label><select class="input" id="${id}">${opts.map(([v,t])=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(t)}</option>`).join('')}</select>`;
+
+function render(){
+  const actions=`<button type="button" class="btn" data-act="openUi" data-ui="addperson">${ms('person_add','sm')}Add a person</button>`+
+    `<a class="btn primary" href="leads.html#add">${ms('add','sm')}Add a company on Prospects</a>`;
+  let h=NXShell.headHtml({title:'Contacts',lede:'Every company and every person. Changes are queued for the engine, which acts within a minute or two.',actions:state==='ready'?actions:''});
+  if(state==='missing'){$('page').innerHTML=h+`<div class="banner err">${ms('error')}<div class="banner-text"><strong>Migration 0071 has not been applied: Contacts is empty until it is.</strong><span>${esc(problem)}</span></div></div>`;return;}
+  if(state==='error'){$('page').innerHTML=h+`<div class="banner err">${ms('error')}<div class="banner-text"><strong>Could not read Contacts</strong><span>${esc(problem)}</span></div></div>`;return;}
+  if(state==='loading'){$('page').innerHTML=h+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading Contacts.</span></div></section>`;return;}
+  if(state==='empty'){$('page').innerHTML=h+`<section class="panel"><div class="empty-state">${ms('contacts')}<h3>Contacts fills once the import has run</h3>`+
+    `<p>The import brings in every workspace folder, portal account and Pipedrive record. Until it has run, every account and its company page are reached from Accounts.</p>`+
+    `<div class="until"><a class="btn sm" href="organisations.html">Open Accounts</a></div></div></section>`;return;}
+  h+=banners.map(b=>`<div class="banner">${ms('info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
+  if(UI.open==='addperson'){
+    const cos=D.companies.filter(c=>!c.archived_at);
+    h+=`<div class="inline-choice"><label class="sr" for="ap-co">Company</label><select class="input" id="ap-co"><option value="">No company</option>${cos.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select>`+
+      `<label class="sr" for="ap-name">Name</label><input class="input" id="ap-name" placeholder="Name">`+
+      `<label class="sr" for="ap-role">Role</label><input class="input" id="ap-role" placeholder="Role">`+
+      `<label class="sr" for="ap-email">Email</label><input class="input" id="ap-email" placeholder="Email">`+
+      `<button type="button" class="btn sm primary" data-act="confirmAddPerson">Add the person</button><button type="button" class="btn sm quiet" data-act="closeUi">Cancel</button></div>`;
+  }
+  const active=D.people.filter(p=>!p.archived_at).length;
+  h+=`<div class="views" role="tablist" aria-label="Companies or people">`+
+    [['companies','Companies',D.companies.length],['people','People',active]].map(([id,name,n])=>
+      `<button type="button" role="tab" data-act="tab" data-f="${id}" aria-selected="${UI.tab===id}">${name}<span class="n num">${n.toLocaleString('en-GB')}</span></button>`).join('')+'</div>';
+  const fits=D.tags.filter(t=>t.grp==='fit'&&t.active!==false).sort((a,b)=>a.position-b.position).map(t=>[t.label,t.label]);
+  h+=`<div class="toolbar"><div class="search">${ms('search')}<label class="sr" for="cq">Search</label><input class="input" id="cq" type="search" autocomplete="off" value="${esc(UI.q)}" placeholder="${UI.tab==='people'?'Name, role, company, email or phone':'Name, website, domain, or a person’s name or email'}"></div>`+
+    (UI.tab==='people'
+      ?sel('pstatus',[['active','Active people'],['archived','Archived people']],UI.pstatus,'Status')+sel('pportal',[['all','On the portal or not'],['portal','Portal users'],['not','Not on the portal']],UI.pportal,'Portal')
+      :sel('kind',[['all','Every kind'],['Deal','Deals'],['Lead','Leads'],['Contacts only','Contacts only'],['Archived','Archived']],UI.kind,'Kind')
+        +sel('fit',[['all','Any fit']].concat(fits),UI.fit,'Fit')+sel('acct',[['all','Any account'],['with','With an account'],['without','Without an account']],UI.acct,'Account'))+'</div>';
+  $('page').innerHTML=h+`<div id="clist">${listHtml()}</div>`;
+}
+
+async function raise(type,payload,verb){
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){NXShell.toast(`Could not queue it: ${error.message}`);return false;}
+  NXShell.toast(`${verb}, queued. The engine acts within a minute or two.`);
+  setTimeout(load,1500);
+  return true;
+}
+/* Every Contacts payload is built from what changed, so it goes through NXCRM.pick. */
+function raiseCrm(type,payload,verb){
+  let clean;
+  try{clean=NXCRM.pick(type,payload);}catch(e){NXShell.toast(e.message);return Promise.resolve(false);}
+  return raise(type,clean,verb);
+}
+const val=id=>String(($(id)||{}).value||'').trim();
+const personById=id=>D.people.find(p=>String(p.id)===String(id));
+
+const ACT={
+  tab(el){UI.tab=el.dataset.f;UI.edit=null;try{localStorage.setItem('nx-contacts-tab',UI.tab);}catch(e){}render();},
+  openUi(el){UI.open=el.dataset.ui;render();const f=$('ap-name');if(f)f.focus();},
+  closeUi(){UI.open=null;UI.edit=null;render();},
+  editPerson(el){UI.edit=Number(el.dataset.person);render();const f=$('pe-name');if(f)f.focus();},
+  async savePerson(el){
+    const p=personById(el.dataset.person);if(!p)return;
+    const payload=NXCRM.personChanges(p,emailsOf(p.id),val,moveOpts(p));
+    if(payload.name==='')return NXShell.toast('A person needs a name.');
+    if(Object.keys(payload).length===1){UI.edit=null;render();return NXShell.toast('Nothing changed.');}
+    if(await raiseCrm('edit-person',payload,`${p.name}'s details saved`)){UI.edit=null;render();}
+  },
+  async archivePerson(el){
+    const p=personById(el.dataset.person);if(!p)return;
+    const reason=val('pe-why');
+    if(!reason){const f=$('pe-why');if(f)f.focus();return NXShell.toast('Give a reason to archive. Nothing is deleted.');}
+    if(await raiseCrm('edit-person',{person_id:p.id,archive:{reason}},`${p.name} archived`)){UI.edit=null;render();}
+  },
+  async restorePerson(el){
+    const p=personById(el.dataset.person);if(!p)return;
+    await raiseCrm('edit-person',{person_id:p.id,restore:true},`${p.name} restored`);
+  },
+  deleteUser(el){UI.open='deluser:'+el.dataset.user;render();},
+  async confirmDeleteUser(el){const userId=el.dataset.user;if(await raise('delete-user',{user_id:userId},'Delete queued')){UI.open=null;render();}},
+  async confirmAddPerson(){
+    const name=val('ap-name');
+    if(!name){const f=$('ap-name');if(f)f.focus();return NXShell.toast('A person needs a name.');}
+    const co=val('ap-co'), role=val('ap-role'), emails=NXCRM.splitList(val('ap-email'));
+    const payload={company_id:co?Number(co):null,name};
+    if(role)payload.role=role;
+    if(emails.length)payload.emails=emails;
+    if(await raiseCrm('add-person',payload,`${name} added`)){UI.open=null;render();}
+  },
+};
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(!b||!ACT[b.dataset.act])return;
+  e.preventDefault();ACT[b.dataset.act](b);
+});
+document.addEventListener('input',e=>{if(e.target.id==='cq'&&D){UI.q=e.target.value;$('clist').innerHTML=listHtml();}});
+document.addEventListener('change',e=>{
+  const id=e.target.id;
+  if(['kind','fit','acct','pstatus','pportal'].includes(id)&&D){UI[id]=e.target.value;$('clist').innerHTML=listHtml();}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(UI.open||UI.edit)){UI.open=null;UI.edit=null;render();}});
+
+boot();
+</script>
+</body>
+</html>

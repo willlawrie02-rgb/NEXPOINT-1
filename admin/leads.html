@@ -172,9 +172,8 @@ finish review, the verdict, and DESIGN.md
           <a href="opportunities.html">Opportunities</a>
         </span>
         <span class="navgroup">
+          <a href="contacts.html">Contacts</a>
           <a href="introductions.html">Introductions</a>
-          <a href="organisations.html">Accounts</a>
-          <a href="members.html">Users</a>
           <a href="orders.html">Orders</a>
           <a href="consultancy.html">Consultancy</a>
         </span>
@@ -291,7 +290,7 @@ function showAdmin(user){
   try{const t=localStorage.getItem('nx-prospects-tab');if(t)tab=t;}catch(e){}
   try{const f=JSON.parse(localStorage.getItem('nx-prospects-filters')||'{}');
     for(const k of ['f-search','f-type','f-sector','f-ctype','f-quality','f-campaign','f-source','f-finder'])if(f[k]!=null)$(k).dataset.saved=f[k];}catch(e){}
-  load();
+  load().then(()=>{if(location.hash==='#add'&&$('addForm').hidden)toggleAdd();});
 }
 
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -608,7 +607,7 @@ function leadCard(r){
       <span class="src">${esc(typeLabel(typeOf(r)))} · ${esc(cap(gradeOf(r)))}</span></div>
     ${finderTags(r)}
     ${fields(r,false)}
-    <div class="meta"><span>${site(r)}</span>${r.decided_at?`<span>accepted ${esc(String(r.decided_at).slice(0,10))}${r.decided_by?' by '+esc(r.decided_by):''}</span>`:''}</div>
+    <div class="meta"><span>${site(r)}</span>${r.decided_at?`<span>accepted ${esc(String(r.decided_at).slice(0,10))}${r.decided_by?' by '+esc(r.decided_by):''}</span>`:''}<span><a href="company.html?slug=${esc(encodeURIComponent(r.company))}">Company page</a></span></div>
     <div class="grade-row">${where}</div>
     <div class="grade-row" id="act-${esc(r.id)}">${control}</div>
     ${notesBlock(r)}

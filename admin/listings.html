@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint CRM: Live Listings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
+<link rel="stylesheet" href="crm.css?v=1">
+</head>
+<body>
+<div id="login" class="door" style="display:none">
+  <span class="brand"><img src="nexpoint-mark.png" alt="" width="30" height="26"><span class="wordmark"><span class="nex">Nex</span><span class="pt">Point</span></span></span>
+  <h1>Sign in to the CRM</h1>
+  <p>For Will and Chris only: the database admits the two of you and nobody else.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <label class="sr" for="email">Email</label>
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <label class="sr" for="pw">Password</label>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+</div>
+
+<div id="admin" class="app" style="display:none">
+  <aside class="rail" id="rail" aria-label="Main"></aside>
+  <main class="main" id="main" tabindex="-1"><div class="page" id="page"></div></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
+        integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script src="admin-auth.js"></script>
+<script src="crm-shell.js?v=1"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a hint for which screen to show; the database decides (is_brief_admin, a second factor since plan 035)
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+let me=null;
+
+async function boot(){
+  const {data}=await sb.auth.getSession();const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)){if(await NXAdminAuth.requireAal2(sb))showAdmin(s.user);else showLogin(s);}else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))$('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pw').value});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  if(!(await NXAdminAuth.requireAal2(sb)))return;
+  showAdmin(data.user);
+}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,'listings');render();}
+
+/* Plan 075 builds Live Listings. Until it does, the page says so and points at
+   the boards that do its job today (the spec's Page inventory). */
+function render(){
+  $('page').innerHTML=NXShell.headHtml({title:'Live Listings',lede:'What seekers can find on each hub and on the Opportunities Board.'})
+    +NXShell.comingHtml({plan:'075',icon:'storefront',what:'The live opportunities by state, and one row per host on the 3D Print Hub and the Mill Hub with its membership, declarations and strikes.',
+      until:[['opportunities.html','Open Opportunities'],['index.html','Open Briefs'],['print-hub.html','Open the 3D Print Hub'],['mill-hub.html','Open the Mill Hub']]});
+}
+
+boot();
+</script>
+</body>
+</html>
