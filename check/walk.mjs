@@ -2934,7 +2934,10 @@ const DOOR_PAGE = existsSync(join(ADMIN_DIR, "system.html")) ? "system.html" : "
 /* A CRM section whose plan has not built it yet still draws the shell's
    "Not built yet" panel, by the placeholder's own call (comingHtml({plan:'072',
    ...}) and so on); its own checks wait for the build. */
-const built = (f) => existsSync(join(ADMIN_DIR, f)) && !/NXShell\.comingHtml\(\{plan:'\d{3}',/.test(adminText(f));
+/* A pointer may name the tab it opens (plan 073: introductions.html moves to
+   pipelines.html?tab=introductions): the page is the part before the query. */
+const pageOf = (f) => String(f).split("?")[0];
+const built = (f) => existsSync(join(ADMIN_DIR, pageOf(f))) && !/NXShell\.comingHtml\(\{plan:'\d{3}',/.test(adminText(pageOf(f)));
 
 /* The door is walked on a CRM page and on two old-style boards (each has its
    own boot and doLogin; the hub boards share hub-board.js's). */
@@ -3422,7 +3425,7 @@ async function walkReviewedBoards() {
    Each old address is a pointer that moves to its new page at once and reads
    nothing, so a bookmark still works and no old button is left live. */
 async function walkMovedPages() {
-  area = "The moved admin pages (plan 072)";
+  area = "The moved admin pages (plans 072 and 073)";
   /* Once a section is built, its old pages must point at it, and a pointer
      must point at a built page: a sync that carried half of plan 072 fails
      here rather than walking past it. */
@@ -3455,7 +3458,7 @@ async function walkMovedPages() {
       const refresh = (text.match(/<meta http-equiv="refresh" content="([^"]*)"/i) || [])[1];
       eq(refresh, `0; url=${target}`, "the refresh");
       if (!built(target)) throw new Error(`${file} moves to ${target}, which is not built`);
-      const lands = [`/admin/${target}`, `/admin/${target.replace(/\.html$/, "")}`];
+      const lands = [`/admin/${pageOf(target)}`, `/admin/${pageOf(target).replace(/\.html$/, "")}`];
       await page.goto(`${APEX}/admin/${file}`);
       await page.waitForURL((u) => lands.includes(new URL(u).pathname));
       await page.waitForSelector("#login", { state: "visible" });
