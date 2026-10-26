@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
-<link rel="stylesheet" href="crm.css?v=1">
+<link rel="stylesheet" href="crm.css?v=2">
 <style>
   .acct-actions { display: flex; flex-direction: column; gap: 8px; }
   .fail-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12.5px; color: var(--err-ink); }
@@ -19,8 +19,6 @@
   .site-users { display: flex; flex-direction: column; width: 100%; }
   .site-users .mini { padding: 4px 0; }
   .inline-choice.typed .input { flex: 1 1 100%; }
-  /* Until the Inbox (072) adds Needs you and the composer, the details lead on a narrow screen. */
-  @media (max-width: 1080px) { .co-body .co-main { order: 0; } }
 </style>
 </head>
 <body>
@@ -49,8 +47,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=1"></script>
+<script src="crm-shell.js?v=2"></script>
 <script src="crm.js?v=071"></script>
+<script src="jobs.js?v=072"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -92,7 +91,13 @@ function showAdmin(u){$('login').style.display='none';$('admin').style.display='
    the hub or Restore, Delete account behind the typed name, Erase the
    records for a closed or deleted account (plan 069), and Delete user.
    They raise the same intents, with the same payloads, as before. Every
-   decision opens in place under what it changes; there are no pop-ups. */
+   decision opens in place under what it changes; there are no pop-ups.
+
+   Plan 072 adds Needs you at the head of the right column (every Inbox job
+   on the company's accounts, decided in place by jobs.js, `&job=<item_key>`
+   scrolling to one), the composer's Task, and Open tasks at the foot of the
+   left column. Where the account panel already has the control (Pause,
+   Remove, Erase), a job calls that panel's own (D12). */
 const esc=NXCRM.esc, ms=NXShell.ms, plural=(n,a,b)=>`${n} ${n===1?a:(b||a+'s')}`;
 const ORG_INTENTS=['delete-account','erase-account','pause-org','resume-org','remove-org','restore-org','open-audit-strike','cure-strike','delete-user'];
 const CRM_INTENTS=Object.keys(NXCRM.KEYS);
@@ -111,37 +116,64 @@ const none=Promise.resolve({data:[],error:null});
 const todayIso=()=>new Date().toISOString().slice(0,10);
 const fmt=v=>NXCRM.fmtDate(v);
 
-const UI={open:null,edit:null,tl:'all',tlMax:50};
+const UI={open:null,edit:null,tl:'all',tlMax:50,job:null,flashDone:false};
 let state='loading', problem='', banners=[];
 let C=null;
 let A={orgs:[],listings:[],revisions:[],strikes:[],fees:{},terms:{},users:[],versions:{},requests:[]};
 let intentById={}, pendingByOrg={}, pendingByStrike={}, pendingByUser={}, pendingByPerson={}, pendingBySite={}, crmOpen=[], doneOrg=[];
+/* The intents read, and those on their way since: a press shows queued at once (plan 072). */
+let readIntents=[], sending=[], sendSeq=0;
 let allCompanies=null;
+/* Plan 072: the company's jobs from the inbox view, what their panels read, their open intents, and our tasks for it. */
+let jobRows=[], J={problems:[]}, jobPending={}, T={missing:false,error:'',rows:[]};
 
 async function load(){
   banners=[];
   const q=new URLSearchParams(location.search);
   const key={id:q.get('id'),slug:q.get('slug'),org:q.get('org'),person:q.get('person')};
+  UI.job=q.get('job');
   const st=await sb.from('crm_settings').select('key,value');
   const missing=!!st.error&&/crm_/.test(st.error.message||'');
   if(st.error&&!missing){state='error';problem=st.error.message;render();return;}
   const imported=!st.error&&(st.data||[]).some(r=>r.key==='imported_at');
   const iq=await sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at,requested_by')
-    .in('status',['pending','claimed','failed','done']).in('type',[...ORG_INTENTS,...CRM_INTENTS])
+    .in('status',['pending','claimed','failed','done']).in('type',[...ORG_INTENTS,...CRM_INTENTS,...NXJOBS.TYPES,...NXJOBS.TASK_TYPES])
     .order('id',{ascending:false}).limit(1000);
   if(iq.error)banners.push(`Could not read the queued changes: ${iq.error.message}.`);
   if((iq.data||[]).length===1000)banners.push('Showing the newest 1,000 intent rows; older ones are not on this page.');
-  watch(iq.data||[]);
+  readIntents=iq.data||[];sending=[];
+  watch(readIntents);
   let cid=null;
   if(imported){cid=await findCompany(key);if(cid===false)return;}
   if(cid!=null)await loadCompany(cid);
   if(state==='error')return;
   if(!C){
     state=missing?'missing':!imported?'empty':'unknown';
-    if(key.org)await loadAccounts([key.org]);
+    if(key.org){await loadAccounts([key.org]);await loadJobs([key.org]);}
     render();return;
   }
+  await loadJobs(C.sites.map(s=>s.org_id).filter(Boolean));
   state='ready';render();
+}
+
+/* Needs you: the inbox view's rows on this company's accounts, oldest first,
+   and what their panels read; our open tasks for the company. A missing
+   column or table names its migration and leaves the rest of the page. */
+const isMissing=e=>!!e&&/does not exist|schema cache|Could not find/i.test(e.message||'');
+async function loadJobs(orgIds){
+  jobRows=[];J={problems:[]};T={missing:false,error:'',rows:[]};
+  const [iq,tq]=await Promise.all([
+    orgIds.length?sb.from('inbox').select('*').in('org_id',orgIds).order('created_at',{ascending:true}).limit(200):none,
+    C?sb.from('crm_tasks').select('id,title,company_id,due_on,source,created_at,created_by,done_at,done_by').eq('company_id',C.id).is('done_at',null).order('id',{ascending:true}).limit(200):none,
+  ]);
+  if(iq.error)banners.push(isMissing(iq.error)?'Migration 0077 has not been applied: Needs you shows the Inbox’s jobs here once it is.':`Could not read this company’s jobs: ${iq.error.message}.`);
+  jobRows=iq.data||[];
+  if(tq.error){if(isMissing(tq.error))T.missing=true;else T.error=tq.error.message;}
+  else T.rows=tq.data||[];
+  if(jobRows.length){
+    J=await NXJOBS.read(sb,jobRows,{orgIds});
+    J.problems.forEach(p=>banners.push(p));
+  }
 }
 
 async function findCompany(key){
@@ -258,11 +290,14 @@ const crmKey=(i,p)=>i.type==='edit-company'?`co:${p.company_id}`
   :i.type==='tag-company'?`tag:${p.company_id}:${p.tag_id!=null?p.tag_id:String(p.label||'').toLowerCase()}`
   :i.type==='add-person'||i.type==='add-site'?`${i.type}:${p.company_id}:${String(p.name||'').toLowerCase()}`:null;
 function watch(rows){
-  intentById={};pendingByOrg={};pendingByStrike={};pendingByUser={};pendingByPerson={};pendingBySite={};doneOrg=[];
+  intentById={};pendingByOrg={};pendingByStrike={};pendingByUser={};pendingByPerson={};pendingBySite={};doneOrg=[];jobPending={};
   const open={};
   rows.slice().sort((a,b)=>a.id-b.id).forEach(i=>{
     intentById[i.id]=i;
     const p=i.payload_json||{};
+    /* A job's and a task's newest open intent, keyed as jobs.js looks them up. */
+    const jk=NXJOBS.TYPES.includes(i.type)||NXJOBS.TASK_TYPES.includes(i.type)?NXJOBS.intentKey(i):null;
+    if(jk!=null){if(i.status==='done')delete jobPending[jk];else jobPending[jk]=i;}
     if(i.status==='done'&&ORG_INTENTS.includes(i.type))doneOrg.push(i);
     let map=null,key=null;
     if(i.type==='delete-user'){map=pendingByUser;key=p.user_id;}
@@ -301,7 +336,7 @@ const userName=uid=>{const u=A.users.find(x=>x.user_id===uid);return u?(u.name||
 /* A queued intent replaces the buttons it came from; a failed one sits
    above them with Try again, never instead of them (plan 024). */
 function manageFor(q,fallback){
-  if(q&&q.status==='failed')return `<div class="fail-line"><span>Failed: ${esc(q.result_note||'')}</span><button type="button" class="btn sm quiet" data-act="retry" data-intent="${esc(q.id)}">Try again</button></div>${fallback}`;
+  if(q&&q.status==='failed')return `<div class="fail-line"><span>Failed: ${esc(NXJOBS.sentence(q.result_note))}</span><button type="button" class="btn sm quiet" data-act="retry" data-intent="${esc(q.id)}">Try again</button></div>${fallback}`;
   if(q)return '<span class="status-line">Queued, moments away.</span>';
   return fallback;
 }
@@ -517,7 +552,7 @@ function queuedWords(i){
   const p=i.payload_json||{}, tag=p.tag_id!=null?(C.tags[p.tag_id]||{}).label:p.label;
   const what=i.type==='tag-company'?(p.on?`tag it ${tag}`:`take off the tag ${tag}`)
     :i.type==='add-person'?`add ${p.name}`:i.type==='add-site'?`add the site ${p.name}`:'change the company';
-  return i.status==='failed'?`Could not ${esc(what)}: ${esc(i.result_note||'no reason recorded')}.`:`Queued for the engine: ${esc(what)}.`;
+  return i.status==='failed'?`Could not ${esc(what)}: ${esc(NXJOBS.sentence(i.result_note||'no reason recorded'))}`:`Queued for the engine: ${esc(what)}.`;
 }
 function aboutPanel(){
   const c=C.company, folder=C.primary;
@@ -532,7 +567,7 @@ function peoplePanel(){
     const q=pendingByPerson[p.id], queued=q&&q.status!=='failed';
     const line=[p.role,(C.emails[p.id]||[])[0]].filter(Boolean).join(', ');
     return `<div class="person"><span class="avatar">${esc(NXCRM.initials(p.name))}</span><div class="co"><span class="person-name">${esc(p.name)}${p.user_id?'<span class="tag mini">Portal user</span>':''}</span>`+
-      `<span class="person-role">${esc(line)}</span>${q&&q.status==='failed'?`<span class="person-role" style="color:var(--err-ink)">Failed: ${esc(q.result_note||'')}</span>`:''}</div>`+
+      `<span class="person-role">${esc(line)}</span>${q&&q.status==='failed'?`<span class="person-role" style="color:var(--err-ink)">Failed: ${esc(NXJOBS.sentence(q.result_note))}</span>`:''}</div>`+
       (queued?'<span class="status-line">Queued</span>':btn('editPerson','Edit','',{person:p.id},'quiet'))+'</div>';
   };
   let h=`<section class="panel"><h2>People <span class="n num">${live.length}</span></h2><div class="people">${live.length?live.map(row).join(''):'<p class="fact muted">No people recorded.</p>'}</div>`;
@@ -565,6 +600,60 @@ function sitesPanel(){
   if(UI.open==='addsite')body+=`<div class="inline-choice">${input('as-name','Site name, for example the town')}${input('as-town','Town')}${input('as-country','Country')}${btn('confirmAddSite','Add the site','',{},'primary')}${cancel()}</div>`;
   return `<section class="panel"><h2>${ms('hub')}Sites and accounts</h2>${body}<div class="panel-actions">${btn('openUi','Add a site','add_location_alt',{ui:'addsite'})}</div></section>`;
 }
+/* ---------- plan 072: Needs you, the composer's Task, Open tasks ---------- */
+function needsYouHtml(){
+  if(!jobRows.length)return '';
+  const ctx=jobCtx();
+  return `<section class="desk" aria-labelledby="needs-h"><div class="desk-head"><h2 id="needs-h">${ms('pending_actions')}Needs you</h2><span class="sub">${plural(jobRows.length,'job')} from the Inbox</span></div>${
+    jobRows.map(r=>NXJOBS.item(r,ctx)).join('')}</section>`;
+}
+/* The composer has the Task half; a note joins it when notes move onto the CRM (054). */
+function composerHtml(){
+  if(!C||T.missing||T.error)return '';
+  return `<section class="panel"><div class="composer-row"><h2>Add a task</h2></div><div class="composer">${input('cp-title','For example: send the hub pricing')}`+
+    `<div class="composer-row"><span class="left"><label class="sr" for="cp-due">Due</label><input class="input" type="date" id="cp-due"><span class="picker-note">Goes to our tasks in the Inbox.</span></span>`+
+    `${btn('taskAdd','Add task','',{form:'cp',company:C.id},'primary')}</div></div></section>`;
+}
+function openTasksPanel(){
+  const ctx=jobCtx();
+  let body;
+  if(T.missing)body='<p class="picker-note">Migration 0077 has not been applied: open tasks show here once it is.</p>';
+  else if(T.error)body=`<p class="picker-note">Could not read the open tasks: ${esc(T.error)}.</p>`;
+  else{
+    /* The newest add of each title for this company: queued, or failed in the last week. */
+    const weekAgo=Date.now()-7*864e5;
+    const adds=Object.keys(jobPending).filter(k=>k.startsWith('add:')).map(k=>jobPending[k])
+      .filter(i=>(i.payload_json||{}).company_id===C.id&&(i.status!=='failed'||new Date(i.requested_at).getTime()>weekAgo));
+    body=(UI.open==='task:add:ot'?NXJOBS.taskForm(ctx,null,{form:'ot',companyId:C.id}):'')+
+      adds.map(i=>`<div class="task-row"><span class="tick on" aria-hidden="true">${ms(i.status==='failed'?'close':'check')}</span><div class="task-main"><span class="task-text">${esc((i.payload_json||{}).title||'')}</span>${
+        i.status==='failed'?`<div class="fail-line"><span>Failed: ${esc(NXJOBS.sentence(i.result_note))}</span>${btn('retry','Try again','',{intent:i.id},'quiet')}</div>`:'<span class="task-meta"><span class="status-line">Queued</span></span>'}</div></div>`).join('')+
+      (T.rows.length?T.rows.map(t=>NXJOBS.taskRow(t,ctx,false,false)).join(''):adds.length?'':'<p class="fact muted">None. Add one from the composer.</p>');
+  }
+  return `<section class="panel"><div class="composer-row"><h2>Open tasks <span class="n num">${T.rows.length}</span></h2>${T.missing||T.error||!C?'':btn('taskOpen','Add task','add',{form:'ot'})}</div><div>${body}</div></section>`;
+}
+/* What jobs.js's panels and decisions are given (see its header). account()
+   calls the account panel's own Pause, Remove or Erase and puts the cursor in
+   its choice (D12): one control for one thing on the page. */
+const ACCOUNT_FIELD={pause:'pa-why',remove:'rm-why',erase:'erName'};
+function jobCtx(){
+  return Object.assign({},J,{rows:jobRows,pending:jobPending,ui:UI,me:me&&me.email,flash:UI.flashDone?null:UI.job,
+    tasks:T.rows,companies:C?{[C.id]:{id:C.id,name:C.company.name}}:{},companyList:[],today:NXJOBS.todayIn(),
+    raise:(type,payload,spot,verb,toastText)=>raise(type,payload,verb,toastText),val,need,toast:NXShell.toast,
+    retry:id=>{const i=intentById[id];if(i)return raise(i.type,i.payload_json||{},'Tried again');},
+    open:k=>{UI.open=k;render();},close:()=>{UI.open=null;render();},
+    account:(what,orgId)=>{
+      const fn=ACT[what+'Org'];if(!fn)return;
+      fn({dataset:{orgId}});
+      const f=$(ACCOUNT_FIELD[what]);if(f&&f.focus)f.focus();
+    }});
+}
+/* &job=<item_key> (the Inbox's link): scroll to that job once, and flash it. */
+function jumpToJob(){
+  if(!UI.job||UI.flashDone)return;
+  const el=$('job-'+NXJOBS.domId(UI.job));
+  if(el&&el.scrollIntoView){el.scrollIntoView({block:'start'});UI.flashDone=true;}
+}
+
 function introPanel(){
   return '<section class="panel"><h2>Introductions</h2><p class="fact muted">Introductions will be listed here with the Introductions pipeline. Until then, see the Introductions register.</p>'+
     '<div><a class="btn sm" href="introductions.html">Open the Introductions register</a></div></section>';
@@ -668,21 +757,33 @@ function render(){
     const word={missing:['Migration 0071 has not been applied: Contacts is empty until it is.','Each account’s controls are below.'],
       empty:['Contacts has not been imported yet.','The company pages fill once the import has run. An account’s controls are here meanwhile.'],
       unknown:['This company is not in Contacts. If it is a new account or folder, the next sync adds it.','']}[state];
-    page.innerHTML=`${backLink()}${NXShell.headHtml({title:A.orgs[0]?A.orgs[0].name||'Account':'Company',lede:word[0]})}${bn}${A.orgs.length?sitesPanel():''}`+
+    page.innerHTML=`${backLink()}${NXShell.headHtml({title:A.orgs[0]?A.orgs[0].name||'Account':'Company',lede:word[0]})}${bn}${needsYouHtml()}${A.orgs.length?sitesPanel():''}`+
       (A.orgs.length||state==='unknown'?'':`<section class="panel"><div class="empty-state">${ms('contacts')}<p>${esc(word[1])}</p><div class="until"><a class="btn sm" href="organisations.html">Open Accounts</a></div></div></section>`);
+    jumpToJob();
     return;
   }
   document.title=`NexPoint CRM: ${C.company.name}`;
-  page.innerHTML=backLink()+bn+headerCard()+`<div class="co-body"><div class="facts co-side">${aboutPanel()}${peoplePanel()}${sitesPanel()}${introPanel()}</div>`+
-    `<div class="facts co-main">${timelinePanel()}</div></div>`;
+  page.innerHTML=backLink()+bn+headerCard()+`<div class="co-body"><div class="facts co-side">${aboutPanel()}${peoplePanel()}${sitesPanel()}${introPanel()}${openTasksPanel()}</div>`+
+    `<div class="facts co-main">${needsYouHtml()}${composerHtml()}${timelinePanel()}</div></div>`;
+  jumpToJob();
 }
 
 /* ---------- raising ---------- */
-async function raise(type,payload,verb){
+/* A press shows its row queued at once (a provisional intent, read by the
+   same watch()), closes its choice, and refuses a second press of a job
+   or a task while the first is on its way (plan 072). */
+async function raise(type,payload,verb,toastText){
+  const temp={id:1e15+(++sendSeq),type,payload_json:payload,status:'pending',requested_at:new Date().toISOString(),requested_by:me.email};
+  const k=NXJOBS.TYPES.includes(type)||NXJOBS.TASK_TYPES.includes(type)?NXJOBS.intentKey(temp):null;
+  if(k!=null&&jobPending[k]&&jobPending[k].status!=='failed')return false;
+  sending.push(temp);watch(readIntents.concat(sending));
+  UI.open=null;UI.edit=null;render();
   const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
-  if(error){NXShell.toast(`Could not queue it: ${error.message}`);return false;}
-  NXShell.toast(`${verb}, queued. The engine acts within a minute or two.`);
-  UI.open=null;UI.edit=null;
+  if(error){
+    sending=sending.filter(x=>x!==temp);watch(readIntents.concat(sending));render();
+    NXShell.toast(`Could not queue it: ${error.message}`);return false;
+  }
+  NXShell.toast(toastText||`${verb}, queued. The engine acts within a minute or two.`);
   setTimeout(load,1500);
   return true;
 }
@@ -702,7 +803,7 @@ const ACT={
   closeUi(){UI.open=null;UI.edit=null;render();},
   tlFilter(el){UI.tl=el.dataset.f;UI.tlMax=50;render();},
   moreTl(){UI.tlMax+=200;render();},
-  retry(el){const i=intentById[el.dataset.intent];if(i)return raise(i.type,i.payload_json||{},'Sent again');},
+  retry(el){const i=intentById[el.dataset.intent];if(i)return raise(i.type,i.payload_json||{},'Tried again');},
   /* the company and its tags */
   async saveCompany(){
     const c=C.company, payload={company_id:C.id}, name=val('ec-name'), web=val('ec-web');
@@ -836,8 +937,10 @@ const ACT={
 
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');
-  if(!b||!ACT[b.dataset.act])return;
-  e.preventDefault();ACT[b.dataset.act](b);
+  if(!b)return;
+  const a=b.dataset.act;
+  if(ACT[a]){e.preventDefault();ACT[a](b);}
+  else if(NXJOBS.ACT[a]){e.preventDefault();NXJOBS.ACT[a](b,jobCtx());}
 });
 document.addEventListener('input',e=>{
   if(e.target.id==='erName'||e.target.id==='erWhy')eraseCheck();

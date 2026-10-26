@@ -10,9 +10,10 @@
    company page counts as Contacts. "Working as" is whoever signed in: notes,
    tasks and moves are signed with that name.
 
-   Reads only, never a write: the counts read the inbox view, the companies
-   in Contacts and the newest engine run of each job. Intent reads stay on
-   the pages, where the board rules can check them. */
+   Reads only, never a write: the counts read the inbox view (its failed-run
+   cards are System's count, so the rail and the Inbox agree; plan 072) and
+   the companies in Contacts. Intent reads stay on the pages, where the
+   board rules can check them. */
 (function () {
   'use strict';
 
@@ -72,20 +73,29 @@
       (until ? '<div class="until"><span>Until then</span>' + until + '</div>' : '') + '</div></section>';
   }
 
-  /* The rail's counts. A read that fails leaves its count off, never the rail. */
+  /* The rail's counts. A read that fails leaves its count off, never the rail.
+     System counts the inbox view's failed-run cards (item_key is 0077's, so
+     the read fails before that migration); without them it reads each job's
+     newest run, a run that only found the lock held clearing nothing. */
   async function readCounts(sb) {
-    const [ibx, cos, runs] = await Promise.all([
+    const [ibx, cos, fail] = await Promise.all([
       sb.from('inbox').select('kind', { count: 'exact', head: true }),
       sb.from('crm_companies').select('id', { count: 'exact', head: true }),
-      sb.from('engine_runs').select('job,status,started_at').order('started_at', { ascending: false }).limit(300),
+      sb.from('inbox').select('item_key', { count: 'exact', head: true }).eq('kind', 'failed_run'),
     ]);
     const counts = {};
     if (!ibx.error && ibx.count) counts.inbox = ibx.count;
     if (!cos.error && cos.count) counts.contacts = cos.count;
+    if (!fail.error) {
+      if (fail.count) counts.system = fail.count;
+      return counts;
+    }
+    const runs = await sb.from('engine_runs').select('job,status,started_at').order('started_at', { ascending: false }).limit(300);
     if (!runs.error) {
       const latest = {};
-      (runs.data || []).forEach((r) => { if (!latest[r.job]) latest[r.job] = r; });
-      counts.system = Object.values(latest).filter((r) => r.status === 'failed').length;
+      (runs.data || []).forEach((r) => { if (r.status !== 'skipped-because-locked' && !latest[r.job]) latest[r.job] = r; });
+      const n = Object.values(latest).filter((r) => r.status === 'failed').length;
+      if (n) counts.system = n;
     }
     return counts;
   }

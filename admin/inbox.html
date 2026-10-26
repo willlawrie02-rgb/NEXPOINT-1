@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
-<link rel="stylesheet" href="crm.css?v=1">
+<link rel="stylesheet" href="crm.css?v=2">
 </head>
 <body>
 <div id="login" class="door" style="display:none">
@@ -37,7 +37,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=1"></script>
+<script src="crm-shell.js?v=2"></script>
+<script src="crm.js?v=071"></script>
+<script src="jobs.js?v=072"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -45,6 +47,7 @@ const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a h
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const PAGE_SECTION='inbox';
 let me=null;
 
 async function boot(){
@@ -63,15 +66,339 @@ async function doLogin(){
   if(!(await NXAdminAuth.requireAal2(sb)))return;
   showAdmin(data.user);
 }
-function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,'inbox');render();}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,PAGE_SECTION);render();load();}
 
-/* Plan 072 builds Inbox. Until it does, the page says so and points at
-   the boards that do its job today (the spec's Page inventory). */
-function render(){
-  $('page').innerHTML=NXShell.headHtml({title:'Inbox',lede:'Every job that needs us, in one queue.'})
-    +NXShell.comingHtml({plan:'072',icon:'inbox',what:'One queue in four colour groups, each line opening the page where the job is decided, beside our own tasks and their due dates.',
-      until:[['dashboard.html','Open the Dashboard'],['tasks.html','Open Tasks']]});
+/* The Inbox (plan 072): every job that needs us, in one queue. The queue is
+   the `inbox` view, one row per job; jobs.js (NXJOBS) chooses its words,
+   icon and group, and each row opens the page where the job is decided (a
+   company page, or the board that decides it today) or, for a job no
+   company page decides, opens in place under its row. Beside it our own
+   tasks (with the workspace checkboxes), who wrote to us last and the
+   payment clocks. Every change is an engine_intents row the engine acts on
+   through the handler that decides it today; nothing here writes anything
+   else. */
+const esc=NXCRM.esc, ms=NXShell.ms;
+const LEDE='Every job that needs us, in one queue. Each line opens the page where it is decided.';
+/* Done today: the decisions jobs.js raises, a workspace tick, a task done or put back, and a re-run asked for on System. */
+const DONE_TYPES=[...NXJOBS.TYPES,'tick-task','done-task','rerun-job'];
+const CAP=500;
+const UI={filter:'all',open:null,rows:new Set()};
+let loaded=false, queueError=false, banners=[], rows=[], J={problems:[]};
+let base=[], sending=[], sendSeq=0, intents=[], intentById={}, pending={}, tickByKey={};
+let T={missing:false,error:'',open:[],done:[]}, WS={error:'',rows:[]}, M={error:'',rows:[]}, P={ok:false,rows:[],names:{}};
+/* Set aside: every card put off with Not now and not yet put back (0077's table; a missing one hides it). */
+let SA={ok:false,rows:[]};
+let companies={}, companyList=[], companyBySlug={};
+
+const isMissing=e=>!!e&&/does not exist|schema cache|Could not find/i.test(e.message||'');
+
+async function load(){
+  banners=[];
+  const day=864e5, since14=new Date(Date.now()-14*day).toISOString(), since30=new Date(Date.now()-30*day).toISOString();
+  const [iq,oq,dq,eq,cq,mq,vq,nq,sq]=await Promise.all([
+    sb.from('inbox').select('*').order('created_at',{ascending:true}).limit(CAP),
+    sb.from('crm_tasks').select('id,title,company_id,due_on,source,created_at,created_by,done_at,done_by').is('done_at',null).order('id',{ascending:true}).limit(1000),
+    sb.from('crm_tasks').select('id,title,company_id,due_on,source,created_at,created_by,done_at,done_by').gte('done_at',since14).order('done_at',{ascending:false}).limit(200),
+    sb.from('engine_tasks').select('owner,task,source,collected_at').order('owner'),
+    NXCRM.readAll(()=>sb.from('crm_companies').select('id,name,slug,archived_at').order('id',{ascending:true})),
+    sb.from('crm_email_index').select('company_id,sent_at,subject,from_text,direction,gone_at').gte('sent_at',since30).order('sent_at',{ascending:false}).limit(1000),
+    /* Plan 049's invoices (0075): probed, a missing table hides the panel. */
+    sb.from('membership_invoices').select('id,org_id,period,amount,currency,xero_invoice_number,xero_online_url,invoice_date,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at,last_error,last_error_at').is('paid_at',null).is('voided_at',null).limit(CAP),
+    sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at,requested_by')
+      .in('status',['pending','claimed','failed','done']).in('type',[...NXJOBS.TYPES,...NXJOBS.TASK_TYPES,'restore-inbox-item','tick-task','rerun-job'])
+      .order('id',{ascending:false}).limit(1000),
+    sb.from('crm_inbox_dismissals').select('id,item_key,kind,reason,dismissed_at,dismissed_by,restored_at').is('restored_at',null).order('dismissed_at',{ascending:false}).limit(500),
+  ]);
+
+  queueError=!!iq.error;
+  SA={ok:!sq.error,rows:sq.data||[]};
+  if(iq.error)banners.push(['err',`Could not read the queue: ${iq.error.message}.`]);
+  rows=(iq.data||[]).map(r=>r.item_key?r:Object.assign({},r,{item_key:`${r.kind}:${r.item_id}`}));
+  if(rows.length===CAP)banners.push(['info',`Showing the oldest ${CAP} jobs. Newer ones show here as these are decided.`]);
+  if((iq.data||[]).length&&!('item_key' in iq.data[0]))
+    banners.push(['info','Migration 0077 has not been applied: the queue is the older list, its cards open the old boards, and Not now and our tasks wait for it.']);
+
+  T={missing:false,error:'',open:[],done:[]};
+  if(oq.error){if(isMissing(oq.error))T.missing=true;else T.error=oq.error.message;}
+  else{T.open=oq.data||[];T.done=dq.error?[]:(dq.data||[]);}
+  WS={error:eq.error?(isMissing(eq.error)?'Migration 0008 has not been applied: the workspace checkboxes show here once it is.':`Could not read the workspace checkboxes: ${eq.error.message}.`):'',rows:eq.data||[]};
+  if(cq.error&&!isMissing(cq.error))banners.push(['info',`Could not read the companies: ${cq.error.message}.`]);
+  companies={};companyBySlug={};
+  (cq.data||[]).forEach(c=>{companies[c.id]=c;if(c.slug)companyBySlug[c.slug]=c;});
+  companyList=(cq.data||[]).filter(c=>!c.archived_at).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  M={error:mq.error?(isMissing(mq.error)?'Migration 0071 has not been applied: who wrote last shows here once it is.':`Could not read the filed emails: ${mq.error.message}.`):'',rows:mq.data||[]};
+
+  P={ok:!vq.error,rows:(vq.data||[]).filter(m=>m.invoiced_at),names:{}};
+  const orgIds=[...new Set(P.rows.map(m=>m.org_id).filter(Boolean))];
+  if(orgIds.length){
+    const oq2=await sb.from('organisations').select('id,name').in('id',orgIds);
+    if(oq2.error)banners.push(['info',`Could not read the accounts behind the payment clocks: ${oq2.error.message}.`]);
+    (oq2.data||[]).forEach(o=>{P.names[o.id]=o.name;});
+  }
+
+  if(nq.error)banners.push(['info',`Could not read the decisions already on their way: ${nq.error.message}. A job may still show buttons for a decision already made.`]);
+  if((nq.data||[]).length===1000)banners.push(['info','Showing the newest 1,000 decisions; older ones are not on this page.']);
+  sending=[];
+  watch(nq.data||[]);
+
+  /* The jobs decided in place read what their panels need, once. */
+  J=await NXJOBS.read(sb,rows.filter(NXJOBS.inPlace),{});
+  J.problems.forEach(p=>banners.push(['info',p]));
+  loaded=true;
+  render();
 }
+
+/* The newest intent for a job decides what it shows (ascending id, last
+   write wins; a done one clears it, so the job's own state decides its
+   buttons again). A workspace tick keeps its done intent: the checkboxes
+   are collected at 07:00, so a tick done since then shows ticked. */
+const keyOf=t=>(t.source||'')+'\u0001'+(t.task||'');
+/* The intents read, plus those on their way since (sending): a press shows
+   its job queued before the insert returns, so it cannot be pressed twice. */
+function watch(list){base=list;reduce(base.concat(sending));}
+function reduce(list){
+  intents=list;intentById={};pending={};tickByKey={};
+  list.slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    intentById[i.id]=i;
+    if(i.type==='tick-task')tickByKey[keyOf(i.payload_json||{})]=i;
+    const k=NXJOBS.intentKey(i);
+    if(k==null)return;
+    if(i.status==='done')delete pending[k];else pending[k]=i;
+  });
+}
+const newer=(a,b)=>!!a&&!!b&&new Date(a).getTime()>new Date(b).getTime();
+const isTicked=t=>{const q=tickByKey[keyOf(t)];return !!q&&q.status==='done'&&newer(q.requested_at,t.collected_at);};
+
+/* ---------- the page ---------- */
+function todayTitle(){
+  const p={};
+  new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',weekday:'long',day:'numeric',month:'long',year:'numeric'})
+    .formatToParts(new Date()).forEach(x=>{p[x.type]=x.value;});
+  return `${p.weekday}, ${p.day} ${p.month} ${p.year}`;
+}
+const groupOf=r=>NXJOBS.kindOf(r).group;
+const oldest=(a,b)=>String(a.created_at||'').localeCompare(String(b.created_at||''));
+const btn=(act,label,icon,data,cls)=>`<button type="button" class="btn sm${cls?' '+cls:''}" data-act="${act}"${Object.entries(data||{}).map(([k,v])=>` data-${k}="${esc(v)}"`).join('')}>${icon?ms(icon,'sm'):''}${esc(label)}</button>`;
+const emptyMini=(text,icon)=>`<div class="empty-state">${ms(icon||'inbox')}<span>${esc(text)}</span></div>`;
+const failLine=q=>`<div class="actions"><span class="status-line fail">${ms('error','sm')}Failed: ${esc(NXJOBS.sentence(q.result_note))}</span>${btn('retry','Try again','refresh',{intent:q.id},'quiet')}</div>`;
+
+function statTiles(){
+  return '<div class="stat-row" role="group" aria-label="Show one group">'+NXJOBS.GROUPS.map(g=>{
+    const n=rows.filter(r=>groupOf(r)===g.id).length;
+    return `<button type="button" class="stat ${g.id}" data-act="filter" data-f="${g.id}" aria-pressed="${UI.filter===g.id}"><span class="stat-n num">${n}</span><span class="stat-l"><span class="gdot ${g.id}"></span>${esc(g.name)}</span></button>`;
+  }).join('')+'</div>'+(UI.filter==='all'?'':`<div class="active-filters">Showing one group:<button type="button" class="chip-x" data-act="filter" data-f="all">${
+    esc((NXJOBS.GROUPS.find(g=>g.id===UI.filter)||{}).name||'')}${ms('close')}</button></div>`);
+}
+
+function qitem(r){
+  const k=NXJOBS.kindOf(r), href=NXJOBS.hrefOf(r), key=r.item_key;
+  const inner=`<span class="qicon ${esc(k.group)}">${ms(k.icon)}</span><span class="qmain"><span class="ditem-title">${esc(NXJOBS.lineOf(r))}</span><span class="ditem-meta">${esc(k.label)}</span></span><span class="st num">${esc(NXJOBS.ageText(r.age_hours))}</span>`;
+  if(NXJOBS.inPlace(r)){
+    const open=UI.rows.has(key);
+    return `<button type="button" class="qitem" data-act="toggleRow" data-key="${esc(key)}" aria-expanded="${open}">${inner}${ms(open?'expand_less':'expand_more','qchev')}</button>`
+      +(open?`<div class="ditem inplace" id="job-${esc(NXJOBS.domId(key))}">${NXJOBS.body(r,jobCtx())}</div>`:'');
+  }
+  if(href)return `<a class="qitem" href="${esc(href)}">${inner}${ms('chevron_right','qchev')}</a>`;
+  return `<div class="qitem">${inner}<span></span></div>`;
+}
+
+function queueHtml(){
+  let h=`<section class="desk" aria-labelledby="queue-h"><div class="desk-head"><h2 id="queue-h">${ms('inbox')}The queue</h2><span class="sub">Blue to approve, green waiting on us, grey money, red problems</span></div>`;
+  let shown=0;
+  NXJOBS.GROUPS.forEach(g=>{
+    if(UI.filter!=='all'&&UI.filter!==g.id)return;
+    const items=rows.filter(r=>groupOf(r)===g.id).sort(oldest);
+    if(!items.length)return;
+    shown+=items.length;
+    h+=`<div class="phase"><div class="phase-head"><span class="gdot ${g.id}"></span><span class="pname">${esc(g.name)}</span><span class="pcount num">${items.length}</span></div>${items.map(qitem).join('')}</div>`;
+  });
+  if(!shown)h+=emptyMini(rows.length?'Nothing in this group.':'Nothing needs us.','task_alt');
+  return h+'</section>';
+}
+
+/* Done today: today's done intents of the deciding types, each with its
+   words, who and when; Put back on a Not now that is still put off. */
+function doneTodayHtml(){
+  const today=NXJOBS.todayIn();
+  const done=intents.filter(i=>i.status==='done'&&DONE_TYPES.includes(i.type)&&(NXJOBS.london(i.requested_at)||{}).iso===today).sort((a,b)=>b.id-a.id);
+  if(!done.length)return '';
+  const titles={};T.open.concat(T.done).forEach(t=>{titles[t.id]=t.title;});
+  return `<details class="archive"><summary>Done today (${done.length})</summary><div class="arch-body">${done.map(i=>{
+    const w=NXJOBS.doneWords(i,{taskTitle:id=>titles[id]}), at=(NXJOBS.london(i.requested_at)||{}).hm||'';
+    let put='';
+    if(w.notNow){
+      const key=(i.payload_json||{}).item_key;
+      const after=intents.filter(x=>x.type==='restore-inbox-item'&&(x.payload_json||{}).item_key===key&&x.id>i.id).sort((a,b)=>b.id-a.id)[0];
+      const back=btn('putBack','Put back','undo',{intent:i.id},'quiet');
+      put=!after?back:after.status==='failed'?failLine(after)+back:after.status==='done'?'<span class="st ok">Back in the queue</span>':'<span class="status-line">Putting it back, queued</span>';
+    }
+    return `<div class="arch-row"><span class="gdot${w.group?' '+esc(w.group):''}"></span><span class="arch-note" style="color:var(--fg-1)">${esc(w.label)}</span><span class="item-date">${esc(NXShell.personOf(i.requested_by))}, ${esc(at)}</span>${put}</div>`;
+  }).join('')}</div></details>`;
+}
+
+/* Set aside: every card put off with Not now that is still put off,
+   newest first, with Put back (Will's rule: what leaves a working list goes
+   to a collapsed archive below it, not out of reach). */
+function setAsideHtml(){
+  if(!SA.ok||!SA.rows.length)return '';
+  return `<details class="archive"><summary>Set aside (${SA.rows.length})</summary><div class="arch-body">${SA.rows.map(d=>{
+    const k=NXJOBS.KINDS[d.kind], q=pending['nn:'+d.item_key], at=NXJOBS.london(d.dismissed_at)||{};
+    const back=btn('putBack','Put back','undo',{key:d.item_key},'quiet');
+    const put=q&&q.type==='restore-inbox-item'?(q.status==='failed'?failLine(q)+back:'<span class="status-line">Putting it back, queued</span>'):back;
+    return `<div class="arch-row"><span class="gdot ${esc(k?k.group:'')}"></span><span class="arch-note" style="color:var(--fg-1)"><b>${esc(k?k.label:d.kind)}</b>: ${esc(d.reason)}</span>`+
+      `<span class="item-date">${esc(NXShell.personOf(d.dismissed_by))}, ${esc(NXJOBS.day(d.dismissed_at))} ${esc(at.hm||'')}</span>${put}</div>`;
+  }).join('')}</div></details>`;
+}
+
+/* Our tasks: Overdue, Today, This week (to Sunday), Later; the workspace
+   checkboxes, tickable as on the old Tasks page; and at the foot the tasks
+   done in the last 14 days, each with Put back. */
+function tasksPanel(){
+  const ctx=jobCtx();
+  let body='';
+  if(T.missing)body='<p class="picker-note">Migration 0077 has not been applied: our tasks show here once it is.</p>';
+  else if(T.error)body=`<p class="picker-note">Could not read our tasks: ${esc(T.error)}.</p>`;
+  else{
+    if(UI.open==='task:add')body+=NXJOBS.taskForm(ctx,null,{form:'tk'});
+    /* The newest add of each title: queued, or failed in the last week (an
+       add of the same title that went through since clears it). */
+    const weekAgo=new Date(Date.now()-7*864e5).toISOString();
+    const adds=Object.keys(pending).filter(k=>k.startsWith('add:')).map(k=>pending[k])
+      .filter(i=>i.status!=='failed'||newer(i.requested_at,weekAgo));
+    body+=adds.map(i=>{
+      const p=i.payload_json||{}, failed=i.status==='failed';
+      return `<div class="task-row"><span class="tick${failed?'':' on'}" aria-hidden="true">${ms(failed?'close':'check')}</span><div class="task-main"><span class="task-text">${esc(p.title||'')}</span>${
+        failed?failLine(i):'<span class="task-meta"><span class="status-line">Queued</span></span>'}</div></div>`;
+    }).join('');
+    const open=T.open.slice().sort((a,b)=>String(a.due_on||'9999').localeCompare(String(b.due_on||'9999'))||a.id-b.id);
+    if(open.length)NXJOBS.BUCKETS.forEach(b=>{
+      const ts=open.filter(t=>NXJOBS.dueBucket(t.due_on,ctx.today)===b);
+      if(ts.length)body+=`<div class="due-h">${esc(b)}</div>`+ts.map(t=>NXJOBS.taskRow(t,ctx,true)).join('');
+    });
+    else if(!adds.length&&UI.open!=='task:add')body+=emptyMini('No open tasks.','task_alt');
+    body+=workspaceHtml();
+    if(T.done.length)body+=`<details class="archive inpanel"><summary>Done (${T.done.length})</summary><div class="arch-body">${T.done.map(t=>{
+      const q=pending['task:'+t.id];
+      return `<div class="arch-row"><span class="arch-note" style="color:var(--fg-1)">${esc(t.title)}</span><span class="item-date">${esc(NXShell.personOf(t.done_by))}, ${esc(NXJOBS.day(t.done_at))}</span>${
+        q&&q.status!=='failed'?'<span class="status-line">Queued</span>':(q?failLine(q):'')+btn('taskPutBack','Put back','undo',{task:t.id},'quiet')}</div>`;
+    }).join('')}</div></details>`;
+  }
+  if(T.missing||T.error)body+=workspaceHtml();
+  return `<section class="panel"><div class="composer-row"><h2>Tasks <span class="n num">${T.open.length}</span></h2>${T.missing||T.error?'':btn('taskOpen','Add task','add',{})}</div><div>${body}</div></section>`;
+}
+function workspaceHtml(){
+  let h='<div class="due-h">From the workspace</div>';
+  if(WS.error)return h+`<p class="picker-note">${esc(WS.error)}</p>`;
+  if(!WS.rows.length)return h+'<p class="picker-note">No open checkboxes. The list is rebuilt from the workspace at 07:00.</p>';
+  return h+WS.rows.map(t=>{
+    /* Tasks in emails/ files are verbatim received material: never ticked. */
+    const inEmail=/\/emails\//.test(t.source||'');
+    const q=tickByKey[keyOf(t)], failed=!!q&&q.status==='failed', ticked=isTicked(t), queued=!!q&&!failed&&!ticked&&q.status!=='done';
+    const m=/^(deals|leads)\/([^/]+)\//.exec(t.source||''), co=m?companyBySlug[m[2]]:null;
+    const tick=inEmail?`<span class="tick locked" title="Filed email: verbatim received material, never edited">${ms('lock')}</span>`
+      :ticked||queued?`<span class="tick on" aria-hidden="true">${ms('check')}</span>`
+      :`<button type="button" class="tick" data-act="tick" data-s="${esc(t.source)}" data-t="${esc(t.task)}" aria-label="Tick: ${esc(t.task)}">${ms('check')}</button>`;
+    const meta=(m?`<a class="linkish" href="company.html?slug=${esc(encodeURIComponent(m[2]))}">${esc(co?co.name:m[2])}</a>`:`<span>${esc(t.source)}</span>`)
+      +`<span>${esc(t.owner)}</span>`+(inEmail?'<span>Filed email: it cannot be ticked</span>':'')
+      +(ticked?'<span>Ticked; the list refreshes at 07:00</span>':'')+(queued?'<span class="status-line">Queued</span>':'');
+    return `<div class="task-row">${tick}<div class="task-main"><span class="task-text">${esc(t.task)}</span><span class="task-meta">${meta}</span>${failed?failLine(q):''}</div></div>`;
+  }).join('');
+}
+
+/* They wrote last: the eight companies whose newest filed email, under 30
+   days old, came from them; newest first. */
+function wrotePanel(){
+  if(M.error)return `<section class="panel"><h2>They wrote last</h2><p class="picker-note">${esc(M.error)}</p></section>`;
+  const newest={};
+  M.rows.filter(e=>!e.gone_at&&e.sent_at).forEach(e=>{const c=newest[e.company_id];if(!c||e.sent_at>c.sent_at)newest[e.company_id]=e;});
+  const list=Object.values(newest).filter(e=>e.direction==='inbound').sort((a,b)=>String(b.sent_at).localeCompare(String(a.sent_at))).slice(0,8);
+  const body=list.length?list.map(e=>{
+    const co=companies[e.company_id];
+    return `<div class="item"><span class="ev-icon">${ms('move_to_inbox')}</span><div class="item-main"><a class="linkish" href="company.html?id=${esc(e.company_id)}">${esc(co?co.name:'A company')}</a><span class="item-sub" title="${esc(e.subject||'')}">${esc(e.subject||'(no subject)')}</span>${
+      e.from_text?`<span class="item-sub">${esc(e.from_text)}</span>`:''}</div><span class="item-date num">${esc(NXJOBS.day(e.sent_at))}</span></div>`;
+  }).join(''):emptyMini('Nobody is waiting on a reply.','mark_email_read');
+  return `<section class="panel"><h2>They wrote last <span class="n num">${list.length}</span></h2><div>${body}</div></section>`;
+}
+
+/* Payment clocks (plan 049's table, when it is there): every invoiced,
+   unpaid membership, blue to day 14, red once the listing has hidden
+   itself, with ticks at days 7 and 12 and the reminders that have gone. */
+const money=(v,c)=>{try{return Number(v||0).toLocaleString('en-GB',{style:'currency',currency:c||'GBP',minimumFractionDigits:0,maximumFractionDigits:2});}catch(e){return String(v);}};
+function clocksPanel(){
+  if(!P.ok)return '';
+  const today=NXJOBS.todayIn();
+  const body=P.rows.length?P.rows.slice().sort((a,b)=>String(a.clock_start||a.invoice_date||'').localeCompare(String(b.clock_start||b.invoice_date||''))).map(m=>{
+    const hidden=!!m.hidden_at&&!m.restored_at, n=NXJOBS.clockDay(m.clock_start?m:{clock_start:m.invoice_date},today)||0, last=m.extended_to||m.hide_on;
+    const right=hidden?`Hidden since ${NXJOBS.day(m.hidden_at)}`:last?`Hides ${NXJOBS.day(last)} if unpaid`:'';
+    const sub=[m.period==='monthly'?'Monthly':'Yearly',money(m.amount,m.currency),m.invoice_date?'invoiced '+NXJOBS.day(m.invoice_date):''].filter(Boolean).join(', ');
+    const clock=m.extended_to&&!hidden?`<span class="clabel">Extended by hand to ${esc(NXJOBS.day(m.extended_to))}</span>`:NXJOBS.clockHtml(m,n);
+    return `<div class="item"><span class="ev-icon">${ms('schedule')}</span><div class="item-main" style="gap:5px"><span class="clock-head"><a class="linkish" href="company.html?org=${esc(encodeURIComponent(m.org_id))}">${esc(P.names[m.org_id]||'An account')}</a><span class="item-date">${esc(right)}</span></span><span class="item-sub wrap">${esc(sub)}</span>${clock}</div></div>`;
+  }).join(''):emptyMini('Every membership is paid.','paid');
+  return `<section class="panel"><h2>Payment clocks <span class="n num">${P.rows.length}</span></h2><div>${body}</div><p class="picker-note">Reminders go to the host on days 7 and 12. On day 14 the listing hides itself, and paying restores it.</p></section>`;
+}
+
+function render(){
+  const page=$('page');
+  const head=NXShell.headHtml({title:todayTitle(),lede:LEDE});
+  if(!loaded){page.innerHTML=head+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the queue.</span></div></section>`;return;}
+  const bn=banners.map(([tone,b])=>`<div class="banner${tone==='err'?' err':''}">${ms(tone==='err'?'error':'info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
+  /* A queue that could not be read shows its banner and nothing that reads as an empty queue. */
+  page.innerHTML=head+bn+(queueError?'':statTiles())+`<div class="today-grid"><div class="col-stack">${queueError?'':queueHtml()}${doneTodayHtml()}${setAsideHtml()}</div><div class="col-stack">${tasksPanel()}${wrotePanel()}${clocksPanel()}</div></div>`;
+}
+
+/* ---------- raising ---------- */
+/* A press marks its job queued at once (a provisional intent under the
+   job's key) and refuses a second press while the first is on its way. */
+async function raise(type,payload,spot,verb,toastText){
+  const temp={id:1e15+(++sendSeq),type,payload_json:payload,status:'pending',requested_at:new Date().toISOString(),requested_by:me.email};
+  const k=NXJOBS.intentKey(temp);
+  if(k!=null&&pending[k]&&pending[k].status!=='failed')return false;
+  sending.push(temp);reduce(base.concat(sending));
+  UI.open=null;render();
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){
+    sending=sending.filter(x=>x!==temp);reduce(base.concat(sending));render();
+    NXShell.toast(`Could not queue it: ${error.message}`);return false;
+  }
+  NXShell.toast(toastText||`${verb}, queued. The engine acts within a minute or two.`);
+  setTimeout(load,1500);
+  return true;
+}
+const val=id=>String(($(id)||{}).value||'');
+const need=(id,msg)=>{const f=$(id);if(f&&f.focus)f.focus();NXShell.toast(msg);return false;};
+const retryIntent=id=>{const i=intentById[id];if(i)return raise(i.type,i.payload_json||{},'retry','Tried again');};
+/* What jobs.js's panels and decisions are given (see its header). */
+function jobCtx(){
+  return Object.assign({},J,{rows,pending,ui:UI,me:me&&me.email,tasks:T.open.concat(T.done),companies,companyList,today:NXJOBS.todayIn(),
+    raise,val,need,toast:NXShell.toast,retry:retryIntent,
+    open:k=>{UI.open=k;render();const f=document.querySelector('.inline-choice .input');if(f&&f.focus)f.focus();},
+    close:()=>{UI.open=null;render();}});
+}
+
+const ACT={
+  filter(el){const f=el.dataset.f;UI.filter=f==='all'||UI.filter===f?'all':f;render();},
+  toggleRow(el){const k=el.dataset.key;if(UI.rows.has(k))UI.rows.delete(k);else UI.rows.add(k);render();},
+  retry(el){return retryIntent(el.dataset.intent);},
+  /* Put back, from Done today (by the Not now intent) or Set aside (by the card's key). */
+  putBack(el){
+    const i=el.dataset.intent?intentById[el.dataset.intent]:null;
+    const item_key=el.dataset.key||(i&&(i.payload_json||{}).item_key);
+    if(!item_key)return;
+    return raise('restore-inbox-item',{item_key},'done','Put back');
+  },
+  /* The workspace tick (G2c): the engine flips that checkbox in the file it
+     came from and commits; the browser never touches the workspace. */
+  tick(el){return raise('tick-task',{source:el.dataset.s,task:el.dataset.t},'workspace','Ticked');},
+};
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(!b)return;
+  const a=b.dataset.act;
+  if(ACT[a]){e.preventDefault();ACT[a](b);}
+  else if(NXJOBS.ACT[a]){e.preventDefault();NXJOBS.ACT[a](b,jobCtx());}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&UI.open){UI.open=null;render();}});
 
 boot();
 </script>
