@@ -403,6 +403,7 @@
     content().innerHTML = stepDots(1) + `
       <h2>Introduce yourself once.</h2>
       <p class="body">Two minutes, in confidence. One of us reads every profile personally.</p>
+      ${draft.join_note ? `<p class="np-hint" data-np-join-note>${esc(draft.join_note)}</p>` : ''}
       <form data-np-step="1">
         <div class="form-grid">
           <div class="field"><label for="qName">Your name</label><input id="qName" required value="${esc(draft.name)}" placeholder="Full name"></div>
@@ -499,6 +500,9 @@
          openQuestionnaire): the worker validates it and appends it to the
          link. */
       if (draft.return_to) body.return_to = draft.return_to;
+      /* Plan 073 (D7): the invitation this form was opened from, so the new
+         account joins the card it was sent for. */
+      if (draft.portal_invite) body.portal_invite = draft.portal_invite;
       /* Only present when a site key is set and the widget has actually
          handed back a token: with no key the body is exactly what it was
          before Turnstile existed. */
@@ -509,6 +513,8 @@
            email is clicked, so nothing here signs anyone in. */
         const email = draft.email;
         delete draft.password;
+        delete draft.portal_invite;
+        delete draft.join_note;
         confirmSentCard(email);
       } else {
         btn.textContent = orig;
@@ -525,7 +531,13 @@
              a password the sign-in service refused showed only "Check the
              details"). Anything else carries the server's reason as a
              reference, so an email to the desk says which step failed. */
-          err.textContent = d.error === 'account_exists'
+          /* An invitation that ran out while the form was open never blocks
+             the sign-up: it is dropped, and the next press registers as anyone
+             would (plan 073). */
+          if (d.error === 'invite_not_valid') delete draft.portal_invite;
+          err.textContent = d.error === 'invite_not_valid'
+            ? JOIN_EXPIRED
+            : d.error === 'account_exists'
             ? 'There\'s already an account for that email. Close this and choose Sign in instead.'
             : d.error === 'network'
             ? 'That did not save. Check your connection and try again, or email hello@nexpoint.co.uk.'
@@ -711,6 +723,35 @@
     cb();
   };
 
+  /* ── the portal invitation (plan 073, D7) ────────────────────────
+     NexPoint's invitation email links to the door with ?join=<token>. The
+     door asks the worker what the invitation says and opens Create account
+     with the company and the address filled in (both stay editable); the
+     register body then carries the token, so the new account joins the card
+     it was sent for. An invitation that has run out or been used shows one
+     line over the ordinary form, and nothing here ever blocks a sign-up: a
+     wrong link, a network failure or a browser holding the old copy of this
+     file all open the ordinary form, which still works. */
+  const JOIN_EXPIRED = 'This invitation has expired. Ask NexPoint for a new one, or create your account below.';
+  function joinToken() {
+    try { return new URLSearchParams(location.search).get('join') || ''; } catch (e) { return ''; }
+  }
+  A.openFromInvite = async function () {
+    const token = joinToken();
+    if (!token || !document.body || document.body.hasAttribute('data-np-wall') || A.user) return;
+    delete draft.portal_invite; delete draft.join_note;
+    const d = /^[0-9a-f]{64}$/.test(token) ? await postJson('/auth/portal-invite', { token: token }) : {};
+    if (d.ok) {
+      draft.company = d.company_name || '';
+      draft.email = d.email || '';
+      draft.portal_invite = token;
+    } else if (d.error === 'invite_expired' || d.error === 'invite_used') {
+      draft.join_note = JOIN_EXPIRED;
+    }
+    A.openQuestionnaire({});
+  };
+
   window.NPAccount = A;
   A.ready = A.refresh();
+  whenDom(() => { A.ready.then(A.openFromInvite, A.openFromInvite); });
 })();

@@ -248,6 +248,8 @@ const API = {
   },
   "POST /auth/logout": (w) => { w.user = null; return [200, { ok: true }]; },
   "POST /auth/register": () => [200, { ok: true }],
+  // plan 073 (D7): the door's read of a portal invitation; a link with no live one
+  "POST /auth/portal-invite": () => [404, { error: "not_found" }],
   // the site map's two lookups (plan 046): a place for a search, a place for a pin
   "GET /geocode/search": () => [200, { ok: true, point: { lat: 53.8, lng: -1.55 } }],
   "GET /geocode/reverse": () => [200, { ok: true, town: "Leeds", country: "United Kingdom", region: "uk" }],
@@ -1043,6 +1045,88 @@ async function walkRegister() {
   await step("any other refusal carries the server's reason", () =>
     refusedWith(502, { error: "organisation store failed (500)" }, 'quoting "organisation store failed (500)"', "the refusal"));
   clean(world, errors, "the register form");
+  await context.close();
+}
+
+/* Plan 073 (D7): NexPoint's invitation email opens the door with ?join=. The
+   form opens filled from the invitation and editable, the registration
+   carries the token, and an invitation that has run out says one line over
+   the ordinary form; nothing blocks the sign-up. */
+const JOIN_TOKEN = "c".repeat(64);
+async function walkJoin() {
+  area = "Create an account from a portal invitation";
+  const world = newWorld();
+  world.api["POST /auth/portal-invite"] = () => [200, { ok: true, company_name: "ZZ Invited Lab Ltd", email: "invited@example.com" }];
+  const { context, page, errors } = await visit(world);
+  const submit = () => page.click("#npAccountContent button[type=submit]");
+  const toStepTwo = async () => {
+    await page.fill("#qName", "Walk Tester");
+    await page.locator("#qPass").pressSequentially(PASSWORD);
+    await submit();
+    await page.waitForSelector('form[data-np-step="2"]');
+    await page.fill("#qCountry", "United Kingdom");
+    await page.waitForSelector("#qTerms");
+    await page.check("#qTerms");
+    await page.waitForSelector('form[data-np-step="2"] button[type=submit]:not([disabled])');
+  };
+  await page.goto(`${APEX}/hub/?join=${JOIN_TOKEN}`);
+  await step("the link opens Create account filled from the invitation", async () => {
+    await page.waitForSelector('form[data-np-step="1"]');
+    eq(apiCalls(world, "POST /auth/portal-invite").map((c) => c.body), [{ token: JOIN_TOKEN }], "the door's read");
+    eq([await page.inputValue("#qCompany"), await page.inputValue("#qEmail")],
+      ["ZZ Invited Lab Ltd", "invited@example.com"], "the two fields");
+    return (await page.locator("[data-np-join-note]").count()) === 0;
+  });
+  await step("both fields stay editable, and the registration carries the token with what was typed", async () => {
+    await page.fill("#qCompany", "ZZ Invited Lab (Leeds) Ltd");
+    await toStepTwo();
+    await submit();
+    await page.waitForSelector("#npAccountContent .success");
+    const b = apiCalls(world, "POST /auth/register").pop().body;
+    eq([b.company, b.email, b.portal_invite], ["ZZ Invited Lab (Leeds) Ltd", "invited@example.com", JOIN_TOKEN], "the register body");
+  });
+  await step("an invitation that ran out while the form was open is dropped, and the next press registers", async () => {
+    await page.goto(`${APEX}/hub/?join=${JOIN_TOKEN}`);
+    await page.waitForSelector('form[data-np-step="1"]');
+    await toStepTwo();
+    world.api["POST /auth/register"] = (w, req) => (req.body.portal_invite ? [422, { error: "invite_not_valid" }] : [200, { ok: true }]);
+    await submit();
+    await page.waitForFunction(() => (document.querySelector("#npAccountContent form .np-sign-error") || {}).textContent?.includes("expired"));
+    has(await page.textContent("#npAccountContent form .np-sign-error"), "This invitation has expired. Ask NexPoint for a new one", "the line");
+    await page.waitForSelector('form[data-np-step="2"] button[type=submit]:not([disabled])');
+    await submit();
+    await page.waitForSelector("#npAccountContent .success");
+    const sent = apiCalls(world, "POST /auth/register").slice(-2).map((c) => c.body.portal_invite);
+    eq(sent, [JOIN_TOKEN, undefined], "the token on the two presses");
+    delete world.api["POST /auth/register"];
+  });
+  for (const [what, status, error] of [["an expired", 410, "invite_expired"], ["a used", 409, "invite_used"]]) {
+    await step(`${what} invitation says one line over the ordinary form`, async () => {
+      world.api["POST /auth/portal-invite"] = () => [status, { error }];
+      await page.goto(`${APEX}/hub/?join=${JOIN_TOKEN}`);
+      await page.waitForSelector("[data-np-join-note]");
+      has(await page.textContent("[data-np-join-note]"), "This invitation has expired. Ask NexPoint for a new one, or create your account below.", "the line");
+      eq([await page.inputValue("#qCompany"), await page.inputValue("#qEmail")], ["", ""], "the two fields");
+      await page.fill("#qCompany", "ZZ Walk Test Ltd");
+      await page.fill("#qEmail", "walk@example.com");
+      await toStepTwo();
+      await page.fill('form[data-np-step="2"] #qTown', "Leeds");
+      const before = apiCalls(world, "POST /auth/register").length;
+      await submit();
+      await page.waitForSelector("#npAccountContent .success");
+      const sent = apiCalls(world, "POST /auth/register");
+      eq(sent.length, before + 1, "registrations sent");
+      return !("portal_invite" in sent.pop().body);
+    });
+  }
+  await step("a link that is not a token opens the ordinary form without asking", async () => {
+    const before = apiCalls(world, "POST /auth/portal-invite").length;
+    await page.goto(`${APEX}/hub/?join=not-a-token`);
+    await page.waitForSelector('form[data-np-step="1"]');
+    eq(apiCalls(world, "POST /auth/portal-invite").length, before, "reads of the invitation");
+    return (await page.locator("[data-np-join-note]").count()) === 0;
+  });
+  clean(world, errors, "the invitation door");
   await context.close();
 }
 
@@ -3680,7 +3764,7 @@ const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
 const parts = []
-  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkLandings, walkSign] : [])
+  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkJoin, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkLandings, walkSign] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkMovedPages, walkInboxAndSystem, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm] : []);
 /* The settings page's You and Users (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
