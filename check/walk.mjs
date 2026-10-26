@@ -1075,6 +1075,7 @@ async function walkJoin() {
     eq(apiCalls(world, "POST /auth/portal-invite").map((c) => c.body), [{ token: JOIN_TOKEN }], "the door's read");
     eq([await page.inputValue("#qCompany"), await page.inputValue("#qEmail")],
       ["ZZ Invited Lab Ltd", "invited@example.com"], "the two fields");
+    eq(new URL(page.url()).searchParams.get("join"), null, "the token left in the address bar");
     return (await page.locator("[data-np-join-note]").count()) === 0;
   });
   await step("both fields stay editable, and the registration carries the token with what was typed", async () => {
@@ -1119,6 +1120,20 @@ async function walkJoin() {
       return !("portal_invite" in sent.pop().body);
     });
   }
+  await step("a form the visitor has started is never wiped by the invitation's answer", async () => {
+    let release;
+    const held = new Promise((r) => { release = r; });
+    world.api["POST /auth/portal-invite"] = () => [200, { ok: true, company_name: "ZZ Invited Lab Ltd", email: "invited@example.com" }];
+    await page.route("**/auth/portal-invite", async (route) => { await held; await route.fallback(); });
+    await page.goto(`${APEX}/hub/?join=${JOIN_TOKEN}`);
+    await page.click("[data-np-account-slot] [data-np-join]");
+    await page.waitForSelector('form[data-np-step="1"]');
+    await page.fill("#qName", "Typed Before The Answer");
+    release();
+    await page.waitForFunction(() => !location.search.includes("join="));
+    await page.unroute("**/auth/portal-invite");
+    return (await page.inputValue("#qName")) === "Typed Before The Answer";
+  });
   await step("a link that is not a token opens the ordinary form without asking", async () => {
     const before = apiCalls(world, "POST /auth/portal-invite").length;
     await page.goto(`${APEX}/hub/?join=not-a-token`);
@@ -3461,6 +3476,7 @@ async function walkMovedPages() {
       const lands = [`/admin/${pageOf(target)}`, `/admin/${pageOf(target).replace(/\.html$/, "")}`];
       await page.goto(`${APEX}/admin/${file}`);
       await page.waitForURL((u) => lands.includes(new URL(u).pathname));
+      eq(new URL(page.url()).search, target.includes("?") ? "?" + target.split("?")[1] : "", "the tab it names");
       await page.waitForSelector("#login", { state: "visible" });
       eq(world.reads.length, 0, "table reads");
       eq(world.writes, [], "writes");

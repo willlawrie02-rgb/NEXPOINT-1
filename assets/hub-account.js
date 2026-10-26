@@ -534,7 +534,7 @@
           /* An invitation that ran out while the form was open never blocks
              the sign-up: it is dropped, and the next press registers as anyone
              would (plan 073). */
-          if (d.error === 'invite_not_valid') delete draft.portal_invite;
+          if (d.error === 'invite_not_valid' || d.error === 'invite lookup failed') delete draft.portal_invite;
           err.textContent = d.error === 'invite_not_valid'
             ? JOIN_EXPIRED
             : d.error === 'account_exists'
@@ -736,11 +736,28 @@
   function joinToken() {
     try { return new URLSearchParams(location.search).get('join') || ''; } catch (e) { return ''; }
   }
+  /* The token leaves the address bar once read, so a reload or a shared link
+     does not ask again; the draft keeps it. */
+  function dropJoin() {
+    try {
+      const u = new URL(location.href);
+      u.searchParams.delete('join');
+      history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+    } catch (e) { /* the address stays as it was */ }
+  }
   A.openFromInvite = async function () {
     const token = joinToken();
     if (!token || !document.body || document.body.hasAttribute('data-np-wall') || A.user) return;
     delete draft.portal_invite; delete draft.join_note;
     const d = /^[0-9a-f]{64}$/.test(token) ? await postJson('/auth/portal-invite', { token: token }) : {};
+    dropJoin();
+    /* A visitor who opened Create account while the answer was on its way
+       keeps what they typed: the token joins their draft, nothing is redrawn. */
+    const ov = document.getElementById('npAccountOverlay');
+    if (ov && ov.classList.contains('open')) {
+      if (d.ok) draft.portal_invite = token;
+      return;
+    }
     if (d.ok) {
       draft.company = d.company_name || '';
       draft.email = d.email || '';
