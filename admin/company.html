@@ -143,7 +143,9 @@ const TERMS_LAYERS=[['platform','Platform'],['host','Host'],['introduction','Int
 const QUEUE_WORD={approved:'Accepted from Prospects',rejected:'Rejected on Prospects',withdrawn:'Withdrawn from Prospects',blocked:'Blocked on Prospects'};
 const BACK={'contacts.html':'Contacts','organisations.html':'Accounts','leads.html':'Prospects','inbox.html':'Inbox',
   'print-hub.html':'3D Print Hub','mill-hub.html':'Mill Hub','dashboard.html':'Dashboard','introductions.html':'Introductions','orders.html':'Orders',
-  'pipelines.html':'Pipelines'};
+  'pipelines.html':'Pipelines',
+  /* plan 077: Marketing's four tabs */
+  'marketing.html':'Prospects','marketing-campaigns.html':'Campaigns','marketing-linkedin.html':'LinkedIn','marketing-finder.html':'Finder'};
 const none=Promise.resolve({data:[],error:null});
 const todayIso=()=>new Date().toISOString().slice(0,10);
 const fmt=v=>NXCRM.fmtDate(v);

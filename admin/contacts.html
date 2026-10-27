@@ -260,7 +260,7 @@ const sel=(id,opts,cur,label)=>`<label class="sr" for="${id}">${label}</label><s
 
 function render(){
   const actions=`<button type="button" class="btn" data-act="openUi" data-ui="addperson">${ms('person_add','sm')}Add a person</button>`+
-    `<a class="btn primary" href="leads.html#add">${ms('add','sm')}Add a company on Prospects</a>`;
+    `<a class="btn primary" href="marketing.html#add">${ms('add','sm')}Add a company on Prospects</a>`;
   let h=NXShell.headHtml({title:'Contacts',lede:'Every company and every person. Changes are queued for the engine, which acts within a minute or two.',actions:state==='ready'?actions:''});
   if(state==='missing'){$('page').innerHTML=h+`<div class="banner err">${ms('error')}<div class="banner-text"><strong>Migration 0071 has not been applied: Contacts is empty until it is.</strong><span>${esc(problem)}</span></div></div>`;return;}
   if(state==='error'){$('page').innerHTML=h+`<div class="banner err">${ms('error')}<div class="banner-text"><strong>Could not read Contacts</strong><span>${esc(problem)}</span></div></div>`;return;}

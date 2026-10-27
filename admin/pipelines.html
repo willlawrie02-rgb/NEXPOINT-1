@@ -128,7 +128,7 @@ const LEDE={hub:'One card per site, one board for both hubs. Paid hosts move to 
 const INTRO_FILTERS=[['all','All'],['hub','Hub'],['opportunities','Opportunities']];
 const UI={tab:'hub',open:null,reason:null,filter:'all',companyQuery:'',pickCompany:null,hubs:[],kind:'search'};
 let state='loading', problem='', banners=[];
-let D={cards:[],moves:{},companies:{},sites:{},lastMail:{},invoices:{},links:{},intros:[],declared:{},disputed:{},orgs:{},orgCompany:{},statements:{},reroute:new Set()};
+let D={cards:[],moves:{},companies:{},sites:{},lastMail:{},invoices:{},links:{},intros:[],declared:{},disputed:{},orgs:{},orgCompany:{},statements:{},opps:{},reroute:new Set()};
 let intentByCard={}, intentByIntro={}, intentByAdd={}, sending=[], readIntents=[], seq=0;
 const now=()=>Date.now();
 const todayIso=()=>new Date().toISOString().slice(0,10);
@@ -147,7 +147,7 @@ async function load(){
     NXCRM.readAll(()=>sb.from('crm_email_index').select('company_id,sent_at').is('gone_at',null).order('sent_at',{ascending:false})),
     sb.from('membership_invoices').select('id,org_id,kind,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at').order('id',{ascending:false}).limit(1000),
     sb.from('consultancy_links').select('id,company_slug,created_at,opened_at,signed_at,invoiced_at,paid_at,revoked_at,is_test').order('id',{ascending:false}).limit(500),
-    sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,seeker_request_id,rerouted_from,updated_at').order('id',{ascending:false}).limit(1000),
+    sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,brief_id,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,seeker_request_id,rerouted_from,updated_at').order('id',{ascending:false}).limit(1000),
     NXCRM.readAll(()=>sb.from('declaration_lines').select('introduction_id,superseded_at,seeker_disputed_at,resolved_at').order('introduction_id',{ascending:true})),
     NXCRM.readAll(()=>sb.from('organisations').select('id,name').order('id',{ascending:true})),
     NXCRM.readAll(()=>sb.from('statements').select('org_id,quarter,status').order('quarter',{ascending:false})),
@@ -156,7 +156,7 @@ async function load(){
   ]);
   for(const [what,r] of [['cards',cq],['moves',mq],['companies',coq],['sites',sq],['filed emails',eq],['membership invoices',iq],['signing links',lq],['introductions',nq],['declared lines',dq],['accounts',oq],['statements',stq],['re-route jobs',rq]])
     if(r.error)banners.push(`Could not read the ${what}: ${r.error.message}.`);
-  D={cards:cq.data||[],moves:{},companies:{},sites:{},lastMail:{},invoices:{},links:{},intros:nq.data||[],declared:{},disputed:{},orgs:{},orgCompany:{},statements:{},
+  D={cards:cq.data||[],moves:{},companies:{},sites:{},lastMail:{},invoices:{},links:{},intros:nq.data||[],declared:{},disputed:{},orgs:{},orgCompany:{},statements:{},opps:{},
      reroute:new Set((rq.data||[]).map(r=>String(r.item_id)))};
   (mq.data||[]).forEach(m=>{(D.moves[m.card_id]=D.moves[m.card_id]||[]).push(m);});
   (coq.data||[]).forEach(c=>{D.companies[c.id]=c;});
@@ -167,6 +167,15 @@ async function load(){
   (dq.data||[]).forEach(l=>{if(l.introduction_id==null)return;if(!l.superseded_at)D.declared[l.introduction_id]=true;if(l.seeker_disputed_at&&!l.resolved_at)D.disputed[l.introduction_id]=true;});
   (oq.data||[]).forEach(o=>{D.orgs[o.id]=o;});
   (stq.data||[]).forEach(s=>{if(!D.statements[s.org_id])D.statements[s.org_id]=s;});
+  /* Plan 070: a board introduction hangs on its opportunity (brief_id), whose
+     owner is the side asked, in either slot. Read on its own and quietly:
+     before migration 0080 the table is not there, and the cards keep their
+     two parties as they stand. */
+  const briefIds=[...new Set(D.intros.filter(i=>i.hub==='opportunities'&&i.brief_id).map(i=>i.brief_id))];
+  if(briefIds.length){
+    const bq=await sb.from('board_opportunities').select('id,ref,owner_company_id,owner_org_id').in('id',briefIds);
+    (bq.data||[]).forEach(o=>{D.opps[o.id]=o;});
+  }
   const pq=await sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at,requested_by')
     .in('status',['pending','claimed','failed','done']).in('type',PIPE_INTENTS).order('id',{ascending:false}).limit(1000);
   if(pq.error)banners.push(`Could not read the queued moves: ${pq.error.message}.`);
@@ -286,6 +295,12 @@ const nameOfOrg=o=>D.orgCompany[o]&&D.companies[D.orgCompany[o]]?coLink(D.orgCom
 const kindOfIntro=i=>i.hub==='opportunities'?'opportunities':'hub';
 const HUB_LABEL={print:['view_in_ar','3D Print Hub'],mill:['precision_manufacturing','Mill Hub'],opportunities:['lightbulb','Opportunities Board']};
 const refOf=i=>i.ref||'INTRO-'+String(i.id).padStart(4,'0');
+/* Plan 070: on the Opportunities Board org_a sells and org_b buys; the
+   opportunity's owner, the side asked, is whichever its row names (org_a
+   until the opportunity is read). */
+const oppOf=i=>i.hub==='opportunities'&&i.brief_id?D.opps[i.brief_id]||null:null;
+const askedOf=i=>{const o=oppOf(i);return o&&o.owner_org_id&&o.owner_org_id===i.org_b?i.org_b:i.org_a;};
+const otherOf=i=>askedOf(i)===i.org_b?i.org_a:i.org_b;
 /* An expired offer the Inbox lists as a re-route job stays in Offered,
    outlined red; any other is closed (D2). */
 const expiredWaiting=i=>i.stage==='expired'&&D.reroute.has(String(i.id));
@@ -300,7 +315,7 @@ function nowLine(i,st){
     /* the day of its 14-day window (a resend opens a fresh one) */
     const left=i.acceptance_expires_at?Math.ceil((Date.parse(i.acceptance_expires_at)-now())/864e5):null;
     const d=left!=null?14-left:P.daysSince(i.created_at,now());
-    return `Day ${Math.max(0,Math.min(14,d==null?0:d))} of 14, waiting on ${(D.orgs[i.org_a]||{}).name||'the provider'}`;
+    return `Day ${Math.max(0,Math.min(14,d==null?0:d))} of 14, waiting on ${(D.orgs[askedOf(i)]||{}).name||'the provider'}`;
   }
   if(st==='introduced')return i.introduced_at?`Contacts released ${NXCRM.fmtDate(i.introduced_at)}`:'Introduced';
   const from=i.introduced_at||i.created_at, year=Math.floor((P.daysSince(from,now())||0)/365)+1;
@@ -311,11 +326,12 @@ function closePicker(i){
     `<label class="sr" for="cl-note">Note</label><input class="input" id="cl-note" placeholder="Add a note, if it helps"><div class="actions">${cancel()}${btn('confirmClose','Close the introduction','block',{intro:i.id},'danger')}</div></div>`;
 }
 function introCard(i){
-  const st=boardStageOf(i), hub=HUB_LABEL[i.hub]||HUB_LABEL.print, opp=kindOfIntro(i)==='opportunities', q=intentByIntro[i.id], late=expiredWaiting(i);
+  const st=boardStageOf(i), hub=HUB_LABEL[i.hub]||HUB_LABEL.print, opp=kindOfIntro(i)==='opportunities', q=intentByIntro[i.id], late=expiredWaiting(i), o=oppOf(i);
   const fixed=st==='offered'&&!handPairing(i);
   const manage=q&&q.status!=='failed'?queuedLine(q):fixed?'':UI.open==='close:'+i.id?closePicker(i):`<span class="actions">${btn('openUi','Close','block',{ui:'close:'+i.id},'quiet')}</span>`;
   return `<div class="card${late?' hid':''}" draggable="${fixed?'false':'true'}" data-intro="${esc(i.id)}"><span class="card-top"><strong class="num" style="color:var(--fg)">${esc(refOf(i))}</strong><span class="hub">${ms(hub[0])}${esc(hub[1])}</span></span>`+
-    `<span class="pair"><span class="pair-row"><span class="role">${opp?'Owner':'Provider'}</span>${nameOfOrg(i.org_a)}</span><span class="pair-row"><span class="role">${opp?'Requester':'Seeker'}</span>${nameOfOrg(i.org_b)}</span></span>`+
+    `<span class="pair"><span class="pair-row"><span class="role">${opp?'Owner':'Provider'}</span>${nameOfOrg(askedOf(i))}</span><span class="pair-row"><span class="role">${opp?'Requester':'Seeker'}</span>${nameOfOrg(otherOf(i))}</span></span>`+
+    (o?`<span class="facts-line"><span><span class="k">Opportunity</span>${esc(o.ref)}, ${o.owner_company_id==null?'no owner company':coLink(o.owner_company_id,(D.companies[o.owner_company_id]||{}).name||'company '+o.owner_company_id)}</span></span>`:'')+
     `<span class="facts-line"><span><span class="k">Now</span>${esc(nowLine(i,st))}</span></span>`+
     (late||D.disputed[i.id]?`<span class="card-foot">${late?'<span class="flag err">Expired</span>':''}${D.disputed[i.id]?'<span class="flag err">A declared line is disputed</span>':''}</span>`:'')+
     failLine(q)+manage+'</div>';
