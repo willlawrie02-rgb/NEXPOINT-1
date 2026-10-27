@@ -90,7 +90,7 @@ its hash.
         </span>
         <span class="navgroup">
           <a href="contacts.html">Contacts</a>
-          <a href="introductions.html">Introductions</a>
+          <a href="pipelines.html">Pipelines</a>
           <a href="orders.html">Orders</a>
           <a href="consultancy.html" aria-current="page">Consultancy</a>
         </span>
@@ -221,7 +221,15 @@ async function doLogin(){
   showAdmin(data.user);
 }
 async function signOut(){await sb.auth.signOut();location.reload();}
-function showAdmin(user){me=user;$('login').style.display='none';$('admin').style.display='block';$('who').textContent=user.email;load();loadCompanies();}
+function showAdmin(user){me=user;$('login').style.display='none';$('admin').style.display='block';$('who').textContent=user.email;prefill();load();loadCompanies();}
+/* Plan 073 (D16): a Consultancy card at In conversation opens this page with
+   ?slug=&client= to fill in the company; making the link is what moves the
+   card to Agreed. Both fields stay editable. */
+function prefill(){
+  const q=new URLSearchParams(location.search), slug=q.get('slug'), client=q.get('client');
+  if(slug&&!$('f-slug').value)$('f-slug').value=slug;
+  if(client&&!$('f-client').value)$('f-client').value=client;
+}
 
 /* The company folder datalist: the approved queue names, kebab-cased the way a
    deals/ or leads/ folder is. engine_lead_queue holds no slug column, so the

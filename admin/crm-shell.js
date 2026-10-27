@@ -11,8 +11,8 @@
    tasks and moves are signed with that name.
 
    Reads only, never a write: the counts read the inbox view (its failed-run
-   cards are System's count, so the rail and the Inbox agree; plan 072) and
-   the companies in Contacts. Intent reads stay on the pages, where the
+   cards are System's count, so the rail and the Inbox agree; plan 072), the
+   companies in Contacts and the Desk's conversations waiting on us (076). Intent reads stay on the pages, where the
    board rules can check them. */
 (function () {
   'use strict';
@@ -78,14 +78,17 @@
      the read fails before that migration); without them it reads each job's
      newest run, a run that only found the lock held clearing nothing. */
   async function readCounts(sb) {
-    const [ibx, cos, fail] = await Promise.all([
+    const [ibx, cos, fail, desk] = await Promise.all([
       sb.from('inbox').select('kind', { count: 'exact', head: true }),
       sb.from('crm_companies').select('id', { count: 'exact', head: true }),
       sb.from('inbox').select('item_key', { count: 'exact', head: true }).eq('kind', 'failed_run'),
+      /* The Desk: open conversations in which the person wrote last (0079). */
+      sb.from('desk_threads').select('id', { count: 'exact', head: true }).eq('status', 'open').eq('waiting_on', 'us'),
     ]);
     const counts = {};
     if (!ibx.error && ibx.count) counts.inbox = ibx.count;
     if (!cos.error && cos.count) counts.contacts = cos.count;
+    if (desk && !desk.error && desk.count) counts.desk = desk.count;
     if (!fail.error) {
       if (fail.count) counts.system = fail.count;
       return counts;

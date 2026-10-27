@@ -28,8 +28,11 @@
    nothing after it). Each left a one-line pointer here. What the view does
    not list keeps its control here: Resend on any other spent or awaiting
    offer, and Add a provider and Decline on a picked request. The live host
-   cards, Offer to a seeker, the desk requests, the introductions' stage
-   menu and Record commission stay until their sections ship (073, 075, 076).
+   cards, Offer to a seeker and the desk requests stay until their sections
+   ship (075, 076). Plan 073 took the introductions' stage menu and Record
+   commission off: an introduction moves on the Pipelines page's
+   Introductions board, within its rules, and each one here shows where it
+   stands there with a link to it.
    The browser never changes an external system itself. On Print and Mill
    a recorded introduction, a re-route and a resend each emails the site its offer
    through the engine (plan 067); only an Opportunities pairing is still
@@ -121,11 +124,15 @@ function showAdmin(user){
 
 /* ── Board vocabulary ──────────────────────────────────────────────── */
 
-/* STAGES is what the register's dropdown may SET. The lifecycle is wider:
-   proposed / awaiting_acceptance / expired / declined belong to the
-   acceptance flow, which the worker and the engine move, so those rows show
-   a read-only badge instead of a dropdown that could yank them out of it. */
-const STAGES=['approved','introduced','in_discussion','deal_done','dead','invoiced','paid'];
+/* The stages the desk used to set from a dropdown here (plan 073 moved that to
+   the Introductions board): such a row shows where it stands on the board and
+   a link to it. proposed / awaiting_acceptance / expired / declined belong to
+   the acceptance flow, which the worker and the engine move. */
+const BOARD_STAGES=['approved','introduced','in_discussion','deal_done','dead','invoiced','paid'];
+/* Where each of those sits on the Introductions board (the engine's
+   pipelines.intro_board_stage; a declared order is read there, not here). */
+const BOARD_STAGE_NAME={approved:'Offered',introduced:'Introduced',in_discussion:'Introduced',deal_done:'Trading',
+  invoiced:'Trading',paid:'Trading',dead:'Closed'};
 const STAGE_LABEL={proposed:'PROPOSED',awaiting_acceptance:'AWAITING ACCEPTANCE',
   approved:'APPROVED',introduced:'INTRODUCED',in_discussion:'IN DISCUSSION',
   deal_done:'DEAL DONE',dead:'DEAD',invoiced:'INVOICED',paid:'PAID',
@@ -157,6 +164,15 @@ const reqRef=r=>`${HUB.hub[0].toUpperCase()}${SIDE_PREFIX[r.side]||'R'}-${String
 /* A column carries one side or several — the print/mill seeker column takes
    request_capacity AND request_intro (asking to meet a listed node IS seeking). */
 const sidesOf=col=>Array.isArray(col.side)?col.side:[col.side];
+/* Plan 076 (D1): a desk request is request_intro on print or mill (every
+   Talk to the desk) or on opportunities with no reference (the homepage's
+   intro call). It is a conversation on the Desk, answered there, so no
+   column shows it and nothing here approves or declines it (D10). */
+function isDeskRequest(r){
+  if(!r||r.side!=='request_intro')return false;
+  if(r.hub==='print'||r.hub==='mill')return true;
+  return r.hub==='opportunities'&&!String(r.brief_ref||'').trim();
+}
 const FILTERS=[
   {f:'all',label:'All'},{f:'new',label:'New'},{f:'reviewing',label:'Reviewing'},
   {f:'approved',label:'Approved'},{f:'declined',label:'Declined'},
@@ -166,8 +182,7 @@ const REQ_BADGE={new:'NEW',reviewing:'REVIEWING',approved:'APPROVED',declined:'D
 /* One plain-English line per badge value, keyed by vocabulary because the
    same word (declined, approved, pending) means something different on each
    queue. Every badge carries its line as a title, and renderLegend() prints
-   the key for the queues a page has. introductions.html carries a copy of
-   the stage lines: it is self-contained like every non-hub board. */
+   the key for the queues a page has. */
 const STATUS_HELP={
   stage:{
     proposed:'A pick made before plan 067; nothing new arrives here. Nobody was asked: add a provider to the request or decline it',
@@ -335,7 +350,6 @@ function declineReq(id){
   if(reason===null)return;
   raise('review-web-request',{request_id:id,status:'declined',reason},'act-'+id,'Declined');
 }
-function setStage(id,stage){raise('update-introduction',{introduction_id:id,stage},'iact-'+id,'Updated');}
 function reissueAcceptance(id){
   /* reissue-acceptance (plan 067): stage back to awaiting_acceptance, the
      provider_notified_at stamp cleared and the offer emailed again with a
@@ -345,12 +359,6 @@ function reissueAcceptance(id){
   const i=intros.find(x=>x.id===id)||{id};
   if(!confirm(`Send the offer for ${introRef(i)} to the same site again? It gets the email again and a fresh 14-day window; nothing else on the introduction changes.`))return;
   raise('reissue-acceptance',{introduction_id:id},'iact-'+id,'Offer sent again');
-}
-function recordCommission(id){
-  const current=(intros.find(x=>x.id===id)||{}).commission_amount||'';
-  const amount=prompt('Commission amount (numbers only, GBP):',current);
-  if(amount===null)return;
-  raise('update-introduction',{introduction_id:id,commission_amount:Number(amount)||0},'iact-'+id,'Recorded');
 }
 function retry(intentId){
   const i=intentById[intentId];
@@ -395,7 +403,7 @@ function render(){
        the left, open seeker requests and other enquiries on the right. */
     const toReview=listings.filter(l=>l.status==='pending'||l.pending_revision_id).length;
     const open=seekReqs.filter(r=>r.status==='open'||r.status==='picked'||r.status==='desk').length;
-    const other=requests.filter(r=>sidesOf(HUB.right).includes(r.side)&&!isSeekerMirror(r)&&(r.status==='new'||r.status==='reviewing')).length;
+    const other=requests.filter(r=>sidesOf(HUB.right).includes(r.side)&&!isSeekerMirror(r)&&!isDeskRequest(r)&&(r.status==='new'||r.status==='reviewing')).length;
     $('count').textContent=[
       toReview?`${toReview} listing${toReview===1?'':'s'} to review`:'',
       open?`${open} open seeker request${open===1?'':'s'}`:'',
@@ -477,7 +485,7 @@ function renderCol(which){
      072): they leave the columns, and one line says how many and where. */
   const awaiting=l=>!!l&&!l.live_revision_id&&(l.status==='pending'||!!l.pending_revision_id);
   const inInbox=r=>r.status==='open'||r.status==='desk';
-  const all=requests.filter(r=>sidesOf(col).includes(r.side)&&!isSeekerMirror(r)).map(r=>{
+  const all=requests.filter(r=>sidesOf(col).includes(r.side)&&!isSeekerMirror(r)&&!isDeskRequest(r)).map(r=>{
     const l=HOSTS_HUB()&&r.side==='offer_capacity'?listingById((r.payload||{}).listing_id):null;
     return {r,l};
   }).filter(({l})=>{
@@ -488,7 +496,8 @@ function renderCol(which){
   const moved=!HOSTS_HUB()?0:which==='left'?listings.filter(awaiting).length:seekReqs.filter(inInbox).length;
   const pointer=!HOSTS_HUB()?'':`<p class="note" style="margin:0 0 10px">${which==='left'
     ?'Listings waiting for approval are in the Inbox'
-    :'Requests nobody matched are in the Inbox'}${moved?` (${moved})`:''}. <a href="inbox.html">Open the Inbox</a></p>`;
+    :'Requests nobody matched are in the Inbox'}${moved?` (${moved})`:''}. <a href="inbox.html">Open the Inbox</a></p>`
+    +(which==='right'?'<p class="note" style="margin:0 0 10px">Questions sent to the desk are on the Desk. <a href="desk.html">Open the Desk</a></p>':'');
   const shown=all.filter(({r,l})=>l?listingMatches(l):(filter==='all'||r.status===filter));
   /* A Removed organisation (Will, 30 Sept 2026: off the hub, kept for the
      records, a human act on the Organisations board) is never mixed with
@@ -519,7 +528,7 @@ function renderCol(which){
     ?active.map(c=>c.html).join('')
     :`<div class="empty">${total?'Nothing matches this filter.'
       :which==='left'?'No live host yet. A host\'s listing shows here once it is approved in the Inbox.'
-      :'Nothing here yet. A seeker who picks a site, or writes to the desk, lands here.'}</div>`)
+      :'Nothing here yet. A seeker who picks a site lands here.'}</div>`)
     +archive;
 }
 
@@ -662,9 +671,10 @@ function fmtCommission(i){
   return i.commission_basis?esc(i.commission_basis):'—';
 }
 
-/* One introduction's controls: the stage dropdown and Record commission
-   while the stage is one the desk sets; With the provider, Re-route and
-   Reissue while the acceptance flow owns it; a failed intent above either.
+/* One introduction's controls: where it stands on the Introductions board,
+   with a link to it, once the acceptance flow is done (plan 073); With the
+   provider, Re-route and Reissue while the acceptance flow owns it; a failed
+   intent above either.
    The register row (Opportunities) and the host card (Print and Mill, where
    the register left the page in plan 044) render the same thing, so no
    introduction is ever without its controls. */
@@ -672,11 +682,12 @@ function introManage(i){
   const q=pendingByIntro[i.id];
   const failed=failedAbove(q,'Failed');
   if(q&&!failed)return `<span class="status">Queued for the engine, moments away.</span>`;
-  if(STAGES.includes(i.stage)){
-    return failed+`<select aria-label="Set stage for ${esc(introRef(i))}" onchange="setStage(${i.id},this.value)">
-        ${STAGES.map(s=>`<option value="${s}" ${s===i.stage?'selected':''}>${STAGE_LABEL[s]}</option>`).join('')}
-      </select>
-      <button class="btn btn-gh btn-sm" onclick="recordCommission(${i.id})">Record commission</button>`;
+  if(BOARD_STAGES.includes(i.stage)){
+    if(i.stage==='approved')return failed+`<span style="color:var(--fg-2);font-size:12.5px">Recorded by hand: once the email has gone, move it to Introduced on the board.
+      <a href="pipelines.html?tab=introductions">Open the Introductions board</a></span>`;
+    const onBoard=i.first_order_at&&BOARD_STAGE_NAME[i.stage]==='Introduced'?'Trading':BOARD_STAGE_NAME[i.stage];
+    return failed+`<span style="color:var(--fg-2);font-size:12.5px">${esc(onBoard)} on the Introductions board.
+      <a href="pipelines.html?tab=introductions">Open the Introductions board</a></span>`;
   }
   /* In the acceptance flow: the provider, the worker and the engine move
      these, not a dropdown. Plan 067 (Q7, D9): a spent offer with a
@@ -992,7 +1003,7 @@ function openIntroModal(reqId){
       <textarea id="m_notes"></textarea></div>
     <div class="note-box">${HOSTS_HUB()
       ?'This records the introduction and emails the site its offer; the seeker is told when it answers. Nothing to send from Outlook.'
-      :'This records the introduction: you send the email yourselves from Outlook, then mark it introduced here.'}</div>
+      :'This records the introduction: you send the email yourselves from Outlook, then move it to Introduced on the Introductions board.'}</div>
     <div style="display:flex;justify-content:flex-end;gap:10px">
       <button class="btn btn-gh" onclick="closeIntroModal()">Cancel</button>
       <button class="btn btn-pri" onclick="createIntro(${r.id})" ${partners.length?'':'disabled'}>Record introduction</button>

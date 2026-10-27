@@ -10,6 +10,45 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
 <link rel="stylesheet" href="crm.css?v=2">
+<style>
+  /* The board's own parts, as the design's prototype draws them (plan 073). */
+  .legend .ms { font-size: 16px; width: auto; }
+  .legend .ms.auto { color: var(--blue); }
+  .col.drop { background: var(--info-wash); box-shadow: inset 0 0 0 2px var(--info-line); }
+  .col.exit { background: transparent; box-shadow: inset 0 0 0 1px var(--border); }
+  .col-head { display: flex; flex-direction: column; gap: 5px; padding: 2px 4px 4px; }
+  .col-head .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .col-head .top .num { font: 600 12px/1 var(--font-body); color: var(--fg-2); }
+  .col-head .when { font-size: 11.5px; color: var(--fg-2); line-height: 1.35; }
+  .col-head .when .ms { font-size: 13px; width: auto; margin-right: 3px; vertical-align: -2px; }
+  .col-head .when .ms.auto { color: var(--blue); }
+  .card.click { cursor: pointer; }
+  .card.click:hover { border-color: var(--blue); box-shadow: var(--shadow-rest); }
+  .card.stale:hover { border-color: var(--blue); }
+  .card[draggable="true"] { cursor: grab; }
+  .card.dragging { opacity: 0.5; }
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--fg-2); flex-wrap: wrap; }
+  .card-sub { font-size: 12px; color: var(--fg-2); }
+  .card-foot { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; font-size: 11.5px; color: var(--fg-2); min-width: 0; }
+  .card .tag { white-space: normal; max-width: 100%; overflow-wrap: anywhere; border-radius: 10px; }
+  .card .tag .ms { font-size: 14px; width: auto; }
+  .card-meta { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--fg-2); font-variant-numeric: tabular-nums; }
+  .card-meta span { display: inline-flex; align-items: center; gap: 4px; }
+  .card-meta .ms { font-size: 14px; width: auto; }
+  .sign { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--fg-1); }
+  .sign .ms { color: var(--blue); width: auto; }
+  .pair { display: flex; flex-direction: column; gap: 3px; }
+  .pair-row { display: flex; align-items: baseline; gap: 6px; font-size: 13px; min-width: 0; }
+  .pair-row .role { font: 600 11.5px/1 var(--font-body); color: var(--fg-2); width: 74px; flex: none; }
+  .facts-line { font-size: 12px; color: var(--fg-1); display: flex; flex-direction: column; gap: 2px; }
+  .facts-line span { display: flex; gap: 6px; }
+  .facts-line .k { color: var(--fg-2); min-width: 74px; }
+  .exit-note { display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; color: var(--fg-2); border: 1px dashed var(--border-control); border-radius: var(--radius); padding: 12px; background: var(--surface); }
+  .exit-note > .ms { color: var(--blue); width: auto; }
+  .exit-item { display: flex; flex-direction: column; gap: 2px; padding-top: 8px; border-top: 1px solid var(--border-faint); }
+  .fail-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12.5px; color: var(--err-ink); }
+  .add-co .picker-opts { max-height: 180px; overflow-y: auto; }
+</style>
 </head>
 <body>
 <div id="login" class="door" style="display:none">
@@ -37,7 +76,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=2"></script>
+<script src="crm-shell.js?v=3"></script>
+<script src="crm.js?v=071"></script>
+<script src="jobs.js?v=079"></script>
+<script src="pipelines.js?v=073"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -45,6 +87,7 @@ const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a h
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const PAGE_SECTION='pipelines';
 let me=null;
 
 async function boot(){
@@ -63,15 +106,396 @@ async function doLogin(){
   if(!(await NXAdminAuth.requireAal2(sb)))return;
   showAdmin(data.user);
 }
-function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,'pipelines');render();}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,PAGE_SECTION);load();}
 
-/* Plan 073 builds Pipelines. Until it does, the page says so and points at
-   the boards that do its job today (the spec's Page inventory). */
-function render(){
-  $('page').innerHTML=NXShell.headHtml({title:'Pipelines',lede:'Hub Providers, Consultancy and Introductions, each card moving on the evidence.'})
-    +NXShell.comingHtml({plan:'073',icon:'view_kanban',what:'One board per pipeline with the shared next step on every card, Dead and Revive in the archive, and Active clients beside them.',
-      until:[['introductions.html','Open Introductions'],['print-hub.html','Open the 3D Print Hub'],['mill-hub.html','Open the Mill Hub']]});
+/* Pipelines (plan 073): four tabs. Hub Providers and Consultancy are boards
+   of cards (crm_pipeline_cards) that move on their own wherever there is
+   evidence and by hand where only a person knows (In conversation, hub
+   Agreed, any move back); a dropped card follows the stepper's rules and a
+   refused drop moves nothing and says why. Introductions is the
+   introductions themselves, placed by stage (Offered, Introduced, Trading;
+   Closed in the archive). Active clients is every paid engagement in its
+   six-month term, with an Ended archive. Every write is a literal raise of
+   one of the nine pipeline intents; the engine does the rest. ?tab= keeps
+   the choice, and is the address the rail and the company page use. */
+const esc=NXCRM.esc, ms=NXShell.ms, P=NXPIPE;
+const PIPE_INTENTS=['add-card','edit-card','move-card','set-card-next','mark-card-dead','revive-card','link-card-site','invite-to-portal','move-introduction'];
+const TABS=[['hub','Hub Providers'],['consultancy','Consultancy'],['introductions','Introductions'],['clients','Active clients']];
+const LEDE={hub:'One card per site, one board for both hubs. Paid hosts move to Live Listings.',
+  consultancy:'One card per engagement. A two-sided deal has two linked cards.',
+  introductions:'Introductions on the 3D Print Hub, the Mill Hub and the Opportunities Board. Fees are invoiced quarterly from the statements.',
+  clients:'Paid consultancy engagements: the term, the introductions made and the statements.'};
+const INTRO_FILTERS=[['all','All'],['hub','Hub'],['opportunities','Opportunities']];
+const UI={tab:'hub',open:null,reason:null,filter:'all',companyQuery:'',pickCompany:null,hubs:[],kind:'search'};
+let state='loading', problem='', banners=[];
+let D={cards:[],moves:{},companies:{},sites:{},lastMail:{},invoices:{},links:{},intros:[],declared:{},disputed:{},orgs:{},orgCompany:{},statements:{},reroute:new Set()};
+let intentByCard={}, intentByIntro={}, intentByAdd={}, sending=[], readIntents=[], seq=0;
+const now=()=>Date.now();
+const todayIso=()=>new Date().toISOString().slice(0,10);
+
+async function load(){
+  banners=[];
+  const q=new URLSearchParams(location.search);
+  const tab=q.get('tab');UI.tab=TABS.some(t=>t[0]===tab)?tab:'hub';
+  const probe=await sb.from('crm_pipeline_cards').select('id').limit(1);
+  if(probe.error){state=/does not exist|schema cache|Could not find|crm_pipeline_cards/i.test(probe.error.message||'')?'missing':'error';problem=probe.error.message;render();return;}
+  const [cq,mq,coq,sq,eq,iq,lq,nq,dq,oq,stq,rq]=await Promise.all([
+    NXCRM.readAll(()=>sb.from('crm_pipeline_cards').select('id,board,company_id,site_id,stage,hubs,self_signup,brief,deal_kind,linked_card_id,consultancy_link_id,next_step,stage_entered_at,source,dead_at,dead_by,dead_reason,dead_note,dead_stage,won_at,term_ends_on,ended_at,created_at').order('id',{ascending:true})),
+    sb.from('crm_card_moves').select('id,card_id,from_stage,to_stage,how,evidence,by,at').order('at',{ascending:false}).limit(1000),
+    NXCRM.readAll(()=>sb.from('crm_companies').select('id,name,slug,archived_at').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_sites').select('id,company_id,org_id,name,town,country').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_email_index').select('company_id,sent_at').is('gone_at',null).order('sent_at',{ascending:false})),
+    sb.from('membership_invoices').select('id,org_id,kind,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at').order('id',{ascending:false}).limit(1000),
+    sb.from('consultancy_links').select('id,company_slug,created_at,opened_at,signed_at,invoiced_at,paid_at,revoked_at,is_test').order('id',{ascending:false}).limit(500),
+    sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,seeker_request_id,rerouted_from,updated_at').order('id',{ascending:false}).limit(1000),
+    NXCRM.readAll(()=>sb.from('declaration_lines').select('introduction_id,superseded_at,seeker_disputed_at,resolved_at').order('introduction_id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('organisations').select('id,name').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('statements').select('org_id,quarter,status').order('quarter',{ascending:false})),
+    /* the Inbox's re-route jobs: an expired offer it lists stays in Offered */
+    sb.from('inbox').select('*').eq('kind','reroute').limit(1000),
+  ]);
+  for(const [what,r] of [['cards',cq],['moves',mq],['companies',coq],['sites',sq],['filed emails',eq],['membership invoices',iq],['signing links',lq],['introductions',nq],['declared lines',dq],['accounts',oq],['statements',stq],['re-route jobs',rq]])
+    if(r.error)banners.push(`Could not read the ${what}: ${r.error.message}.`);
+  D={cards:cq.data||[],moves:{},companies:{},sites:{},lastMail:{},invoices:{},links:{},intros:nq.data||[],declared:{},disputed:{},orgs:{},orgCompany:{},statements:{},
+     reroute:new Set((rq.data||[]).map(r=>String(r.item_id)))};
+  (mq.data||[]).forEach(m=>{(D.moves[m.card_id]=D.moves[m.card_id]||[]).push(m);});
+  (coq.data||[]).forEach(c=>{D.companies[c.id]=c;});
+  (sq.data||[]).forEach(s=>{D.sites[s.id]=s;if(s.org_id)D.orgCompany[s.org_id]=s.company_id;});
+  (eq.data||[]).forEach(e=>{if(e.sent_at&&!D.lastMail[e.company_id])D.lastMail[e.company_id]=e.sent_at;});
+  (iq.data||[]).forEach(i=>{if(i.kind==='first'&&!i.voided_at&&!D.invoices[i.org_id])D.invoices[i.org_id]=i;});
+  (lq.data||[]).forEach(l=>{D.links[l.id]=l;});
+  (dq.data||[]).forEach(l=>{if(l.introduction_id==null)return;if(!l.superseded_at)D.declared[l.introduction_id]=true;if(l.seeker_disputed_at&&!l.resolved_at)D.disputed[l.introduction_id]=true;});
+  (oq.data||[]).forEach(o=>{D.orgs[o.id]=o;});
+  (stq.data||[]).forEach(s=>{if(!D.statements[s.org_id])D.statements[s.org_id]=s;});
+  const pq=await sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at,requested_by')
+    .in('status',['pending','claimed','failed','done']).in('type',PIPE_INTENTS).order('id',{ascending:false}).limit(1000);
+  if(pq.error)banners.push(`Could not read the queued moves: ${pq.error.message}.`);
+  if((pq.data||[]).length===1000)banners.push('Showing the newest 1,000 intent rows; older ones are not on this page.');
+  readIntents=pq.data||[];sending=[];watch(readIntents);
+  state='ready';render();
 }
+
+/* The newest intent per card and per introduction (newest wins; done clears). */
+function watch(rows){
+  intentByCard={};intentByIntro={};intentByAdd={};
+  rows.slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    const p=i.payload_json||{}, intro=p.introduction_id!=null, add=i.type==='add-card';
+    const map=add?intentByAdd:intro?intentByIntro:p.card_id!=null?intentByCard:null;
+    if(!map)return;
+    const key=add?`${p.board}:${p.company_id}`:intro?p.introduction_id:p.card_id;
+    if(i.status==='done')delete map[key];else map[key]=i;
+  });
+}
+
+/* ---------- what the cards say ---------- */
+const coName=c=>(D.companies[c.company_id]||{}).name||`Company ${c.company_id}`;
+const placeOf=c=>{const s=D.sites[c.site_id];return s?[s.town,s.country].filter(Boolean).join(', ')||s.name:'';};
+const orgOfCard=c=>(D.sites[c.site_id]||{}).org_id||null;
+const isOpenCard=c=>!c.dead_at&&!c.won_at;
+const clockOf=c=>{
+  if(c.board!=='hub'||c.stage!=='invoiced')return null;
+  const inv=D.invoices[orgOfCard(c)];
+  return inv&&inv.invoiced_at&&!inv.paid_at?inv:null;
+};
+const hiddenOf=c=>{const inv=D.invoices[orgOfCard(c)];return !!(inv&&inv.hidden_at&&!inv.restored_at&&!inv.paid_at);};
+const staleOf=c=>P.isStale(c,D.lastMail[c.company_id],now(),!!clockOf(c));
+const coLink=(id,label)=>D.companies[id]?`<a class="linkish" href="company.html?id=${esc(id)}">${esc(label||D.companies[id].name)}</a>`:esc(label||'');
+const btn=(act,label,icon,data,cls)=>`<button type="button" class="btn sm${cls?' '+cls:''}" data-act="${act}"${Object.entries(data||{}).map(([k,v])=>` data-${k}="${esc(v)}"`).join('')}>${icon?ms(icon,'sm'):''}${label}</button>`;
+const cancel=()=>'<button type="button" class="btn sm quiet" data-act="closeUi">Cancel</button>';
+const failLine=i=>i&&i.status==='failed'?`<div class="fail-line">${ms('error','sm')}<span>Failed: ${esc(NXJOBS.sentence(i.result_note))}</span></div>`:'';
+const queuedLine=i=>i&&i.status!=='failed'?'<span class="picker-note">Queued, moments away.</span>':'';
+
+function cardHtml(c){
+  const stale=staleOf(c), hid=c.board==='hub'&&hiddenOf(c), clock=clockOf(c), q=intentByCard[c.id];
+  const link=c.consultancy_link_id?D.links[c.consultancy_link_id]:null;
+  const other=c.linked_card_id?D.cards.find(x=>x.id===c.linked_card_id):null;
+  const tags=P.hubTags(c)+(c.board==='consultancy'&&c.deal_kind==='acquisition_jv'?`<span class="tag">${ms('merge')}Acquisition / JV</span>`:'')+
+    (other?`<span class="tag">${ms('link')}Linked: ${esc(coName(other))}</span>`:'');
+  return `<div class="card click${stale?' stale':''}${hid?' hid':''}" draggable="true" data-card="${esc(c.id)}" data-href="company.html?id=${esc(c.company_id)}&amp;card=${esc(c.id)}" tabindex="0" aria-label="${esc(coName(c)+', open the company page')}">`+
+    `<span class="card-top"><span class="co"><span class="card-title">${esc(coName(c))}</span><span class="card-sub">${esc(placeOf(c)||(c.brief||''))}</span></span>`+
+    (stale?`<span class="flag stale">${ms('hourglass_bottom')}Stale ${P.quietDays(c,D.lastMail[c.company_id],now())} days</span>`:'')+
+    (hid?'<span class="flag err">Hidden</span>':'')+'</span>'+
+    (tags?`<span class="card-foot">${tags}</span>`:'')+
+    (c.next_step?`<span class="next"><b>Next:</b> ${esc(c.next_step)}</span>`:'')+
+    (clock?NXJOBS.clockHtml(clock,NXJOBS.clockDay(clock,todayIso())||0):'')+
+    (link?`<span class="sign">${ms('draw','sm')}${esc(P.signLine(link))}</span>`:'')+
+    `<span class="card-meta"><span>${ms('schedule')}${esc(P.inStage(c,now()))}</span><span>${ms('mail')}${esc(P.mailText(D.lastMail[c.company_id],now()))}</span></span>`+
+    failLine(q)+queuedLine(q)+'</div>';
+}
+
+function legend(boardId){
+  return `<div class="legend"><span>${ms('bolt','auto')}Moves on its own</span><span>${ms('pan_tool')}Moved by hand; any card can go back by hand</span>`+
+    `<span><i class="sw stale"></i>Stale: no email and no move for 14 days</span>`+
+    (boardId==='hub'?'<span><i class="sw err"></i>Hidden for non-payment</span>':'')+`<span>${ms('group')}No owners: one shared next step</span></div>`;
+}
+/* Paid hosts won in the last 14 days, shown in the exit column. */
+const recentlyWon=boardId=>D.cards.filter(c=>c.board===boardId&&c.won_at&&!c.ended_at&&!c.dead_at&&P.daysSince(c.won_at,now())<=14)
+  .sort((a,b)=>String(b.won_at).localeCompare(String(a.won_at)));
+function exitNote(boardId){
+  if(boardId==='consultancy')return `<div class="exit-note">${ms('move_up')}<span>Paid engagements leave the board for <a class="linkish blue" href="pipelines.html?tab=clients">Active clients</a>.</span></div>`;
+  return `<div class="exit-note">${ms('move_up')}<span>Paid hosts leave the board for <a class="linkish blue" href="listings.html">Live Listings</a> as soon as Xero shows the invoice paid.</span>`+
+    recentlyWon('hub').map(c=>`<span class="exit-item">${coLink(c.company_id)}<span class="item-sub">${esc(NXCRM.fmtDate(c.won_at))}, now a live host</span></span>`).join('')+'</div>';
+}
+function boardHtml(boardId){
+  const cards=D.cards.filter(c=>c.board===boardId&&isOpenCard(c));
+  return `<div class="board-wrap"><div class="board" data-board="${boardId}">`+P.STAGES[boardId].map(s=>{
+    const here=cards.filter(c=>c.stage===s), exit=s==='paid', auto=!!P.AUTO[boardId][s];
+    const n=exit?recentlyWon(boardId).length:here.length;
+    const body=exit?exitNote(boardId):here.length?here.map(cardHtml).join(''):`<div class="empty-state" style="padding:16px 8px">${s==='lead'?'Accepted prospects and new fits land here.':'No cards at this stage.'}</div>`;
+    return `<section class="col${exit?' exit':''}" data-stage="${s}" data-board="${boardId}" aria-label="${esc(P.NAMES[boardId][s])}"><div class="col-head"><div class="top">${P.stagePill(boardId,s)}<span class="num">${n}</span></div>`+
+      `<span class="when">${ms(auto?'bolt':'pan_tool',auto?'auto':'')}${esc(P.WHEN[boardId][s])}</span></div>${body}</section>`;
+  }).join('')+'</div></div>';
+}
+function deadArchive(boardId){
+  const dead=D.cards.filter(c=>c.board===boardId&&c.dead_at).sort((a,b)=>String(b.dead_at).localeCompare(String(a.dead_at)));
+  if(!dead.length)return '';
+  return `<details class="archive"><summary>Dead (${dead.length})</summary><div class="arch-body">`+dead.map(c=>{
+    const q=intentByCard[c.id], at=P.NAMES[boardId][c.dead_stage]||P.NAMES[boardId][c.stage];
+    return `<div class="arch-row">${coLink(c.company_id)}<span class="st">${esc(c.dead_reason)}</span><span class="arch-note">Died at ${esc(at)}, ${esc(NXCRM.fmtDate(c.dead_at))}${c.dead_by?', by '+esc(NXShell.personOf(c.dead_by)):''}${c.dead_note?'. '+esc(c.dead_note):''}</span>`+
+      (q&&q.status!=='failed'?queuedLine(q):failLine(q)+btn('revive','Revive','undo',{card:c.id}))+'</div>';
+  }).join('')+'</div></details>';
+}
+
+/* Add a card: the company (typed, with the matching names), then the hubs and site, or the brief and kind. */
+function addCardUi(boardId){
+  const qtext=UI.companyQuery.trim().toLowerCase();
+  const matches=qtext?Object.values(D.companies).filter(c=>!c.archived_at&&String(c.name||'').toLowerCase().includes(qtext)).sort((a,b)=>String(a.name).localeCompare(String(b.name))).slice(0,12):[];
+  const chosen=UI.pickCompany?D.companies[UI.pickCompany]:null;
+  let h=`<div class="picker add-co"><span class="tg-label">Add a card on ${esc(P.BOARD_NAME[boardId])}</span>`;
+  if(!chosen){
+    h+=`<label class="sr" for="ac-q">Company</label><input class="input" id="ac-q" placeholder="Type the company's name" value="${esc(UI.companyQuery)}">`+
+      `<div class="actions">${btn('findCompany','Find the company','search')}${cancel()}</div>`+
+      (qtext?(matches.length?`<div class="picker-opts">${matches.map(c=>`<button type="button" class="opt" data-act="pickCompany" data-company="${esc(c.id)}">${esc(c.name)}</button>`).join('')}</div>`
+        :'<p class="picker-note">No company in Contacts matches. Add it on Contacts first.</p>'):'');
+    return h+'</div>';
+  }
+  h+=`<p class="picker-note">For ${coLink(chosen.id)}. ${btn('pickCompany','Change company','edit',{company:''},'quiet')}</p>`;
+  if(boardId==='hub'){
+    const free=Object.values(D.sites).filter(s=>s.company_id===chosen.id&&!D.cards.some(c=>c.board==='hub'&&c.site_id===s.id&&isOpenCard(c)));
+    h+=`<div class="picker-opts" role="group" aria-label="Hubs">${[['print','3D Print Hub'],['mill','Mill Hub']].map(([v,l])=>`<button type="button" class="opt" data-act="toggleHub" data-hub="${v}" aria-pressed="${UI.hubs.includes(v)}">${l}</button>`).join('')}</div>`+
+      `<label class="sr" for="ac-site">Site</label><select class="input" id="ac-site"><option value="">A new site named after the company</option>${free.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}${s.org_id?' (has an account)':''}</option>`).join('')}</select>`;
+  }else{
+    h+=`<label class="sr" for="ac-brief">What the engagement is for</label><input class="input" id="ac-brief" placeholder="What the engagement is for, for example: find a UK lab">`+
+      `<div class="picker-opts" role="group" aria-label="Kind">${[['search','Search'],['acquisition_jv','Acquisition / JV']].map(([v,l])=>`<button type="button" class="opt" data-act="pickKind" data-kind="${v}" aria-pressed="${UI.kind===v}">${l}</button>`).join('')}</div>`;
+  }
+  return h+`<div class="actions">${cancel()}${btn('confirmAdd','Add the card','add',{board:boardId},'primary')}</div></div>`;
+}
+
+/* ---------- Introductions ---------- */
+const nameOfOrg=o=>D.orgCompany[o]&&D.companies[D.orgCompany[o]]?coLink(D.orgCompany[o]):esc((D.orgs[o]||{}).name||'Not known');
+const kindOfIntro=i=>i.hub==='opportunities'?'opportunities':'hub';
+const HUB_LABEL={print:['view_in_ar','3D Print Hub'],mill:['precision_manufacturing','Mill Hub'],opportunities:['lightbulb','Opportunities Board']};
+const refOf=i=>i.ref||'INTRO-'+String(i.id).padStart(4,'0');
+/* An expired offer the Inbox lists as a re-route job stays in Offered,
+   outlined red; any other is closed (D2). */
+const expiredWaiting=i=>i.stage==='expired'&&D.reroute.has(String(i.id));
+/* A pairing recorded by hand (approved, every Opportunities one) has no
+   acceptance flow: a person moves it, once the email has gone from Outlook. */
+const handPairing=i=>i.stage==='approved';
+const boardStageOf=i=>expiredWaiting(i)?'offered':P.introStage(i,!!D.declared[i.id]);
+function nowLine(i,st){
+  if(st==='offered'){
+    if(expiredWaiting(i))return `Expired ${NXCRM.fmtDate(i.acceptance_expires_at||i.updated_at)}, re-route it in the Inbox`;
+    if(handPairing(i))return `Recorded by hand ${NXCRM.fmtDate(i.created_at)}; move it once the email has gone`;
+    /* the day of its 14-day window (a resend opens a fresh one) */
+    const left=i.acceptance_expires_at?Math.ceil((Date.parse(i.acceptance_expires_at)-now())/864e5):null;
+    const d=left!=null?14-left:P.daysSince(i.created_at,now());
+    return `Day ${Math.max(0,Math.min(14,d==null?0:d))} of 14, waiting on ${(D.orgs[i.org_a]||{}).name||'the provider'}`;
+  }
+  if(st==='introduced')return i.introduced_at?`Contacts released ${NXCRM.fmtDate(i.introduced_at)}`:'Introduced';
+  const from=i.introduced_at||i.created_at, year=Math.floor((P.daysSince(from,now())||0)/365)+1;
+  return `Fee year ${year}, introduced ${NXCRM.fmtDate(from)}`;
+}
+function closePicker(i){
+  return `<div class="picker"><span class="tg-label">Why is it closing? Pick one</span><div class="picker-opts">${P.DEAD_REASONS.map(r=>`<button type="button" class="opt" data-act="pickReason" data-reason="${esc(r)}" aria-pressed="${UI.reason===r}">${esc(r)}</button>`).join('')}</div>`+
+    `<label class="sr" for="cl-note">Note</label><input class="input" id="cl-note" placeholder="Add a note, if it helps"><div class="actions">${cancel()}${btn('confirmClose','Close the introduction','block',{intro:i.id},'danger')}</div></div>`;
+}
+function introCard(i){
+  const st=boardStageOf(i), hub=HUB_LABEL[i.hub]||HUB_LABEL.print, opp=kindOfIntro(i)==='opportunities', q=intentByIntro[i.id], late=expiredWaiting(i);
+  const fixed=st==='offered'&&!handPairing(i);
+  const manage=q&&q.status!=='failed'?queuedLine(q):fixed?'':UI.open==='close:'+i.id?closePicker(i):`<span class="actions">${btn('openUi','Close','block',{ui:'close:'+i.id},'quiet')}</span>`;
+  return `<div class="card${late?' hid':''}" draggable="${fixed?'false':'true'}" data-intro="${esc(i.id)}"><span class="card-top"><strong class="num" style="color:var(--fg)">${esc(refOf(i))}</strong><span class="hub">${ms(hub[0])}${esc(hub[1])}</span></span>`+
+    `<span class="pair"><span class="pair-row"><span class="role">${opp?'Owner':'Provider'}</span>${nameOfOrg(i.org_a)}</span><span class="pair-row"><span class="role">${opp?'Requester':'Seeker'}</span>${nameOfOrg(i.org_b)}</span></span>`+
+    `<span class="facts-line"><span><span class="k">Now</span>${esc(nowLine(i,st))}</span></span>`+
+    (late||D.disputed[i.id]?`<span class="card-foot">${late?'<span class="flag err">Expired</span>':''}${D.disputed[i.id]?'<span class="flag err">A declared line is disputed</span>':''}</span>`:'')+
+    failLine(q)+manage+'</div>';
+}
+const WHEN_INTRO={offered:'Waiting on the other side: 14 days to answer',introduced:'Contacts released, copied to Will and Chris',trading:'First order done, fees accruing for five years'};
+function introBoard(){
+  const shown=D.intros.filter(i=>UI.filter==='all'||kindOfIntro(i)===UI.filter);
+  const filters=`<div class="filters-mini" role="group" aria-label="Show introductions">${INTRO_FILTERS.map(([v,l])=>{
+    const n=D.intros.filter(i=>(v==='all'||kindOfIntro(i)===v)&&boardStageOf(i)!=='closed').length;
+    return `<button type="button" class="opt" data-act="introFilter" data-f="${v}" aria-pressed="${UI.filter===v}">${l} ${n}</button>`;}).join('')}</div>`;
+  const cols=`<div class="board-wrap"><div class="board" data-board="introductions">`+['offered','introduced','trading'].map(s=>{
+    const here=shown.filter(i=>boardStageOf(i)===s);
+    return `<section class="col" data-stage="${s}" data-board="introductions" aria-label="${P.INTRO_NAMES[s]}"><div class="col-head"><div class="top"><span class="stage ${s==='offered'?'s-talking':'s-agreed'}">${esc(P.INTRO_NAMES[s])}</span><span class="num">${here.length}</span></div><span class="when">${esc(WHEN_INTRO[s])}</span></div>`+
+      (here.length?here.map(introCard).join(''):'<div class="empty-state" style="padding:16px 8px">None here.</div>')+'</section>';
+  }).join('')+'</div></div>';
+  const closed=shown.filter(i=>boardStageOf(i)==='closed');
+  const word=i=>i.stage==='declined'?'Declined':i.stage==='expired'?'Expired':'Closed';
+  const arch=`<details class="archive"><summary>Closed (${closed.length})</summary><div class="arch-body">`+(closed.length?closed.map(i=>
+    `<div class="arch-row"><strong class="num" style="color:var(--fg)">${esc(refOf(i))}</strong>${nameOfOrg(i.org_b)}<span class="arch-note">${esc((HUB_LABEL[i.hub]||HUB_LABEL.print)[1])}, with ${esc((D.orgs[i.org_a]||{}).name||'the provider')}. ${esc(word(i))} ${esc(NXCRM.fmtDate(i.declined_at||i.updated_at))}</span></div>`).join('')
+    :'<div class="arch-row"><span class="arch-note">Nothing closed.</span></div>')+'</div></details>';
+  return filters+cols+arch;
+}
+
+/* ---------- Active clients ---------- */
+const orgsOfCompany=id=>Object.values(D.sites).filter(s=>s.company_id===id&&s.org_id).map(s=>s.org_id);
+function introCounts(c){
+  const orgs=orgsOfCompany(c.company_id), since=Date.parse(c.won_at||0)||0, n={};
+  D.intros.filter(i=>(orgs.includes(i.org_a)||orgs.includes(i.org_b))&&Date.parse(i.created_at)>=since).forEach(i=>{const s=boardStageOf(i);n[s]=(n[s]||0)+1;});
+  const parts=['trading','introduced','offered'].filter(s=>n[s]).map(s=>`${n[s]} ${P.INTRO_NAMES[s].toLowerCase()}`);
+  return parts.length?parts.join(', '):'None yet';
+}
+const ST_WORD={draft:'being drafted',issued:'ready to invoice',invoiced:'invoiced',paid:'paid',void:'void'};
+function statementsLine(c){
+  if(c.deal_kind==='acquisition_jv')return 'Success fee on a deal, no statements';
+  const st=orgsOfCompany(c.company_id).map(o=>D.statements[o]).filter(Boolean).sort((a,b)=>String(b.quarter).localeCompare(String(a.quarter)))[0];
+  return st?`${st.quarter} ${ST_WORD[st.status]||st.status}`:'No statements yet';
+}
+function clientsTab(){
+  const won=D.cards.filter(c=>c.board==='consultancy'&&c.won_at&&!c.dead_at);
+  const active=won.filter(c=>!c.ended_at), ended=won.filter(c=>c.ended_at);
+  const term=c=>`${NXCRM.fmtDate(c.won_at)} to ${NXCRM.fmtDate(c.term_ends_on)}`;
+  const kind=c=>c.deal_kind==='acquisition_jv'?'<span class="tag">Acquisition / JV</span>':'Search';
+  let h=`<section class="panel"><h2>Active clients <span class="n num">${active.length}</span></h2>`;
+  h+=active.length?`<div class="tscroll"><table class="tbl"><thead><tr><th>Client</th><th>Type</th><th>Term</th><th>Introductions</th><th>Statements</th></tr></thead><tbody>`+
+    active.map(c=>{const other=c.linked_card_id?D.cards.find(x=>x.id===c.linked_card_id):null;
+      return `<tr><td>${coLink(c.company_id)}<small>${esc(c.brief||'')}</small></td><td>${kind(c)}</td><td>${esc(term(c))}</td><td>${esc(other?'Linked to '+coName(other):introCounts(c))}</td><td>${esc(statementsLine(c))}</td></tr>`;}).join('')+'</tbody></table></div>'
+    :'<div class="empty-state">No paid engagement is in its term.</div>';
+  h+='</section>';
+  if(ended.length)h+=`<details class="archive"><summary>Ended (${ended.length})</summary><div class="arch-body">`+ended.map(c=>{const q=intentByCard[c.id];
+    return `<div class="arch-row">${coLink(c.company_id)}<span class="arch-note">${esc(term(c))}; ended ${esc(NXCRM.fmtDate(c.ended_at))}</span>${q&&q.status!=='failed'?queuedLine(q):failLine(q)+btn('revive','Revive','undo',{card:c.id})}</div>`;}).join('')+'</div></details>';
+  return h;
+}
+
+/* ---------- the page ---------- */
+function tabsHtml(){
+  const n={hub:D.cards.filter(c=>c.board==='hub'&&isOpenCard(c)).length,consultancy:D.cards.filter(c=>c.board==='consultancy'&&isOpenCard(c)).length,
+    introductions:D.intros.filter(i=>boardStageOf(i)!=='closed').length,clients:D.cards.filter(c=>c.board==='consultancy'&&c.won_at&&!c.ended_at&&!c.dead_at).length};
+  return `<div class="views" role="tablist" aria-label="Boards and lists">`+TABS.map(([id,label])=>(id==='clients'?'<span class="divider" aria-hidden="true"></span>':'')+
+    `<a role="tab" href="pipelines.html?tab=${id}" aria-selected="${UI.tab===id}">${esc(label)}<span class="n num">${n[id]}</span></a>`).join('')+'</div>';
+}
+function render(){
+  const page=$('page');
+  const bn=banners.map(b=>`<div class="banner">${ms('info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
+  const title=(TABS.find(t=>t[0]===UI.tab)||TABS[0])[1];
+  if(state==='loading'){page.innerHTML=NXShell.headHtml({title:'Pipelines'})+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the boards.</span></div></section>`;return;}
+  if(state==='missing'){page.innerHTML=NXShell.headHtml({title:'Pipelines',lede:'The pipelines are not there yet: migration 0078 has not been applied.'})+
+    `<section class="panel"><div class="empty-state">${ms('view_kanban')}<p>Once it is, every card shows here.</p><div class="until"><a class="btn sm" href="print-hub.html">Open the 3D Print Hub</a><a class="btn sm" href="mill-hub.html">Open the Mill Hub</a></div></div></section>`;return;}
+  if(state==='error'){page.innerHTML=NXShell.headHtml({title:'Pipelines'})+`<div class="banner err">${ms('error')}<div class="banner-text"><strong>Could not read the boards</strong><span>${esc(problem)}</span></div></div>`;return;}
+  const boardTab=UI.tab==='hub'||UI.tab==='consultancy';
+  const actions=boardTab?btn('openUi','Add a card','add',{ui:'add'},'primary')+(UI.tab==='consultancy'?`<a class="btn sm" href="consultancy.html">${ms('draw','sm')}Make a signing link</a>`:''):'';
+  let h=NXShell.headHtml({title,lede:LEDE[UI.tab],actions})+bn+tabsHtml();
+  if(boardTab){
+    /* an Add a card the engine refused says why, above the board */
+    Object.entries(intentByAdd).filter(([k,i])=>i.status==='failed'&&k.startsWith(UI.tab+':')).forEach(([k,i])=>{
+      const c=D.companies[k.split(':')[1]];
+      h+=`<div class="fail-line">${ms('error','sm')}<span>Could not add ${esc(c?c.name:'the company')}: ${esc(NXJOBS.sentence(i.result_note))}</span></div>`;
+    });
+    if(UI.open==='add')h+=addCardUi(UI.tab);
+    h+=legend(UI.tab)+boardHtml(UI.tab)+deadArchive(UI.tab);
+  }else if(UI.tab==='introductions')h+=introBoard();
+  else h+=clientsTab();
+  page.innerHTML=h;
+}
+
+/* ---------- raising ---------- */
+async function raise(type,payload,toastText){
+  const temp={id:1e15+(++seq),type,payload_json:payload,status:'pending',requested_by:me.email};
+  sending.push(temp);watch(readIntents.concat(sending));UI.open=null;UI.reason=null;render();
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){sending=sending.filter(x=>x!==temp);watch(readIntents.concat(sending));render();NXShell.toast(`Could not queue it: ${error.message}`);return false;}
+  NXShell.toast(toastText);
+  setTimeout(load,1500);
+  return true;
+}
+/* The CRM's one toast for a queued action (the shell's wording). */
+const queued=v=>`${v}, queued. The engine acts within a minute or two.`;
+const cardById=id=>D.cards.find(c=>String(c.id)===String(id));
+const introById=id=>D.intros.find(i=>String(i.id)===String(id));
+const val=id=>String(($(id)||{}).value||'').trim();
+
+/* A drop (or a test's call): the stepper's rules, then move-card; a refused move changes nothing. */
+function moveCard(cardId,stage){
+  const c=cardById(cardId);
+  if(!c||!isOpenCard(c)||c.stage===stage)return false;
+  const why=P.handMove(c.board,c.stage,stage);
+  if(why){NXShell.toast(why);return false;}
+  return raise('move-card',{card_id:c.id,stage},queued(`Moved ${coName(c)} to ${P.NAMES[c.board][stage]}`));
+}
+/* D12: Introduced and Trading both ways by hand; Offered only by the other side. */
+function moveIntro(introId,to){
+  const i=introById(introId);
+  if(!i)return false;
+  const from=boardStageOf(i);
+  if(from===to)return false;
+  if(from==='offered'&&!handPairing(i)){NXShell.toast('An offered introduction moves only when the other side answers or its 14 days run out.');return false;}
+  if(to==='offered'){NXShell.toast('An introduction goes back to Offered only by being offered again, from the Inbox.');return false;}
+  if(from==='trading'&&to==='introduced'&&(D.declared[i.id]||i.first_order_at)){NXShell.toast('It has an order on record, so it stays in Trading.');return false;}
+  return raise('move-introduction',{introduction_id:i.id,to},queued(`Moved ${refOf(i)} to ${P.INTRO_NAMES[to]}`));
+}
+
+const ACT={
+  openUi(el){UI.open=el.dataset.ui;UI.reason=null;if(UI.open==='add'){UI.companyQuery='';UI.pickCompany=null;UI.hubs=[];UI.kind='search';}render();},
+  closeUi(){UI.open=null;UI.reason=null;render();},
+  introFilter(el){UI.filter=el.dataset.f;render();},
+  findCompany(){UI.companyQuery=val('ac-q');render();},
+  pickCompany(el){UI.pickCompany=el.dataset.company?Number(el.dataset.company):null;render();},
+  toggleHub(el){const h=el.dataset.hub;UI.hubs=UI.hubs.includes(h)?UI.hubs.filter(x=>x!==h):UI.hubs.concat(h);render();},
+  pickKind(el){UI.kind=el.dataset.kind;render();},
+  pickReason(el){UI.reason=el.dataset.reason;render();},
+  confirmAdd(el){
+    const c=D.companies[UI.pickCompany];
+    if(!c)return NXShell.toast('Pick the company first.');
+    if(el.dataset.board==='hub'){
+      if(!UI.hubs.length)return NXShell.toast('Pick the 3D Print Hub, the Mill Hub or both.');
+      const site=val('ac-site');
+      return raise('add-card',{board:'hub',company_id:c.id,site_id:site?Number(site):null,hubs:UI.hubs.slice()},queued(`Added ${c.name} to Hub Providers at Lead`));
+    }
+    return raise('add-card',{board:'consultancy',company_id:c.id,brief:val('ac-brief'),deal_kind:UI.kind},queued(`Added ${c.name} to Consultancy at Lead`));
+  },
+  revive(el){
+    const c=cardById(el.dataset.card);
+    if(!c)return;
+    return raise('revive-card',{card_id:c.id},queued(c.ended_at?`Revived ${coName(c)} in Active clients`
+      :`Revived ${coName(c)} at ${P.NAMES[c.board][c.dead_stage]||P.NAMES[c.board][c.stage]} on ${P.BOARD_NAME[c.board]}`));
+  },
+  confirmClose(el){
+    const i=introById(el.dataset.intro);
+    if(!i)return;
+    if(!UI.reason)return NXShell.toast('Pick a reason to close it.');
+    const note=val('cl-note');
+    return raise('move-introduction',{introduction_id:i.id,to:'closed',reason:UI.reason,note},queued(`Closed ${refOf(i)}: ${UI.reason}`));
+  },
+};
+
+/* Cards drag between columns; a click (or Enter) opens the company page at the card's stepper. */
+let dragged=null;
+document.addEventListener('dragstart',e=>{const el=e.target.closest&&e.target.closest('[data-card],[data-intro]');if(!el)return;dragged={card:el.dataset.card,intro:el.dataset.intro};el.classList.add('dragging');});
+document.addEventListener('dragend',e=>{const el=e.target.closest&&e.target.closest('.card');if(el)el.classList.remove('dragging');document.querySelectorAll('.col.drop').forEach(x=>x.classList.remove('drop'));});
+document.addEventListener('dragover',e=>{const col=e.target.closest&&e.target.closest('.col[data-stage]');if(col&&dragged){e.preventDefault();col.classList.add('drop');}});
+document.addEventListener('dragleave',e=>{const col=e.target.closest&&e.target.closest('.col[data-stage]');if(col)col.classList.remove('drop');});
+document.addEventListener('drop',e=>{
+  const col=e.target.closest&&e.target.closest('.col[data-stage]');
+  if(!col||!dragged)return;
+  e.preventDefault();col.classList.remove('drop');
+  const d=dragged;dragged=null;
+  if(d.card&&col.dataset.board!=='introductions')moveCard(d.card,col.dataset.stage);
+  else if(d.intro&&col.dataset.board==='introductions')moveIntro(d.intro,col.dataset.stage);
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(b){const a=b.dataset.act;if(ACT[a]){e.preventDefault();ACT[a](b);}return;}
+  const card=e.target.closest('.card[data-href]');
+  if(card&&!e.target.closest('a,button,input,select'))location.href=card.dataset.href.replace(/&amp;/g,'&');
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&UI.open){UI.open=null;UI.reason=null;render();return;}
+  if(e.key==='Enter'&&e.target.id==='ac-q'){e.preventDefault();ACT.findCompany();return;}
+  const card=e.target.closest&&e.target.closest('.card[data-href]');
+  if(card&&e.key==='Enter'&&e.target===card)location.href=card.dataset.href.replace(/&amp;/g,'&');
+});
 
 boot();
 </script>
