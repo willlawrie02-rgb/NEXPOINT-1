@@ -65,22 +65,20 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
     <div class="wrap">
       <nav class="boards" aria-label="Admin boards">
         <span class="navgroup">
-          <a href="dashboard.html">Dashboard</a>
+          <a href="inbox.html">Inbox</a>
           <a href="leads.html">Prospects</a>
-          <a href="tasks.html">Tasks</a>
           <a href="print-hub.html">3D Print Hub</a>
           <a href="mill-hub.html" aria-current="page">Mill Hub</a>
           <a href="opportunities.html">Opportunities</a>
         </span>
         <span class="navgroup">
-          <a href="introductions.html">Introductions</a>
-          <a href="organisations.html">Accounts</a>
-          <a href="members.html">Users</a>
+          <a href="contacts.html">Contacts</a>
+          <a href="pipelines.html">Pipelines</a>
           <a href="orders.html">Orders</a>
           <a href="consultancy.html">Consultancy</a>
         </span>
         <span class="navgroup">
-          <a href="health.html">Health</a>
+          <a href="system.html">System</a>
           <a href="campaigns.html">Campaigns</a>
           <a href="finder.html">Finder</a>
           <a href="linkedin.html">LinkedIn</a>
@@ -93,10 +91,10 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <span class="count" id="count"></span>
         </div>
         <p class="note">
-          Hosts offering CNC milling capacity on the left, seekers on the right. Approve or
-          decline each listing from its card, offer a live host to a seeker, add a provider to or
-          decline a seeker's request, and resend or re-route a declined or expired offer. Nothing
-          is listed or charged until you do; a seeker's own pick emails its site at once.
+          Hosts offering CNC milling capacity on the left, seekers on the right. Offer a live host to
+          a seeker from its card. Listings waiting for approval, requests nobody matched and
+          declined or expired offers are decided in the Inbox; a seeker's own pick emails its site
+          at once.
         </p>
         <div id="banner"></div>
         <div id="legend" class="legend"></div>
@@ -118,15 +116,11 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         </div>
 
         <div class="note-box">
-          Approving a listing makes the site a host on this hub, starts its membership at 1,000 a
-          year or 100 a month (you are asked which when you approve; there is no default) and
-          puts the site in front of seekers; the host is emailed
-          once, saying all three. Declining sends the host what to change and shows nothing
-          meanwhile. "Offer to a seeker" on a live host emails that host the offer. A seeker sees
+          "Offer to a seeker" on a live host emails that host the offer. A seeker sees
           the three best fits by name once it has accepted the introduction terms for that search;
           its pick emails that site its offer at once. A provider learns who the seeker is only
-          when it accepts. Introductions live on their own page:
-          <a href="introductions.html">Introductions</a>.
+          when it accepts. Introductions move on the Pipelines page:
+          <a href="pipelines.html?tab=introductions">the Introductions board</a>.
         </div>
       </div>
     </div>
@@ -147,9 +141,9 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 window.HUB = {
   hub: 'mill', title: 'Mill Hub',
   left:  { side: 'offer_capacity',   title: 'Hosts offering capacity',     approveLabel: 'Approve' },
-  right: { side: ['request_capacity', 'request_intro'], title: 'Seekers requesting capacity', approveLabel: 'Approve request' },
+  right: { side: 'request_capacity', title: 'Seekers requesting capacity', approveLabel: 'Approve request' },
 };
 </script>
-<script src="hub-board.js"></script>
+<script src="hub-board.js?v=079"></script>
 </body>
 </html>

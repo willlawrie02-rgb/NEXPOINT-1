@@ -82,22 +82,20 @@ its hash.
     <div class="wrap">
       <nav class="boards" aria-label="Admin boards">
         <span class="navgroup">
-          <a href="dashboard.html">Dashboard</a>
+          <a href="inbox.html">Inbox</a>
           <a href="leads.html">Prospects</a>
-          <a href="tasks.html">Tasks</a>
           <a href="print-hub.html">3D Print Hub</a>
           <a href="mill-hub.html">Mill Hub</a>
           <a href="opportunities.html">Opportunities</a>
         </span>
         <span class="navgroup">
-          <a href="introductions.html">Introductions</a>
-          <a href="organisations.html">Accounts</a>
-          <a href="members.html">Users</a>
+          <a href="contacts.html">Contacts</a>
+          <a href="pipelines.html">Pipelines</a>
           <a href="orders.html">Orders</a>
           <a href="consultancy.html" aria-current="page">Consultancy</a>
         </span>
         <span class="navgroup">
-          <a href="health.html">Health</a>
+          <a href="system.html">System</a>
           <a href="campaigns.html">Campaigns</a>
           <a href="finder.html">Finder</a>
           <a href="linkedin.html">LinkedIn</a>
@@ -223,7 +221,15 @@ async function doLogin(){
   showAdmin(data.user);
 }
 async function signOut(){await sb.auth.signOut();location.reload();}
-function showAdmin(user){me=user;$('login').style.display='none';$('admin').style.display='block';$('who').textContent=user.email;load();loadCompanies();}
+function showAdmin(user){me=user;$('login').style.display='none';$('admin').style.display='block';$('who').textContent=user.email;prefill();load();loadCompanies();}
+/* Plan 073 (D16): a Consultancy card at In conversation opens this page with
+   ?slug=&client= to fill in the company; making the link is what moves the
+   card to Agreed. Both fields stay editable. */
+function prefill(){
+  const q=new URLSearchParams(location.search), slug=q.get('slug'), client=q.get('client');
+  if(slug&&!$('f-slug').value)$('f-slug').value=slug;
+  if(client&&!$('f-client').value)$('f-client').value=client;
+}
 
 /* The company folder datalist: the approved queue names, kebab-cased the way a
    deals/ or leads/ folder is. engine_lead_queue holds no slug column, so the

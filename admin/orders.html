@@ -98,8 +98,9 @@ ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
 accent, green reserved for "go" semantics, the square logo in a translucent bar.
 STORY: the money board. Three questions in the order the desk asks them —
 what is billable (statements), does the declared month agree with what the
-CC inbox saw (reconciliation), and what evidence is still homeless (unmatched
-CC evidence) — with the pre-declarations order ledger kept below as a filter.
+CC inbox saw (reconciliation) — with the pre-declarations order ledger kept
+below as a filter. Order emails with no introduction and disputed lines are
+decided in the Inbox since plan 072.
 Every action here is an engine_intents row: the browser reads freely and
 changes nothing itself.
 FIRST VIEWPORT: brand bar, boards tabs, "Orders", then statements.
@@ -139,22 +140,20 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
     <div class="wrap">
       <nav class="boards" aria-label="Admin boards">
         <span class="navgroup">
-          <a href="dashboard.html">Dashboard</a>
+          <a href="inbox.html">Inbox</a>
           <a href="leads.html">Prospects</a>
-          <a href="tasks.html">Tasks</a>
           <a href="print-hub.html">3D Print Hub</a>
           <a href="mill-hub.html">Mill Hub</a>
           <a href="opportunities.html">Opportunities</a>
         </span>
         <span class="navgroup">
-          <a href="introductions.html">Introductions</a>
-          <a href="organisations.html">Accounts</a>
-          <a href="members.html">Users</a>
+          <a href="contacts.html">Contacts</a>
+          <a href="pipelines.html">Pipelines</a>
           <a href="orders.html" aria-current="page">Orders</a>
           <a href="consultancy.html">Consultancy</a>
         </span>
         <span class="navgroup">
-          <a href="health.html">Health</a>
+          <a href="system.html">System</a>
           <a href="campaigns.html">Campaigns</a>
           <a href="finder.html">Finder</a>
           <a href="linkedin.html">LinkedIn</a>
@@ -168,8 +167,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         </div>
         <p class="note">
           The money board. Quarterly statements are what gets invoiced; the reconciliation
-          shows whether each provider site declared the month the CC inbox saw; unmatched
-          evidence is every order email still waiting to be pointed at an introduction.
+          shows whether each provider site declared the month the CC mailbox saw. Order emails
+          with no introduction, and disputed lines, are decided in the Inbox.
           Nothing here changes a row directly: each action queues the engine.
         </p>
         <div id="banner"></div>
@@ -211,22 +210,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <div id="recRows"><div class="empty">Loading…</div></div>
         </div>
 
-        <div class="sect">
-          <div class="colhead"><h2>Unmatched CC evidence</h2><span class="n" id="evN"></span><span class="rule"></span></div>
-          <p class="muted" style="margin:0 0 12px">
-            Order emails the shared inbox received that no reference matched, plus any piece of
-            evidence a site has disputed. Point one at an introduction, or dismiss it as not an order.
-          </p>
-          <div class="register">
-            <table>
-              <thead><tr>
-                <th scope="col">Received</th><th scope="col">Sender</th><th scope="col">Subject</th><th scope="col">Quoted ref</th>
-                <th scope="col">Period</th><th scope="col">Status</th><th scope="col">Manage</th>
-              </tr></thead>
-              <tbody id="evRows"><tr><td colspan="7" style="color:var(--fg-2)">Loading…</td></tr></tbody>
-            </table>
-          </div>
-        </div>
+        <p class="note">Order emails the CC mailbox matched to no introduction, and any a site
+          has disputed, are decided in the Inbox. <a href="inbox.html">Open the Inbox</a></p>
 
         <details class="legacy" id="legacy">
           <summary>Legacy order ledger</summary>
@@ -268,14 +253,12 @@ const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 let me=null;
-let statements=[],declarations=[],decLines=[],evidence=[],intros=[],orders=[];
-/* Matched evidence for the month in the picker only. `evidence` above is
-   the homeless/disputed queue, which is not a month's worth of anything
-   and is read whole on purpose. */
+let statements=[],declarations=[],decLines=[],intros=[],orders=[];
+/* Matched evidence for the month in the picker only. */
 let periodEvidence=[];
 let orgById={},introById={};
 let selStatements=new Set(),selected=new Set(),filter='uninvoiced',month='';
-let intentById={},pendByStatement={},pendByOrder={},pendByLine={},pendByEvidence={},pendByOrg={};
+let intentById={},pendByStatement={},pendByOrder={},pendByOrg={};
 /* Set when any read the reconciliation section depends on failed, so an
    empty result can be told apart from a load that never happened —
    dueSites() reads an empty intros[] the same way whether nothing was
@@ -293,12 +276,11 @@ const DEAD_STAGES=['dead','expired','declined'];
 const DECLARED=['submitted','nothing','closed'];
 /* How long a seeker gets to confirm a line before the desk should look. */
 const CONFIRM_DAYS=7;
-const MONEY_INTENTS=['mark-invoiced','mark-paid','resolve-dispute',
-                     'match-order-evidence','open-audit-strike'];
+/* resolve-dispute and match-order-evidence moved to the Inbox (plan 072). */
+const MONEY_INTENTS=['mark-invoiced','mark-paid','open-audit-strike'];
 const ST_BADGE={draft:'DRAFT',issued:'ISSUED',invoiced:'INVOICED',paid:'PAID',void:'VOID'};
 const DEC_BADGE={submitted:'SUBMITTED',nothing:'NOTHING DECLARED',missing:'MISSING',
                  due:'DUE',overdue:'OVERDUE',closed:'CLOSED'};
-const EV_BADGE={unmatched:'UNMATCHED',matched:'MATCHED',dismissed:'DISMISSED'};
 
 const FILTERS=[
   {f:'uninvoiced',label:'Awaiting invoice'},{f:'unpaid',label:'Invoiced, unpaid'},
@@ -399,14 +381,8 @@ async function load(){
     $('month').innerHTML=months.map(m=>
       `<option value="${esc(m)}">${esc(monthLabel(m))}</option>`).join('');
   }
-  const [stQ,evQ,introQ,orgQ,ordQ,intentQ]=await Promise.all([
+  const [stQ,introQ,orgQ,ordQ,intentQ]=await Promise.all([
     sb.from('statements').select('*').order('quarter',{ascending:false}),
-    /* The queue only: everything still homeless, plus anything disputed
-       and unruled. Matched evidence for the month comes with the
-       reconciliation, below. */
-    sb.from('order_evidence').select('*')
-      .or('status.eq.unmatched,and(disputed_at.not.is.null,resolved_at.is.null)')
-      .order('received_at',{ascending:false}),
     sb.from('introductions').select('id,ref,hub,org_a,org_b,stage,introduced_at'),
     sb.from('organisations').select('id,name'),
     sb.from('orders').select('*').order('logged_at',{ascending:false}),
@@ -415,7 +391,6 @@ async function load(){
       .order('id',{ascending:false}).limit(1000),
   ]);
   if(stQ.error)warn('statements',stQ.error,MIG_HINT);
-  if(evQ.error)warn('the evidence queue',evQ.error,MIG_HINT);
   if(introQ.error)warn('introductions',introQ.error,'');
   if(ordQ.error)warn('the legacy order ledger',ordQ.error,
     'Migration 0024 (schema) and 0025 (engine_worker grants) may not be applied yet.');
@@ -424,11 +399,11 @@ async function load(){
   introError=!!introQ.error;
 
   statements=stQ.data||[];
-  evidence=evQ.data||[];intros=introQ.data||[];orders=ordQ.data||[];
+  intros=introQ.data||[];orders=ordQ.data||[];
   orgById={};(orgQ.data||[]).forEach(o=>{orgById[o.id]=o.name;});
   introById={};intros.forEach(i=>{introById[i.id]=i;});
 
-  intentById={};pendByStatement={};pendByOrder={};pendByLine={};pendByEvidence={};pendByOrg={};
+  intentById={};pendByStatement={};pendByOrder={};pendByOrg={};
   /* Ascending id, last write wins: the newest intent for a row decides
      what it shows (the read is newest-first and capped, so the sort
      restores the order). A key whose newest intent is done is dropped, so
@@ -441,10 +416,6 @@ async function load(){
     const p=i.payload_json||{};
     (p.statement_ids||[]).forEach(id=>put(pendByStatement,id,i));
     (p.order_ids||[]).forEach(id=>put(pendByOrder,id,i));
-    if(i.type==='resolve-dispute'&&p.id!=null){
-      if(p.kind==='evidence')put(pendByEvidence,p.id,i);else put(pendByLine,p.id,i);
-    }
-    if(p.evidence_id!=null)put(pendByEvidence,p.evidence_id,i);
     if(i.type==='open-audit-strike'&&p.org_id!=null)put(pendByOrg,p.org_id,i);
   });
   if((intentQ.data||[]).length===1000)note('Showing the newest 1,000 intent rows; older rows are not on this page.');
@@ -484,13 +455,11 @@ async function loadPeriod(){
 function render(){
   renderStatements();
   renderReconciliation();
-  renderEvidence();
   renderLedger();
   const owed=dueSites(month).length;
   $('count').textContent=[
     statements.length?`${statements.length} statement${statements.length===1?'':'s'}`:'',
     owed?`${owed} site${owed===1?'':'s'} owed ${monthLabel(month)}`:'',
-    openEvidence().length?`${openEvidence().length} evidence to place`:'',
   ].filter(Boolean).join(' · ');
 }
 
@@ -498,7 +467,7 @@ function render(){
    would be two intents, and the engine would run both. A failed one is
    information, not a lock: it renders as a full-width line ABOVE the
    buttons the row's own state earns, with Try again, so a stale failure
-   never hides Mark invoiced, Mark paid or Resolve dispute (plan 024). */
+   never hides Mark invoiced, Mark paid or Open audit strike (plan 024). */
 function manageFor(q,fallback){
   if(q&&q.status==='failed')
     return `<span class="fail-line" style="flex-basis:100%;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -697,10 +666,8 @@ function siteCard(site,period){
   const lineRows=lines.length?`<div class="lines">${lines.map(l=>{
     const state=confirmState(l);
     const ev=evidenceFor(l.introduction_id,period);
-    const lq=pendByLine[l.id];
-    const act=state.open
-      ?manageFor(lq,`<button class="btn btn-gh btn-sm" onclick="resolveDispute('line',${l.id})">Resolve dispute</button>`)
-      :'';
+    /* A disputed line is decided in the Inbox (plan 072); it stays visible here. */
+    const act=state.open?'<span class="muted">Decide it in the Inbox. <a href="inbox.html">Open the Inbox</a></span>':'';
     return `<div class="ln">
       <span class="ref">${esc(refOf(l.introduction_id))}</span>
       <span class="grow">${l.units==null?'':esc(l.units)+' units, '}${esc(l.currency||'GBP')} ${amount(l.value)}
@@ -734,15 +701,6 @@ function siteCard(site,period){
 
 function setMonth(m){month=m;loadPeriod().then(render);}
 
-function resolveDispute(kind,id){
-  const resolution=(prompt("Resolve as 'upheld' (the dispute stands) or 'dismissed' (the record stands as declared):",'dismissed')||'').trim().toLowerCase();
-  if(!resolution)return;
-  if(resolution!=='upheld'&&resolution!=='dismissed'){alert("Type 'upheld' or 'dismissed'.");return;}
-  const note=prompt('Note for the record (kept beside the original dispute text):','');
-  if(note===null)return;
-  raise('resolve-dispute',{kind,id,resolution,note:note.trim()},'Dispute resolved');
-}
-
 /* orgId is looked up for its name inside the handler rather than carried
    through onclick — a name is free text a host typed, and an onclick=""
    attribute has no safe way to hold it (finding 1, fix round 1: esc()
@@ -756,72 +714,12 @@ function openAuditStrike(orgId){
   raise('open-audit-strike',{org_id:orgId,notes:notes.trim()},'Audit strike opened');
 }
 
-/* ── Unmatched CC evidence ─────────────────────────────────────────── */
-
-/* The queue is everything still homeless, plus anything a site has
-   disputed and the desk has not ruled on. */
-function openEvidence(){
-  return evidence.filter(e=>e.status==='unmatched'||(e.disputed_at&&!e.resolved_at));
-}
-
-/* What an unmatched email could plausibly belong to. A dead introduction
-   is still offered: evidence often arrives after a pairing has gone
-   quiet, and the desk decides, not this list. */
-function matchOptions(){
-  return intros.slice().sort((a,b)=>String(introRef(a)).localeCompare(String(introRef(b))));
-}
-
 /* The ingest step's guess at who sent an email. 'unknown' is a real
    answer, not a party, so it is said as one. */
 function partyGuess(party){
   if(party==='provider')return 'looks like the provider';
   if(party==='seeker')return 'looks like the seeker';
   return 'sender not recognised';
-}
-
-function renderEvidence(){
-  const rows=openEvidence();
-  $('evN').textContent=rows.length;
-  if(!rows.length){
-    $('evRows').innerHTML=`<tr><td colspan="7" style="color:var(--fg-2)">Nothing waiting. Every order email the inbox received is matched, dismissed or undisputed.</td></tr>`;
-    return;
-  }
-  const options=matchOptions();
-  $('evRows').innerHTML=rows.map(e=>{
-    const q=pendByEvidence[e.id];
-    const disputed=e.disputed_at&&!e.resolved_at;
-    const picker=options.length
-      ?`<select id="ev-${e.id}" aria-label="Match evidence ${e.id} to an introduction">
-          <option value="">Match to…</option>
-          ${options.map(i=>`<option value="${esc(i.id)}">${esc(introRef(i))} · ${esc(orgName(i.org_a))} to ${esc(orgName(i.org_b))}</option>`).join('')}
-        </select>
-        <button class="btn btn-pri btn-sm" onclick="matchEvidence(${e.id})">Match</button>`
-      :'<span class="muted">No introductions to match to yet.</span>';
-    const buttons=disputed
-      ?`<button class="btn btn-gh btn-sm" onclick="resolveDispute('evidence',${e.id})">Resolve dispute</button>`
-      :`${picker}
-        <button class="btn btn-danger btn-sm" onclick="dismissEvidence(${e.id})">Dismiss</button>`;
-    return `<tr>
-      <td>${fmtDate(e.received_at)}</td>
-      <td>${esc(e.from_email||'—')}<br><span class="muted">${esc(partyGuess(e.sender_party))}</span></td>
-      <td>${esc(e.subject||'(no subject)')}</td>
-      <td>${esc(e.ref_text||'—')}</td>
-      <td>${esc(e.period||'—')}</td>
-      <td><span class="stg ${disputed?'stg-disputed':'stg-'+esc(e.status)}">${esc(disputed?'DISPUTED':(EV_BADGE[e.status]||e.status))}</span>
-        ${e.dispute_note?`<br><span class="muted">${esc(e.dispute_note)}</span>`:''}</td>
-      <td><div class="actions" style="margin-top:0">${manageFor(q,buttons)}</div></td>
-    </tr>`;
-  }).join('');
-}
-
-function matchEvidence(id){
-  const sel=$('ev-'+id);
-  if(!sel||!sel.value){alert('Choose the introduction this email belongs to first.');return;}
-  raise('match-order-evidence',{evidence_id:id,introduction_id:Number(sel.value)},'Matched');
-}
-function dismissEvidence(id){
-  if(!confirm('Dismiss this email as not an order? It stays on the record, pointed at nothing.'))return;
-  raise('match-order-evidence',{evidence_id:id,introduction_id:null},'Dismissed');
 }
 
 /* ── Legacy order ledger ───────────────────────────────────────────── */

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint CRM: System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
+<link rel="stylesheet" href="crm.css?v=2">
+<style>
+  /* System's own layout, composed from crm.css. */
+  .banner-text .actions { margin-top: 6px; }
+  .find { align-items: flex-start; font-size: 13.5px; color: var(--fg-1); }
+  .find > .ms { font-size: 18px; color: var(--fg-2); }
+  .find.problem > .ms { color: var(--err-ink); }
+  .tbl td.nowrap { white-space: nowrap; }
+  .tbl td small { margin-top: 4px; overflow-wrap: anywhere; }
+  .stat-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 560px) { .stat-row.three { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+</head>
+<body>
+<div id="login" class="door" style="display:none">
+  <span class="brand"><img src="nexpoint-mark.png" alt="" width="30" height="26"><span class="wordmark"><span class="nex">Nex</span><span class="pt">Point</span></span></span>
+  <h1>Sign in to the CRM</h1>
+  <p>For Will and Chris only: the database admits the two of you and nobody else.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <label class="sr" for="email">Email</label>
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <label class="sr" for="pw">Password</label>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+</div>
+
+<div id="admin" class="app" style="display:none">
+  <aside class="rail" id="rail" aria-label="Main"></aside>
+  <main class="main" id="main" tabindex="-1"><div class="page" id="page"></div></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
+        integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script src="admin-auth.js"></script>
+<script src="crm-shell.js?v=3"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a hint for which screen to show; the database decides (is_brief_admin, a second factor since plan 035)
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const PAGE_SECTION='system';
+let me=null;
+
+async function boot(){
+  const {data}=await sb.auth.getSession();const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)){if(await NXAdminAuth.requireAal2(sb))showAdmin(s.user);else showLogin(s);}else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))$('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pw').value});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  if(!(await NXAdminAuth.requireAal2(sb)))return;
+  showAdmin(data.user);
+}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,PAGE_SECTION);load();}
+
+/* System (plan 072, Task 3.3; Will, 22 October 2026): Health's replacement.
+   The failed run first, with Re-run now: a rerun-job intent the engine hands
+   to the worker, which starts the job as its clock does. Then what the
+   morning report (engine_health, written at 07:30) found, every scheduled job
+   with what it does, when it runs (the report's schedule line), its last run,
+   how long that took and its result, and the month's three tiles with the
+   numbers and limits Health had. The page writes engine_intents and nothing
+   else; a read that fails says so in one line and the rest still draws. */
+const esc=NXShell.esc, ms=NXShell.ms;
+const fmt=n=>Number(n).toLocaleString('en-GB');
+const plural=(n,w)=>`${fmt(n)} ${w}${n===1?'':'s'}`;
+const SYSTEM_INTENTS=['rerun-job'];   // the one intent this page raises, and so watches
+/* The handler refuses these two (its NOT_RERUNNABLE), so they get no button,
+   in the handler's own words: publishing waits for its own request, and the
+   drain starts with every click on every page. */
+const NO_RERUN={'portal-publish-watch':'Publishing runs only when someone presses Publish to live site, so it has no Re-run here.',
+  'intent-drain':'This job starts on its own within a minute of any button being pressed, so it has no Re-run here.'};
+const NOT_SCHEDULED='This job is not in the schedule, so it has no Re-run here.';
+const RERUN_WAIT_MS=15*60*1000;   // a re-run that has not started by then says so
+const STALE_HOURS=26;             // a morning report older than this is a finding, as on Health
+const LIMITS={tavily:1000,sessions:60};   // set by Will, as Health had them
+const SESSION_JOBS=['discovery-judge','mmm-deck','summaries','drains','judge'];
+/* What each job does, in a line: the prototype's words where it named the job. */
+const JOB_WHAT={
+  'hourly-sync':'Mail filing and the one-way Pipedrive copy',
+  'hub-sync':'Hub requests and the Smartlead mirror',
+  'intent-drain':'Carries out what the pages asked for, within a minute of the click',
+  'portal-publish-watch':'Publishes approved portal changes',
+  'daily-tasks':'Collects the open checkboxes from the workspace',
+  'health-report':'The morning report',
+  'commercial-daily':'Chases acceptances, sweeps quiet registrations',
+  'canary':'A test request through the live route',
+  'finder-current-customer':'Finds new leads among current Fit360 customers',
+  'finder-former-customer':'Finds new leads among former Fit360 customers',
+  'finder-enquired':'Finds new leads among Fit360 enquirers, then archives the week’s research',
+  'finder-cold-pool':'Finds new leads on the Cold sheet',
+  'finder-cold':'Finds new companies on the web',
+  'linkedin-sync':'LinkedIn queue mirror',
+  'linkedin-pull':'Reads posts, comments and followers from LinkedIn',
+  'mmm-deck':'The Monday deck'
+};
+/* A result: the words, the pill's tone and its icon. A run still going has no status yet. */
+const res=(label,tone,icon,note)=>({label,tone,icon,note:note||''});
+const OK=res('OK','ok','check_circle'), WARNINGS=res('Warnings','','info'), FAILED=res('Failed','err','error');
+const RUNNING=res('Running','info','autorenew'), OFF=res('Off','','pause_circle');
+const RUN_RESULT={succeeded:OK,'succeeded-with-warnings':WARNINGS,failed:FAILED};
+/* The report's red states read Failed, with the report's own words under them. */
+const REPORT_RED={failed:d=>tidy(d),missed:d=>'Did not run on time'+(d?`: ${tidyText(d)}`:''),'never-ran':()=>'Has never run'};
+const FAILING_STEP={failed:'failed','timed-out':'timed out'};
+const LOCKED_OUT={'skipped-because-locked':true};
+
+let D=null, banners=[], rerunOf={}, asked={}, poll=null;
+
+/* Times are London's, as the schedule is. */
+const TZ='Europe/London';
+const dayKey=iso=>new Date(iso).toLocaleDateString('en-GB',{timeZone:TZ});
+const isToday=iso=>dayKey(iso)===dayKey(new Date().toISOString());
+const hm=iso=>new Date(iso).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'});
+const dayName=iso=>new Date(iso).toLocaleDateString('en-GB',{timeZone:TZ,weekday:'short',day:'numeric',month:'short'}).replace(/,/g,'');
+const whenShort=iso=>!iso?'':isToday(iso)?`Today ${hm(iso)}`:`${dayName(iso)} ${hm(iso)}`;
+const at=iso=>isToday(iso)?`at ${hm(iso)} today`:`on ${dayName(iso)} at ${hm(iso)}`;
+function ago(iso){
+  const mins=Math.round((Date.now()-Date.parse(iso))/60000);
+  if(mins<1)return 'just now';
+  if(mins<60)return `${plural(mins,'minute')} ago`;
+  const h=Math.round(mins/60);
+  return h<48?`${plural(h,'hour')} ago`:`${plural(Math.round(h/24),'day')} ago`;
+}
+function took(r){
+  if(!r||!r.ended_at)return '';
+  const s=Math.max(0,Math.round((Date.parse(r.ended_at)-Date.parse(r.started_at))/1000));
+  if(s<60)return `${s}s`;
+  const m=Math.floor(s/60);
+  if(m<10)return s%60?`${m}m ${s%60}s`:`${m}m`;
+  return m<60?`${m}m`:`${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`;
+}
+/* A message ends in one full stop, whatever it arrived with. */
+const stop=t=>String(t==null?'':t).replace(/[.\s]+$/,'')+'.';
+/* The morning report's own strings, as the page writes: no backticks, a
+   spaced dash reads as a colon, a timestamp as the page's short London time,
+   "job X: missed: ..." as "X missed its run: ...", and a capital first
+   letter unless the line starts with a job's name. */
+const ISO=/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?/g;
+const tidyText=t=>String(t==null?'':t).replace(/`/g,'').replace(/\s+\u2014\s+/g,': ')
+  .replace(ISO,m=>isNaN(Date.parse(m))?m:whenShort(m)).replace(/^job ([\w-]+): missed: /,'$1 missed its run: ');
+const jobNames=()=>new Set([...Object.keys((D&&D.latest)||{}),...((D&&D.report&&D.report.jobs)||[]).map(j=>j.job)]);
+function tidy(t){
+  const line=tidyText(t), first=(line.match(/^[\w-]+/)||[''])[0];
+  return jobNames().has(first)?line:line.charAt(0).toUpperCase()+line.slice(1);
+}
+/* Exactly Health's count: research steps report "N scraped", and a search
+   step its searches as well. */
+function countTavily(steps){
+  let n=0;
+  steps.forEach(st=>{
+    const m=/(\d+)\s+scraped/.exec(st.detail||'');if(m)n+=parseInt(m[1],10);
+    const q=/(\d+)\s+search(?:es)?\b/.exec(st.detail||'');if(q&&st.name==='search-candidates')n+=parseInt(q[1],10);
+  });
+  return n;
+}
+
+async function load(){
+  if(!D)render();
+  banners=[];
+  const monthStart=new Date();monthStart.setUTCDate(1);monthStart.setUTCHours(0,0,0,0);
+  const since=monthStart.toISOString();
+  const [rq,mq,hq,fq,iq]=await Promise.all([
+    sb.from('engine_runs').select('id,job,status,started_at,ended_at').order('started_at',{ascending:false}).limit(300),
+    sb.from('engine_steps').select('run_id,name,detail,recorded_at').gte('recorded_at',since).in('name',['research','search-candidates']),
+    sb.from('engine_health').select('*').eq('id',1).maybeSingle(),
+    sb.from('inbox').select('*').eq('kind','failed_run'),
+    sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at,requested_by')
+      .in('status',['pending','claimed','failed','done']).in('type',SYSTEM_INTENTS)
+      .order('id',{ascending:false}).limit(1000)
+  ]);
+  // The two counts Health added to its findings, read on their own (count only).
+  const pq=await sb.from('engine_intents').select('id',{count:'exact',head:true}).eq('status','pending');
+  const uq=await sb.from('engine_lead_queue').select('id',{count:'exact',head:true}).eq('status','pending').eq('judged',false);
+  if(rq.error)banners.push(stop(`Could not read the engine’s runs: ${rq.error.message}`));
+  if(mq.error)banners.push(stop(`Could not read the engine’s steps, so Tavily calls are not counted: ${mq.error.message}`));
+  if(hq.error)banners.push(stop(`Could not read the morning report: ${hq.error.message}`));
+  if(fq.error)banners.push(stop(`Could not read the Inbox’s failed-run cards: ${fq.error.message}`));
+  if(iq.error)banners.push(stop(`Could not read the re-runs asked for: ${iq.error.message}`));
+  if((iq.data||[]).length===1000)banners.push('Only the newest 1,000 re-run requests were read; older ones are left out.');
+  const runs=rq.error?null:(rq.data||[]);
+  // A job's newest run that did work: one skipped because another held the
+  // lock says only that the slot fired (health._assess_job and the Inbox's
+  // failed_run card judge the same way, so the banner and the card agree).
+  const latest={};(runs||[]).forEach(r=>{if(!latest[r.job]&&!LOCKED_OUT[r.status])latest[r.job]=r;});
+  // A job the newest 300 runs do not reach (a weekly finder on a busy week):
+  // its newest run that did work, read on its own, for every job the morning
+  // report names and every job an Inbox failed-run card names.
+  if(runs){
+    const named=new Set([...((!hq.error&&hq.data&&hq.data.jobs)||[]).map(j=>j.job),...(fq.error?[]:(fq.data||[])).map(c=>c.ref)]);
+    const gaps=[...named].filter(j=>j&&!latest[j]);
+    const more=await Promise.all(gaps.map(j=>sb.from('engine_runs').select('id,job,status,started_at,ended_at')
+      .eq('job',j).neq('status','skipped-because-locked').order('started_at',{ascending:false}).limit(1)));
+    more.forEach(q=>{const r=(q.data||[])[0];if(r&&!latest[r.job])latest[r.job]=r;});
+  }
+  const failed=Object.values(latest).filter(r=>r.status==='failed')
+    .sort((a,b)=>String(b.started_at).localeCompare(String(a.started_at)));
+  const stepsOf={};let stepsErr=null;
+  if(failed.length){
+    const sq=await sb.from('engine_steps').select('run_id,seq,name,status,detail').in('run_id',failed.map(r=>r.id));
+    if(sq.error)stepsErr=sq.error.message;
+    else (sq.data||[]).forEach(s=>{(stepsOf[s.run_id]=stepsOf[s.run_id]||[]).push(s);});
+  }
+  watch(iq.data||[]);
+  D={runs,latest,failed,stepsOf,stepsErr,since,report:hq.error?null:(hq.data||null),reportErr:!!hq.error,
+     tavily:mq.error?null:countTavily(mq.data||[]),pending:pq.error?0:(pq.count||0),unjudged:uq.error?0:(uq.count||0)};
+  render();
+  // While a re-run waits, look again each minute, so "did not start" shows by itself.
+  clearTimeout(poll);
+  if(failed.some(r=>rerunState(r).kind==='asked'))poll=setTimeout(load,60000);
+}
+
+/* The newest re-run asked for each job wins. */
+function watch(rows){
+  rerunOf={};
+  rows.slice().sort((a,b)=>a.id-b.id).forEach(q=>{const job=(q.payload_json||{}).job;if(q.type==='rerun-job'&&job)rerunOf[job]=q;});
+}
+
+/* Where a failed job's re-run stands. Only a re-run asked for after the run
+   began speaks for it: an older one is what started the run that failed. */
+function rerunState(r){
+  const job=r.job;
+  if(NO_RERUN[job])return {kind:'refused',line:NO_RERUN[job]};
+  const named=D.report?(D.report.jobs||[]).find(j=>j.job===job):null;
+  if(D.report&&!named)return {kind:'refused',line:NOT_SCHEDULED};
+  // The report marks a job switched off in jobs.yaml as disabled; the handler refuses it.
+  if(named&&named.state==='disabled')return {kind:'refused',line:`${job} is switched off in the schedule, so it has no Re-run here.`};
+  const began=Date.parse(r.started_at);
+  let q=rerunOf[job]||null;
+  if(q&&!(Date.parse(q.requested_at)>began))q=null;
+  const mine=asked[job]&&Date.parse(asked[job])>began&&(!q||Date.parse(asked[job])>Date.parse(q.requested_at))?asked[job]:null;
+  if(!mine&&q&&q.status==='failed')return {kind:'failed',q};
+  const when=mine||(q&&(q.status==='done'||q.status==='pending'||q.status==='claimed')?q.requested_at:null);
+  if(!when)return {kind:'ready'};
+  return {kind:Date.now()-Date.parse(when)<RERUN_WAIT_MS?'asked':'late',at:when};
+}
+
+function stepLine(r){
+  if(D.stepsErr)return 'The failing step could not be read.';
+  const steps=(D.stepsOf[r.id]||[]).slice().sort((a,b)=>a.seq-b.seq).filter(s=>FAILING_STEP[s.status]);
+  if(!steps.length)return 'No step of this run says why it failed.';
+  const s=steps[steps.length-1];
+  return `Step ${s.name}${s.detail?`: ${s.detail}`:` ${FAILING_STEP[s.status]}`}`;
+}
+
+// The engine's states, and the newest run: a newest run that failed always
+// reads Failed (failedSince), a run newer than the report decides, and
+// otherwise the report does, with its own words under the pill.
+function resultOf(j,r,reportAt){
+  if(r&&r.status==='failed')return res(FAILED.label,FAILED.tone,FAILED.icon,reportAt!=null&&Date.parse(r.started_at)>reportAt?'Since the morning report':'');
+  const newer=r&&(reportAt==null||Date.parse(r.started_at)>reportAt);
+  if(newer&&!r.status)return RUNNING;
+  if(newer&&RUN_RESULT[r.status])return RUN_RESULT[r.status];
+  const runResult=r?(r.status?RUN_RESULT[r.status]:RUNNING):null;
+  if(j.state&&REPORT_RED[j.state])return res(FAILED.label,FAILED.tone,FAILED.icon,REPORT_RED[j.state](j.detail));
+  if(j.state==='disabled')return runResult||OFF;
+  return runResult===WARNINGS?WARNINGS:OK;
+}
+function rowsOf(){
+  const rep=D.report, reportAt=rep?Date.parse(rep.generated_at):null;
+  const named=rep?(rep.jobs||[]):Object.keys(D.latest).map(job=>({job}));
+  // Failed rows first, as the prototype puts the failed job first; then by name.
+  const red=x=>x.result.label===FAILED.label?0:1;
+  return named.map(j=>{
+    const r=D.latest[j.job]||null;
+    return {job:j.job,schedule:j.schedule||'',run:r,result:resultOf(j,r,reportAt)};
+  }).sort((a,b)=>red(a)-red(b)||String(a.job).localeCompare(String(b.job)));
+}
+
+/* What the morning report found, and the findings Health adds to it. */
+function findingsOf(){
+  const out=[], rep=D.report, jobs=Object.values(D.latest);
+  const bad=jobs.filter(r=>r.status==='failed'), warned=jobs.filter(r=>RUN_RESULT[r.status]===WARNINGS);
+  if(rep){
+    const reportAt=Date.parse(rep.generated_at);
+    const failedSince=bad.filter(r=>Date.parse(r.started_at)>reportAt);
+    failedSince.forEach(r=>out.push([true,`${r.job} failed after the morning report, ${ago(r.started_at)}`]));
+    if((Date.now()-reportAt)/36e5>STALE_HOURS)out.push([true,`The morning report has not been written since ${whenShort(rep.generated_at)}, so some results below may be out of date`]);
+    (rep.problems||[]).forEach(p=>out.push([true,tidy(p)]));
+    (rep.warnings||[]).forEach(w=>out.push([false,tidy(w)]));
+  }else{
+    if(!D.reportErr)out.push([false,'The engine has not written its morning report yet, so this shows only what the run records say']);
+    bad.forEach(r=>out.push([true,`${r.job} failed: last run ${ago(r.started_at)}`]));
+    warned.forEach(r=>out.push([false,`${r.job} finished with warnings ${ago(r.started_at)}`]));
+  }
+  if(D.pending)out.push([false,`${plural(D.pending,'request')} queued and not yet carried out by the engine`]);
+  if(D.unjudged)out.push([false,`${plural(D.unjudged,'new lead')} on the Prospects page not yet checked by Claude; until then they are matched on keywords alone`]);
+  if(D.tavily!=null&&D.tavily>=LIMITS.tavily*0.9)out.push([true,`Tavily at ${fmt(D.tavily)} of ${fmt(LIMITS.tavily)} this month: the finders start failing at the cap`]);
+  else if(D.tavily!=null&&D.tavily>=LIMITS.tavily*0.7)out.push([false,`Tavily at ${fmt(D.tavily)} of ${fmt(LIMITS.tavily)} this month`]);
+  return out;
+}
+
+const pill=x=>`<span class="st${x.tone?' '+x.tone:''}">${ms(x.icon)}${esc(x.label)}</span>`;
+const rerunButton=job=>`<span class="actions"><button type="button" class="btn sm primary" data-act="rerun" data-job="${esc(job)}">${ms('replay','sm')}Re-run now</button></span>`;
+
+function failedHtml(){
+  if(!D.runs)return '';
+  if(!D.failed.length){
+    if(rowsOf().some(x=>x.result.label===FAILED.label))return '';
+    const warned=Object.values(D.latest).filter(r=>RUN_RESULT[r.status]===WARNINGS).length;
+    return `<div class="banner ok">${ms('check_circle')}<div class="banner-text"><strong>Every job is healthy.</strong>`+
+      `<span>${warned?`No job’s newest run failed; ${plural(warned,'job')} finished with warnings.`:'No job’s newest run failed.'}</span></div></div>`;
+  }
+  return D.failed.map(r=>{
+    const st=rerunState(r);
+    let act=rerunButton(r.job);
+    if(st.kind==='refused')act=`<span class="muted-t">${esc(st.line)}</span>`;
+    else if(st.kind==='failed')act=`<span class="status-line fail">${esc(stop(`Re-run failed: ${st.q.result_note||'the engine gave no reason'}`))}</span>`+act;
+    else if(st.kind==='asked')act=`<span class="status-line">Re-run asked for at ${esc(hm(st.at))}.</span>`;
+    else if(st.kind==='late')act='<span class="status-line fail">The re-run did not start. Press Re-run now again.</span>'+act;
+    return `<div class="banner err run" data-job="${esc(r.job)}">${ms('error')}<div class="banner-text">`+
+      `<strong>${esc(r.job)} failed ${esc(at(r.started_at))}</strong><span>${esc(stop(stepLine(r)))}</span>${act}</div></div>`;
+  }).join('');
+}
+
+function findingsHtml(){
+  const f=findingsOf(), rep=D.report;
+  const sub=rep?`<p class="muted-t">Written ${esc(at(rep.generated_at))}; ${plural((rep.jobs||[]).length,'job')} assessed.</p>`:'';
+  const body=f.length
+    ?f.map(([bad,t])=>`<div class="item find${bad?' problem':''}">${ms(bad?'error':'info')}<span class="item-main">${esc(t)}</span></div>`).join('')
+    :`<p class="muted-t">${rep?'The morning report found nothing wrong.':'The run records show nothing wrong.'}</p>`;
+  return `<section class="panel"><h2>What the morning report found${f.length?` <span class="n num">${fmt(f.length)}</span>`:''}</h2>${sub}<div>${body}</div></section>`;
+}
+
+function jobsHtml(){
+  const rows=rowsOf();
+  const body=rows.length?`<div class="tscroll"><table class="tbl"><thead><tr><th scope="col">Job</th><th scope="col">What it does</th>`+
+    `<th scope="col">Runs</th><th scope="col">Last run</th><th scope="col">Took</th><th scope="col">Result</th></tr></thead><tbody>`+
+    rows.map(x=>`<tr data-job="${esc(x.job)}"><td class="strong">${esc(x.job)}</td><td>${esc(JOB_WHAT[x.job]||'')}</td>`+
+      `<td>${esc(x.schedule)}</td><td class="nowrap">${esc(whenShort(x.run&&x.run.started_at))}</td><td class="num nowrap">${esc(took(x.run))}</td>`+
+      `<td>${pill(x.result)}${x.result.note?`<small>${esc(x.result.note)}</small>`:''}</td></tr>`).join('')+'</tbody></table></div>'
+    :'<p class="muted-t">No jobs to list: there is no morning report and no run on record.</p>';
+  return `<section class="panel"><h2>Scheduled jobs${rows.length?` <span class="n num">${fmt(rows.length)}</span>`:''}</h2>${body}</section>`;
+}
+
+/* This month: exactly Health's three counts, against its two limits. */
+function monthHtml(){
+  const tile=(n,label,sub,hot)=>`<div class="stat${hot?' problem':''}"><span class="stat-n num">${fmt(n)}</span>`+
+    `<span class="stat-l">${esc(label)}</span><span class="stat-s">${esc(sub)}</span></div>`;
+  const tiles=[];
+  if(D.tavily!=null)tiles.push(tile(D.tavily,'Tavily calls',`of ${fmt(LIMITS.tavily)} this month`,D.tavily>=LIMITS.tavily*0.9));
+  if(D.runs){
+    const month=D.runs.filter(r=>r.started_at>=D.since);
+    const sessions=month.filter(r=>SESSION_JOBS.some(j=>String(r.job).includes(j))).length;
+    tiles.push(tile(sessions,'Claude sessions',`of ${fmt(LIMITS.sessions)} this month`,sessions>=LIMITS.sessions*0.9));
+    tiles.push(tile(month.length,'Engine runs','this month',false));
+  }
+  return tiles.length?`<div class="stat-row three">${tiles.join('')}</div>`:'';
+}
+
+function render(){
+  const head=NXShell.headHtml({title:'Health',lede:'The engine’s scheduled jobs and their last runs. A failed run also raises a card in the Inbox.',
+    actions:`<button type="button" class="btn sm" data-act="refresh">${ms('refresh','sm')}Check again</button>`});
+  if(!D){$('page').innerHTML=head+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the engine’s runs.</span></div></section>`;return;}
+  const bn=banners.map(b=>`<div class="banner">${ms('info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
+  $('page').innerHTML=head+bn+failedHtml()+findingsHtml()+jobsHtml()+monthHtml();
+}
+
+async function raise(type,payload,done){
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){NXShell.toast(stop(`Could not ask for the re-run: ${error.message}`));return false;}
+  NXShell.toast(done);
+  setTimeout(load,1500);
+  return true;
+}
+
+const ACT={
+  async rerun(el){
+    const job=el.dataset.job, r=D&&D.latest[job];
+    if(!r||r.status!=='failed')return;
+    const st=rerunState(r);
+    if(st.kind==='refused'||st.kind==='asked')return;
+    el.disabled=true;
+    if(await raise('rerun-job',{job},`Asked for a re-run of ${job}.`))asked[job]=new Date().toISOString();
+    render();
+  },
+  async refresh(){await load();NXShell.toast(`Checked again at ${hm(new Date().toISOString())}.`);},
+};
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(!b||!ACT[b.dataset.act])return;
+  e.preventDefault();ACT[b.dataset.act](b);
+});
+
+boot();
+</script>
+</body>
+</html>
