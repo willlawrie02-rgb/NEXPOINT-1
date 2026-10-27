@@ -129,6 +129,12 @@ for (const p of pages) {
     if (ha.includes(gone)) fail(`assets/hub-account.js: still says "${gone}" (plan 046)`);
   }
   if (!read("hub/reset.html").includes("np-eye")) fail("hub/reset.html: no show-password control (plan 046)");
+  // Plan 073 (D7): the door opens Create account from a portal invitation,
+  // sends its token with the registration, and says one line when it has run out.
+  for (const want of ["get('join')", "'/auth/portal-invite'", "body.portal_invite = draft.portal_invite",
+    "This invitation has expired. Ask NexPoint for a new one, or create your account below."]) {
+    if (!ha.includes(want)) fail(`assets/hub-account.js: missing "${want}" (plan 073)`);
+  }
   // The site map (Task 8): wired in the account module, and Leaflet plus the
   // map module loaded by every page that can open the questionnaire, from
   // the same base that page uses for the hub stylesheet (vendored: no CDN in
