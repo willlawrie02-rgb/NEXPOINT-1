@@ -526,7 +526,7 @@ details.legacy > summary:hover { color: var(--fg); }
   nav.boards a[aria-current="page"]::before { color: var(--np-blue); }
 
   nav.boards a[href="dashboard.html"]::before     { content: "space_dashboard"; }
-  nav.boards a[href="leads.html"]::before         { content: "person_search"; }
+  nav.boards a[href="marketing.html"]::before     { content: "person_search"; }
   nav.boards a[href="tasks.html"]::before         { content: "checklist"; }
   nav.boards a[href="print-hub.html"]::before     { content: "print"; }
   nav.boards a[href="mill-hub.html"]::before      { content: "precision_manufacturing"; }
@@ -536,8 +536,8 @@ details.legacy > summary:hover { color: var(--fg); }
   nav.boards a[href="organisations.html"]::before { content: "apartment"; }
   nav.boards a[href="orders.html"]::before        { content: "receipt_long"; }
   nav.boards a[href="health.html"]::before        { content: "monitor_heart"; }
-  nav.boards a[href="campaigns.html"]::before     { content: "campaign"; }
-  nav.boards a[href="linkedin.html"]::before      { content: "post_add"; }
+  nav.boards a[href="marketing-campaigns.html"]::before { content: "campaign"; }
+  nav.boards a[href="marketing-linkedin.html"]::before { content: "post_add"; }
 
   .intro { margin-top: 36px; }
 }

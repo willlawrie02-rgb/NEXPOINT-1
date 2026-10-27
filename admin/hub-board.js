@@ -35,8 +35,11 @@
    stands there with a link to it.
    The browser never changes an external system itself. On Print and Mill
    a recorded introduction, a re-route and a resend each emails the site its offer
-   through the engine (plan 067); only an Opportunities pairing is still
-   emailed by Will or Chris by hand, then logged here. */
+   through the engine (plan 067). On the Opportunities Board (plan 070) every
+   opportunity is listed with its owner (#oppRows, ended ones in #oppArchive),
+   and Introduce makes the introduction in one step with the fee agreed first
+   (introduce-on-board): the owner is emailed its offer from the portal and
+   answers on its account page. No email goes out by hand. */
 
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -52,6 +55,14 @@ let vocabMap={};
 let listings=[],revById={},machinesByRev={},seekReqs=[];
 let pendingBySeekReq={};
 const HOSTS_HUB=()=>HUB.hub==='print'||HUB.hub==='mill';
+/* Plan 070: the Opportunities Board's opportunities (board_opportunities,
+   migration 0080), their owners' names (crm_companies, 0071), the
+   suppliers' code-sales reports, and the intents raised on them.
+   contactsReady is false when Contacts cannot be read (0071 not applied or
+   not imported): Set the owner then says so instead of offering a picker. */
+let opportunities=[],companyById={},codeReports=[],contactsReady=false,pendingByOpp={};
+const OPP_BOARD=()=>HUB.hub==='opportunities';
+const oppById=id=>opportunities.find(o=>o.id===id)||null;
 
 /* The one rule every intent map uses: the NEWEST intent for a key decides
    what its row shows. Ascending id, last write wins; the read is
@@ -178,6 +189,13 @@ const FILTERS=[
   {f:'approved',label:'Approved'},{f:'declined',label:'Declined'},
 ];
 const REQ_BADGE={new:'NEW',reviewing:'REVIEWING',approved:'APPROVED',declined:'DECLINED'};
+/* Plan 070: an opportunity's status, its naming and its kind, and the
+   intents raised on it. Status colours borrow the nearest existing badge. */
+const OPP_STATUS={posted:'POSTED',draft:'DRAFT',live:'LIVE',withheld:'WITHHELD',ended:'ENDED'};
+const OPP_STATUS_CLASS={posted:'new',draft:'reviewing',live:'live',withheld:'hidden',ended:'dead'};
+const NAMING_LABEL={anonymised:'ANONYMISED',named:'NAMED'};
+const KIND_LABEL={introduction:'Introduction',discount_code:'Discount code'};
+const OPP_INTENTS=['save-board-opportunity','end-board-opportunity','record-code-sales'];
 
 /* One plain-English line per badge value, keyed by vocabulary because the
    same word (declined, approved, pending) means something different on each
@@ -219,8 +237,20 @@ const STATUS_HELP={
   request:{
     new:'Arrived from the website; nobody has looked yet',
     reviewing:'Marked as being looked at',
-    approved:'Approved; pair it into an introduction from the card',
+    approved:'Approved; on the Opportunities Board, Introduce from the card',
     declined:'Declined, with the reason on the card',
+  },
+  /* Plan 070: an opportunity's life and its naming. */
+  opp:{
+    posted:'Approved from a post and waiting for its draft (nx opportunities worksheet)',
+    draft:'Drafted and not on the board; set it live on the Opportunities list',
+    live:'On the board for every account holder',
+    withheld:'Taken off the board for now; set it live again on the Opportunities list',
+    ended:'Over: its card is off the board and its introductions carry on',
+  },
+  naming:{
+    anonymised:'The company is not named on the board until it agrees to an introduction',
+    named:'The company chose to be named on the board',
   },
 };
 /* A status badge: the vocabulary's label, its plain line as the title, and
@@ -260,6 +290,7 @@ async function load(){
   (vq.data||[]).forEach(v=>{(vocabMap[v.kind]=vocabMap[v.kind]||{})[v.term]=v.label;});
 
   orgById={};listings=[];revById={};machinesByRev={};seekReqs=[];
+  if(OPP_BOARD())await loadBoard();
   if(HOSTS_HUB()){
     await loadHubV2();
     /* One organisations lookup for every table that names one. A web_requests
@@ -281,7 +312,7 @@ async function load(){
     .select('id,type,payload_json,status,result_note')
     .in('status',['pending','claimed','failed','done'])
     .in('type',['review-web-request','create-introduction','update-introduction',
-                ...SEEKER_INTENTS,'reissue-acceptance'])
+                ...SEEKER_INTENTS,'reissue-acceptance','introduce-on-board',...OPP_INTENTS])
     .order('id',{ascending:false}).limit(1000);
   intentById={};(intents||[]).forEach(i=>{intentById[i.id]=i;});
   if((intents||[]).length===1000)
@@ -295,7 +326,40 @@ async function load(){
   pendingByReq=newestIntent(intents,(i,p)=>
     [SEEKER_INTENTS.includes(i.type)?null:p.request_id,p.request_a,p.request_b]);
   pendingByIntro=newestIntent(intents,(i,p)=>p.introduction_id);
+  /* An opportunity's own intents (save names it `id`, the others
+     `opportunity_id`); introduce-on-board marks its request card above and
+     the opportunity's row here, so neither offers a second Introduce. */
+  pendingByOpp=newestIntent(intents,(i,p)=>
+    OPP_INTENTS.includes(i.type)||i.type==='introduce-on-board'?(p.opportunity_id||p.id||null):null);
   render();
+}
+
+/* Plan 070: the board's opportunities, their owners' names and the code
+   reports. A missing table says which migration; Contacts that cannot be
+   read leaves Set the owner saying so. */
+async function loadBoard(){
+  opportunities=[];companyById={};codeReports=[];contactsReady=false;
+  const oq=await sb.from('board_opportunities').select('*').order('sort',{ascending:true,nullsFirst:false});
+  if(oq.error){
+    $('banner').innerHTML+=`<div class="banner">Could not read the opportunities: ${esc(oq.error.message)}.
+      If this says the table does not exist or permission is denied, migration 0080 (plan 070) may not be applied yet.</div>`;
+    return;
+  }
+  opportunities=oq.data||[];
+  const owners=[...new Set(opportunities.map(o=>o.owner_company_id).filter(v=>v!=null))];
+  const cq=owners.length
+    ?await sb.from('crm_companies').select('id,name').in('id',owners)
+    :await sb.from('crm_companies').select('id,name').limit(1);
+  contactsReady=!cq.error;
+  if(!cq.error&&owners.length)(cq.data||[]).forEach(c=>{companyById[c.id]=c;});
+  const rq=await sb.from('board_code_reports').select('*').order('quarter',{ascending:false});
+  codeReports=rq.data||[];
+  const orgIds=[...new Set([...intros.flatMap(i=>[i.org_a,i.org_b]),
+    ...opportunities.map(o=>o.owner_org_id)].filter(Boolean))];
+  if(orgIds.length){
+    const gq=await sb.from('organisations').select('id,name,hidden_at,removed_at,paused_reason,removed_reason').in('id',orgIds);
+    (gq.data||[]).forEach(g=>{orgById[g.id]=g;});
+  }
 }
 
 /* Listings, their revisions and machines, and the seeker request queue.
@@ -421,6 +485,7 @@ function render(){
   $('rightTitle').textContent=HUB.right.title;
   renderCol('left');
   renderCol('right');
+  renderOpportunities();
   renderRegister();
   renderLegend();
   /* #listing-<id> (the desk notice's button, plan 047): open that card once. */
@@ -440,6 +505,8 @@ function renderLegend(){
   const rows=[];
   if(HOSTS_HUB())rows.push(row('Listings','listing',LISTING_BADGE));
   if(HOSTS_HUB())rows.push(row('Seeker requests','seeker',SREQ_BADGE));
+  if(OPP_BOARD())rows.push(row('Opportunities','opp',OPP_STATUS,v=>OPP_STATUS_CLASS[v]));
+  if(OPP_BOARD())rows.push(row('Naming','naming',NAMING_LABEL,()=>'change'));
   rows.push(row('Introductions','stage',STAGE_LABEL));
   rows.push(row(HOSTS_HUB()?'Other enquiries':'Website enquiries','request',REQ_BADGE));
   el.innerHTML=`<details class="legend-box"><summary>What the badges mean</summary>${rows.join('')}</details>`;
@@ -638,6 +705,13 @@ function reqCard(r,col){
     actions=`<div class="actions">${failed}
       <button class="btn btn-grn btn-sm" onclick="reviewReq(${r.id},'approved')"><span class="material-symbols-outlined" aria-hidden="true">check</span>${esc(col.approveLabel)}</button>
       <button class="btn btn-danger btn-sm" onclick="declineReq(${r.id})"><span class="material-symbols-outlined" aria-hidden="true">close</span>Decline</button></div>`;
+  }else if(r.status==='approved'&&OPP_BOARD()){
+    /* Plan 070: a request against an opportunity is introduced on the
+       opportunity, in one step, with the fee agreed first. A post has no
+       introduction to make: it became an opportunity on approval. */
+    actions=r.side==='request_intro'?`<div class="actions">${failed}
+      <button class="btn btn-pri btn-sm" onclick="openIntroduceDialog(${Number(r.id)})"><span class="material-symbols-outlined" aria-hidden="true">handshake</span>Introduce</button></div>`
+      :`<div class="actions">${failed}<span class="status">The opportunity is listed below, waiting for its draft.</span></div>`;
   }else if(r.status==='approved'){
     actions=`<div class="actions">${failed}
       <button class="btn btn-pri btn-sm" onclick="openIntroModal(${r.id})"><span class="material-symbols-outlined" aria-hidden="true">handshake</span>Make introduction</button></div>`;
@@ -704,7 +778,8 @@ function introManage(i){
     /* The offer email has not gone: the Inbox's card sends it now. */
     return failed+muted('The offer email has not gone: send it from the Inbox. <a href="inbox.html">Open the Inbox</a>');
   }
-  let manage=muted('With the provider');
+  /* Plan 070: on the Opportunities Board the owner is asked. */
+  let manage=muted(i.hub==='opportunities'?'With the owner':'With the provider');
   if(REISSUABLE_STAGES.includes(i.stage))manage+=`
     <button class="btn btn-gh btn-sm" onclick="reissueAcceptance(${i.id})">Send the offer again</button>`;
   return failed+manage;
@@ -724,9 +799,13 @@ function renderRegister(){
      database and the nightly archive. Print and Mill have no register since
      plan 044 (the Introductions page has every hub's); Opportunities keeps it. */
   const live=intros.filter(i=>i.stage!=='dead');
+  /* Plan 070: the Opportunities Board's register names the opportunity and
+     its owner in two more columns. */
+  const cols=OPP_BOARD()?8:6;
   if(!live.length){
-    $('introRows').innerHTML=`<tr><td colspan="6" style="color:var(--fg-2)">${intros.length
-      ?'No live introductions — dead ones are kept in the database and the archive, off the board.'
+    $('introRows').innerHTML=`<tr><td colspan="${cols}" style="color:var(--fg-2)">${intros.length
+      ?'No live introductions. Dead ones are kept in the database and the archive, off the board.'
+      :OPP_BOARD()?'No introductions yet. Introduce from an approved request, or Introduce someone on an opportunity.'
       :'No introductions yet. Approve a request on each side, then make the introduction from either card.'}</td></tr>`;
     return;
   }
@@ -734,8 +813,11 @@ function renderRegister(){
     const manage=introManage(i);
     const when=i.stage==='declined'&&i.declined_at?String(i.declined_at).slice(0,10)
       :i.stage==='expired'&&i.acceptance_expires_at?String(i.acceptance_expires_at).slice(0,10):'';
+    const opp=OPP_BOARD()?oppById(i.brief_id):null;
     return `<tr>
-      <td class="rref">${esc(introRef(i))}</td>
+      <td class="rref">${esc(introRef(i))}</td>${OPP_BOARD()?`
+      <td class="rref">${esc(opp?opp.ref:(i.brief_id||''))}</td>
+      <td>${esc(opp?ownerName(opp):'')}</td>`:''}
       <td>${esc(partyA(i))}</td>
       <td>${esc(partyB(i))}</td>
       <td>${stg('stage',i.stage,STAGE_LABEL[i.stage]||i.stage)}${
@@ -775,8 +857,13 @@ function seekerOrgName(id){
   if(!r)return '—';
   return `${(orgById[r.org_id]||{}).name||'(seeker)'} · ${seekRef(r)}`;
 }
-const partyA=i=>i.request_a!=null?companyOf(i.request_a):listingOrgName(i.listing_id);
-const partyB=i=>i.request_b!=null?companyOf(i.request_b):seekerOrgName(i.seeker_request_id);
+/* Plan 070: a board introduction names two accounts; org_a sells, org_b buys,
+   and the owner (asked_org) is marked. */
+const boardParty=(i,org)=>`${(orgById[org]||{}).name||'(account)'}${org===i.asked_org?' (owner)':''}`;
+const partyA=i=>i.hub==='opportunities'&&i.org_a?boardParty(i,i.org_a)
+  :i.request_a!=null?companyOf(i.request_a):listingOrgName(i.listing_id);
+const partyB=i=>i.hub==='opportunities'&&i.org_b?boardParty(i,i.org_b)
+  :i.request_b!=null?companyOf(i.request_b):seekerOrgName(i.seeker_request_id);
 
 /* ── Listings (hub v2) ─────────────────────────────────────────────── */
 
@@ -975,6 +1062,279 @@ function seekerCard(r){
   </div>`;
 }
 
+/* ── The Opportunities Board's opportunities (plan 070) ─────────────── */
+
+function ownerName(o){
+  if(o.owner_company_id==null)return 'No owner';
+  return (companyById[o.owner_company_id]||{}).name||`company #${o.owner_company_id}`;
+}
+const pct=v=>v==null||v===''?'':`${+(Number(v)*100).toFixed(2)}%`;
+const money=v=>Number(v||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+function feeLine(o){
+  if(o.fee_note)return o.fee_note;
+  if(o.fee_rate!=null)return `${pct(o.fee_rate)} agreed`;
+  return 'Fee not agreed yet';
+}
+/* The engine introduces on a live opportunity, or on one we wrote before it
+   is published (handlers' _introducible says the same). */
+const introducible=o=>o.status==='live'||(o.status==='draft'&&o.source==='desk');
+
+function renderOpportunities(){
+  const el=$('oppRows');if(!el)return;
+  const working=opportunities.filter(o=>o.status!=='ended');
+  const ended=opportunities.filter(o=>o.status==='ended');
+  el.innerHTML=working.length?working.map(oppRow).join('')
+    :'<div class="empty">No opportunities yet. Approving a post creates one; so does New on the Opportunities list.</div>';
+  /* Ended ones in the archive below the working list (every board keeps its
+     removed rows), with their reason and no buttons: nothing is deleted. */
+  $('oppArchive').innerHTML=ended.length?ended.map(oppArchiveRow).join('')
+    :'<div class="empty">No ended opportunities.</div>';
+  $('oppArchiveCount').textContent=String(ended.length);
+}
+
+function oppRow(o){
+  const q=pendingByOpp[o.id];
+  const failed=failedAbove(q,'Engine could not action this');
+  const owner=o.owner_company_id!=null
+    ?`<span>Owner: <strong>${esc(ownerName(o))}</strong>${o.owner_org_id?'':' (no portal account set yet)'}</span>`
+    :`<span class="status fail">No owner</span>`;
+  let actions;
+  if(q&&!failed){
+    actions=QUEUED_LINE;
+  }else{
+    const buttons=[];
+    if(o.owner_company_id==null||!o.owner_org_id){
+      buttons.push(contactsReady
+        ?`<button class="btn btn-gh btn-sm" data-id="${esc(o.id)}" onclick="setOwner(this.dataset.id)"><span class="material-symbols-outlined" aria-hidden="true">business</span>Set the owner</button>`
+        :'<span class="status">Contacts not imported yet: the owner is set once it is.</span>');
+    }
+    if(introducible(o)&&o.owner_org_id){
+      buttons.push(`<button class="btn btn-pri btn-sm" data-id="${esc(o.id)}" onclick="openIntroduceDialog(null,this.dataset.id)"><span class="material-symbols-outlined" aria-hidden="true">handshake</span>Introduce someone</button>`);
+    }
+    actions=failed+buttons.join('');
+  }
+  return `<div class="row req s-${esc(OPP_STATUS_CLASS[o.status]||o.status)}" id="opp-card-${esc(o.id)}">
+    <div class="row-top">
+      <span class="ref">${esc(o.ref)}</span>
+      <span class="company">${esc((o.public||{}).title||'(no title yet)')}</span>
+      ${stg('opp',o.status,OPP_STATUS[o.status]||o.status,OPP_STATUS_CLASS[o.status])}${
+        stg('naming',o.naming,NAMING_LABEL[o.naming]||o.naming,'change')}
+    </div>
+    <div class="meta">${owner}<span>${esc(KIND_LABEL[o.kind]||o.kind)}</span><span>${esc(feeLine(o))}</span>${
+      o.dir?`<span>${esc(o.dir)}</span>`:''}</div>
+    ${o.kind==='discount_code'?codeBlock(o):''}
+    <div id="opp-act-${esc(o.id)}"><div class="actions">${actions}</div></div>
+  </div>`;
+}
+
+function oppArchiveRow(o){
+  return `<div class="row req s-dead">
+    <div class="row-top">
+      <span class="ref">${esc(o.ref)}</span>
+      <span class="company">${esc((o.public||{}).title||'(no title)')}</span>
+      ${stg('opp','ended',OPP_STATUS.ended,'dead')}
+    </div>
+    <div class="meta"><span>Owner: ${esc(ownerName(o))}</span>${
+      o.ended_at?`<span>ended ${esc(String(o.ended_at).slice(0,10))}</span>`:''}${
+      o.ended_reason?`<span>${esc(o.ended_reason)}</span>`:''}</div>
+  </div>`;
+}
+
+/* A discount-code opportunity: the supplier's quarterly report, entered
+   here (record-code-sales), and the reports recorded with their fee. The
+   code itself never shows on the board. */
+function codeBlock(o){
+  const reports=codeReports.filter(r=>r.opportunity_id===o.id);
+  const state=r=>r.paid_at?`paid ${String(r.paid_at).slice(0,10)}`
+    :r.invoiced_at?`invoiced ${String(r.invoiced_at).slice(0,10)}`:'not invoiced yet';
+  const list=reports.length
+    ?`<ul class="why">${reports.map(r=>`<li>${esc(r.quarter)}: ${esc(r.currency)} ${money(r.value)} sold, fee ${
+      esc(r.currency)} ${money(r.fee_amount)}, ${esc(state(r))}</li>`).join('')}</ul>`
+    :'<div class="why">No quarter recorded yet.</div>';
+  const id=esc(o.id);
+  return `<details class="pl"><summary><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>Record a quarter's code sales</summary>
+    <div class="why">What the code gives: ${esc(o.code_terms||'not set')}. Fee rate: ${esc(pct(o.fee_rate)||'not set')}.</div>
+    <div class="meta">
+      <input id="cs-q-${id}" placeholder="2026-Q3" aria-label="Quarter" style="width:90px">
+      <input id="cs-units-${id}" inputmode="numeric" placeholder="Units" aria-label="Units" style="width:80px">
+      <input id="cs-value-${id}" inputmode="decimal" placeholder="Value sold" aria-label="Value sold" style="width:110px">
+      <input id="cs-cur-${id}" value="GBP" aria-label="Currency" style="width:60px">
+      <input id="cs-note-${id}" placeholder="Note (optional)" aria-label="Note" style="flex:1;min-width:140px">
+      <button class="btn btn-gh btn-sm" data-id="${id}" onclick="recordCodeSales(this.dataset.id)">Record the quarter</button>
+    </div>
+    ${list}
+  </details>`;
+}
+
+function recordCodeSales(id){
+  const v=k=>(($(`cs-${k}-${id}`)||{}).value||'').trim();
+  const quarter=v('q').toUpperCase(),value=v('value'),units=v('units'),currency=(v('cur')||'GBP').toUpperCase();
+  if(!/^\d{4}-Q[1-4]$/.test(quarter)){alert('The quarter is YYYY-Qn, for example 2026-Q3.');return;}
+  if(value===''||!(Number(value)>=0)){alert('Give the value sold with the code, from the supplier\'s report.');return;}
+  if(units!==''&&!/^\d+$/.test(units)){alert('Units is a whole number, or leave it blank.');return;}
+  if(!/^[A-Z]{3}$/.test(currency)){alert('The currency is a three-letter code, for example GBP.');return;}
+  const payload={opportunity_id:id,quarter,value:Number(value),currency};
+  if(units!=='')payload.units=Number(units);
+  if(v('note'))payload.note=v('note');
+  raise('record-code-sales',payload,'opp-act-'+id,'Quarter recorded');
+}
+
+/* Set the owner: a company from Contacts and, where it has one, the site
+   whose account answers introductions (save-board-opportunity). */
+let ownerFor=null;
+function modalTitle(text){const t=document.getElementById('modalTitle');if(t)t.textContent=text;}
+function setOwner(id){
+  const o=oppById(id);if(!o)return;
+  ownerFor=id;modalFor=null;introduceFor=null;
+  modalTitle(`Set the owner of ${o.ref}`);
+  $('modalBody').innerHTML=`
+    <p style="font-size:14px;color:var(--fg-1);margin-bottom:14px">Choose the company behind <strong>${esc(o.ref)}</strong> from Contacts, then the site whose account answers its introductions.</p>
+    <div class="field" style="margin-bottom:10px"><label>Company</label>
+      <div style="display:flex;gap:8px"><input id="ownerQ" placeholder="Type part of the name" style="flex:1">
+      <button class="btn btn-gh btn-sm" onclick="searchOwners()">Search Contacts</button></div></div>
+    <div id="ownerHits" style="margin-bottom:12px"></div>
+    <div id="ownerSites" style="margin-bottom:12px"></div>
+    <div class="err" id="ownerErr" role="alert"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button class="btn btn-gh" onclick="closeIntroModal()">Cancel</button>
+      <button class="btn btn-pri" onclick="saveOwner()">Set the owner</button>
+    </div>`;
+  $('overlay').classList.add('open');
+}
+async function searchOwners(){
+  const q=(($('ownerQ')||{}).value||'').trim();
+  if(q.length<2){$('ownerHits').innerHTML='<div class="why">Type at least two letters.</div>';return;}
+  const {data,error}=await sb.from('crm_companies').select('id,name,slug').ilike('name',`%${q}%`)
+    .is('archived_at',null).order('name').limit(25);
+  if(error){$('ownerHits').innerHTML=`<div class="why">Contacts could not be read: ${esc(error.message)}</div>`;return;}
+  $('ownerHits').innerHTML=(data||[]).length?(data||[]).map(c=>`<label style="display:flex;gap:10px;padding:6px 0;cursor:pointer">
+      <input type="radio" name="owner" value="${Number(c.id)}" onchange="ownerSites(this.value)">
+      <span style="font-weight:600">${esc(c.name)}</span><span style="color:var(--fg-2)">${esc(c.slug||'Contacts only')}</span></label>`).join('')
+    :'<div class="why">No company in Contacts by that name.</div>';
+}
+async function ownerSites(companyId){
+  const {data}=await sb.from('crm_sites').select('id,name,org_id').eq('company_id',Number(companyId));
+  const sites=(data||[]).filter(s=>s.org_id);
+  $('ownerSites').innerHTML=sites.length?`<div class="why" style="margin-bottom:6px">The site whose account answers:</div>${
+    sites.map((s,ix)=>`<label style="display:flex;gap:10px;padding:4px 0;cursor:pointer">
+      <input type="radio" name="ownerSite" value="${esc(s.org_id)}" ${ix===0&&sites.length===1?'checked':''}>
+      <span>${esc(s.name)}</span></label>`).join('')}`
+    :'<div class="why">No site of this company has a portal account yet: introductions wait until it registers.</div>';
+}
+function saveOwner(){
+  const co=document.querySelector('input[name="owner"]:checked');
+  if(!co){$('ownerErr').textContent='Choose a company first.';return;}
+  const site=document.querySelector('input[name="ownerSite"]:checked');
+  const id=ownerFor;
+  const payload={id,owner_company_id:Number(co.value)};
+  if(site)payload.owner_org_id=site.value;
+  closeIntroModal();
+  raise('save-board-opportunity',payload,'opp-act-'+id,'Owner set');
+}
+
+/* Introduce (plan 070, D3 to D5): one introduction on the opportunity, from
+   a member's request or by us. The fee is agreed in writing first; the side
+   that sells is the owner on an OFFERING, the company introduced on a
+   SEEKING, and the desk's choice on a TWO-WAY one. */
+let introduceFor=null;
+function openIntroduceDialog(reqId,oppId){
+  const r=reqId!=null?requests.find(x=>x.id===reqId):null;
+  const askedRef=r?String(r.brief_ref||'').replace(/^BRIEF\s+/i,''):null;
+  const o=oppId?oppById(oppId):opportunities.find(x=>x.ref===askedRef);
+  if(!o){alert(r?`No opportunity ${askedRef||''} on the board: it may have ended.`:'That opportunity is not on the board.');return;}
+  introduceFor={reqId:r?r.id:null,oppId:o.id};ownerFor=null;modalFor=null;
+  const sells=o.dir==='OFFERING'?'owner':o.dir==='SEEKING'?'introduced':'';
+  const needsAgreement=!r||o.source==='desk';
+  const ownerSells=sells==='owner';
+  modalTitle(`Introduce on ${o.ref}`);
+  $('modalBody').innerHTML=`
+    <p style="font-size:14px;color:var(--fg-1);margin-bottom:14px">${r
+      ?`Introducing <strong>${esc(r.company||reqRef(r))}</strong> (${esc(reqRef(r))})`
+      :'Introducing an account'} to <strong>${esc(ownerName(o))}</strong>, the owner of ${esc(o.ref)}, ${esc((o.public||{}).title||'')}.</p>
+    ${r?'':`<div class="field" style="margin-bottom:10px"><label>Account to introduce</label>
+      <div style="display:flex;gap:8px"><input id="i_orgq" placeholder="Type part of the account's name" style="flex:1">
+      <button class="btn btn-gh btn-sm" onclick="searchAccounts()">Search accounts</button></div>
+      <div id="i_orgHits" style="margin-top:6px"></div></div>`}
+    <div class="field" style="margin-bottom:10px"><label>Who sells <span class="opt">(they declare monthly and are invoiced)</span></label>
+      <select id="i_sells" ${o.dir==='TWO-WAY'?'':'disabled'}>
+        <option value="">Choose who sells</option>
+        <option value="owner" ${sells==='owner'?'selected':''}>The owner sells</option>
+        <option value="introduced" ${sells==='introduced'?'selected':''}>The company introduced sells</option>
+      </select></div>
+    <div class="field" style="margin-bottom:10px"><label>Fee model</label>
+      <select id="i_model"><option value="recurring">Recurring: declared monthly, billed quarterly</option>
+        <option value="success_fee">Success fee: recorded by hand, never declared</option></select></div>
+    <div class="field" style="margin-bottom:10px"><label>Fee rate <span class="opt">(a percentage; blank for the schedule, 6, 5, 4, 3 and 2 per cent by year)</span></label>
+      <input id="i_rate" inputmode="decimal" value="${ownerSells&&o.fee_rate!=null?esc(+(Number(o.fee_rate)*100).toFixed(2)):''}"></div>
+    <div class="field" style="margin-bottom:10px"><label>Fee in words <span class="opt">(as agreed in writing)</span></label>
+      <input id="i_note" value="${ownerSells?esc(o.fee_note||''):''}"></div>
+    <div class="field" style="margin-bottom:10px"><label>Agreed on <span class="opt">(the date of the written agreement)</span></label>
+      <input id="i_agreed" type="date"></div>
+    <div class="field" style="margin-bottom:10px"><label>Agreement ref <span class="opt">(${needsAgreement
+      ?'required: the written agreement this runs on, for example the email filed under the company\'s folder'
+      :'optional: the written agreement this runs on, for example the email filed under the company\'s folder'})</span></label>
+      <input id="i_ref" placeholder="deals/company/emails/2026-10-20_fee-agreed.md"></div>
+    <div class="field" style="margin-bottom:14px"><label>Notes <span class="opt">(${r?'optional, for the desk only: the owner sees what the company asking wrote':'what the company wants, in a line: the owner reads this in its offer email, so leave out the company name and anything that identifies it'})</span></label>
+      <textarea id="i_notes"></textarea></div>
+    <div class="note-box">This makes the introduction: the owner is emailed its offer from the portal, answers on its account page, and the introduction email goes to both on acceptance. No email goes out by hand.</div>
+    <div class="err" id="i_err" role="alert"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button class="btn btn-gh" onclick="closeIntroModal()">Cancel</button>
+      <button class="btn btn-pri" onclick="submitIntroduce()">Introduce</button>
+    </div>`;
+  $('overlay').classList.add('open');
+}
+async function searchAccounts(){
+  const q=(($('i_orgq')||{}).value||'').trim();
+  if(q.length<2){$('i_orgHits').innerHTML='<div class="why">Type at least two letters.</div>';return;}
+  const {data,error}=await sb.from('organisations').select('id,name').ilike('name',`%${q}%`)
+    .is('removed_at',null).is('deleted_at',null).order('name').limit(25);
+  if(error){$('i_orgHits').innerHTML=`<div class="why">Accounts could not be read: ${esc(error.message)}</div>`;return;}
+  $('i_orgHits').innerHTML=(data||[]).length?(data||[]).map(g=>`<label style="display:flex;gap:10px;padding:4px 0;cursor:pointer">
+      <input type="radio" name="i_org" value="${esc(g.id)}"><span>${esc(g.name)}</span></label>`).join('')
+    :'<div class="why">No open account by that name. A company with no account registers first.</div>';
+}
+
+/* The payload from the dialog's fields, or the sentence that stops it: pure,
+   so the board test runs it (tests/test_boards.py). */
+function introducePayload(f){
+  const errors=[];
+  if(f.request_id==null&&!f.introduced_org_id)errors.push('choose the account to introduce');
+  if(f.dir==='TWO-WAY'&&!f.selling_side)errors.push('say who sells: the owner or the company introduced');
+  if(!String(f.fee_note||'').trim())errors.push('write the fee in words: it is agreed in writing before any introduction');
+  if(f.fee_model!=='success_fee'&&!f.fee_agreed_at)errors.push('give the date the fee was agreed');
+  const rate=String(f.fee_rate||'').trim();
+  if(rate!==''&&!(Number(rate)>=0&&Number(rate)<=100))errors.push('the fee rate is a percentage between 0 and 100');
+  if((f.introduced_org_id||f.source==='desk')&&!String(f.agreement_ref||'').trim())
+    errors.push('name the written agreement this runs on (agreement ref)');
+  if(errors.length)return {payload:null,error:errors.join('; ')};
+  const payload={opportunity_id:f.opportunity_id};
+  if(f.request_id!=null)payload.request_id=f.request_id;else payload.introduced_org_id=f.introduced_org_id;
+  if(f.dir==='TWO-WAY')payload.selling_side=f.selling_side;
+  payload.fee_model=f.fee_model||'recurring';
+  if(rate!=='')payload.fee_rate=Number(rate)/100;
+  payload.fee_note=String(f.fee_note).trim();
+  if(f.fee_agreed_at)payload.fee_agreed_at=f.fee_agreed_at;
+  if(String(f.agreement_ref||'').trim())payload.agreement_ref=String(f.agreement_ref).trim();
+  if(String(f.notes||'').trim())payload.notes=String(f.notes).trim();
+  return {payload,error:null};
+}
+function submitIntroduce(){
+  if(!introduceFor)return;
+  const o=oppById(introduceFor.oppId);if(!o)return;
+  const val=id=>(($(id)||{}).value||'');
+  const org=document.querySelector('input[name="i_org"]:checked');
+  const form={opportunity_id:o.id,dir:o.dir,source:o.source,
+    request_id:introduceFor.reqId,introduced_org_id:introduceFor.reqId!=null?null:(org?org.value:null),
+    selling_side:val('i_sells'),fee_model:val('i_model'),fee_rate:val('i_rate'),fee_note:val('i_note'),
+    fee_agreed_at:val('i_agreed'),agreement_ref:val('i_ref'),notes:val('i_notes')};
+  const {payload,error}=introducePayload(form);
+  if(error){$('i_err').textContent=error.charAt(0).toUpperCase()+error.slice(1)+'.';return;}
+  const spot=introduceFor.reqId!=null?'act-'+introduceFor.reqId:'opp-act-'+o.id;
+  closeIntroModal();
+  raise('introduce-on-board',payload,spot,'Introduced: the owner is emailed its offer');
+}
+
 /* ── Make-introduction modal ───────────────────────────────────────── */
 
 let modalFor=null;
@@ -1010,7 +1370,7 @@ function openIntroModal(reqId){
     </div>`;
   $('overlay').classList.add('open');
 }
-function closeIntroModal(){$('overlay').classList.remove('open');modalFor=null;}
+function closeIntroModal(){$('overlay').classList.remove('open');modalFor=null;introduceFor=null;ownerFor=null;}
 function createIntro(aId){
   const chosen=document.querySelector('input[name="partner"]:checked');
   if(!chosen)return;

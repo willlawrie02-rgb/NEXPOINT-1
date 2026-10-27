@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint CRM: Campaigns</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
+<link rel="stylesheet" href="crm.css?v=2">
+<style>
+  /* The page's own layout; every part is crm.css's components. */
+  .sec { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 14px; margin-top: 6px; }
+  .sec h2 { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .sec .muted-t { max-width: 72ch; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .camp-tags { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+  .tbl select.input { padding: 6px 28px 6px 9px; font-size: 13px; max-width: 240px; }
+  .tbl .cell-stack { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .tbl td.act { text-align: right; white-space: nowrap; }
+  .tbl tr.ask td { background: var(--bg); }
+  .newcamp { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .newcamp .input { flex: 1 1 240px; }
+  .ctl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .offer { align-items: flex-start; flex-wrap: wrap; }
+  .offer .actions { justify-content: flex-end; }
+  .offer select.input { padding: 6px 28px 6px 9px; font-size: 13px; max-width: 260px; }
+  @media (max-width: 860px) { .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  /* The section's four tabs stay one row on a phone, scrolling inside themselves. */
+  @media (max-width: 560px) { .views[aria-label="Marketing"] { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .views[aria-label="Marketing"] a { padding-inline: 9px; flex: none; } }
+</style>
+</head>
+<body>
+<!--
+Campaigns (plan 077, D6 and D7): the NexPoint campaigns with their five
+versions and template approvals, each campaign's contact list one level down
+(?campaign=<id>), the Smartlead mirror the engine keeps in Supabase
+(migration 0018) and the only controls that change a Smartlead campaign's
+state. Those stay a person's click, sent with the admin's own session token
+to the worker's admin-gated /smartlead/control. The engine reads this data
+and never presses these buttons: that split is the design.
+-->
+<div id="login" class="door" style="display:none">
+  <span class="brand"><img src="nexpoint-mark.png" alt="" width="30" height="26"><span class="wordmark"><span class="nex">Nex</span><span class="pt">Point</span></span></span>
+  <h1>Sign in to the CRM</h1>
+  <p>For Will and Chris only: the database admits the two of you and nobody else.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <label class="sr" for="email">Email</label>
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <label class="sr" for="pw">Password</label>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+</div>
+
+<div id="admin" class="app" style="display:none">
+  <aside class="rail" id="rail" aria-label="Main"></aside>
+  <main class="main" id="main" tabindex="-1"><div class="page" id="page"></div></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
+        integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script src="admin-auth.js"></script>
+<script src="crm-shell.js?v=3"></script>
+<script src="crm.js?v=071"></script>
+<script src="pipelines.js?v=073"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a hint for which screen to show; the database decides (is_brief_admin, a second factor since plan 035)
+// The worker's own domain (plan 028): the admin-gated Smartlead control route.
+const CONTROL_URL='https://api.nexpoint.co.uk/smartlead/control';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const PAGE_SECTION='marketing';
+let me=null;
+
+async function boot(){
+  const {data}=await sb.auth.getSession();const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)){if(await NXAdminAuth.requireAal2(sb))showAdmin(s.user);else showLogin(s);}else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))$('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pw').value});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  if(!(await NXAdminAuth.requireAal2(sb)))return;
+  showAdmin(data.user);
+}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,PAGE_SECTION);render();load();}
+
+/* Campaigns, in the Marketing section (plan 077). The working list holds the
+   live NexPoint campaigns, each with its five versions, the template
+   approvals and the way to its contact list; switched-off campaigns fold
+   into the archive; below, the Smartlead campaigns the engine mirrors, with
+   Start, Pause and Stop, and the mailboxes' warmup. One level down
+   (?campaign=<id>), a campaign's list: who is on it and where each one
+   stands, Remove with a reason, Add contacts from Contacts, and Put back.
+   Every change but Start, Pause and Stop is an engine_intents row the engine
+   acts on; nothing here writes anything else. */
+const esc=NXCRM.esc, ms=NXShell.ms, plural=(n,a,b)=>`${n} ${n===1?a:(b||a+'s')}`;
+/* The Marketing section's four tabs (plan 077, D1): one page each, so each can be linked to. */
+const MARKETING_TABS=[['marketing.html','Prospects'],['marketing-campaigns.html','Campaigns'],['marketing-linkedin.html','LinkedIn'],['marketing-finder.html','Finder']];
+const sectionTabs=cur=>`<div class="views" role="tablist" aria-label="Marketing">`+MARKETING_TABS.map(([href,label])=>`<a role="tab" href="${href}" aria-selected="${href===cur}">${label}</a>`).join('')+'</div>';
+
+// Plan 043: NexPoint campaigns, their five versions and the template approvals.
+const VERSIONS=[['current','Current customers'],['former','Former customers'],['enquired','Enquired'],
+  ['enquired_new','Enquired (new contact)'],['cold','Cold']];
+/* How we know them: the version a member is on follows its type (plan 043). */
+const VERSION_WORDS={current:'Current customer',former:'Former customer',enquired:'Enquired',enquired_new:'Enquired (new contact)',cold:'Cold'};
+const APPROVER={'willlawrie@nexpoint.co.uk':'will','chris@nexpoint.co.uk':'chris'};
+/* A member on the list: live, or replied. One taken off is remove (the worker
+   is taking it out of Smartlead) or removed, and sits in the archive. */
+const LIVE=['waiting','ready','in_smartlead','error'];
+const ON_LIST=['waiting','ready','in_smartlead','error','replied'];
+const OFF_LIST=['remove','removed'];
+/* The versions table's tally, in plain words. */
+const TALLY_WORDS={waiting:'waiting',ready:'ready to go in',in_smartlead:'in Smartlead',error:'refused by Smartlead',
+  remove:'being taken out',removed:'removed',replied:'replied'};
+const MEMBER_WORDS={waiting:'Waiting',ready:'Ready to go into Smartlead',in_smartlead:'In Smartlead',
+  remove:'Being taken out of Smartlead',removed:'Removed',replied:'Replied',error:'Smartlead refused it'};
+const CAMPAIGN_INTENTS=['link-campaign-version','approve-template','switch-campaign','delete-campaign','add-campaign-member','remove-campaign-member'];
+const OFFER_CAP=8;
+const UI={campaign:null,ask:null,adding:false,q:'',pick:{},archOpen:false,removedOpen:false,ctl:{},nc:{name:'',opp:''},rmWhy:''};
+let state='loading',banners=[];
+let camps=[],warm=[],nx=[],nxv=[],opps=[],members=[],memberCounts={},memberHistory=[],C=null,cardsErr=null,memberErr=null;
+let pendingByVersion={},pendingByCampaign={},pendingNewCampaign={},pendingByMember={},pendingAdds={};
+
+const isActive=s=>/ACTIVE|RUNNING|START/i.test(s||'');
+const isPaused=s=>/PAUSE/i.test(s||'');
+const pct=(n,sent)=>sent>0?`${Math.round(n/sent*1000)/10}%`:'None sent';
+const sentence=s=>{const t=String(s||'').replace(/_/g,' ').toLowerCase();return t?t[0].toUpperCase()+t.slice(1):'Unknown';};
+function campaignParam(){
+  const v=new URLSearchParams(location.search).get('campaign');
+  return v!=null&&/^\d+$/.test(v)?Number(v):null;
+}
+
+async function load(){
+  banners=[];memberErr=null;cardsErr=null;
+  UI.campaign=campaignParam();
+  const sm=await sb.from('campaigns').select('id,name,status,sent,opened,replied,bounced,synced_at').order('name',{ascending:true});
+  if(sm.error)banners.push(['err',`Could not read the Smartlead copy: ${sm.error.message}. If this names a missing table or permission, migration 0018 has not been applied.`]);
+  camps=sm.data||[];
+  const nc=await sb.from('nx_campaigns').select('id,name,opportunity_id,active').order('name',{ascending:true});
+  if(nc.error)banners.push(['err',`Could not read the NexPoint campaigns (migration 0047 may not be applied): ${nc.error.message}.`]);
+  nx=nc.data||[];
+  const vs=await sb.from('nx_campaign_versions').select('id,campaign_id,version,smartlead_campaign_id,will_approved_at,chris_approved_at');
+  nxv=vs.data||[];
+  const op=await sb.from('opportunities').select('id,title,active').order('title',{ascending:true});
+  opps=op.data||[];
+  members=await readMembers('id,company,campaign_id,version,status');
+  memberCounts={};
+  members.forEach(m=>{const k=m.campaign_id+':'+m.version;(memberCounts[k]=memberCounts[k]||{})[m.status]=(memberCounts[k][m.status]||0)+1;});
+  /* Plan 024's rule: the newest intent for a version, a campaign or a member
+     decides what its row says (ascending id, the last write wins; a done one
+     clears it). Newest first and capped, like every board. */
+  const iq=await sb.from('engine_intents').select('id,type,payload_json,status,result_note')
+    .in('status',['pending','claimed','failed','done']).in('type',CAMPAIGN_INTENTS)
+    .order('id',{ascending:false}).limit(1000);
+  if(iq.error)banners.push(['err',`Could not read the queued changes: ${iq.error.message}.`]);
+  if((iq.data||[]).length===1000)banners.push(['info','Showing the newest 1,000 queued changes; older ones are not shown.']);
+  watch(iq.data||[]);
+  const w=await sb.from('mailbox_warmup').select('email,warmup_score,status,synced_at').order('email',{ascending:true});
+  warm=w.data||[];
+  if(UI.campaign!=null)await loadList();
+  if(memberErr)banners.push(['err',`Could not read every campaign member, so the counts may be short: ${memberErr}.`]);
+  state='ready';render();
+}
+
+/* campaign_members, read in pages (code review, 4 October 2026): one unpaged
+   read ordered by ascending id drops the NEWEST members past PostgREST's
+   1,000-row cap. Every campaign's members on the list and being taken off,
+   or (a campaign's list) every member that campaign has ever had. A failed
+   page returns what was read so far and says why. */
+async function readMembers(cols,campaignId){
+  const PAGE=1000;let all=[];
+  for(let from=0;;from+=PAGE){
+    let q=sb.from('campaign_members').select(cols);
+    q=campaignId==null?q.in('status',['waiting','ready','in_smartlead','remove','error','replied']):q.eq('campaign_id',campaignId);
+    const {data,error}=await q.order('id',{ascending:true}).range(from,from+PAGE-1);
+    if(error){memberErr=error.message;return all;}
+    all=all.concat(data||[]);
+    if(!data||data.length<PAGE)return all;
+  }
+}
+
+/* A campaign's list: its members (every status), and Contacts for who they
+   are, where they stand on the pipelines and who can be added. */
+async function loadList(){
+  memberHistory=await readMembers('id,company,display_name,campaign_id,version,contact_email,contact_name,status,reason,updated_at',UI.campaign);
+  const [cq,fq,pq,eq,kq]=await Promise.all([
+    NXCRM.readAll(()=>sb.from('crm_companies').select('id,name,slug,area,archived_at').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_company_folders').select('company_id,area,slug,is_primary,gone_at').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_people').select('id,company_id,name,role,position,archived_at').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_person_emails').select('person_id,email,is_primary,retired_at').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_pipeline_cards').select('id,board,company_id,stage,dead_at,won_at,ended_at').order('id',{ascending:true})),
+  ]);
+  const failed=[['companies',cq],['folders',fq],['people',pq],['addresses',eq]].filter(([,q])=>q.error);
+  if(failed.length){
+    C=null;
+    banners.push(['err',`Could not read Contacts, so the list shows no company pages and Add contacts is off: ${failed.map(([w,q])=>`${w}: ${q.error.message}`).join('; ')}.`]);
+    return;
+  }
+  if(kq.error){cardsErr=kq.error.message;banners.push(['info',`Could not read the pipelines, so Where it stands is blank (migration 0078 may not be applied): ${kq.error.message}.`]);}
+  indexContacts(cq.data,fq.data,pq.data,eq.data,kq.error?[]:kq.data);
+}
+
+function indexContacts(cos,folders,people,emails,cards){
+  const by=(rows,k)=>{const m={};rows.forEach(r=>{(m[r[k]]=m[r[k]]||[]).push(r);});return m;};
+  const active=people.filter(p=>!p.archived_at);
+  C={byId:{},companies:cos.filter(c=>!c.archived_at).sort((a,b)=>String(a.name).localeCompare(String(b.name))),
+     slugCompany:{},folderOf:{},peopleOf:by(active,'company_id'),personById:{},emails:{},personByEmail:{},cards:by(cards,'company_id')};
+  cos.forEach(c=>{C.byId[c.id]=c;});
+  active.forEach(p=>{C.personById[p.id]=p;});
+  /* A member is keyed by its folder's slug: a live folder answers first, a gone one after. */
+  folders.slice().sort((a,b)=>(a.gone_at?1:0)-(b.gone_at?1:0)).forEach(f=>{if(!(f.slug in C.slugCompany))C.slugCompany[f.slug]=f.company_id;});
+  /* The folder Add contacts sends: the company's live deals/ or leads/ folder, its primary first. */
+  folders.filter(f=>!f.gone_at&&(f.area==='deals'||f.area==='leads'))
+    .sort((a,b)=>(b.is_primary?1:0)-(a.is_primary?1:0)||String(a.slug).localeCompare(String(b.slug)))
+    .forEach(f=>{if(!C.folderOf[f.company_id])C.folderOf[f.company_id]=f;});
+  emails.filter(e=>!e.retired_at&&C.personById[e.person_id])
+    .sort((a,b)=>(b.is_primary?1:0)-(a.is_primary?1:0))
+    .forEach(e=>{(C.emails[e.person_id]=C.emails[e.person_id]||[]).push(e.email);
+      const k=String(e.email).toLowerCase();if(!C.personByEmail[k])C.personByEmail[k]=C.personById[e.person_id];});
+}
+
+function watch(rows){
+  pendingByVersion={};pendingByCampaign={};pendingNewCampaign={};pendingByMember={};pendingAdds={};
+  const keyOfVersion={};nxv.forEach(v=>{keyOfVersion[v.id]=v.campaign_id+':'+v.version;});
+  rows.slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    const p=i.payload_json||{};
+    let map=null,key=null;
+    if(i.type==='approve-template'){map=pendingByVersion;key=keyOfVersion[p.version_id];}
+    else if(i.type==='link-campaign-version'&&p.campaign_id!=null){map=pendingByVersion;key=p.campaign_id+':'+p.version;}
+    else if(i.type==='link-campaign-version'&&p.campaign_name){map=pendingNewCampaign;key=p.campaign_name;}
+    else if(i.type==='remove-campaign-member'){map=pendingByMember;key=p.member_id;}
+    else if(i.type==='add-campaign-member'){map=pendingAdds;key=p.campaign_id+':'+p.company;}
+    else if(p.campaign_id!=null){map=pendingByCampaign;key=p.campaign_id;}
+    if(!map||key==null)return;
+    if(i.status==='done')delete map[key];else map[key]=i;
+  });
+}
+
+/* What a row says about its newest intent. A queued one is the line shown in
+   place of the control it came from, since the same decision twice would be
+   two intents; a failed one is a red line above the control, which stays. */
+const isQueued=q=>!!q&&q.status!=='failed';
+function intentLine(q,what){
+  if(!q)return '';
+  if(q.status==='failed')
+    return `<span class="status-line fail">${ms('error','sm')}${esc(what)} failed: ${esc(q.result_note||'the engine gave no reason')}</span>`;
+  return `<span class="status-line">${ms('schedule','sm')}${esc(what)} queued: the engine acts within a minute or two.</span>`;
+}
+
+/* Every decision opens in place, under the thing it changes: a short
+   question, the action and Cancel (no pop-up dialogs). */
+function ask(key,text,label,go,args,danger){UI.ask={key,text,label,go,args,danger:!!danger};render();}
+function askHtml(key){
+  const a=UI.ask;
+  if(!a||a.key!==key)return '';
+  return `<div class="inline-choice"><span>${esc(a.text)}</span><button type="button" class="btn sm ${a.danger?'danger':'primary'}" data-act="answer">${esc(a.label)}</button>`+
+    `<button type="button" class="btn sm quiet" data-act="closeAsk">Cancel</button></div>`;
+}
+const askRow=(key,cols)=>{const h=askHtml(key);return h?`<tr class="ask"><td colspan="${cols}">${h}</td></tr>`:'';};
+
+/* ---------- the campaigns ---------- */
+const campaignById=id=>nx.find(x=>String(x.id)===String(id));
+const listCount=id=>members.filter(m=>m.campaign_id===id&&ON_LIST.includes(m.status)).length;
+
+function campaignCard(c,archived){
+  const opp=opps.find(o=>o.id===c.opportunity_id);
+  const rows=VERSIONS.map(([v,label])=>{
+    const row=nxv.find(x=>x.campaign_id===c.id&&x.version===v)||{};
+    const counts=memberCounts[c.id+':'+v]||{};
+    const tally=Object.entries(counts).map(([k,n])=>`${n} ${esc(TALLY_WORDS[k]||k.replace(/_/g,' '))}`).join(', ')||'No prospects yet';
+    /* The version's newest intent: while a link or an approval is queued the
+       dropdown is not live and Approve is withheld; a failure sits above. */
+    const vq=pendingByVersion[c.id+':'+v];
+    const vline=intentLine(vq,vq&&vq.type==='approve-template'?'Approval':'Link');
+    const vkey='ver:'+c.id+':'+v;
+    const shown=UI.ask&&UI.ask.key===vkey?UI.ask.args[2]:row.smartlead_campaign_id;
+    const pick=`<label class="sr" for="vp-${esc(c.id)}-${esc(v)}">Smartlead campaign for ${esc(label)}</label>`+
+      `<select class="input vpick" id="vp-${esc(c.id)}-${esc(v)}" data-camp="${esc(c.id)}" data-version="${esc(v)}"${isQueued(vq)?' disabled':''}>`+
+      `<option value="">Not linked</option>`+
+      camps.map(sc=>`<option value="${esc(sc.id)}"${String(sc.id)===String(shown==null?'':shown)?' selected':''}>${esc(sc.name||('Smartlead '+sc.id))}</option>`).join('')+'</select>';
+    const mine=APPROVER[(me&&me.email||'').toLowerCase()];
+    const stamp=(who,at)=>at?`<span class="st ok">${who} approved ${esc(NXCRM.fmtDate(at))}</span>`:`<span class="st">${who}: not yet</span>`;
+    const btn=!isQueued(vq)&&row.id&&row.smartlead_campaign_id&&mine&&!row[mine+'_approved_at']
+      ?`<button type="button" class="btn sm primary" data-act="approve" data-id="${esc(row.id)}">Approve as ${mine==='will'?'Will':'Chris'}</button>`:'';
+    return `<tr><td class="strong">${esc(label)}</td><td>${pick}</td>`+
+      `<td><span class="cell-stack">${stamp('Will',row.will_approved_at)}${stamp('Chris',row.chris_approved_at)}</span></td>`+
+      `<td><span class="cell-stack">${vline}${btn}</span></td><td><small>${tally}</small></td></tr>`+askRow(vkey,5)+(row.id?askRow('apr:'+row.id,5):'');
+  }).join('');
+  /* Delete is offered only while the card's own data shows the campaign
+     empty: no version linked, no approval, no member. The handler checks
+     the same and, beyond it, that no prospect points at the campaign. A
+     live campaign that is not empty is switched off instead; an archived
+     one is switched on, and deleted only if empty. */
+  const empty=VERSIONS.every(([v])=>{const row=nxv.find(x=>x.campaign_id===c.id&&x.version===v)||{};
+    return !row.smartlead_campaign_id&&!row.will_approved_at&&!row.chris_approved_at&&!Object.keys(memberCounts[c.id+':'+v]||{}).length;});
+  const act=archived
+    ?`<button type="button" class="btn sm" data-act="switchCampaign" data-id="${esc(c.id)}" data-on="true">Switch on</button>`
+      +(empty?`<button type="button" class="btn sm danger" data-act="deleteCampaign" data-id="${esc(c.id)}">Delete campaign</button>`:'')
+    :empty?`<button type="button" class="btn sm danger" data-act="deleteCampaign" data-id="${esc(c.id)}">Delete campaign</button>`:`<button type="button" class="btn sm" data-act="switchCampaign" data-id="${esc(c.id)}" data-on="false">Switch off</button>`;
+  /* The campaign's own newest intent (switch or delete): queued replaces
+     the buttons, a failure sits beside them. */
+  const cq=pendingByCampaign[c.id];
+  const cline=intentLine(cq,cq&&cq.type==='delete-campaign'?'Delete':'Switch');
+  const n=listCount(c.id);
+  return `<section class="panel"><div class="panel-head"><h2>${esc(c.name)}</h2><div class="actions">${cline}${isQueued(cq)?'':act}</div></div>`+
+    `<div class="camp-tags"><span class="tag">${ms('travel_explore','sm')}${esc(opp?opp.title:(c.opportunity_id||'No opportunity'))}</span>`+
+    (archived?'<span class="st">Switched off</span>':'')+
+    `<a class="btn sm" href="marketing-campaigns.html?campaign=${encodeURIComponent(c.id)}">${ms('group','sm')}Open the list<span class="num">(${n})</span></a></div>`+
+    askHtml('camp:'+c.id)+
+    `<div class="tscroll"><table class="tbl compact"><thead><tr><th>Version</th><th>Smartlead campaign</th><th>Template</th><th></th><th>Prospects</th></tr></thead>`+
+    `<tbody>${rows}</tbody></table></div></section>`;
+}
+
+function newCampaignHtml(){
+  /* Will's ruling (2026-09-30): the form starts on no opportunity, so a
+     campaign is never created against whichever option happened to be
+     first. What is typed survives a redraw. */
+  const creating=Object.entries(pendingNewCampaign);
+  return `<section class="panel" id="newcamp"><h2>Create a campaign</h2>`+
+    `<div class="newcamp"><label class="sr" for="nc-name">Campaign name</label><input class="input" id="nc-name" placeholder="New campaign name, for example 3D print capacity providers" value="${esc(UI.nc.name)}">`+
+    `<label class="sr" for="nc-opp">Opportunity it targets</label><select class="input" id="nc-opp"><option value="">Choose an opportunity</option>`+
+    opps.map(o=>`<option value="${esc(o.id)}"${o.id===UI.nc.opp?' selected':''}>${esc(o.title)}${o.active?'':' (switched off)'}</option>`).join('')+'</select>'+
+    `<button type="button" class="btn sm primary" data-act="newCampaign">${ms('add','sm')}Create campaign</button></div>`+
+    `<span class="muted-t" id="nc-status">${creating.map(([name,q])=>intentLine(q,`Creating “${name}”`)).join(' ')}</span></section>`;
+}
+
+function overviewHtml(){
+  /* The working list holds live campaigns. A switched-off one sits in the
+     archive below the form, every row kept, with Switch on and, while
+     empty, Delete (Will's ruling of 30 September 2026). */
+  const live=nx.filter(c=>c.active!==false);
+  const off=nx.filter(c=>c.active===false);
+  let h=`<div class="sec"><h2>NexPoint campaigns</h2><span class="muted-t">Five email versions each, one per type of prospect. Link each version to its Smartlead campaign, then Will and Chris each approve its template; accepted prospects wait until both have.</span></div>`;
+  h+=`<div class="stack">`+(live.length?live.map(c=>campaignCard(c,false)).join('')
+    :`<section class="panel"><div class="empty-state">${ms('campaign')}<span>${nx.length?`No live NexPoint campaigns; ${off.length} switched off, in the archive below.`
+      :'No NexPoint campaigns yet. Create one below, then link its five Smartlead versions.'}</span></div></section>`)+newCampaignHtml();
+  h+=`<details class="archive" id="nxArchive"${UI.archOpen?' open':''}><summary><span>Switched off (<span class="num" id="nxArchiveCount">${off.length}</span>)</span></summary>`+
+    `<div class="arch-body" id="nxArchiveRows"><p class="muted-t">Out of the Campaign dropdown on Prospects and out of the working list, with every version, approval and prospect kept.</p>`+
+    `<div class="stack">${off.length?off.map(c=>campaignCard(c,true)).join(''):'<span class="muted-t">Nothing switched off.</span>'}</div></div></details></div>`;
+  return h+smartleadHtml()+warmupHtml();
+}
+
+/* ---------- the Smartlead mirror and its controls ---------- */
+function smartleadHtml(){
+  const latest=camps.map(c=>c.synced_at).filter(Boolean).sort().pop();
+  let h=`<div class="sec"><h2>Smartlead campaigns</h2><span class="muted-t">${latest?`Copied from Smartlead every two hours; last read ${esc(NXCRM.fmtDate(latest))} at ${esc(new Date(latest).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'}))}. `:''}Start, Pause and Stop take effect in Smartlead at once.</span></div>`;
+  if(!camps.length)return h+`<section class="panel"><div class="empty-state">${ms('outgoing_mail')}<span>No Smartlead campaigns copied yet. They appear after the first pull, within two hours.</span></div></section>`;
+  return h+`<div class="stack">${camps.map(card).join('')}</div>`;
+}
+function card(c){
+  const pill=isActive(c.status)?'st ok':isPaused(c.status)?'st info':'st';
+  const tile=(label,big,sub)=>`<div class="stat"><span class="stat-l">${label}</span><span class="stat-n num">${big}</span>${sub?`<span class="stat-s num">${sub}</span>`:''}</div>`;
+  return `<section class="panel"><div class="panel-head"><h2>${esc(c.name||('Campaign '+c.id))}</h2><span class="${pill}">${esc(sentence(c.status))}</span></div>`+
+    `<div class="stat-row">${tile('Sent',esc(c.sent||0))}${tile('Opened',esc(pct(c.opened,c.sent)),plural(c.opened||0,'open'))}`+
+    `${tile('Replied',esc(pct(c.replied,c.sent)),plural(c.replied||0,'reply','replies'))}${tile('Bounced',esc(pct(c.bounced,c.sent)),plural(c.bounced||0,'bounce'))}</div>`+
+    `<div class="ctl">${ctlButtons(c)}</div>${askHtml('ctl:'+c.id)}</section>`;
+}
+function ctlButtons(c){
+  const s=UI.ctl[c.id];
+  if(s&&s.state==='sending')return '<span class="status-line">Sending to Smartlead.</span>';
+  const said=s?`<span class="status-line${s.state==='fail'?' fail':''}">${esc(s.msg)}</span>`:'';
+  const primary=isActive(c.status)
+    ?`<button type="button" class="btn sm" data-act="control" data-id="${esc(c.id)}" data-action="pause">${ms('pause','sm')}Pause campaign</button>`
+    :`<button type="button" class="btn sm primary" data-act="control" data-id="${esc(c.id)}" data-action="start">${ms('play_arrow','sm')}Start campaign</button>`;
+  return said+primary+`<button type="button" class="btn sm danger" data-act="control" data-id="${esc(c.id)}" data-action="stop">${ms('stop','sm')}Stop campaign</button>`;
+}
+function warmupHtml(){
+  if(!warm.length)return '';
+  const score=s=>s==null?'<span class="st">Not read</span>':`<span class="st${s>=85?' ok':s<60?' err':''} num">${esc(s)}</span>`;
+  return `<div class="sec"><h2>Mailbox warm-up</h2></div><section class="list"><div class="tscroll"><table class="tbl compact"><thead><tr><th>Mailbox</th><th>Warm-up score</th><th>Status</th></tr></thead><tbody>`+
+    warm.map(m=>`<tr><td>${esc(m.email)}</td><td>${score(m.warmup_score)}</td><td>${esc(m.status?sentence(m.status):'Not read')}</td></tr>`).join('')+'</tbody></table></div></section>';
+}
+
+/* ---------- a campaign's list (D6) ---------- */
+const companyIdOf=slug=>C?C.slugCompany[slug]:undefined;
+const addressedPeople=companyId=>(C.peopleOf[companyId]||[]).filter(p=>(C.emails[p.id]||[]).length)
+  .sort((a,b)=>(a.position||0)-(b.position||0)||a.id-b.id);
+const here=()=>memberHistory.filter(m=>m.campaign_id===UI.campaign);
+const liveElsewhere=slug=>members.find(m=>m.company===slug&&LIVE.includes(m.status)&&m.campaign_id!==UI.campaign);
+
+/* Where it stands: the company's open cards on the pipelines, as 073 draws them. */
+function standsHtml(companyId){
+  if(cardsErr)return '<span class="muted-t">Not read</span>';
+  const cards=(C&&C.cards[companyId])||[];
+  const open=cards.filter(c=>!c.dead_at&&!c.won_at);
+  const pills=open.map(c=>NXPIPE.stagePill(c.board,c.stage)).filter(Boolean);
+  cards.filter(c=>c.won_at&&!c.dead_at&&!c.ended_at).forEach(c=>pills.push(`<span class="st ok">${c.board==='hub'?'Live host':'Active client'}</span>`));
+  return pills.length?pills.join(''):'<span class="muted-t">Not on a board</span>';
+}
+function memberRow(m){
+  const cid=companyIdOf(m.company), co=cid!=null&&C?C.byId[cid]:null;
+  const name=(co&&co.name)||m.display_name||m.company;
+  const companyCell=co?`<a class="linkish" href="company.html?id=${encodeURIComponent(co.id)}">${esc(name)}</a>`:`<span class="strong">${esc(name)}</span>`;
+  const person=C&&m.contact_email?C.personByEmail[String(m.contact_email).toLowerCase()]:null;
+  const who=m.contact_name||(person&&person.name)||'';
+  const word=MEMBER_WORDS[m.status]||m.status;
+  const why=(m.status==='waiting'||m.status==='error')&&m.reason?`<small>${esc(m.reason)}</small>`:'';
+  const q=pendingByMember[m.id];
+  const removable=LIVE.includes(m.status);
+  const act=!removable?'':isQueued(q)?'<span class="status-line">Remove queued</span>'
+    :`<button type="button" class="btn sm quiet" data-act="removeMember" data-member="${esc(m.id)}">Remove</button>`;
+  return `<tr><td class="strong">${companyCell}</td><td>${who?esc(who):'<span class="muted-t">No name</span>'}</td>`+
+    `<td>${m.contact_email?esc(m.contact_email):'<span class="muted-t">No email yet</span>'}</td>`+
+    `<td>${esc(VERSION_WORDS[m.version]||m.version||'')}</td><td><span class="cell-stack">${cid!=null?standsHtml(cid):'<span class="muted-t">Not in Contacts</span>'}</span></td>`+
+    `<td><span class="cell-stack"><span class="st${m.status==='in_smartlead'||m.status==='replied'?' ok':m.status==='error'?' err':m.status==='ready'?' info':''}">${esc(word)}</span>${why}</span></td>`+
+    `<td class="act"><span class="cell-stack">${q&&q.status==='failed'?intentLine(q,'Remove'):''}${act}</span></td></tr>`+removeAsk(m);
+}
+function removeAsk(m){
+  if(!UI.ask||UI.ask.key!=='rm:'+m.id)return '';
+  const pushed=['ready','in_smartlead','error'].includes(m.status);
+  const name=(C&&C.byId[companyIdOf(m.company)]||{}).name||m.display_name||m.company;
+  return `<tr class="ask"><td colspan="7"><div class="inline-choice"><span>Remove ${esc(name)} from this list? ${pushed?'It is taken out of Smartlead within five minutes.':'Nothing has gone to Smartlead yet.'} Say why; nothing is deleted.</span>`+
+    `<label class="sr" for="rm-why">Why it comes off</label><input class="input" id="rm-why" placeholder="Why it comes off the list" value="${esc(UI.rmWhy)}">`+
+    `<button type="button" class="btn sm danger" data-act="confirmRemove" data-member="${esc(m.id)}">Remove from the list</button><button type="button" class="btn sm quiet" data-act="closeAsk">Cancel</button></div></td></tr>`;
+}
+/* Removed from this list: the newest row of each company taken off and not
+   back on, with Put back (add-campaign-member again, its person found by
+   the address it had). */
+function removedRows(){
+  const rows=here();
+  const onList=new Set(rows.filter(m=>ON_LIST.includes(m.status)).map(m=>m.company));
+  const newest={};
+  rows.filter(m=>OFF_LIST.includes(m.status)).forEach(m=>{newest[m.company]=m;});
+  return Object.values(newest).filter(m=>!onList.has(m.company))
+    .sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
+}
+/* Why a member came off the list, by name: the handlers store "Removed by
+   <address>: <reason>", "moved by <address>", "returned to prospect by
+   <address>" or "status <type> set by <address>". Any other address left in
+   a reason is named too. */
+const ADDRESS=/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
+function offWhy(m){
+  const r=String(m.reason||'').trim(), when=m.updated_at?NXCRM.fmtDate(m.updated_at):'';
+  let lead='Removed', who='', why=r, x;
+  if((x=r.match(/^Removed by (\S+): ([\s\S]*)$/))){who=NXShell.personOf(x[1]);why=x[2].trim();}
+  else if((x=r.match(/^moved by (\S+)$/i))){who=NXShell.personOf(x[1]);lead='Moved to another campaign';why='';}
+  else if((x=r.match(/^returned to prospect by (\S+)$/i))){who=NXShell.personOf(x[1]);lead='Returned to prospect';why='';}
+  else if((x=r.match(/^status (.+?) set by (\S+?)(?:: no campaign)?$/i))){who=NXShell.personOf(x[2]);lead=`Status set to ${x[1]}`;why='';}
+  why=why.replace(ADDRESS,a=>NXShell.personOf(a));
+  if(m.status==='remove'){
+    const said=why||(lead==='Removed'?'':lead.charAt(0).toLowerCase()+lead.slice(1));
+    const by=[who,when].filter(Boolean).join(', ');
+    return `Being taken out of Smartlead${said?': '+said:''}${by?` (${by})`:''}`;
+  }
+  return `${lead}${who?' by '+who:''}${when?', '+when:''}${why?': '+why:''}`;
+}
+function putBackFor(m){
+  const q=pendingAdds[UI.campaign+':'+m.company];
+  if(isQueued(q))return '<span class="status-line">Put back queued</span>';
+  const failed=q?intentLine(q,'Put back'):'';
+  const camp=campaignById(UI.campaign);
+  if(camp&&camp.active===false)return '<span class="muted-t">The campaign is switched off, so nothing can be put back.</span>';
+  if(!C)return failed+'<span class="muted-t">Contacts could not be read, so it cannot be put back here.</span>';
+  const cid=companyIdOf(m.company);
+  if(cid==null||!C.folderOf[cid])return failed+'<span class="muted-t">It is no longer a lead or a deal, so it cannot be put back.</span>';
+  const p=m.contact_email?C.personByEmail[String(m.contact_email).toLowerCase()]:null;
+  if(!p||p.company_id!==cid)return failed+'<span class="muted-t">No person at this company has its address in Contacts; find them with Add contacts.</span>';
+  return failed+`<button type="button" class="btn sm" data-act="putBack" data-member="${esc(m.id)}">${ms('undo','sm')}Put back</button>`;
+}
+
+function offers(){
+  if(!C)return [];
+  const q=UI.q.trim().toLowerCase();
+  if(!q)return [];
+  const onHere=new Set(here().filter(m=>ON_LIST.includes(m.status)).map(m=>m.company));
+  const out=[];
+  for(const c of C.companies){
+    const f=C.folderOf[c.id];
+    if(!f||onHere.has(f.slug))continue;
+    const people=addressedPeople(c.id);
+    if(!people.length)continue;
+    const hay=[c.name,f.slug].concat(people.map(p=>p.name+' '+(C.emails[p.id]||[]).join(' '))).join(' ').toLowerCase();
+    if(!hay.includes(q))continue;
+    out.push({c,f,people});
+    if(out.length>=OFFER_CAP)break;
+  }
+  return out;
+}
+function offersHtml(){
+  if(!C)return '<p class="picker-note">Contacts could not be read, so nobody can be added here.</p>';
+  if(!UI.q.trim())return '<p class="picker-note">Type a company or a person. Leads and deals with a person who has an email address are offered; a company only in Contacts goes through Prospects first.</p>';
+  const list=offers();
+  if(!list.length)return '<p class="picker-note">No lead or deal with an email contact matches.</p>';
+  return list.map(({c,f,people})=>{
+    const other=liveElsewhere(f.slug), oc=other?campaignById(other.campaign_id):null;
+    const chosen=UI.pick[f.slug]||String(people[0].id);
+    const personPick=people.length>1
+      ?`<label class="sr" for="pick-${esc(f.slug)}">Person at ${esc(c.name)}</label><select class="input pickp" id="pick-${esc(f.slug)}" data-company="${esc(f.slug)}">`+
+        people.map(p=>`<option value="${esc(p.id)}"${String(p.id)===chosen?' selected':''}>${esc(p.name)}, ${esc((C.emails[p.id]||[])[0])}</option>`).join('')+'</select>'
+      :`<span class="muted-t">${esc(people[0].name)}, ${esc((C.emails[people[0].id]||[])[0])}</span>`;
+    return `<div class="mini offer"><span><span class="strong">${esc(c.name)}</span><span class="muted-t">${esc(NXCRM.kindLabel(c))}</span>`+
+      (other?`<span class="muted-t">On ${esc(oc?oc.name:'another campaign')} now: adding it moves it to this one.</span>`:'')+
+      `</span><span class="actions">${isQueued(pendingAdds[UI.campaign+':'+f.slug])?'<span class="status-line">Add queued</span>'
+        :`${personPick}<button type="button" class="btn sm primary" data-act="addMember" data-company="${esc(f.slug)}">${ms('person_add','sm')}Add to this list</button>`}</span></div>`;
+  }).join('');
+}
+
+function listHtml(c){
+  const rows=here(), onList=rows.filter(m=>ON_LIST.includes(m.status)).sort((a,b)=>String(a.display_name||a.company).localeCompare(String(b.display_name||b.company)));
+  const removed=removedRows();
+  let h='';
+  if(rows.some(m=>m.status==='in_smartlead'))h+=`<div class="hint">${ms('outgoing_mail')}<span>This campaign has sent: removing a member takes it out of Smartlead within five minutes.</span></div>`;
+  if(c.active===false)h+=`<div class="hint">${ms('info')}<span>Switched off: switch it on in Campaigns to add contacts.</span></div>`;
+  /* A company live on this list now supersedes an older refused add. */
+  const liveHere=new Set(onList.map(m=>m.company));
+  const adds=Object.values(pendingAdds).filter(i=>{const p=i.payload_json||{};
+    return p.campaign_id===UI.campaign&&!(i.status==='failed'&&liveHere.has(p.company));});
+  const nameOfSlug=slug=>{const cid=companyIdOf(slug);return (cid!=null&&C&&C.byId[cid]||{}).name||slug;};
+  if(adds.length)h+=`<div class="hint">${ms('schedule')}<span>${adds.map(i=>{const p=i.payload_json||{};
+    return i.status==='failed'?`Could not add ${esc(nameOfSlug(p.company))}: ${esc(i.result_note||'the engine gave no reason')}`:`Queued for the engine: ${esc(nameOfSlug(p.company))}`;}).join('. ')}.</span></div>`;
+  if(UI.adding&&c.active!==false){
+    h+=`<section class="panel"><div class="panel-head"><h2>Add contacts</h2><button type="button" class="btn sm quiet" data-act="closeAdd">Close</button></div>`+
+      `<div class="search">${ms('search')}<label class="sr" for="addq">Find a company or a person</label><input class="input" id="addq" type="search" autocomplete="off" value="${esc(UI.q)}" placeholder="Company, person or email"></div>`+
+      `<div id="offers">${offersHtml()}</div></section>`;
+  }
+  h+=`<section class="list">`+(onList.length
+    ?`<div class="tscroll"><table class="tbl"><thead><tr><th>Company</th><th>Person</th><th>Email</th><th>How we know them</th><th>Where it stands</th><th>Smartlead</th><th></th></tr></thead><tbody>${onList.map(memberRow).join('')}</tbody></table></div>`
+    :`<div class="empty-state">${ms('group')}<span>Nobody is on this list yet. Accept prospects onto it on Prospects, or add contacts here.</span></div>`)+'</section>';
+  h+=`<details class="archive" id="removedArchive"${UI.removedOpen?' open':''}><summary>Removed from this list (${removed.length})</summary><div class="arch-body">`+
+    (removed.length?removed.map(m=>{
+      const cid=companyIdOf(m.company), name=(cid!=null&&C&&C.byId[cid]||{}).name||m.display_name||m.company;
+      return `<div class="arch-row"><span class="strong">${esc(name)}</span><span class="muted-t">${esc([m.contact_name,m.contact_email].filter(Boolean).join(', '))}</span>`+
+        `<span class="arch-note">${esc(offWhy(m))}</span><span class="actions">${putBackFor(m)}</span></div>`;
+    }).join(''):'<span class="muted-t">Nobody has been taken off this list.</span>')+'</div></details>';
+  return h;
+}
+
+/* ---------- the page ---------- */
+function render(){
+  const page=$('page');
+  const bn=banners.map(([kind,text])=>`<div class="banner${kind==='err'?' err':''}">${ms(kind==='err'?'error':'info')}<div class="banner-text"><span>${esc(text)}</span></div></div>`).join('');
+  if(UI.campaign!=null&&state==='ready'){
+    const c=campaignById(UI.campaign);
+    const back=`<a class="btn quiet back" href="marketing-campaigns.html">${ms('arrow_back','sm')}Back to Campaigns</a>`;
+    if(!c){page.innerHTML=back+NXShell.headHtml({title:'Campaigns'})+sectionTabs('marketing-campaigns.html')+bn+
+      `<section class="panel"><div class="empty-state">${ms('search_off')}<span>This campaign no longer exists. It may have been deleted.</span></div></section>`;return;}
+    const opp=opps.find(o=>o.id===c.opportunity_id);
+    const actions=c.active!==false&&C?`<button type="button" class="btn primary" data-act="openAdd">${ms('person_add','sm')}Add contacts</button>`:'';
+    page.innerHTML=back+NXShell.headHtml({title:c.name,lede:`${opp?opp.title+'. ':''}Who is on this campaign and where each one stands.`,actions})+
+      sectionTabs('marketing-campaigns.html')+bn+listHtml(c);
+    return;
+  }
+  const head=NXShell.headHtml({title:'Campaigns',lede:'NexPoint campaigns, their versions and lists, and the Smartlead campaigns they send through.',
+    actions:state==='ready'?`<a class="btn primary" href="#newcamp">${ms('add','sm')}Create a campaign</a>`:''});
+  if(state==='loading'){page.innerHTML=head+sectionTabs('marketing-campaigns.html')+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the campaigns.</span></div></section>`;return;}
+  page.innerHTML=head+sectionTabs('marketing-campaigns.html')+bn+overviewHtml();
+}
+
+/* ---------- actions ---------- */
+async function raiseIntent(type,payload,statusEl,verb){
+  if(statusEl)statusEl.textContent='Sending.';
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){
+    /* Before migration 0082 the database refuses the list's two types by name. */
+    const msg=/campaign-member$/.test(type)&&/engine_intents_type_check/.test(error.message||'')
+      ?'Migration 0082 has not been applied: Add contacts, Remove and Put back wait for it.':`Could not queue it: ${error.message}`;
+    if(statusEl)statusEl.textContent=msg;else NXShell.toast(msg);return false;
+  }
+  if(statusEl)statusEl.textContent=verb+': queued for the engine.';
+  else NXShell.toast(`${verb}, queued. The engine acts within a minute or two.`);
+  setTimeout(load,1500);
+  return true;
+}
+const val=id=>String(($(id)||{}).value||'').trim();
+/* Add contacts and Put back mark the company queued at once and redraw, so a
+   second click raises nothing; the next read replaces the mark with the row. */
+async function raiseAdd(company,personId,verb){
+  const key=UI.campaign+':'+company;
+  if(isQueued(pendingAdds[key]))return false;
+  const was=pendingAdds[key];
+  const payload={campaign_id:Number(UI.campaign),company,person_id:personId};
+  pendingAdds[key]={id:0,type:'add-campaign-member',payload_json:payload,status:'pending'};render();
+  const ok=await raiseIntent('add-campaign-member',{campaign_id:Number(UI.campaign),company:company,person_id:personId},null,verb);
+  if(!ok){if(was)pendingAdds[key]=was;else delete pendingAdds[key];render();}
+  return ok;
+}
+
+function link(campaignId,version,smartleadId){
+  /* A dropdown that raised an intent the moment it changed could relink an
+     approved version on a stray scroll or a mis-click, with nothing on
+     screen to say so. It asks first, in place; Cancel puts the dropdown back. */
+  const sc=camps.find(x=>String(x.id)===String(smartleadId));
+  const target=(sc&&sc.name)||('Smartlead '+smartleadId);
+  ask('ver:'+campaignId+':'+version,smartleadId===''?'Unlink this version from its Smartlead campaign?'
+    :`Link this version to ${target}? Its accepted prospects go into that campaign.`,
+    smartleadId===''?'Unlink the version':'Link the version','link',[campaignId,version,smartleadId]);
+}
+function approve(versionId){
+  ask('apr:'+versionId,'Approve this version’s template? When both of you have, its accepted prospects go into Smartlead.',
+    'Approve the template','approve',[versionId]);
+}
+/* Will's ruling (2026-09-30): a mistake is undone here, not in SQL. The
+   engine deletes only an empty campaign and says what holds one that is
+   not; the refusal shows on the card. */
+function deleteCampaign(campaignId){
+  const c=campaignById(campaignId);
+  const name=c?c.name:'this campaign';
+  ask('camp:'+campaignId,`Delete “${name}”? Only an empty campaign can go: nothing linked to Smartlead, no approved template, no prospect on it. This cannot be undone.`,
+    'Delete campaign','deleteCampaign',[campaignId],true);
+}
+/* The same ruling's second half: a campaign in use is switched off, not
+   deleted. Touches nothing in Smartlead. */
+function switchCampaign(campaignId,active){
+  const c=campaignById(campaignId);
+  const name=c?c.name:'this campaign';
+  ask('camp:'+campaignId,active?`Switch “${name}” back on? It returns to the Campaign dropdown on Prospects and to the working list here.`
+    :`Switch “${name}” off? It leaves the Campaign dropdown on Prospects and the working list here; every version, approval and prospect is kept, and you can switch it back on.`,
+    active?'Switch on':'Switch off','switchCampaign',[campaignId,active]);
+}
+
+const CONFIRM={
+  link(campaignId,version,smartleadId){
+    return raiseIntent('link-campaign-version',{campaign_id:Number(campaignId),version,
+      smartlead_campaign_id:smartleadId===''?null:Number(smartleadId)},null,smartleadId===''?'Version unlinked':'Version linked');
+  },
+  approve(versionId){return raiseIntent('approve-template',{version_id:Number(versionId)},null,'Template approved');},
+  deleteCampaign(campaignId){
+    const c=campaignById(campaignId);
+    return raiseIntent('delete-campaign',{campaign_id:Number(campaignId)},null,`“${c?c.name:'The campaign'}” deleted`);
+  },
+  switchCampaign(campaignId,active){
+    const c=campaignById(campaignId);
+    return raiseIntent('switch-campaign',{campaign_id:Number(campaignId),active},null,`“${c?c.name:'The campaign'}” switched ${active?'on':'off'}`);
+  },
+  control(id,action){return control(id,action);},
+};
+
+/* Start, Pause and Stop: the worker's admin-gated route, with the admin's own
+   session token, exactly as before (never an intent: the engine can never
+   press these). */
+async function control(id,action){
+  const c=camps.find(x=>String(x.id)===String(id));
+  const done={start:'Started',pause:'Paused',stop:'Stopped'}[action];
+  UI.ctl[id]={state:'sending'};render();
+  const {data}=await sb.auth.getSession();
+  const r=await fetch(CONTROL_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},
+    body:JSON.stringify({action,campaign_id:Number(id)}),
+  }).catch(()=>null);
+  const res=r?await r.json().catch(()=>({})):{};
+  if(res.ok){UI.ctl[id]={state:'done',msg:`${done} in Smartlead. The figures refresh on the next pull.`};NXShell.toast(`${done} “${(c&&c.name)||'the campaign'}” in Smartlead.`);setTimeout(load,1500);}
+  else{UI.ctl[id]={state:'fail',msg:res.error||'Could not reach Smartlead\u2019s controls; try again.'};setTimeout(load,4000);}
+  render();
+}
+
+function newCampaign(){
+  const name=$('nc-name').value.trim();
+  if(!name){$('nc-status').textContent='Give the campaign a name.';return;}
+  if(!$('nc-opp').value){$('nc-status').textContent='Choose the opportunity it targets.';return;}
+  raiseIntent('link-campaign-version',{campaign_name:name,opportunity_id:$('nc-opp').value,version:'current',
+    smartlead_campaign_id:null},$('nc-status'),'Created').then(ok=>{if(ok)UI.nc={name:'',opp:''};});
+}
+
+const memberById=id=>memberHistory.find(m=>String(m.id)===String(id));
+const ACT={
+  answer(){const a=UI.ask;if(!a)return;UI.ask=null;render();CONFIRM[a.go](...a.args);},
+  closeAsk(){UI.ask=null;render();},
+  approve(el){approve(el.dataset.id);},
+  deleteCampaign(el){deleteCampaign(el.dataset.id);},
+  switchCampaign(el){switchCampaign(el.dataset.id,el.dataset.on==='true');},
+  newCampaign(){newCampaign();},
+  control(el){
+    const c=camps.find(x=>String(x.id)===String(el.dataset.id));
+    const action=el.dataset.action, verb={start:'Start',pause:'Pause',stop:'Stop'}[action];
+    ask('ctl:'+el.dataset.id,`${verb} “${(c&&c.name)||'this campaign'}”? It takes effect in Smartlead at once.`,`${verb} campaign`,'control',[el.dataset.id,action],action==='stop');
+  },
+  openAdd(){UI.adding=true;render();const f=$('addq');if(f&&f.focus)f.focus();},
+  closeAdd(){UI.adding=false;UI.q='';render();},
+  async addMember(el){
+    const slug=el.dataset.company;
+    if(isQueued(pendingAdds[UI.campaign+':'+slug]))return;
+    const offer=offers().find(o=>o.f.slug===slug);
+    if(!offer)return NXShell.toast('That company is no longer offered. Search again.');
+    const personId=Number(UI.pick[slug]||val('pick-'+slug)||offer.people[0].id);
+    const person=offer.people.find(p=>p.id===personId)||offer.people[0];
+    if(await raiseAdd(slug,person.id,`${offer.c.name} added to the list`)){UI.q='';render();}
+  },
+  removeMember(el){if(!UI.ask||UI.ask.key!=='rm:'+el.dataset.member)UI.rmWhy='';UI.ask={key:'rm:'+el.dataset.member};render();const f=$('rm-why');if(f&&f.focus)f.focus();},
+  async confirmRemove(el){
+    const m=memberById(el.dataset.member);if(!m)return;
+    const reason=val('rm-why');
+    if(!reason){const f=$('rm-why');if(f&&f.focus)f.focus();return NXShell.toast('Say why it comes off the list. Nothing is deleted.');}
+    if(await raiseIntent('remove-campaign-member',{member_id:Number(m.id),reason},null,`${m.display_name||m.company} removed from the list`)){UI.ask=null;UI.rmWhy='';render();}
+  },
+  async putBack(el){
+    const m=memberById(el.dataset.member);if(!m||!C)return;
+    const p=C.personByEmail[String(m.contact_email||'').toLowerCase()];
+    if(!p)return NXShell.toast('No person in Contacts has that address.');
+    await raiseAdd(m.company,p.id,`${m.display_name||m.company} put back on the list`);
+  },
+};
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(!b||!ACT[b.dataset.act])return;
+  e.preventDefault();ACT[b.dataset.act](b);
+});
+document.addEventListener('input',e=>{
+  const id=e.target.id;
+  if(id==='addq'){UI.q=e.target.value;const o=$('offers');if(o)o.innerHTML=offersHtml();}
+  else if(id==='nc-name')UI.nc.name=e.target.value;
+  else if(id==='rm-why')UI.rmWhy=e.target.value;
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.classList&&t.classList.contains('vpick'))link(t.dataset.camp,t.dataset.version,t.value);
+  else if(t.classList&&t.classList.contains('pickp'))UI.pick[t.dataset.company]=t.value;
+  else if(t.id==='nc-opp')UI.nc.opp=t.value;
+});
+/* An archive's open or closed state survives a redraw (toggle does not bubble). */
+document.addEventListener('toggle',e=>{
+  if(e.target.id==='nxArchive')UI.archOpen=e.target.open;
+  else if(e.target.id==='removedArchive')UI.removedOpen=e.target.open;
+},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&UI.ask){UI.ask=null;render();}});
+
+boot();
+</script>
+</body>
+</html>

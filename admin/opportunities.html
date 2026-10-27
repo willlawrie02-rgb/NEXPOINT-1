@@ -65,10 +65,11 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
       <nav class="boards" aria-label="Admin boards">
         <span class="navgroup">
           <a href="inbox.html">Inbox</a>
-          <a href="leads.html">Prospects</a>
+          <a href="marketing.html">Prospects</a>
           <a href="print-hub.html">3D Print Hub</a>
           <a href="mill-hub.html">Mill Hub</a>
           <a href="opportunities.html" aria-current="page">Opportunities</a>
+          <a href="index.html">Opportunities list</a>
         </span>
         <span class="navgroup">
           <a href="contacts.html">Contacts</a>
@@ -78,9 +79,9 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         </span>
         <span class="navgroup">
           <a href="system.html">System</a>
-          <a href="campaigns.html">Campaigns</a>
-          <a href="finder.html">Finder</a>
-          <a href="linkedin.html">LinkedIn</a>
+          <a href="marketing-campaigns.html">Campaigns</a>
+          <a href="marketing-finder.html">Finder</a>
+          <a href="marketing-linkedin.html">LinkedIn</a>
         </span>
       </nav>
 
@@ -90,14 +91,15 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <span class="count" id="count"></span>
         </div>
         <p class="note">
-          Companies apply to list an opportunity on the hub, or request an introduction
-          against a live brief. Review each, approve or decline it, then pair approved
-          sides into an introduction and track it here.
+          Posts arrive on the left: approve one and the opportunity is created and queued
+          for its draft. Requests against live opportunities arrive on the right: Introduce
+          makes the introduction in one step, with the fee agreed first. Every opportunity
+          is listed in the middle with its owner.
         </p>
         <div class="toolbar">
           <div id="filters" style="display:contents"></div>
           <span style="flex:1"></span>
-          <a class="btn btn-gh btn-sm" href="index.html"><span class="material-symbols-outlined" aria-hidden="true">edit_note</span>Manage briefs</a>
+          <a class="btn btn-gh btn-sm" href="index.html"><span class="material-symbols-outlined" aria-hidden="true">edit_note</span>Edit the opportunities</a>
         </div>
         <div id="banner"></div>
         <div id="legend" class="legend"></div>
@@ -117,17 +119,28 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           </section>
         </div>
 
+        <!-- Plan 070: every opportunity with its owner, between the two queues
+             and the register; ended ones in the archive below, nothing deleted. -->
+        <div class="colhead"><h2>Opportunities</h2><a class="see-all" href="index.html">Edit, set live or end on the Opportunities list</a><span class="rule"></span></div>
+        <div id="oppRows">
+          <div class="row skeleton"><div class="bone" style="width:34%"></div><div class="bone" style="width:70%;margin-top:12px"></div></div>
+        </div>
+        <details class="legacy" id="oppArchiveBox">
+          <summary>Ended opportunities <span class="count" id="oppArchiveCount"></span></summary>
+          <div id="oppArchive"></div>
+        </details>
+
         <div class="colhead"><h2>Introductions register</h2><a class="see-all" href="pipelines.html?tab=introductions">This hub's only · see all hubs on the Introductions board</a><span class="rule"></span></div>
         <div class="register">
           <table>
-            <thead><tr><th scope="col">Ref</th><th scope="col">Party A</th><th scope="col">Party B</th><th scope="col">Stage</th><th scope="col">Commission</th><th scope="col">Manage</th></tr></thead>
-            <tbody id="introRows"><tr><td colspan="6" style="color:var(--fg-2)">Loading…</td></tr></tbody>
+            <thead><tr><th scope="col">Ref</th><th scope="col">Opportunity</th><th scope="col">Owner</th><th scope="col">Sells (A)</th><th scope="col">Buys (B)</th><th scope="col">Stage</th><th scope="col">Fee</th><th scope="col">Manage</th></tr></thead>
+            <tbody id="introRows"><tr><td colspan="8" style="color:var(--fg-2)">Loading</td></tr></tbody>
           </table>
         </div>
 
         <div class="note-box">
-          Approving a request records your decision only — no company is ever told about
-          another until you make the introduction yourselves and log it here.
+          Approving a post records your decision and queues the draft; nobody is told about
+          another company until Introduce sends the owner its offer and the owner accepts.
         </div>
       </div>
     </div>
@@ -136,7 +149,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 
 <div class="overlay" id="overlay">
   <div class="modal" style="max-width:560px">
-    <h2 style="font:700 18px/1.3 var(--font-display);color:var(--fg);margin-bottom:16px">Make an introduction</h2>
+    <h2 id="modalTitle" style="font:700 18px/1.3 var(--font-display);color:var(--fg);margin-bottom:16px">Introduce</h2>
     <div id="modalBody"></div>
   </div>
 </div>
@@ -147,10 +160,10 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 <script>
 window.HUB = {
   hub: 'opportunities', title: 'Opportunities Board',
-  left:  { side: 'list_opportunity', title: 'Listing applications — join the hub',        approveLabel: 'Approve and draft brief' },
-  right: { side: 'request_intro',    title: 'Introduction requests — against live briefs', approveLabel: 'Approve introduction' },
+  left:  { side: 'list_opportunity', title: 'Posts: opportunities companies want on the board', approveLabel: 'Approve and draft brief' },
+  right: { side: 'request_intro',    title: 'Requests: against live opportunities',              approveLabel: 'Approve the request' },
 };
 </script>
-<script src="hub-board.js?v=079"></script>
+<script src="hub-board.js?v=080"></script>
 </body>
 </html>
