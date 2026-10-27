@@ -2953,11 +2953,19 @@ const DOOR_PAGE = existsSync(join(ADMIN_DIR, "system.html")) ? "system.html" : "
    pipelines.html?tab=introductions): the page is the part before the query. */
 const pageOf = (f) => String(f).split("?")[0];
 const built = (f) => existsSync(join(ADMIN_DIR, pageOf(f))) && !/NXShell\.comingHtml\(\{plan:'\d{3}',/.test(adminText(pageOf(f)));
+/* Plan 077: Prospects, Campaigns, LinkedIn and the Finder became Marketing's
+   four tabs. Once the old addresses point at them, the boards' checks walk the
+   tabs, pressing their own controls (every decision there opens in place, no
+   pop-up); before the admin sync carries them, the old boards as they were. */
+const MARKETING_TABS = { "leads.html": "marketing.html", "campaigns.html": "marketing-campaigns.html",
+  "linkedin.html": "marketing-linkedin.html", "finder.html": "marketing-finder.html" };
+const MARKETING = movedTo("leads.html") === "marketing.html";
+const PROSPECTS_PAGE = MARKETING ? "marketing.html" : "leads.html";
 
 /* The door is walked on a CRM page and on two old-style boards (each has its
    own boot and doLogin; the hub boards share hub-board.js's). */
 async function walkAdminDoor() {
-  for (const file of [DOOR_PAGE, "leads.html", "print-hub.html"]) {
+  for (const file of [DOOR_PAGE, MARKETING ? "orders.html" : "leads.html", "print-hub.html"]) {
     if (existsSync(join(ADMIN_DIR, file))) await walkDoorOn(file);
   }
 }
@@ -3075,14 +3083,23 @@ async function walkBoards() {
       prospect_type: "provider", recommended_campaign_id: null, campaign_id: null, source: "walk", list_overlap: null,
     }];
     const { context, page, errors } = await visit(world, { seedAdmin: true });
-    await page.goto(`${APEX}/admin/leads.html`);
+    await page.goto(`${APEX}/admin/${PROSPECTS_PAGE}`);
     await step("the Leads board shows the waiting company", async () => {
       await page.waitForSelector("#admin", { state: "visible" });
       await page.waitForSelector("text=ZZ Walk Test Ltd");
     });
     await step("Reject raises one intent, with the reason, and touches no other table", async () => {
-      await page.click('button[onclick^="reject("]');
-      await page.waitForFunction(() => /queued for the engine/.test(document.body.textContent));
+      if (MARKETING) {
+        /* Decline opens in place under the row: the reason, then Decline it. */
+        await page.click('[data-act="openRow"][data-id="501"]');
+        await page.click('#act-501 [data-act="reject"]');
+        await page.fill("#ask-501", "the scripted walk");
+        await page.click('[data-act="confirmReject"][data-id="501"]');
+        await page.waitForFunction(() => /queued/.test(document.body.textContent));
+      } else {
+        await page.click('button[onclick^="reject("]');
+        await page.waitForFunction(() => /queued for the engine/.test(document.body.textContent));
+      }
       eq(world.writes.length, 1, "writes");
       const w = world.writes[0];
       const row = oneRow(w);
@@ -3095,13 +3112,15 @@ async function walkBoards() {
   {
     const world = newWorld();
     const { context, page, errors } = await visit(world, { seedAdmin: true });
-    await page.goto(`${APEX}/admin/finder.html`);
+    await page.goto(`${APEX}/admin/${MARKETING ? MARKETING_TABS["finder.html"] : "finder.html"}`);
     await step("the Finder's draft request raises one intent for the deal folder", async () => {
       await page.waitForSelector("#admin", { state: "visible" });
+      await page.waitForSelector("#deal-slug");
       await page.fill("#deal-slug", "zz-walk-test");
       await page.fill("#deal-title", "The scripted walk");
       await page.click('button:has-text("draft"), button:has-text("Draft")');
-      await page.waitForFunction(() => /queued|requested/i.test(document.getElementById("deal-status").textContent));
+      if (MARKETING) await page.waitForFunction(() => /Draft for zz-walk-test queued/.test(document.getElementById("page").textContent));
+      else await page.waitForFunction(() => /queued|requested/i.test(document.getElementById("deal-status").textContent));
       eq(world.writes.length, 1, "writes");
       const w = world.writes[0];
       const row = oneRow(w);
@@ -3183,9 +3202,10 @@ async function walkOrganisationsNames() {
 /* Plan 065: Chris's CRM categorisation on the Prospects page. Every new
    button raises one intent and touches no other table. The deploy copy
    predates it until the admin sync; WALK_ADMIN_DIR=<engine>/app walks it now. */
-const CRM = /PLAN065/.test(readFileSync(join(ADMIN_DIR, "leads.html"), "utf8"));
+const CRM = /PLAN065/.test(readFileSync(join(ADMIN_DIR, PROSPECTS_PAGE), "utf8"));
 async function walkProspectsCrm() {
   area = "The Prospects page with Chris's classification";
+  if (MARKETING) return walkProspectsMarketing();
   if (!CRM) {
     notes.push("The Prospects page in this copy predates plan 065, so its checks were not run. " +
       "It arrives with the admin sync; WALK_ADMIN_DIR=<engine>/app walks it now.");
@@ -3302,6 +3322,136 @@ async function walkProspectsCrm() {
   }
 }
 
+/* Plan 077: the same buttons on Marketing's Prospects tab. Each row opens in
+   place (Show details) for its fields, notes and decisions; Decline, Kill and
+   Return to prospect take their reason in place, not from a prompt. */
+async function walkProspectsMarketing() {
+  const row = (id, extra) => ({
+    id, company: `zz-walk-${id}`, display_name: `ZZ Walk ${id} Ltd`, category: "Cold", matched_json: [], reasoning: "walk",
+    judge_reason: "walk", website: "https://example.com", quality: null, judged: true, judge_confidence: "medium",
+    proposed_at: ago(24), decided_at: null, decided_by: null, decision_note: null, status: "pending",
+    prospect_type: "Cold", recommended_campaign_id: null, campaign_id: null, source: "finder", list_overlap: null,
+    sector: null, company_type: null, ...extra });
+  const seed = (world) => {
+    world.rows.engine_lead_queue = [row(601), row(602, { quality: "watch" }),
+      row(603, { status: "approved", decided_at: ago(2), decided_by: ADMIN_EMAIL })];
+    world.rows.prospect_options = [
+      { field: "sector", value: "Insoles", position: 10, active: true },
+      { field: "company_type", value: "Lab", position: 10, active: true }];
+    world.rows.prospect_notes = [{ id: 1, company: "zz-walk-601", body: "Met at the fair.", by: ADMIN_EMAIL, at: ago(5) }];
+  };
+  const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+  const ROW = "#plist tbody tr";
+  const open = (page, id) => page.click(`[data-act="openRow"][data-id="${id}"]`);
+  const tab = (page, id) => page.click(`[data-act="tab"][data-f="${id}"]`);
+  const one = async (name, act, expect) => {
+    const world = newWorld();
+    seed(world);
+    const { context, page, errors } = await visit(world, { seedAdmin: true });
+    await page.goto(`${APEX}/admin/${PROSPECTS_PAGE}`);
+    await page.waitForSelector("#admin", { state: "visible" });
+    await page.waitForSelector(ROW);
+    await step(name, async () => {
+      await act(page);
+      await until(() => world.writes.length > 0, "the intent write");
+      await pause(300);
+      eq(world.writes.length, 1, "writes");
+      const w = world.writes[0];
+      const body = oneRow(w);
+      eq([w.method, w.table, body.type], ["POST", "engine_intents", expect.type], "the intent");
+      expect.check && expect.check(body.payload_json);
+      has(await page.innerText("body"), "queued", "the page's confirmation");
+    });
+    clean(world, errors, "the Prospects page");
+    await context.close();
+  };
+  await one("Save raises one edit-prospect with only the changed fields", async (page) => {
+    await open(page, 601);
+    await page.selectOption("#sector-601", "Insoles");
+    await page.selectOption("#ctype-601", "Lab");
+    await page.click("#save-601");
+  }, { type: "edit-prospect", check: (p) => eq([p.queue_row, p.fields], [601, { sector: "Insoles", company_type: "Lab" }], "payload") });
+  await one("Park raises one watch-lead", async (page) => {
+    await open(page, 601);
+    await page.click('#act-601 [data-act="park"]');
+  }, { type: "watch-lead", check: (p) => eq(p.queue_row, 601, "row") });
+  await one("Unpark on the Parked tab raises one unpark-lead", async (page) => {
+    await tab(page, "parked");
+    await open(page, 602);
+    await page.click('#act-602 [data-act="unpark"]');
+  }, { type: "unpark-lead", check: (p) => eq(p.queue_row, 602, "row") });
+  await one("Return to prospect asks why in place and raises one intent", async (page) => {
+    await tab(page, "leads");
+    await open(page, 603);
+    await page.click('#act-603 [data-act="returnLead"]');
+    await page.fill("#ask-603", "the scripted walk");
+    await page.click('[data-act="confirmReturn"][data-id="603"]');
+  }, { type: "return-to-prospect", check: (p) => eq([p.queue_row, p.reason], [603, "the scripted walk"], "payload") });
+  await one("Kill asks why in place and raises one block-lead", async (page) => {
+    await open(page, 601);
+    await page.click('#act-601 [data-act="block"]');
+    await page.fill("#ask-601", "the scripted walk");
+    await page.click('[data-act="confirmBlock"][data-id="601"]');
+  }, { type: "block-lead", check: (p) => eq([p.queue_row, p.reason], [601, "the scripted walk"], "payload") });
+  await one("Add note raises one add-prospect-note for the company", async (page) => {
+    await open(page, 601);
+    await page.fill("#note-601", "Software competitor, revisit in 2027.");
+    await page.click('[data-act="addNote"][data-id="601"]');
+  }, { type: "add-prospect-note", check: (p) => eq([p.company, p.body], ["zz-walk-601", "Software competitor, revisit in 2027."], "payload") });
+  await one("Add a company raises one add-prospect", async (page) => {
+    await page.click('.head [data-act="toggleAdd"]');
+    await page.fill("#add-name", "ZZ Added Ltd");
+    await page.selectOption("#add-type", "Known contact");
+    await page.click("#add-go");
+  }, { type: "add-prospect", check: (p) => eq([p.display_name, p.type, p.campaign_id], ["ZZ Added Ltd", "Known contact", null], "payload") });
+  {
+    const world = newWorld();
+    seed(world);
+    const { context, page, errors } = await visit(world, { seedAdmin: true });
+    await page.goto(`${APEX}/admin/${PROSPECTS_PAGE}`);
+    await step("Known contact greys the Campaign; the parked card cannot be graded; notes show", async () => {
+      await page.waitForSelector("#admin", { state: "visible" });
+      await page.waitForSelector(ROW);
+      await open(page, 601);
+      has(await page.textContent("#plist"), "Met at the fair.", "the note");
+      await page.selectOption("#type-601", "Known contact");
+      eq(await page.isDisabled("#camp-601"), true, "campaign disabled");
+      await tab(page, "parked");
+      await open(page, 602);
+      eq(await page.isDisabled("#quality-602"), true, "parked quality disabled");
+      eq(world.writes, [], "writes");
+    });
+    clean(world, errors, "the Prospects page");
+    await context.close();
+  }
+  {
+    /* Before migration 0065 the two new tables are unreadable (the stub answers
+       any table with rows, so the walk makes these two refuse by route). */
+    const world = newWorld();
+    seed(world);
+    const { context, page, errors } = await visit(world, { seedAdmin: true });
+    await page.route(/\/rest\/v1\/prospect_(options|notes)/, (route) => route.fulfill({
+      status: 404, contentType: "application/json",
+      headers: { "access-control-allow-origin": "*", "access-control-allow-credentials": "true" },
+      body: JSON.stringify({ code: "42P01", message: "relation does not exist", details: null, hint: null }) }));
+    await page.goto(`${APEX}/admin/${PROSPECTS_PAGE}`);
+    await step("Before migration 0065 the page says so and Accept still raises one accept-prospect", async () => {
+      await page.waitForSelector("#admin", { state: "visible" });
+      await page.waitForSelector(ROW);
+      has(await page.textContent("#page"), "0065", "the banner");
+      await page.click('[data-act="accept"][data-id="601"]');
+      await until(() => world.writes.length > 0, "the intent write");
+      await pause(300);
+      eq(world.writes.length, 1, "writes");
+      const w = world.writes[0];
+      const body = oneRow(w);
+      eq([w.method, w.table, body.type, body.payload_json.queue_row], ["POST", "engine_intents", "accept-prospect", 601], "the intent");
+    });
+    clean(world, errors, "the Prospects page");
+    await context.close();
+  }
+}
+
 async function walkReviewedBoards() {
   area = "The boards after the code review of 4 October";
   if (!REVIEWED) {
@@ -3365,12 +3515,12 @@ async function walkReviewedBoards() {
       { id: 902, type: "link-campaign-version", payload_json: { campaign_id: 1, version: "former", smartlead_campaign_id: 3102 }, status: "pending", result_note: null },
       { id: 901, type: "approve-template", payload_json: { version_id: 11 }, status: "failed", result_note: "the template has no opt-out line" }];
     const { context, page, errors } = await visit(world, { seedAdmin: true });
-    await page.goto(`${APEX}/admin/campaigns.html`);
+    await page.goto(`${APEX}/admin/${MARKETING ? MARKETING_TABS["campaigns.html"] : "campaigns.html"}`);
     const pick = (v) => `select[data-camp="1"][data-version="${v}"]`;
     await step("Campaigns: a refused approval shows the engine's reason, and Approve is still offered", async () => {
       await page.waitForSelector("text=ZZ Walk campaign");
       has(await page.textContent("#admin"), "Approval failed: the template has no opt-out line", "the board");
-      eq(await page.locator('button[onclick^="approve("]').count(), 1, "Approve buttons");
+      eq(await page.locator(MARKETING ? '[data-act="approve"]' : 'button[onclick^="approve("]').count(), 1, "Approve buttons");
     });
     await step("Campaigns: a queued link says so, and its dropdown is not live", async () => {
       has(await page.textContent("#admin"), "Link queued", "the board");
@@ -3380,13 +3530,21 @@ async function walkReviewedBoards() {
     await step("Campaigns: changing a link asks first, and No writes nothing and puts the dropdown back", async () => {
       world.dialog = "dismiss";
       await page.selectOption(pick("enquired"), "3102");
+      if (MARKETING) {
+        /* The question opens in place under the version; Cancel puts the dropdown back. */
+        await page.waitForSelector('.inline-choice [data-act="answer"]');
+        has(await page.textContent(".inline-choice"), "ZZ Walk cold", "the question asked");
+        await page.click('.inline-choice [data-act="closeAsk"]');
+      } else {
+        has((world.dialogs || []).join(" "), "ZZ Walk cold", "the question asked");
+      }
       await page.waitForFunction((sel) => document.querySelector(sel).value === "", pick("enquired"));
-      has((world.dialogs || []).join(" "), "ZZ Walk cold", "the question asked");
       eq(world.writes, [], "writes");
     });
     await step("Campaigns: Yes raises one intent for that version", async () => {
       world.dialog = "accept";
       await page.selectOption(pick("enquired"), "3102");
+      if (MARKETING) await page.click('.inline-choice [data-act="answer"]');
       await until(() => world.writes.length === 1, "one write");
       const row = oneRow(world.writes[0]);
       eq([world.writes[0].table, row.type, row.payload_json.campaign_id, row.payload_json.version, Number(row.payload_json.smartlead_campaign_id)],
@@ -3404,13 +3562,21 @@ async function walkReviewedBoards() {
       prospect_type: "provider", recommended_campaign_id: null, campaign_id: null, source: "walk", list_overlap: null }];
     world.rows.engine_intents = [{ id: 950, type: "unblock-lead", payload_json: { queue_row: 502 }, status: "failed", result_note: "the row has moved" }];
     const { context, page, errors } = await visit(world, { seedAdmin: true });
-    await page.goto(`${APEX}/admin/leads.html`);
+    await page.goto(`${APEX}/admin/${PROSPECTS_PAGE}`);
     await step("Leads: an unblock the engine refused says why, beside the button", async () => {
       await page.waitForSelector("#admin", { state: "visible" });
-      await page.click('[data-tab="rejected"]');
-      await page.waitForSelector("text=ZZ Walk Blocked Ltd");
-      has(await page.textContent("#act-502"), "Engine could not action this: the row has moved", "the card");
-      eq(await page.locator('#act-502 button[onclick^="unblock("]').count(), 1, "Unblock buttons");
+      if (MARKETING) {
+        /* The Declined archive below the list (the Rejected tab until plan 077). */
+        await page.click("#declined summary");
+        await page.waitForSelector("text=ZZ Walk Blocked Ltd");
+        has(await page.textContent("#declined"), "The engine could not restore it: the row has moved", "the archive row");
+        eq(await page.locator('#act-502 [data-act="unblock"]').count(), 1, "Restore buttons");
+      } else {
+        await page.click('[data-tab="rejected"]');
+        await page.waitForSelector("text=ZZ Walk Blocked Ltd");
+        has(await page.textContent("#act-502"), "Engine could not action this: the row has moved", "the card");
+        eq(await page.locator('#act-502 button[onclick^="unblock("]').count(), 1, "Unblock buttons");
+      }
     });
     clean(world, errors, "the Leads board");
     await context.close();
@@ -3440,7 +3606,7 @@ async function walkReviewedBoards() {
    Each old address is a pointer that moves to its new page at once and reads
    nothing, so a bookmark still works and no old button is left live. */
 async function walkMovedPages() {
-  area = "The moved admin pages (plans 072 and 073)";
+  area = "The moved admin pages (plans 072, 073 and 077)";
   /* Once a section is built, its old pages must point at it, and a pointer
      must point at a built page: a sync that carried half of plan 072 fails
      here rather than walking past it. */
@@ -3451,6 +3617,9 @@ async function walkMovedPages() {
       for (const f of ["dashboard.html", "tasks.html"]) if (there(f) && movedTo(f) !== "inbox.html") wrong.push(`${f} does not point at inbox.html`);
     }
     if (built("system.html") && there("health.html") && movedTo("health.html") !== "system.html") wrong.push("health.html does not point at system.html");
+    if (built("marketing.html")) {
+      for (const [f, tab] of Object.entries(MARKETING_TABS)) if (there(f) && movedTo(f) !== tab) wrong.push(`${f} does not point at ${tab}`);
+    }
     for (const f of adminPages()) if (movedTo(f) && !built(movedTo(f))) wrong.push(`${f} points at ${movedTo(f)}, which is not built`);
     if (built("system.html") && !REVIEWED) wrong.push("System is built but the review's checks would not run");
     if (wrong.length) throw new Error(wrong.join("; "));
