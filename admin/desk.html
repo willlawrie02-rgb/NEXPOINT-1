@@ -10,6 +10,40 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
 <link rel="stylesheet" href="crm.css?v=2">
+<style>
+/* The Desk's own layout, as the design's prototype draws it: the
+   conversations beside the selected one, theirs on the left and ours on the
+   right in the blue wash. A phone shows the list or the conversation, with
+   a way back to the list. */
+.desk-grid { display: grid; grid-template-columns: minmax(250px, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.tlist { padding: 8px; gap: 0; }
+.titem { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: var(--radius-sm); text-decoration: none; color: inherit; border-bottom: 1px solid var(--border-faint); }
+.titem:last-child { border-bottom: 0; }
+.titem:hover b { color: var(--blue); }
+.titem:focus-visible { box-shadow: var(--ring); }
+.titem[aria-current="page"] { background: var(--info-wash); }
+.titem .row1 { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.titem b { color: var(--fg); font-weight: 600; font-size: 13.5px; overflow-wrap: anywhere; }
+.titem .snip { font-size: 12.5px; color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-start; justify-content: space-between; }
+.thread-head .co { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.thread-head h2 { font-size: 17px; overflow-wrap: anywhere; }
+.msgs { display: flex; flex-direction: column; gap: 10px; }
+.msg { border: 1px solid var(--border); border-radius: var(--radius); padding: 11px 13px; background: var(--surface); display: flex; flex-direction: column; gap: 5px; max-width: 72ch; align-self: flex-start; }
+.msg.us { align-self: flex-end; background: var(--info-wash); border-color: var(--info-line); }
+.msg.failed { border-color: var(--err-line); }
+.msg-h { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--fg-2); }
+.msg-h b { color: var(--fg); font-weight: 600; font-size: 13px; }
+.msg p { margin: 0; font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg-1); }
+.msg .actions { margin-top: 2px; }
+.desk-back { display: none; align-self: flex-start; }
+@media (max-width: 860px) {
+  .desk-grid { grid-template-columns: minmax(0, 1fr); }
+  .desk-grid.has-thread .tlist { display: none; }
+  .desk-grid:not(.has-thread) .thread { display: none; }
+  .desk-back { display: inline-flex; }
+}
+</style>
 </head>
 <body>
 <div id="login" class="door" style="display:none">
@@ -37,7 +71,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=2"></script>
+<script src="crm-shell.js?v=3"></script>
+<script src="crm.js?v=071"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -45,6 +80,7 @@ const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a h
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const PAGE_SECTION='desk';
 let me=null;
 
 async function boot(){
@@ -63,15 +99,257 @@ async function doLogin(){
   if(!(await NXAdminAuth.requireAal2(sb)))return;
   showAdmin(data.user);
 }
-function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,'desk');render();}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,PAGE_SECTION);render();load();}
 
-/* Plan 076 builds Desk. Until it does, the page says so and points at
-   the boards that do its job today (the spec's Page inventory). */
-function render(){
-  $('page').innerHTML=NXShell.headHtml({title:'Desk',lede:'Questions people send us, answered as the NexPoint desk.'})
-    +NXShell.comingHtml({plan:'076',icon:'forum',what:'Each question as an email thread, the reply sent from hello@ and signed The NexPoint desk, and Add to Contacts for a sender we do not know.',
-      until:[['print-hub.html','Open the 3D Print Hub']]});
+/* The Desk: questions people send us, and our answers. Each question sent
+   through the site's Talk to the desk, or the homepage's intro call, is a
+   conversation (the worker opens it); a person answers here, and the answer
+   goes from hello@ signed The NexPoint desk, never with a name of ours; the
+   person's reply threads back on the engine's next run. Who pressed Send is
+   shown here only. Every change is an engine_intents row the engine acts
+   on (desk-reply, desk-close, desk-reopen, desk-add-to-contacts); nothing
+   here writes anything else. */
+const esc=NXCRM.esc, ms=NXShell.ms;
+const LEDE='Questions people send us, and our answers. Replies go from hello@, signed "The NexPoint desk".';
+const DESK_TYPES=['desk-reply','desk-close','desk-reopen','desk-add-to-contacts'];
+/* Where a question came from, in the words the engine files it with (desk.py's ORIGINS). */
+const ORIGIN={'THE PORTAL':"Sent through Talk to the desk on the NexPoint Global Portal's home page",
+  'YOUR ACCOUNT':'Sent through Talk to the desk on an account page',
+  '3D PRINT HUB':"Sent through Talk to the desk on the 3D Print Hub's pages",
+  'MILL HUB':"Sent through Talk to the desk on the Mill Hub's pages",
+  homepage:'Sent through the intro-call form on the home page'};
+/* A claimed intent a crashed run left behind stops hiding the buttons after ten minutes. */
+const STALE_CLAIM=10*60*1000;
+const staleClaim=i=>i.status==='claimed'&&Date.now()-Date.parse(i.requested_at||0)>STALE_CLAIM;
+const UI={filter:'open',open:null};
+let loaded=false, banners=[], threads=[], newest={}, messages=[], companies={}, people={};
+let base=[], sending=[], sendSeq=0, pending={}, intentById={};
+
+const isMissing=e=>!!e&&/does not exist|schema cache|Could not find/i.test(e.message||'');
+const selectedId=()=>{const m=/(?:^|[?&])thread=(\d+)(?:&|$)/.exec(location.search||'');return m?Number(m[1]):null;};
+const ref=id=>'DESK-'+String(id).padStart(4,'0');
+const nameOf=t=>t.company_text||t.contact_name||t.contact_email||'Someone';
+const sentence=s=>{const t=String(s||'').trim();return t?t.charAt(0).toUpperCase()+t.slice(1)+(/[.!?]$/.test(t)?'':'.'):'No reason was given.';};
+const whenText=v=>{
+  if(!v)return '';
+  const d=new Date(v);if(isNaN(d))return String(v);
+  const p={};new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'})
+    .formatToParts(d).forEach(x=>{p[x.type]=x.value;});
+  const year=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric'}).format(new Date());
+  return `${p.day} ${p.month}${p.year===year?'':' '+p.year}, ${p.hour}:${p.minute}`;
+};
+
+async function load(){
+  banners=[];
+  const sel=selectedId();
+  const [tq,nq,iq]=await Promise.all([
+    NXCRM.readAll(()=>sb.from('desk_threads').select('id,subject,contact_email,contact_name,company_text,origin,hub,company_id,person_id,status,waiting_on,last_message_at,closed_at,closed_by,source,created_at').order('last_message_at',{ascending:false})),
+    sb.from('desk_messages').select('id,thread_id,direction,body_text,at').order('at',{ascending:false}).limit(1000),
+    sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at,requested_by')
+      .in('status',['pending','claimed','failed','done']).in('type',DESK_TYPES)
+      .order('id',{ascending:false}).limit(1000),
+  ]);
+  if(tq.error){
+    banners.push(['err',isMissing(tq.error)?'Migration 0079 has not been applied: the Desk shows its conversations here once it is.':`Could not read the conversations: ${tq.error.message}.`]);
+  }
+  threads=tq.data||[];
+  newest={};
+  if(nq.error&&!tq.error)banners.push(['info',`Could not read the newest messages: ${nq.error.message}.`]);
+  (nq.data||[]).forEach(m=>{if(!newest[m.thread_id])newest[m.thread_id]=m;});
+  if(iq.error)banners.push(['info',`Could not read the replies on their way: ${iq.error.message}. A conversation may still show Send for a reply already queued.`]);
+  if((iq.data||[]).length===1000)banners.push(['info','Showing the newest 1,000 replies and changes; older ones are not on this page.']);
+  sending=[];watch(iq.data||[]);
+
+  messages=[];
+  const t=threads.find(x=>x.id===sel);
+  if(t){
+    const [mq,cq,pq]=await Promise.all([
+      sb.from('desk_messages').select('id,thread_id,direction,from_email,from_name,to_emails,subject,body_text,at,written_by,status,error,filed_path').eq('thread_id',t.id).order('at',{ascending:true}).limit(500),
+      t.company_id!=null?sb.from('crm_companies').select('id,name').eq('id',t.company_id):Promise.resolve({data:[]}),
+      t.person_id!=null?sb.from('crm_people').select('id,name').eq('id',t.person_id):Promise.resolve({data:[]}),
+    ]);
+    if(mq.error)banners.push(['err',`Could not read this conversation: ${mq.error.message}.`]);
+    messages=(mq.data||[]).slice().sort((a,b)=>String(a.at).localeCompare(String(b.at))||a.id-b.id);
+    (cq.data||[]).forEach(c=>{companies[c.id]=c;});
+    (pq.data||[]).forEach(p=>{people[p.id]=p;});
+  }
+  loaded=true;
+  render();
 }
+
+/* The newest intent for a conversation decides what it shows (ascending
+   id, last write wins; a done one clears it). A press is shown queued at
+   once, so it cannot be pressed twice. */
+function watch(list){base=list;reduce(base.concat(sending));}
+function reduce(list){
+  pending={};intentById={};
+  list.slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    intentById[i.id]=i;
+    const t=(i.payload_json||{}).thread_id;
+    if(t==null)return;
+    if(i.status==='done'||staleClaim(i))delete pending[t];else pending[t]=i;
+  });
+}
+
+/* ---------- the page ---------- */
+const btn=(act,label,icon,data,cls)=>`<button type="button" class="btn sm${cls?' '+cls:''}" data-act="${act}"${Object.entries(data||{}).map(([k,v])=>` data-${k}="${esc(v)}"`).join('')}>${icon?ms(icon,'sm'):''}${esc(label)}</button>`;
+const emptyMini=(text,icon)=>`<div class="empty-state">${ms(icon||'forum')}<span>${esc(text)}</span></div>`;
+const inFilter=t=>UI.filter==='all'||(UI.filter==='open'?t.status!=='closed':t.status==='closed');
+function pill(t){
+  if(t.status==='closed')return '<span class="st">Closed</span>';
+  return t.waiting_on==='us'?`<span class="st ok">${ms('forum')}Waiting on us</span>`:'<span class="st info">Waiting on them</span>';
+}
+
+function render(){
+  const page=$('page');
+  const head=NXShell.headHtml({title:'Desk',lede:LEDE});
+  if(!loaded){page.innerHTML=head+`<section class="panel">${emptyMini('Reading the conversations.','hourglass_top')}</section>`;return;}
+  const bn=banners.map(([tone,b])=>`<div class="banner${tone==='err'?' err':''}">${ms(tone==='err'?'error':'info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
+  const n=k=>threads.filter(t=>k==='all'||(k==='open'?t.status!=='closed':t.status==='closed')).length;
+  const tabs=`<div class="views" role="tablist" aria-label="Conversations">${[['open','Open'],['closed','Closed'],['all','All']].map(([f,label])=>
+    `<button type="button" role="tab" data-act="filter" data-f="${f}" aria-selected="${UI.filter===f}">${esc(label)}<span class="n num">${n(f)}</span></button>`).join('')}</div>`;
+  const sel=threads.find(t=>t.id===selectedId())||null;
+  /* What was typed survives a redraw (a filter, a failed queue, the choice opening). */
+  const kept=['dk-reply','dk-name','dk-co'].map(id=>[id,val(id)]);
+  page.innerHTML=head+bn+tabs+`<div class="desk-grid${sel?' has-thread':''}">${listHtml(sel)}${threadHtml(sel)}</div>`;
+  kept.forEach(([id,v])=>{const f=$(id);if(v&&f)f.value=v;});
+}
+
+function listHtml(sel){
+  const list=threads.filter(inFilter);
+  const items=list.map(t=>{
+    const m=newest[t.id];
+    const snip=m?String(m.body_text||'').replace(/\s+/g,' ').trim():'';
+    return `<a class="titem" href="desk.html?thread=${t.id}"${sel&&sel.id===t.id?' aria-current="page"':''}>`
+      +`<span class="row1"><b>${esc(nameOf(t))}</b><span class="item-date">${esc(NXCRM.fmtDate(t.last_message_at))}</span></span>`
+      +`<span class="task-text">${esc(t.subject)}</span>`+(snip?`<span class="snip">${esc(m.direction==='out'?'You: ':'')}${esc(snip)}</span>`:'')
+      +`<span>${pill(t)}</span></a>`;
+  }).join('');
+  const empty=UI.filter==='closed'?'No closed conversations.':UI.filter==='open'?'No open conversations. A question sent to the desk opens one here.':'No conversations yet.';
+  return `<section class="panel tlist" aria-label="Conversations">${items||emptyMini(empty)}</section>`;
+}
+
+function whoHtml(t){
+  const person=t.person_id!=null?people[t.person_id]:null, company=t.company_id!=null?companies[t.company_id]:null;
+  const name=(person&&person.name)||t.contact_name||t.contact_email;
+  if(company)return `From ${esc(name)}, <a href="company.html?id=${encodeURIComponent(company.id)}">${esc(company.name)}</a> · ${esc(t.contact_email)}`;
+  if(person)return `From ${esc(name)}, in Contacts · ${esc(t.contact_email)}`;
+  return `From ${esc(name)}${t.company_text&&t.company_text!==name?', '+esc(t.company_text):''} · ${esc(t.contact_email)} <span class="st">Not in Contacts yet</span>`;
+}
+function originText(t){
+  const o=String(t.origin||'').trim();
+  if(!o)return '';
+  if(/NO MATCH$/.test(o)){
+    const hub={'3D PRINT HUB':'3D Print Hub','MILL HUB':'Mill Hub'}[o.split('\u00b7')[0].trim()]||'NexPoint Global Portal';
+    return `Sent from the find page on the ${hub} when nothing matched the search; the search is in their message.`;
+  }
+  return (ORIGIN[o]||`Sent through Talk to the desk (${o})`)+'.';
+}
+
+function msgHtml(m,last){
+  const us=m.direction==='out';
+  const who=us?'The NexPoint desk':esc(m.from_name||m.from_email);
+  let meta=esc(whenText(m.at)), foot='';
+  if(us){
+    if(m.status==='queued')meta=`<span class="status-line">${ms('schedule','sm')}Sending…</span>`;
+    else if(m.status==='failed'){
+      meta=`<span class="status-line fail">${ms('error','sm')}Failed: ${esc(sentence(m.error))}</span>`;
+      if(last)foot=`<div class="actions">${btn('retry','Try again','refresh',{message:m.id},'quiet')}</div>`;
+    }else meta=`${esc(whenText(m.at))} · Sent by ${esc(NXShell.personOf(m.written_by)||'the desk')}`;
+  }
+  return `<article class="msg${us?' us':''}${m.status==='failed'?' failed':''}"><div class="msg-h"><b>${who}</b><span>${meta}</span></div><p>${esc(m.body_text)}</p>${foot}</article>`;
+}
+
+function threadHtml(t){
+  if(!t)return `<section class="panel thread">${emptyMini('Pick a conversation to read it and answer. There is nothing to approve or reject here.')}</section>`;
+  const q=pending[t.id];
+  const queued=q&&q.status!=='failed';
+  const failedIntent=q&&q.status==='failed'?q:null;
+  const lastOurs=[...messages].reverse().find(m=>m.direction==='out');
+  /* A reply's own message carries its state once the engine has made it:
+     the intent's failure is shown only when no message of ours came after it. */
+  const covered=i=>i.type==='desk-reply'&&!!lastOurs&&!!lastOurs.at&&Date.parse(lastOurs.at)>=Date.parse(i.requested_at||0);
+  let actions='';
+  if(queued)actions=`<span class="status-line">${ms('schedule','sm')}Queued, moments away.</span>`;
+  else actions=(t.person_id==null?btn('openAdd','Add to Contacts','person_add',{thread:t.id}):'')
+    +(t.status!=='closed'?btn('close','Close the conversation','done_all',{thread:t.id}):btn('reopen','Reopen the conversation','undo',{thread:t.id}));
+  const failLine=failedIntent&&!covered(failedIntent)
+    ?`<div class="actions"><span class="status-line fail">${ms('error','sm')}Failed: ${esc(sentence(failedIntent.result_note))}</span></div>`:'';
+  let add='';
+  if(UI.open==='add:'+t.id&&!queued){
+    /* Matched by its domain, the conversation has its company: the person joins it. */
+    const company=t.company_id!=null?companies[t.company_id]:null;
+    add=`<div class="inline-choice"><span>${company?`Add ${esc(t.contact_email)} to Contacts, at ${esc(company.name)}.`
+      :`Add ${esc(t.contact_email)} to Contacts. Add a company name to create their company too.`}</span>`
+      +`<label class="sr" for="dk-name">Their name</label><input class="input" id="dk-name" placeholder="Their name" value="${esc(t.contact_name||'')}">`
+      +(company?'':`<label class="sr" for="dk-co">Company name (optional)</label><input class="input" id="dk-co" placeholder="Company name (optional)" value="${esc(t.company_text||'')}">`)
+      +btn('add','Add to Contacts','person_add',{thread:t.id},'primary')+btn('closeUi','Cancel','',{},'quiet')+`</div>`;
+  }
+  const origin=originText(t);
+  const msgs=messages.length?messages.map((m,i)=>msgHtml(m,i===messages.length-1)).join(''):emptyMini('No messages to show.');
+  const provisional=queued&&q.type==='desk-reply'&&!(lastOurs&&lastOurs.status==='queued')
+    ?`<article class="msg us"><div class="msg-h"><b>The NexPoint desk</b><span class="status-line">${ms('schedule','sm')}Queued, moments away.</span></div><p>${esc((q.payload_json||{}).body||'')}</p></article>`:'';
+  let reply='';
+  if(t.status==='closed')reply=`<p class="picker-note">This conversation is closed. Reopen it to answer.</p>`;
+  else if(!(queued&&q.type==='desk-reply')){
+    reply=`<div class="composer"><label class="sr" for="dk-reply">Your reply</label><textarea class="input" id="dk-reply" placeholder="Write your reply."></textarea>`
+      +`<div class="composer-row"><span class="picker-note">It goes to ${esc(t.contact_email)} from hello@nexpoint.co.uk, signed ${esc('"The NexPoint desk"')}.</span>${btn('send','Send the reply','send',{thread:t.id},'primary')}</div></div>`;
+  }
+  return `<section class="panel thread" aria-labelledby="th-h"><a class="btn quiet sm desk-back" href="desk.html">${ms('arrow_back','sm')}Show all conversations</a>`
+    +`<div class="thread-head"><div class="co"><h2 id="th-h">${esc(t.subject)}</h2><span class="ditem-meta">${whoHtml(t)}</span>`
+    +`<span class="ditem-meta">${esc(ref(t.id))}${origin?' · '+esc(origin):''}</span></div><div class="actions">${actions}</div></div>`
+    +failLine+add+`<div class="msgs">${msgs}${provisional}</div>`+reply+`</section>`;
+}
+
+/* ---------- raising ---------- */
+async function raise(type,payload,verb,toastText){
+  const temp={id:1e15+(++sendSeq),type,payload_json:payload,status:'pending',requested_at:new Date().toISOString(),requested_by:me.email};
+  const t=payload.thread_id;
+  if(pending[t]&&pending[t].status!=='failed')return false;
+  sending.push(temp);reduce(base.concat(sending));
+  UI.open=null;render();
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){
+    sending=sending.filter(x=>x!==temp);reduce(base.concat(sending));render();
+    NXShell.toast(`Could not queue it: ${error.message}`);return false;
+  }
+  NXShell.toast(toastText||`${verb}, queued. The engine acts within a minute or two.`);
+  setTimeout(load,1500);
+  return true;
+}
+const val=id=>String(($(id)||{}).value||'');
+const need=(id,msg)=>{const f=$(id);if(f&&f.focus)f.focus();NXShell.toast(msg);return false;};
+
+const ACT={
+  filter(el){UI.filter=el.dataset.f;render();},
+  openAdd(el){UI.open='add:'+el.dataset.thread;render();const f=$('dk-name');if(f&&f.focus)f.focus();},
+  closeUi(){UI.open=null;render();},
+  send(el){
+    const body=val('dk-reply').trim();
+    if(!body)return need('dk-reply','Write the reply first.');
+    return raise('desk-reply',{thread_id:Number(el.dataset.thread),body},'Reply sent to the engine','Reply queued. It goes from hello@ within a minute or two.');
+  },
+  retry(el){
+    const m=messages.find(x=>String(x.id)===String(el.dataset.message));
+    if(!m)return false;
+    return raise('desk-reply',{thread_id:m.thread_id,body:m.body_text},'Trying again','Trying again. It goes from hello@ within a minute or two.');
+  },
+  close(el){return raise('desk-close',{thread_id:Number(el.dataset.thread)},'Closed');},
+  reopen(el){return raise('desk-reopen',{thread_id:Number(el.dataset.thread)},'Reopened');},
+  add(el){
+    const person_name=val('dk-name').trim(), company_name=val('dk-co').trim();
+    if(!person_name)return need('dk-name','Give their name.');
+    return raise('desk-add-to-contacts',{thread_id:Number(el.dataset.thread),person_name,company_name},'Added to Contacts');
+  },
+};
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(!b)return;
+  const a=b.dataset.act;
+  if(ACT[a]){e.preventDefault();ACT[a](b);}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&UI.open){UI.open=null;render();}});
 
 boot();
 </script>

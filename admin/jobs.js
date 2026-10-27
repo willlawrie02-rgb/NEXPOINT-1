@@ -2,7 +2,7 @@
    yields, as the Inbox (inbox.html) and the company page's Needs you
    (company.html) show it and decide it.
 
-   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=072">:
+   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=079">:
    shared admin files are cached in browsers for up to four hours, so bump
    ?v= on every change (and on every page that links it).
 
@@ -94,6 +94,8 @@ const whom=r=>!PLACEHOLDER.test(String(r.name||''))&&r.name?r.name:r.name==='(se
 /* A re-route's status column is its introduction's stage (declined or expired). */
 const spentStage=r=>r.status;
 
+/* The stale card's board, carried in the view's hub column (plan 073). */
+const BOARD_OF_STALE={hub:'Hub Providers',consultancy:'Consultancy'};
 const KINDS={
   listing:{group:'approve',icon:'storefront',label:'Listing request',
     line:r=>`${who(r)} has requested to be a provider on the ${hubName(r.hub)}`,panel:listingPanel},
@@ -107,8 +109,11 @@ const KINDS={
      default, so the hub is not named. */
   enquiry:{group:'waiting',icon:'forum',label:'Desk question',
     line:r=>`${who(r)} wrote to the desk`},
-  education:{group:'waiting',icon:'school',label:'Education sign-up',
-    line:r=>`${who(r)} signed up for the Education list`,panel:educationPanel},
+  /* A Desk conversation in which the person wrote last. It opens the
+     conversation on the Desk, never a company page: the sender may not be
+     in Contacts yet. */
+  desk:{group:'waiting',icon:'forum',label:'Desk question',opensBoard:true,
+    line:r=>`${who(r)} wrote to the desk`},
   introduction_to_make:{group:'waiting',icon:'handshake',label:'Introduction to make',
     line:r=>`${who(r)} asked to be introduced${r.ref?' to '+r.ref:''}`},
   seeker_request:{group:'waiting',icon:'travel_explore',label:'No match',
@@ -138,6 +143,13 @@ const KINDS={
      The Inbox opens that board; Needs you says where it is (opensBoard). */
   introduction_unpaid:{group:'money',icon:'currency_pound',label:'Introduction fee unpaid',opensBoard:true,
     line:r=>`${r.ref} was invoiced and is not yet paid: ${whom(r)} owes the fee`,panel:unpaidIntroPanel},
+  /* Plan 073 (D11): a pipeline card nobody has moved or emailed about for 14
+     days. It opens the company page at the card's stepper, where a move, a
+     next step or an email clears it; Not now is not offered. hub is the
+     board here: hub or consultancy. */
+  stale:{group:'waiting',icon:'hourglass_bottom',label:'Stale card',
+    labelOf:r=>`Stale card, ${BOARD_OF_STALE[r.hub]||'Hub Providers'}`,
+    line:r=>`${who(r)} has gone quiet for ${plural(Math.max(14,Math.floor((Number(r.age_hours)||0)/24)),'day')}`,panel:stalePanel},
   retention:{group:'money',icon:'auto_delete',label:'Retention period over',
     line:r=>`${who(r)}: its records may now be erased`,panel:retentionPanel},
   dispute:{group:'problem',icon:'gavel',label:'Dispute',
@@ -154,7 +166,9 @@ const KINDS={
     line:(r,now)=>`Engine run failed: ${r.name} at ${runTime(r.created_at,now)}`,panel:failedRunPanel},
 };
 function kindOf(r){
-  return KINDS[(r||{}).kind]||{group:'waiting',icon:'inbox',label:humanise((r||{}).kind||'job'),line:x=>String(x.name||x.ref||x.kind||'')};
+  const k=KINDS[(r||{}).kind];
+  if(!k)return {group:'waiting',icon:'inbox',label:humanise((r||{}).kind||'job'),line:x=>String(x.name||x.ref||x.kind||'')};
+  return k.labelOf?{...k,label:k.labelOf(r)}:k;
 }
 const lineOf=(r,now)=>kindOf(r).line(r,now);
 
@@ -686,19 +700,6 @@ function flaggedPanel(r,ctx){
         :link(companyHref(r),'Open the company page','open_in_new','primary')+btn('jobOpen','Keep it live','',{key:k,ui:'nn'}))};
 }
 
-/* An Education list sign-up (plan 026's panel, moved from the Dashboard):
-   Approve, or Decline with a reason that is recorded and never sent. */
-function educationPanel(r,ctx){
-  const w=(ctx.web||[]).find(x=>String(x.id)===String(r.item_id));
-  if(!w)return missing('This sign-up');
-  const k=r.item_key;
-  return {intent:'web:'+w.id,
-    body:kv([['Name',esc(w.contact_name||'(no name given)')],['Email',esc(w.email||'None given')],['Signed up',esc(day(w.created_at))]]),
-    actions:btn('jobEducation','Approve','check',{key:k,status:'approved'},'primary')+btn('jobOpen','Decline with a reason','',{key:k,ui:'decline'}),
-    choice:isOpen(ctx,'decline',r)?choice('Why is this declined? Recorded on the sign-up, never sent to the person.',
-      input(fid('jb-note',r),'Reason, recorded on the sign-up')+btn('jobEducation','Decline the sign-up','',{key:k,status:'declined'},'danger')+cancel()):''};
-}
-
 /* The payment clock (the design's): a bar for the 14 days with ticks at days
    7 and 12, blue until day 14, red once the listing has hidden itself; the
    label says which reminders have gone. `n` is the clock's day. */
@@ -756,6 +757,15 @@ function registrationPanel(r){
   const b=String(r.board||'');
   return {body:para('The account exists only once the link in the email is clicked.'),
     actions:link(SAFE_BOARD.test(b)&&!/^inbox\.html/.test(b)?b:'contacts.html?view=people&portal=portal','Open Contacts','contacts')};
+}
+
+/* Plan 073 (D11): the stale card's job opens the company page at its stepper, where
+   a move, the shared next step or an email clears it. */
+function stalePanel(r){
+  const days=Math.max(14,Math.floor((Number(r.age_hours)||0)/24));
+  const b=String(r.board||''), at=/[?&]card=(\d+)/.exec(b);
+  return {body:para(esc(`No email and no move for ${plural(days,'day')}. Move the card on its stepper, set the shared next step, or write to them.`)),
+    actions:link(at?`#card-${at[1]}`:(SAFE_BOARD.test(b)?b:'pipelines.html'),'Go to its stepper','view_kanban')};
 }
 
 function hostApplicationPanel(){
@@ -872,13 +882,6 @@ const ACT={
   jobNotAnOrder(el,ctx){
     const r=rowOf(el,ctx);if(!r)return;
     return ctx.raise('match-order-evidence',{evidence_id:Number(r.item_id),introduction_id:null},spot(r),'Marked not an introduction order');
-  },
-  jobEducation(el,ctx){
-    const r=rowOf(el,ctx);if(!r)return;
-    if(el.dataset.status==='approved')return ctx.raise('review-web-request',{request_id:Number(r.item_id),status:'approved'},spot(r),'Approved');
-    const reason=ctx.val(fid('jb-note',r)).trim();
-    if(!reason)return ctx.need(fid('jb-note',r),'Give a reason: every declined request keeps one on the record.');
-    return ctx.raise('review-web-request',{request_id:Number(r.item_id),status:'declined',reason},spot(r),'Declined');
   },
   /* Not now (D4): the card leaves the queue for Done today with Put back, and
      comes back by itself when the job changes (its key carries the state). */
@@ -1001,7 +1004,7 @@ Object.assign(ACT,{
 
 const TYPES=['approve-listing','decline-listing','approve-listing-revision','decline-listing-revision',
   'add-provider','decline-intro-request','reroute-introduction','reissue-acceptance',
-  'resolve-dispute','match-order-evidence','review-web-request','dismiss-inbox-item'];
+  'resolve-dispute','match-order-evidence','dismiss-inbox-item'];
 const LISTING_TYPES=TYPES.slice(0,4);
 /* The key a job looks its newest open intent up by (the page reduces the
    intents newest-wins, then calls this for each). */
@@ -1012,7 +1015,6 @@ function intentKey(i){
   if(i.type==='reroute-introduction'||i.type==='reissue-acceptance')return 'intro:'+p.introduction_id;
   if(i.type==='resolve-dispute')return `dispute:${p.kind}:${p.id}`;
   if(i.type==='match-order-evidence')return 'evidence:'+p.evidence_id;
-  if(i.type==='review-web-request')return 'web:'+p.request_id;
   if(i.type==='dismiss-inbox-item'||i.type==='restore-inbox-item')return 'nn:'+p.item_key;
   if(i.type==='edit-task'||i.type==='done-task')return 'task:'+p.task_id;
   if(i.type==='add-task')return 'add:'+String(p.title||'').trim().toLowerCase();
@@ -1029,7 +1031,6 @@ const DONE_WORDS={
   'decline-intro-request':['waiting','Request declined'],
   'reroute-introduction':['waiting','Offer re-routed'],
   'reissue-acceptance':['waiting','Offer sent'],
-  'review-web-request':['waiting',p=>p.status==='approved'?'Request approved':p.status==='declined'?'Request declined':'Request marked reviewing'],
   'resolve-dispute':['problem',p=>p.resolution==='upheld'?'Dispute: the seeker’s figure used':'Dispute: the host’s figure kept'],
   'match-order-evidence':['problem',p=>p.introduction_id==null?'Marked not an introduction order':'Order email matched'],
   'dismiss-inbox-item':[p=>(KINDS[p.kind]||{}).group||null,p=>(p.kind==='flagged_host'?'Kept live: ':'Not now: ')+(p.reason||'no reason given')],
@@ -1053,7 +1054,7 @@ function doneWords(i,opt){
 async function read(sb,rows,opt){
   const o=opt||{};
   const out={listings:[],revisions:{},machines:{},requests:[],introductions:[],orgs:{},evidence:[],lines:[],declarations:[],
-    strikes:[],vocab:{},searches:{},web:[],steps:[],links:{},matchIntros:[],invoices:[],problems:[]};
+    strikes:[],vocab:{},searches:{},steps:[],links:{},matchIntros:[],invoices:[],problems:[]};
   const none=Promise.resolve({data:[],error:null});
   const got=(what,q)=>{if(q&&q.error)out.problems.push(`Could not read ${what}: ${q.error.message}.`);return (q&&q.data)||[];};
   const of=(...kinds)=>(rows||[]).filter(r=>kinds.includes(r.kind));
@@ -1064,21 +1065,19 @@ async function read(sb,rows,opt){
   const introIds=uniq(of('reroute','introduction').map(r=>Number(r.item_id)));
   const lineIds=uniq(of('dispute').filter(r=>/^line:/.test(r.item_id)).map(r=>idAfter(r,'line:')));
   const evIds=uniq([...of('dispute').filter(r=>/^evidence:/.test(r.item_id)).map(r=>idAfter(r,'evidence:')),...of('unmatched_email').map(r=>Number(r.item_id))]);
-  const eduIds=uniq(of('education').map(r=>Number(r.item_id)));
   const runIds=uniq(of('failed_run').map(r=>String(r.item_id)));
   const flagged=uniq(of('flagged_host').map(r=>r.org_id||r.item_id));
   const orgIds=uniq(of('retention').map(r=>r.org_id||r.item_id));
   const invIds=uniq(of('membership_unpaid','listing_hidden','invoice_not_raised').map(r=>Number(r.item_id)));
   const words=listingIds.length||reqIds.length||introIds.length;
 
-  const [vq,lq,rq,iq,dlq,eq,wq,sq,kq,mq]=await Promise.all([
+  const [vq,lq,rq,iq,dlq,eq,sq,kq,mq]=await Promise.all([
     words?sb.from('vocab_terms').select('kind,term,label'):none,
     listingIds.length?sb.from('listings').select('*').in('id',listingIds):none,
     reqIds.length?sb.from('seeker_requests').select('*').in('id',reqIds):none,
     introIds.length?sb.from('introductions').select('*').in('id',introIds):none,
     lineIds.length?sb.from('declaration_lines').select('*').in('id',lineIds):none,
     evIds.length?sb.from('order_evidence').select('*').in('id',evIds):none,
-    eduIds.length?sb.from('web_requests').select('*').in('id',eduIds):none,
     runIds.length?sb.from('engine_steps').select('run_id,seq,name,status,detail').in('run_id',runIds):none,
     flagged.length?sb.from('strikes').select('*').in('org_id',flagged):none,
     invIds.length?sb.from('membership_invoices').select('id,org_id,period,amount,currency,xero_invoice_number,xero_online_url,invoice_date,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at,last_error,last_error_at').in('id',invIds):none,
@@ -1089,7 +1088,6 @@ async function read(sb,rows,opt){
   out.introductions=got('the introductions',iq);
   out.lines=got('the disputed lines',dlq);
   out.evidence=got('the order emails',eq);
-  out.web=got('the sign-ups',wq);
   out.steps=got('the failed runs',sq);
   out.strikes=got('the strikes',kq);
   out.invoices=got('the membership invoices',mq);
