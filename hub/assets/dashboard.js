@@ -189,6 +189,17 @@
   function hostHubs(s) {
     return HUBS.filter(function (h) { return s['host_' + h] === 'approved'; });
   }
+  /* Plan 070: a company that sells through an accepted introduction on the
+     Opportunities Board declares and is billed like a host, without being
+     one; its Declarations and Fees sections show for it too. */
+  function boardSeller(d) {
+    return (Array.isArray(d.introductions) ? d.introductions : []).some(function (i) {
+      return onBoard(i) && i.seller && acceptedStage(i.stage) && i.fee_model !== 'success_fee';
+    });
+  }
+  /* A board introduction, as the worker decides it (its hub); the opportunity
+     may be missing when an old row's brief no longer resolves. */
+  function onBoard(i) { return !!i && (i.hub === 'opportunities' || !!i.opportunity); }
 
   /* ═══════════ 1. profile ═══════════ */
   function renderProfile(d, s) {
@@ -368,6 +379,9 @@
   }
 
   function providerLine(i) {
+    /* Plan 070: on the Opportunities Board the company behind the
+       opportunity answers; the company that asked waits on it. */
+    if (onBoard(i) && !i.asked && i.stage === 'awaiting_acceptance') return 'With the company behind the opportunity.';
     if (i.stage === 'awaiting_acceptance') return 'Waiting for your answer.';
     if (i.stage === 'approved') return 'Approved by NexPoint.';
     if (i.stage === 'introduced') return 'Introduced.';
@@ -403,15 +417,23 @@
      opens an optional reason for the desk. Both panels start closed. */
   function answerPanel(i) {
     var id = esc(i.id);
+    /* Plan 070: the owner of an opportunity accepts screen 1 of the
+       Opportunity Terms; the company that asked is told, not a seeker. */
+    var board = onBoard(i);
     return '<div class="acct-answer" id="introAnswer-' + id + '" hidden>' +
-        '<p class="hint">Accept and the introduction goes to you both by email, with each other\'s details. ' +
-        'Decline and the seeker is told a site said no, and nothing else.</p>' +
+        '<p class="hint">' + (board
+          ? 'Accept and the introduction goes to you both by email, with each other\'s details. ' +
+            'Decline and the other company is told only that you said no, never why.'
+          : 'Accept and the introduction goes to you both by email, with each other\'s details. ' +
+            'Decline and the seeker is told a site said no, and nothing else.') + '</p>' +
         '<div class="acct-answer__terms" id="introTerms-' + id + '"></div>' +
         '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-accept-send" data-intro="' + id + '">Accept the introduction</button>' +
       '</div>' +
       '<div class="acct-answer" id="introDecline-' + id + '" hidden>' +
-        '<label class="hint" for="introReason-' + id + '">Tell us why, if you like. This goes to the NexPoint desk, not to the seeker.</label>' +
-        '<textarea id="introReason-' + id + '" rows="3" placeholder="Too far out, wrong material, no capacity that month"></textarea>' +
+        '<label class="hint" for="introReason-' + id + '">Tell us why, if you like. This goes to the NexPoint desk, not to ' +
+          (board ? 'the other company' : 'the seeker') + '.</label>' +
+        '<textarea id="introReason-' + id + '" rows="3" placeholder="' + (board ? 'Not the right fit for us at the moment'
+          : 'Too far out, wrong material, no capacity that month') + '"></textarea>' +
         '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-decline-send" data-intro="' + id + '">Send my decline</button>' +
       '</div>';
   }
@@ -487,6 +509,16 @@
 
   function introRow(i, showResend, offer, tag) {
     var extra = [];
+    /* Plan 070: a board introduction names its opportunity, and to the owner
+       what the company asking said and where it is (never who). */
+    if (i.opportunity) extra.push(['Opportunity ' + (i.opportunity.ref || ''), i.opportunity.title].filter(Boolean).join(', '));
+    if (i.ask) {
+      /* the member's own words, or the desk's summary of what it wants */
+      var said = [i.ask.what_they_said ? (i.ask.from_request === false ? 'What they are looking for: ' : 'What they said: ') +
+          i.ask.what_they_said : '',
+        [i.ask.town, i.ask.country].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+      if (said) extra.push(said);
+    }
     var asked = offerLine(offer);
     if (asked) extra.push(asked);
     if (i.stage === 'awaiting_acceptance' && i.acceptance_expires_at) extra.push('Open until ' + fmtDate(i.acceptance_expires_at) + '.');
@@ -638,14 +670,16 @@
   }
 
   function renderDeclarations(d, s, byId) {
-    if (!isHost(s) && !closedHost(d, s)) { hide('declarations'); return; }
+    if (!isHost(s) && !closedHost(d, s) && !boardSeller(d)) { hide('declarations'); return; }
     var dec = d.declarations;
     var body;
     if (!dec) body = empty('Declarations open soon.', 'event_upcoming');
     else if (dec.due_state === 'submitted') body = empty('Declared for ' + (fmtPeriod(dec.period_open) || 'this period') + '. Nothing else to send.', 'task_alt');
     else if (dec.due_state === 'due' || dec.due_state === 'reminder' || dec.due_state === 'overdue') {
       body = declCard(dec, declHubOf(dec, byId) || hostHubs(s)[0] || '');
-    } else body = empty('Nothing due. Declarations open on the 1st for hosts with accepted introductions.', 'task_alt');
+    } else body = empty(isHost(s) || closedHost(d, s)
+      ? 'Nothing due. Declarations open on the 1st for hosts with accepted introductions.'
+      : 'Nothing due. Declarations open on the 1st for what you sell through accepted introductions.', 'task_alt');
 
     fill('declarations',
       head('fact_check', 'Declarations', 'What came through each introduction. The other side confirms it, so both records agree.') +
@@ -713,7 +747,7 @@
       return lines.length;
     }
     var asked = intros.filter(function (i) { return i.role === 'provider' && i.stage === 'awaiting_acceptance'; });
-    var due = isHost(s) && dec && ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
+    var due = (isHost(s) || boardSeller(d)) && dec && ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
       Array.isArray(dec.items) && dec.items.length;
     /* An account that is not a host and has listed, asked and been
        introduced to nothing yet has one thing to do: choose a hub. The
@@ -758,7 +792,7 @@
 
   /* ═══════════ 5. fees and standing (host) ═══════════ */
   function renderFees(d, s) {
-    if (!isHost(s) && !closedHost(d, s)) { hide('fees'); return; }
+    if (!isHost(s) && !closedHost(d, s) && !boardSeller(d)) { hide('fees'); return; }
     var statements = Array.isArray(d.statements) ? d.statements : null;
     var feesBody;
     if (statements && statements.length) {
@@ -968,7 +1002,11 @@
     return '';
   }
 
+  /* The summary last drawn, so an answer can tell a board introduction from
+     any other without asking the worker again. */
+  var lastSummary = null;
   function render(d) {
+    lastSummary = d;
     if (el('acctLoading')) el('acctLoading').hidden = true;
     /* Emptied as well as hidden: a reopened account must not keep the
        closed notice (plan 069) in the page, out of sight but still there. */
@@ -1166,6 +1204,32 @@
       return introTerms;
     });
   }
+  /* Plan 070: the owner of an opportunity accepts screen 1 of the
+     Opportunity Terms (read through the account module, which knows the
+     screens), once per introduction it opens. */
+  var boardTerms = {};
+  function isBoardIntro(id) {
+    var i = (lastSummary && Array.isArray(lastSummary.introductions) ? lastSummary.introductions : [])
+      .filter(function (x) { return String(x.id) === String(id); })[0];
+    return onBoard(i) ? i : null;
+  }
+  function loadBoardTerms(id, force) {
+    var i = isBoardIntro(id);
+    var box = el('introTerms-' + id);
+    /* A redraw of the page empties the box; the terms are drawn again then. */
+    if (boardTerms[id] && !force && box && box.querySelector('[data-np-terms-tick]')) return Promise.resolve(boardTerms[id]);
+    if (!window.NPAccount || typeof NPAccount.termsBlock !== 'function') {
+      if (box) box.innerHTML = '<p class="hint">This page has been updated since it loaded. Refresh it, then answer.</p>';
+      return Promise.resolve(null);
+    }
+    return NPAccount.termsBlock(box, 'opportunity', 1, {
+      fill: { reference: i && i.opportunity ? i.opportunity.ref || '' : '', date: fmtDate(new Date().toISOString()) },
+      note: force ? 'The Opportunity Terms have been updated. Read them again and tick to accept them.' : '',
+    }).then(function (t) {
+      boardTerms[id] = t && t.ok ? t : null;
+      return boardTerms[id];
+    });
+  }
   function renderIntroTerms(id) {
     var box = el('introTerms-' + id);
     if (!box) return;
@@ -1198,6 +1262,7 @@
     accept.hidden = false;
     if (review) review.hidden = true;
     var box = el('introTerms-' + id);
+    if (isBoardIntro(id)) { if (box && !box.innerHTML) loadBoardTerms(id); return; }
     if (box && !box.innerHTML) box.innerHTML = '<p class="hint">Loading the introduction terms…</p>';
     loadIntroTerms().then(function () { renderIntroTerms(id); });
   }
@@ -1217,7 +1282,20 @@
     var id = btn.getAttribute('data-intro');
     var msg = el('introMsg-' + id);
     var body = { introduction_id: /^\d+$/.test(id) ? Number(id) : id };
-    if (action === 'accept') {
+    var board = isBoardIntro(id);
+    if (action === 'accept' && board) {
+      var btick = document.querySelector('#introTerms-' + CSS.escape(id) + ' [data-np-terms-tick]');
+      if (!boardTerms[id] || !boardTerms[id].id) {
+        say(msg, 'We could not load the Opportunity Terms, so we cannot record an acceptance yet. Refresh and try again, or email hello@nexpoint.co.uk.', true);
+        return;
+      }
+      if (!btick || !btick.checked) {
+        say(msg, 'Read the Opportunity Terms and tick to accept them.', true);
+        if (btick) btick.focus();
+        return;
+      }
+      body.terms_version_id = boardTerms[id].id;
+    } else if (action === 'accept') {
       var tick = el('introTick-' + id);
       if (!introTerms || !introTerms.id) {
         say(msg, 'We could not load the introduction terms, so we cannot record an acceptance yet. Refresh and try again, or email hello@nexpoint.co.uk.', true);
@@ -1239,13 +1317,18 @@
       if (d && d.ok) {
         say(msg, action === 'accept'
           ? 'Accepted. The introduction is on its way to your inbox.'
-          : 'Declined. The seeker is told a site said no, and nothing else.');
+          : board ? 'Declined. The other company is told only that you said no.'
+            : 'Declined. The seeker is told a site said no, and nothing else.');
         load();
         return;
       }
       done();
       var code = d && d.error;
       if (ANSWER_CLOSED[code]) { say(msg, ANSWER_CLOSED[code]); reload(); return; }
+      if (code === 'invalid terms_version_id' && board) {
+        loadBoardTerms(id, true);
+        return;
+      }
       if (code === 'invalid terms_version_id') {
         /* The terms rolled over while the box was open: the tick was for a
            version that is no longer current, so the new text goes up unticked. */

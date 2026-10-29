@@ -215,7 +215,9 @@
   };
 
   /* The one place a desk request is posted, so there is a single request
-     shape to keep true. */
+     shape to keep true. A request on the Opportunities Board carries the
+     Opportunity Terms version it accepted (plan 070); with none the key is
+     left out, so the homepage's call is byte for byte as before. */
   A.submitRequest = function (action) {
     const u = A.user || {};
     return postJson('/requests', {
@@ -223,6 +225,7 @@
       company: u.company || '', contact_name: u.name || '', email: u.email || '', phone: '',
       location: [u.town, u.country].filter(Boolean).join(', '),
       payload: action.payload || {}, company_url: '',
+      terms_version_id: action.terms_version_id || undefined,
     });
   };
 
@@ -579,13 +582,13 @@
     (termsFetch || loadPlatformTerms()).then(apply);
   }
 
-  function successCard(line) {
+  function successCard(line, back) {
     content().innerHTML = `
       <div class="success">
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>Received, in confidence.</h2>
         <p>${esc(line)}</p>
-        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" data-np-done>Back to the hub</button></div>
+        <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" data-np-done>${esc(back || 'Back to the hub')}</button></div>
       </div>`;
     content().querySelector('[data-np-done]').addEventListener('click', hide);
   }
@@ -676,10 +679,100 @@
     step1();
   };
 
+  /* ── the Opportunity Terms, one screen at a time (plan 070) ─── */
+  /* The renderer from hub/assets/portal.js (markdownLite), copied because the
+     Opportunities Board loads no portal.js. Two copies, one rule: a change to
+     one is a change to both, and the walk renders the same text through each. */
+  function markdownLite(md) {
+    const LEVEL = 2;
+    const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+    let html = '', inList = false, para = [], item = null;
+    const inline = (s) => escapeText(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+    const flushPara = () => { if (para.length) { html += '<p>' + inline(para.join(' ')) + '</p>'; para = []; } };
+    const flushItem = () => { if (item) { html += '<li>' + inline(item.join(' ')) + '</li>'; item = null; } };
+    const closeList = () => { flushItem(); if (inList) { html += '</ul>'; inList = false; } };
+    lines.forEach((raw) => {
+      const line = raw.trim();
+      if (!line) { flushPara(); closeList(); return; }
+      const h = /^(#{1,4})\s+(.*)$/.exec(line);
+      if (h) { flushPara(); closeList(); const lvl = Math.min(h[1].length + LEVEL, 6); html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>'; return; }
+      const li = /^[-*]\s+(.*)$/.exec(line);
+      if (li) { flushPara(); flushItem(); if (!inList) { html += '<ul>'; inList = true; } item = [li[1]]; return; }
+      if (item) { item.push(line); return; }
+      if (/^-{3,}$/.test(line)) { flushPara(); html += '<hr>'; return; }
+      if (/^\*\*[^*]+\*\*$/.test(line)) { flushPara(); html += '<p>' + inline(line) + '</p>'; return; }
+      para.push(line);
+    });
+    flushPara();
+    closeList();
+    return html;
+  }
+  A.markdownLite = markdownLite;
+
+  /* One screen of a terms document: the lines under `## Screen n:` up to the
+     next line that starts `## `, without the heading itself, the screen's own
+     button line (the page draws the button) or a closing rule. The
+     `## Records written` section is never a screen, so it can never be shown.
+     Empty when the heading is absent. `fill` names the [reference] and [date]
+     the screen's header carries. */
+  A.termsScreen = function (body, n, fill) {
+    const lines = String(body || '').replace(/\r\n/g, '\n').split('\n');
+    const start = lines.findIndex((l) => new RegExp('^##\\s+Screen\\s+' + Number(n) + ':').test(l.trim()));
+    if (start < 0) return '';
+    const out = [];
+    for (let k = start + 1; k < lines.length; k++) {
+      if (/^##\s/.test(lines[k].trim())) break;
+      out.push(lines[k]);
+    }
+    const f = fill || {};
+    return out.filter((l) => !/^\[\s.*\s\]$/.test(l.trim()))
+      .join('\n').replace(/\n-{3,}\s*$/, '').trim()
+      .replace(/\[reference\]/g, f.reference || '').replace(/\[date\]/g, f.date || '');
+  };
+
+  const OPP_LAYER_NAME = { opportunity: 'Opportunity Terms', introduction: 'introduction terms' };
+  /* `{id, version, html}` for one screen of a layer's current text, or
+     `{error: 'terms_not_live'}` while the layer has no current version (the
+     worker answers 404, or 422 before it knows the layer), or
+     `{error: 'network'}`. */
+  A.loadTermsScreen = function (layer, n, fill) {
+    return getJson('/terms/current?layer=' + encodeURIComponent(layer)).then((d) => {
+      if (d && d.error === 'network') return { error: 'network' };
+      if (!d || d.error || !d.id) return { error: 'terms_not_live' };
+      const text = A.termsScreen(d.body_md, n, fill);
+      if (!text) return { error: 'terms_not_live' };
+      return { id: d.id, version: d.version, html: markdownLite(text) };
+    });
+  };
+
+  /* The terms block: the screen in a scroll box and one tick, or the line
+     that says why there is nothing to accept. Resolves `{ok, id, version}`;
+     the caller sends nothing until the tick is set ([data-np-terms-tick]). */
+  A.termsBlock = function (target, layer, n, opts) {
+    const o = opts || {};
+    const name = OPP_LAYER_NAME[layer] || 'terms';
+    if (!target) return Promise.resolve({ ok: false });
+    target.innerHTML = '<p class="body" style="margin:0">Loading the ' + esc(name) + '…</p>';
+    return A.loadTermsScreen(layer, n, o.fill).then((d) => {
+      if (d.error) {
+        target.innerHTML = '<p class="np-sign-error" style="display:block">' + (d.error === 'network'
+          ? 'We could not load the ' + esc(name) + '. Check your connection and try again, or email hello@nexpoint.co.uk.'
+          : 'The ' + esc(name) + ' are not live yet. Try again soon, or email hello@nexpoint.co.uk.') + '</p>';
+        return { ok: false, error: d.error };
+      }
+      target.innerHTML = (o.note ? '<p class="np-sign-error" style="display:block">' + esc(o.note) + '</p>' : '') +
+        '<div class="terms-scroll">' + d.html + '</div>' +
+        '<label class="np-terms-tick"><input type="checkbox" data-np-terms-tick> ' +
+        esc('I accept the ' + name + ', version ' + d.version) + '</label>';
+      return { ok: true, id: d.id, version: d.version };
+    });
+  };
+
   /* ── the act gate ────────────────────────────────────────── */
   A.gate = function (action) {
     if (!A.user) { A.afterSignIn = () => A.gate(action); if (typeof openSignIn === 'function') openSignIn(); return; }
     const u = A.user;
+    const label = action.button || action.heading || 'Request the introduction';
     content().innerHTML = `
       ${action.brief_ref ? `<span class="ref">${esc(action.brief_ref)}</span>` : ''}
       <h2>${esc(action.heading || 'Ask us to introduce you')}</h2>
@@ -687,27 +780,56 @@
       <div class="np-confirm">
         <p><strong>${esc(u.name)}</strong> · ${esc(u.company)}<br>${esc([u.town, u.country].filter(Boolean).join(', '))} · ${esc(u.email)}</p>
       </div>
-      <div class="field full"><label for="gNotes">Anything specific? (optional)</label><textarea id="gNotes" placeholder="Timing, volumes, the machine in question"></textarea></div>
-      <p class="np-sign-error" style="display:none"></p>
-      <div class="modal-actions"><button class="btn btn-primary" data-np-send>${esc(action.heading || 'Request the introduction')}</button></div>`;
+      ${action.terms ? '<div data-np-terms></div>' : ''}
+      <div class="field full"><label for="gNotes">${esc(action.notesLabel || 'Anything specific? (optional)')}</label><textarea id="gNotes" placeholder="${esc(action.notesPlaceholder || 'Timing, volumes, the machine in question')}"></textarea></div>
+      <p class="np-sign-error" data-np-gate-err style="display:none"></p>
+      <div class="modal-actions"><button class="btn btn-primary" data-np-send>${esc(label)}</button></div>`;
     show();
-    content().querySelector('[data-np-send]').addEventListener('click', async (e) => {
-      const btn = e.target;
+    const btn = content().querySelector('[data-np-send]');
+    /* Plan 070: a request on the Opportunities Board accepts one screen of
+       the Opportunity Terms. The button waits for the tick; the version the
+       tick names is the one sent. */
+    let terms = null;
+    const tick = () => content().querySelector('[data-np-terms-tick]');
+    const drawTerms = (note) => {
+      btn.disabled = true;
+      terms = null;
+      return A.termsBlock(content().querySelector('[data-np-terms]'), action.terms.layer, action.terms.screen,
+        { fill: action.terms.fill, note: note }).then((t) => {
+        terms = t.ok ? t : null;
+        const box = tick();
+        if (box) box.addEventListener('change', () => { btn.disabled = !box.checked; });
+      });
+    };
+    if (action.terms) drawTerms();
+    btn.addEventListener('click', async () => {
       if (btn.disabled) return;
+      if (action.terms && !(terms && tick() && tick().checked)) return;
       btn.disabled = true; btn.textContent = 'Sending…';
       const payload = Object.assign({}, action.payload || {});
       const extra = qv('gNotes'); if (extra) payload.notes = payload.notes ? payload.notes + '. ' + extra : extra;
-      const sent = Object.assign({}, action, { payload: payload });
+      const sent = Object.assign({}, action, { payload: payload }, terms ? { terms_version_id: terms.id } : {});
+      delete sent.terms;
       const d = await A.submitRequest(sent);
       if (d.ok) {
-        successCard('The NexPoint desk reads every request personally. Expect to hear within two working days.');
+        successCard(action.successLine || 'The NexPoint desk reads every request personally. Expect to hear within two working days.',
+          action.backLabel);
         return;
       }
-      btn.disabled = false; btn.textContent = action.heading || 'Request the introduction';
-      const err = content().querySelector('.np-sign-error'); err.style.display = 'block';
+      btn.textContent = label;
+      const err = content().querySelector('[data-np-gate-err]');
+      if (action.terms && (d.error === 'stale_terms' || d.error === 'terms_not_live')) {
+        err.style.display = 'none';
+        drawTerms('The terms have moved on: read the new version and tick again.');
+        return;
+      }
+      btn.disabled = false;
+      err.style.display = 'block';
       err.textContent = d.error === 'network'
         ? 'That did not send. Check your connection and try again, or email hello@nexpoint.co.uk.'
-        : 'That did not send. Try again, or email hello@nexpoint.co.uk.';
+        : d.error === 'opportunity_not_live'
+          ? 'This opportunity has come off the board, so there is nothing to ask for now.'
+          : 'That did not send. Try again, or email hello@nexpoint.co.uk.';
     });
   };
 

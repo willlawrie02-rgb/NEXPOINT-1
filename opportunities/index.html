@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NexPoint Opportunities Board</title>
-<meta name="description" content="The NexPoint Opportunities Board: anonymised offers and requests across orthotics and prosthetics. Read the board, then ask us for an introduction.">
+<meta name="description" content="The NexPoint Opportunities Board: offers and requests in orthotics and prosthetics, anonymous unless a company chooses to be named. Ask us for an introduction.">
 <meta name="robots" content="noindex">
 <style>body[data-np-wall]:not([data-np-open]){visibility:hidden}</style>
 <script>
@@ -299,6 +299,28 @@
   .field textarea{min-height:96px;resize:vertical}
   .privacy{display:flex;gap:10px;align-items:flex-start;margin-top:18px;font-size:12.5px;color:var(--outline);line-height:19px}
   .privacy svg{flex-shrink:0;margin-top:2px}
+  /* Plan 070: one screen of the Opportunity Terms and its tick, the naming
+     choice on a post, a named card's owner and a discount code. */
+  .terms-scroll{max-height:240px;overflow-y:auto;border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:14px 16px;margin:16px 0 12px;background:var(--bg-alt);font-size:13.5px;line-height:1.6;color:var(--on-surface-var)}
+  .terms-scroll h3,.terms-scroll h4{font:600 14.5px/1.3 var(--font-display);color:#fff;margin:12px 0 6px}
+  .terms-scroll p{margin:0 0 10px}
+  .terms-scroll ul{margin:0 0 10px 18px}
+  .terms-scroll li{margin-bottom:5px}
+  .terms-scroll hr{border:0;border-top:1px solid var(--border-card);margin:10px 0}
+  .terms-scroll strong{color:var(--on-surface)}
+  .np-terms-tick{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:1.4;color:var(--on-surface);cursor:pointer}
+  .np-terms-tick input{margin-top:2px;accent-color:var(--blue)}
+  .np-sign-error{font-size:12.5px;line-height:19px;color:#ff6b6b;margin-top:8px}
+  .np-confirm{border:1px solid var(--border-card);border-radius:var(--radius-lg);background:var(--bg-alt);padding:14px 16px;margin:14px 0 6px;font-size:14px;line-height:1.6}
+  .naming{display:flex;flex-direction:column;gap:8px;margin-top:20px}
+  .naming label{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--on-surface);cursor:pointer}
+  .naming input{margin-top:4px;accent-color:var(--blue)}
+  .naming p{font-size:12.5px;color:var(--outline);line-height:19px}
+  .op__owner{color:var(--on-surface)}
+  .code-chip{font-size:10px;font-weight:600;letter-spacing:.08em;padding:5px 10px;border-radius:9999px;text-transform:uppercase;white-space:nowrap;background:rgba(139,197,63,.12);border:1px solid rgba(139,197,63,.35);color:var(--green-bright);margin-left:8px}
+  .named-as{font-size:14px;font-weight:600;color:var(--green-bright);margin:-10px 0 16px}
+  .code{font:700 22px/1.2 var(--font-display);letter-spacing:.06em;color:#fff;background:var(--bg-alt);border:1px dashed var(--green);border-radius:var(--radius-lg);padding:16px 18px;margin:18px 0 10px;text-align:center;user-select:all;word-break:break-all}
+  .code-terms{font-size:14px;color:var(--on-surface);text-align:center;margin-bottom:12px}
   .success{text-align:center;padding:30px 10px}
   .success .ok{width:56px;height:56px;border-radius:50%;background:rgba(139,197,63,.15);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;color:var(--green);font-size:24px}
   .success h2{margin-bottom:12px}
@@ -580,7 +602,7 @@
     <div class="principle">
       <span class="pnum">01</span>
       <span class="label">Discretion as standard</span>
-      <p>Each opportunity describes the deal, not the party. Many of our partners trade on discretion, and conversations stay private until both sides choose to meet.</p>
+      <p>Each opportunity describes the deal, and names the company only when it chooses to be named. Many of our partners trade on discretion, and conversations stay private until both sides choose to meet.</p>
     </div>
     <div class="principle">
       <span class="pnum">02</span>
@@ -632,9 +654,9 @@
   <div class="container">
     <h2>From opportunity to introduction, quietly</h2>
     <div class="steps">
-      <div class="step"><span class="n">01</span><h3>Read the opportunity</h3><p>Each entry is a real, current opportunity. It is anonymised, but we have checked it first-hand, usually across a table or on a call. There is enough detail to tell whether it fits you, and not enough to identify anyone.</p></div>
+      <div class="step"><span class="n">01</span><h3>Read the opportunity</h3><p>Each entry is a real, current opportunity, and we vet every one before it goes on the board. Unless its company chooses to be named, an entry is anonymous, with enough detail to tell whether it fits you and not enough to identify anyone.</p></div>
       <div class="step"><span class="n">02</span><h3>Introduce yourself</h3><p>Spend two minutes telling the desk who you are, your volumes and systems, and what you're after. The NexPoint desk reads every profile personally, and nobody else sees it.</p></div>
-      <div class="step"><span class="n">03</span><h3>A person weighs the fit</h3><p>One of us reviews every request, usually within two working days. If it isn't right, we'll tell you why and keep looking on your behalf.</p></div>
+      <div class="step"><span class="n">03</span><h3>A person weighs the fit</h3><p>One of us reviews every request, usually within two working days. If it is a fit we ask the company behind the opportunity; if it says no, we tell you.</p></div>
       <div class="step"><span class="n">04</span><h3>A personal introduction</h3><p>When both sides agree, we introduce you directly, with names, faces and facilities. From there the conversation is yours, and we stay close to help it along.</p></div>
     </div>
   </div>
@@ -645,7 +667,7 @@
   <div class="container">
     <div class="post-inner">
       <h2>Capacity to fill? A product to place? A quiet exit to plan?</h2>
-      <p>Tell us once. We keep your name back, put the request to the network and come back with conversations that fit, so you don't have to knock on doors one at a time.</p>
+      <p>Tell us once. If it fits the board, we write it up, naming your company or keeping it anonymous as you choose. When a company that fits asks to meet, we ask you first, so you don't have to knock on doors one at a time.</p>
       <button class="btn btn-primary" onclick="member?openForm('','','post'):openGate()">Start at the desk, 2 minutes</button>
     </div>
   </div>
@@ -687,7 +709,7 @@
     </div>
   </div>
   <div class="footer__bar">
-    <span>&copy; 2026 NexPoint Global Ltd. All rights reserved. Opportunities are illustrative summaries held in confidence; identities, pricing and locations are never published.</span>
+    <span>&copy; 2026 NexPoint Global Ltd. All rights reserved. Opportunities are summaries held in confidence. A company is named on the board only when it chooses to be; exact prices and locations are shared only in an introduction.</span>
     <div class="footer__bar-links">
       <a href="https://nexpoint.co.uk/hub/privacy.html">Privacy</a>
       <a href="https://nexpoint.co.uk/">Main site</a>
@@ -981,7 +1003,7 @@
 <script>
   (function () {
     var apex = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
-    var s = document.createElement('script'); s.src = apex + '/assets/hub-account.js';
+    var s = document.createElement('script'); s.src = apex + '/assets/hub-account.js?v=20261022-070';
     document.head.appendChild(s);
   })();
 </script>
@@ -1006,6 +1028,10 @@ const CAT_ICONS={manufacturing:'factory',materials:'layers',partnership:'hub',su
 const cardHead=b=>b.head||b.title;
 const DIR_CLASS={OFFERING:'offering',SEEKING:'seeking'};
 /* One-line hook: the brief's own opening sentence, never a rewrite. */
+/* Plan 070: the card's naming and kind, as the worker serves them. */
+const isNamed=b=>b.naming==='named'&&!!b.owner_name;
+const isCode=b=>b.kind==='discount_code';
+const briefRef=b=>String(b.ref||'').replace(/^BRIEF /,'');
 function hookOf(b){
   const first=(b.sum||'').split('\n')[0].trim();
   const m=first.match(/^(.{40,160}?[.!?])(\s|$)/);
@@ -1019,17 +1045,23 @@ function buildCard(b,why){
   el.onclick=()=>openBrief(b.id);
   el.onkeydown=(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openBrief(b.id);}};
   const matched=member&&matches.has(b.id)?'<span class="badge-match">MATCHED</span>':'';
+  /* Plan 070: a company that chose to be named is named on its card; a
+     discount-code offer says so, leads with what the code gives, and asks
+     to be seen rather than introduced. The code itself is never on a card. */
+  const named=isNamed(b)?`<span class="op__fact op__owner"><span class="material-symbols-outlined" aria-hidden="true">storefront</span>${escHtml(b.owner_name)}</span>`:'';
+  const code=isCode(b);
   el.innerHTML=`<div class="op__top">
       <span class="op__type"><span class="op__ico"><span class="material-symbols-outlined" aria-hidden="true">${CAT_ICONS[b.cat]||'hub'}</span></span><span class="txt">${CAT_LABELS[b.cat]||''}</span></span>
-      <span style="display:flex;align-items:center"><span class="dir ${DIR_CLASS[b.dir]||'twoway'}">${b.dir}</span>${matched}</span>
+      <span style="display:flex;align-items:center"><span class="dir ${DIR_CLASS[b.dir]||'twoway'}">${b.dir}</span>${code?'<span class="code-chip">Discount code</span>':''}${matched}</span>
     </div>
     <h3 class="op__head">${cardHead(b)}</h3>
     <div class="op__facts">
+      ${named}
       <span class="op__fact"><span class="material-symbols-outlined" aria-hidden="true">public</span>${b.regions.join(' · ')}</span>
     </div>
-    <p class="op__hook">${hookOf(b)}</p>
+    <p class="op__hook">${code&&b.code_terms?escHtml(b.code_terms):hookOf(b)}</p>
     ${why?`<div class="match-why">★ Matched because ${why}</div>`:''}
-    <div class="op__foot"><span class="ref">${b.ref.replace(/^BRIEF /,'')}</span><span class="op__cta">See the opportunity ${arrow}</span></div>`;
+    <div class="op__foot"><span class="ref">${b.ref.replace(/^BRIEF /,'')}</span><span class="op__cta">${code?'See the code':'See the opportunity'} ${arrow}</span></div>`;
   return el;
 }
 function render(filter){
@@ -1069,18 +1101,23 @@ function openBrief(id){
   document.getElementById('briefContent').innerHTML=`
     <span class="ref">${CAT_LABELS[b.cat]||''} · ${b.regions.join(' · ')} · <span style="color:${b.dir==='OFFERING'?'var(--green)':'var(--blue-bright)'}">${b.dir}</span></span>
     <h2>${b.title}</h2>
+    ${isNamed(b)?`<p class="named-as">${escHtml(b.owner_name)}</p>`:''}
     <div class="meta" style="margin:0 0 20px">${b.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
     <div class="body">${(b.sum||'').split('\n').map(p=>`<p>${p}</p>`).join('')}</div>
     <div class="body">${b.detail}</div>
     <div class="fit" style="margin-bottom:20px">${b.fit}</div>
     <div class="sig">${b.signals.map(s=>`<div><b>${s[0]}</b><span>${s[1]}</span></div>`).join('')}</div>
-    <div class="locked">
+    ${isCode(b)?`<p class="note" style="margin:0 0 20px">${shield}&nbsp; The code is shown once you accept the Opportunity Terms.</p>`:`<div class="locked">
       <span class="label">${lock} Shared in a personal introduction only</span>
       <ul>${b.locked.map(l=>`<li><span>${l[0]}</span><span class="blurval">${l[1]}</span></li>`).join('')}</ul>
-      <p class="note">${shield}&nbsp; NexPoint never publishes names, pricing or locations. Locked details are disclosed only after both parties agree to be introduced.</p>
-    </div>
+      <p class="note">${shield}&nbsp; ${isNamed(b)
+        ?'The company behind this opportunity has chosen to be named. Locked details are shared only once it agrees to be introduced.'
+        :'The company is not named until it agrees to be introduced. Locked details are shared only then.'}</p>
+    </div>`}
     <div class="modal-actions">
-      <button class="btn btn-primary" onclick="openForm('${b.title.replace(/'/g,"\\'")}','${b.ref}')">Request an introduction</button>
+      ${isCode(b)
+        ?`<button class="btn btn-primary" data-id="${escHtml(b.id)}" onclick="openCode(this.dataset.id)">Show the code</button>`
+        :`<button class="btn btn-primary" data-id="${escHtml(b.id)}" onclick="askIntro(this.dataset.id)">Request an introduction</button>`}
       <button class="btn btn-ghost" onclick="closeAll()">Keep browsing</button>
     </div>`;
   closeAll();document.getElementById('briefOverlay').classList.add('open');document.body.style.overflow='hidden';
@@ -1097,9 +1134,10 @@ const CAPTURE_ENDPOINT="https://api.nexpoint.co.uk/requests";
 async function submitCapture(form){
   const fd=new FormData(form);
   if(fd.get('company_url')) return showSuccess();            // honeypot tripped → drop silently
+  const post=(fd.get('enquiry_kind')||'')==='post';
   const payload={
     hub:'opportunities',
-    side: (fd.get('enquiry_kind')||'')==='post' ? 'list_opportunity' : 'request_intro',
+    side: post ? 'list_opportunity' : 'request_intro',
     company: profile.company||'', contact_name: profile.name||'', email: profile.email||'',
     phone: profile.mobile||'', location: profile.region||'', brief_ref: fd.get('brief_ref')||'',
     payload: { fit:(fd.get('fit')||'').toString().trim(), type:profile.type||'', volume:profile.volume||'',
@@ -1108,49 +1146,107 @@ async function submitCapture(form){
       describe:profile.describe||'', source:'opportunities page' },
     company_url: fd.get('company_url')||'',
   };
+  /* Plan 070: a post names or keeps back its company, as chosen, and carries
+     the Opportunity Terms version its tick accepted (screen 1). */
+  if(post){
+    payload.payload.naming=fd.get('naming')==='named'?'named':'anonymised';
+    const tick=form.querySelector('[data-np-terms-tick]');
+    if(!postTerms||!tick||!tick.checked) return;
+    payload.terms_version_id=postTerms.id;
+  }
   // Honest capture (audit plan 009): the worker's answer decides what the visitor sees. Before
   // this, a failed or refused post still showed "Received" and the request was lost silently.
   const btn=form.querySelector('button[type="submit"]');
   const err=form.querySelector('.form-err');
   if(btn) btn.disabled=true;
   if(err) err.style.display='none';
-  let ok=false;
+  let ok=false,code='';
   if(CAPTURE_ENDPOINT){
     try{
       const r=await fetch(CAPTURE_ENDPOINT,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const d=await r.json().catch(()=>({}));
       ok=r.ok && d.ok!==false;
+      code=d.error||'';
     }catch(e){ ok=false; }
   }
-  if(ok){ showSuccess(); return; }
+  if(ok){ showSuccess(post); return; }
+  if(post&&(code==='stale_terms'||code==='terms_not_live')){
+    drawPostTerms(form,'The terms have moved on: read the new version and tick again.');
+    return;
+  }
   if(btn) btn.disabled=false;
   if(err){
     err.innerHTML='That did not send. Check your connection and try again, or email <a href="mailto:hello@nexpoint.co.uk" style="color:var(--blue-bright)">hello@nexpoint.co.uk</a> and we will pick it up.';
     err.style.display='block';
   }
 }
+/* Plan 070: the Opportunity Terms' screens, read through the account module.
+   A copy of the module cached from before plan 070 has no terms block: the
+   page then asks for a refresh rather than sending what the worker refuses. */
+const termsReady=()=>window.NPAccount&&typeof NPAccount.termsBlock==='function';
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const today=()=>{const d=new Date();return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;};
+function staleNotice(){
+  document.getElementById('formContent').innerHTML=`
+    <h2>Refresh the page</h2>
+    <p style="color:var(--on-surface-var);font-size:14.5px">The board has been updated since this page loaded. Refresh it, then try again.</p>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="location.reload()">Refresh the page</button></div>`;
+  closeAll();document.getElementById('formOverlay').classList.add('open');document.body.style.overflow='hidden';
+}
+let postTerms=null;
+async function drawPostTerms(form,note){
+  const btn=form.querySelector('button[type="submit"]');
+  if(btn) btn.disabled=true;
+  postTerms=null;
+  const t=await NPAccount.termsBlock(form.querySelector('[data-post-terms]'),'opportunity',1,{fill:{date:today()},note});
+  postTerms=t.ok?t:null;
+  const tick=form.querySelector('[data-np-terms-tick]');
+  if(tick) tick.addEventListener('change',()=>{ if(btn) btn.disabled=!tick.checked; });
+}
+function askIntro(id){
+  const b=briefs.find(x=>x.id===id);if(!b)return;
+  openForm(b.title,briefRef(b));
+}
 function openForm(subject, ref, mode){
   if(mode!=='post' && window.NPAccount && typeof NPAccount.gate === 'function'){
+    if(!termsReady()){ staleNotice(); return; }
+    /* A request against an opportunity accepts screen 2 of the Opportunity
+       Terms (plan 070); the gate waits for the tick and sends its version. */
     NPAccount.gate({ hub: 'opportunities', side: 'request_intro', brief_ref: ref,
-      heading: 'Ask us to introduce you', payload: { brief: ref } });
+      heading: 'Ask us to introduce you', button: 'Request the introduction',
+      confirmLine: 'One click sends your request to NexPoint with your profile. We read it first; if it is a fit we ask the company behind the opportunity, showing it your note, town and country but not your name, and if it agrees we introduce you both by email.',
+      successLine: 'We read every request, and if it is a fit we ask the company behind the opportunity. If it agrees, we introduce you both by email.',
+      notesLabel: 'What makes this a fit for you? (optional) The company behind the opportunity reads this, with your town and country, before it knows who you are, so leave out your company\'s name and anything else that would identify you.',
+      notesPlaceholder: 'Your volumes, your timing, or why this one',
+      backLabel: 'Back to the board',
+      terms: { layer: 'opportunity', screen: 2, fill: { reference: ref, date: today() } },
+      payload: { brief: ref } });
     return;
   }
   if(!member){ openGate(); return; }                 // members-only; never a dead-end form
   const post = mode==='post';
-  const heading = post ? 'Post a confidential opportunity' : 'Request an introduction';
+  if(post && !termsReady()){ staleNotice(); return; }
+  const heading = post ? 'Post an opportunity' : 'Request an introduction';
   const leadLine = post
-    ? 'Tell us what you have. We hold your name back, put it to the right people in the network, and bring you matched, qualified conversations.'
+    ? 'Tell us what you offer or what you are looking for. We read every post and, if it fits the board, write it up, naming your company or keeping it anonymous, as you choose below.'
     : `Re: <em style="color:#fff;font-style:normal">${subject}</em>`;
   const fieldLabel = post ? 'What do you have to place? (required)' : 'What makes this a fit for you? (required)';
   const placeholder = post
     ? 'Capacity, a product, equipment, people, or a business. A sentence or two, with rough scale or timeline if useful…'
     : 'One or two sentences, your volumes, timeline, or why this one…';
   const privacyLine = post
-    ? 'Your name stays off it. We only reveal who you are to a party once you agree.'
+    ? 'Your company\'s name stays off the board unless you choose to have it named. Your own name never appears on it.'
     : 'Your identity is never shared with the other party until you explicitly agree to the introduction.';
-  const submitLabel = post ? 'Submit in confidence' : 'Request introduction';
+  const submitLabel = post ? 'Post the opportunity' : 'Request introduction';
+  /* Plan 070: a post chooses its naming and accepts screen 1 of the
+     Opportunity Terms; the button waits for the tick. */
+  const naming = post ? `<div class="naming" role="radiogroup" aria-label="Naming">
+        <label><input type="radio" name="naming" value="anonymised" checked> Keep my company anonymous</label>
+        <label><input type="radio" name="naming" value="named"> Name my company on the board</label>
+        <p>Named or not, nothing you post reaches anyone before we have read it and written it up.</p>
+      </div>` : '';
   document.getElementById('formContent').innerHTML=`
-    <span class="ref">CONFIDENTIAL, SEEN BY NEXPOINT ONLY</span>
+    <span class="ref">${post?'SEEN BY NEXPOINT FIRST':'CONFIDENTIAL, SEEN BY NEXPOINT ONLY'}</span>
     <h2>${heading}</h2>
     <p style="color:var(--on-surface-var);font-size:14.5px">${leadLine}</p>
     <p style="color:var(--outline);font-size:13px;margin-top:10px">${post?'Posting':'Requesting'} as <b style="color:var(--green)">${profile.name||'you'}</b>${[profile.company,profile.type,profile.region].filter(Boolean).length?' · '+[profile.company,profile.type,profile.region].filter(Boolean).join(' · '):''}, from your hub profile.</p>
@@ -1158,22 +1254,87 @@ function openForm(subject, ref, mode){
       <input type="hidden" name="brief_ref" value="${ref||''}">
       ${post?'<input type="hidden" name="enquiry_kind" value="post">':''}
       <input type="text" name="company_url" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
+      ${naming}
       <div class="form-grid"><div class="field full"><label>${fieldLabel}</label><textarea name="fit" required placeholder="${placeholder}"></textarea></div></div>
+      ${post?'<div data-post-terms></div>':''}
       <div class="privacy">${shield}<span>${privacyLine}</span></div>
       <div class="form-err" role="alert" style="font-size:12.5px;color:#ff6b6b;display:none;margin-top:8px"></div>
-      <div class="modal-actions"><button class="btn btn-primary" type="submit">${submitLabel}</button></div>
+      <div class="modal-actions"><button class="btn btn-primary" type="submit"${post?' disabled':''}>${submitLabel}</button></div>
     </form>`;
   closeAll();document.getElementById('formOverlay').classList.add('open');document.body.style.overflow='hidden';
+  if(post) drawPostTerms(document.querySelector('#formContent form'));
 }
 
-function showSuccess(){
+function showSuccess(post){
   document.getElementById('formContent').innerHTML=`
     <div class="success">
       <div class="ok">✓</div>
-      <h2 style="font-size:24px">Received, in confidence.</h2>
-      <p>A NexPoint partner will review the fit personally and come back to you within two working days, with an introduction, or an honest reason why not and what we'll look for instead.</p>
+      <h2 style="font-size:24px">${post?'Received.':'Received, in confidence.'}</h2>
+      <p>${post
+        ?'We read every post. If it fits the board, we write it up from what you sent, keeping to what you told us, and publish it.'
+        :'We read every request, usually within two working days. If it is a fit we ask the company behind the opportunity, and if it agrees we introduce you both by email.'}</p>
       <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Back to the board</button></div>
     </div>`;
+}
+
+/* Plan 070 (P10): a discount code shows only once screen 3 of the
+   Opportunity Terms is accepted, and the worker has logged the reveal. */
+let codeSeq=0;
+async function openCode(id){
+  const b=briefs.find(x=>x.id===id);if(!b)return;
+  if(!termsReady()){ staleNotice(); return; }
+  const ref=briefRef(b);
+  document.getElementById('formContent').innerHTML=`
+    <span class="ref">${escHtml(ref)} · DISCOUNT CODE</span>
+    <h2>${escHtml(b.title)}</h2>
+    ${b.code_terms?`<p style="color:var(--on-surface);font-size:15px">${escHtml(b.code_terms)}</p>`:''}
+    <div id="codeTerms"></div>
+    <p class="np-sign-error" id="codeErr" role="alert" style="display:none"></p>
+    <div class="modal-actions" id="codeActs"><button class="btn btn-primary" id="codeBtn" disabled>Show the code</button></div>`;
+  closeAll();document.getElementById('formOverlay').classList.add('open');document.body.style.overflow='hidden';
+  /* This call's own elements, taken before anything waits: a slower earlier
+     call (closed and reopened on another card) stands down rather than
+     drawing into, or answering for, this one. */
+  const mine=++codeSeq;
+  const box=document.getElementById('codeTerms'),btn=document.getElementById('codeBtn');
+  const acts=document.getElementById('codeActs'),err=document.getElementById('codeErr');
+  let terms=null;
+  const draw=async(note)=>{
+    btn.disabled=true;
+    const t=await NPAccount.termsBlock(box,'opportunity',3,{fill:{reference:ref,date:today()},note});
+    if(mine!==codeSeq) return;
+    terms=t.ok?t:null;
+    const tick=box.querySelector('[data-np-terms-tick]');
+    if(tick) tick.addEventListener('change',()=>{ btn.disabled=!tick.checked; });
+  };
+  btn.addEventListener('click',async()=>{
+    const tick=box.querySelector('[data-np-terms-tick]');
+    if(mine!==codeSeq||!terms||!tick||!tick.checked||btn.disabled) return;
+    btn.disabled=true;
+    err.style.display='none';
+    let r=null,d={};
+    try{
+      r=await fetch(HUB_API+'/opportunities/code',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:b.id,terms_version_id:terms.id})});
+      d=await r.json().catch(()=>({}));
+    }catch(x){ r=null; }
+    if(mine!==codeSeq) return;
+    if(r&&r.ok&&d.ok&&d.code){
+      box.innerHTML='';
+      acts.innerHTML=`<button class="btn btn-outline" onclick="closeAll()">Back to the board</button>`;
+      acts.insertAdjacentHTML('beforebegin',`
+        <div class="code" data-code>${escHtml(d.code)}</div>
+        ${d.code_terms?`<p class="code-terms">${escHtml(d.code_terms)}</p>`:''}
+        <p style="color:var(--outline);font-size:13px;text-align:center">Quote it when you order from the supplier, for your site's own purchases only. The supplier tells us each quarter what was sold with it.</p>`);
+      return;
+    }
+    if(d.error==='stale_terms'||d.error==='terms_not_live'){ await draw('The terms have moved on: read the new version and tick again.'); return; }
+    err.style.display='block';
+    err.textContent=r&&r.status===404
+      ?'This opportunity has come off the board, so there is no code to show now.'
+      :'That did not work. Check your connection and try again, or email hello@nexpoint.co.uk.';
+    btn.disabled=false;
+  });
+  await draw();
 }
 
 function closeAll(){
