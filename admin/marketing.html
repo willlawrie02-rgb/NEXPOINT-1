@@ -4,12 +4,37 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>NexPoint CRM: Marketing</title>
+<title>NexPoint CRM: Prospects</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
 <link rel="stylesheet" href="crm.css?v=2">
+<style>
+  /* Prospects in the CRM's look (plan 077, D2): Chris's page, each prospect a table row
+     that opens in place for its five fields, its notes and every decision. */
+  .ptbl td { vertical-align: middle; }
+  .ptbl td.why { min-width: 220px; max-width: 360px; font-size: 13px; color: var(--fg-1); }
+  .ptbl td.act { white-space: nowrap; text-align: right; }
+  .ptbl .pills { display: flex; flex-wrap: wrap; gap: 5px; }
+  .ptbl tr.open > td { background: var(--info-wash); }
+  .ptbl tr.detail > td { background: var(--bg); padding: 14px 16px 16px; }
+  .detail-body { display: flex; flex-direction: column; gap: 12px; max-width: 100ch; }
+  .opps { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12.5px; color: var(--fg-2); }
+  .note-item { margin: 0; font-size: 13px; color: var(--fg-1); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .notes { display: flex; flex-direction: column; gap: 8px; }
+  .notes textarea { width: 100%; min-height: 56px; resize: vertical; }
+  .co-cell { display: flex; flex-direction: column; gap: 2px; min-width: 160px; }
+  .co-cell small { font-size: 12px; color: var(--fg-2); }
+  .co-cell a.site { color: var(--fg-2); text-decoration: none; }
+  .co-cell a.site:hover { color: var(--blue); text-decoration: underline; text-underline-offset: 2px; }
+  .co-cell .fail, .detail-body .fail, td.act .fail { font-size: 12px; color: var(--err-ink); white-space: normal; display: block; }
+  .toolbar select.input { max-width: 190px; }
+  a.st { text-decoration: none; }
+  a.st:hover { text-decoration: underline; text-underline-offset: 2px; }
+  /* The section's four tabs stay one row on a phone, scrolling inside themselves. */
+  @media (max-width: 560px) { .views[aria-label="Marketing"] { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .views[aria-label="Marketing"] a { padding-inline: 9px; flex: none; } }
+</style>
 </head>
 <body>
 <div id="login" class="door" style="display:none">
@@ -38,6 +63,7 @@
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
+<script src="crm.js?v=071"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -45,6 +71,7 @@ const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a h
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const PAGE_SECTION='marketing';
 let me=null;
 
 async function boot(){
@@ -63,15 +90,683 @@ async function doLogin(){
   if(!(await NXAdminAuth.requireAal2(sb)))return;
   showAdmin(data.user);
 }
-function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,'marketing');render();}
-
-/* Plan 077 builds Marketing. Until it does, the page says so and points at
-   the boards that do its job today (the spec's Page inventory). */
-function render(){
-  $('page').innerHTML=NXShell.headHtml({title:'Marketing',lede:'Prospects, campaigns, LinkedIn and the finder.'})
-    +NXShell.comingHtml({plan:'077',icon:'campaign',what:'Prospects to accept or decline, campaigns with their contact lists, the LinkedIn page and the finder, as one section.',
-      until:[['leads.html','Open Prospects'],['campaigns.html','Open Campaigns'],['linkedin.html','Open LinkedIn'],['finder.html','Open the Finder']]});
+function showAdmin(u){
+  $('login').style.display='none';$('admin').style.display='';me=u;
+  NXShell.mount(sb,u,PAGE_SECTION);startUi();
+  load().then(()=>{if(location.hash==='#add'&&$('addForm').hidden)toggleAdd();});
 }
+
+/* Prospects, the first of Marketing's four pages (plan 077, D2): Chris's page
+   (plan 065) in the CRM's look. Everything the finders, the Fit360 campaign
+   list, LinkedIn and a person's own additions surface arrives here; each row
+   says what it was found for and whether the company is in Contacts already.
+   Accept makes the company in Contacts, its folder and its lead (D3); one
+   already in Contacts is tagged with its fit, not made again (D5). Every
+   decision is an engine_intents row the engine acts on within a minute or
+   two; nothing here writes anything else. */
+const esc=NXCRM.esc, ms=NXShell.ms;
+/* The Marketing section's four tabs (plan 077, D1): one page each, so each can be linked to. */
+const MARKETING_TABS=[['marketing.html','Prospects'],['marketing-campaigns.html','Campaigns'],['marketing-linkedin.html','LinkedIn'],['marketing-finder.html','Finder']];
+const sectionTabs=cur=>`<div class="views" role="tablist" aria-label="Marketing">`+MARKETING_TABS.map(([href,label])=>`<a role="tab" href="${href}" aria-selected="${href===cur}">${label}</a>`).join('')+'</div>';
+
+// PLAN065 (Chris's CRM categorisation, Will 2026-10-14): five fields, Park and Kill, notes, edits, add.
+let prospects=[],parked=[],leads=[],rejected=[],campaigns=[],members={},pendingFor={},tab='prospects',pre0047=false,pre0065=false;
+let opts={sector:[],company_type:[]},notes={},opportunities=[],kindOf={},C=null,banners=[],loaded=false;
+// Review fix: a dropdown changed but not yet saved survives every re-render.
+const choices={},drafts={},asks={};
+const UI={open:null,ask:null,add:false,addValues:null,declinedOpen:false};
+function choose(id,field,value){(choices[id]=choices[id]||{})[field]=value;}
+
+const TYPES=['Current customer','Former customer','Enquired','Cold','Known contact','Former contact'];
+const TYPE_LABEL={'Enquired':'Enquired, no action'};
+const NO_CAMPAIGN=['Known contact','Former contact'];
+const QUALITIES=['high','medium','low'];
+const SOURCES={finder:'Weekend finder','fit360-list':'Fit360 campaign list','existing-lead':'Existing lead',manual:'Added by hand',linkedin:'LinkedIn comment'};
+/* A campaign version's name, as Campaigns shows it. */
+const VERSION_WORDS={current:'Current customer',former:'Former customer',enquired:'Enquired',enquired_new:'Enquired (new contact)',cold:'Cold'};
+const MEMBER_WORDS={waiting:'Waiting',ready:'Ready to go into Smartlead',in_smartlead:'In Smartlead',
+  remove:'Being taken out of Smartlead',removed:'Removed',replied:'Replied',error:'Smartlead refused it'};
+const FILTERS=['f-search','f-type','f-sector','f-ctype','f-quality','f-campaign','f-source','f-finder'];
+const F={};FILTERS.forEach(k=>{F[k]='';});
+const typeLabel=t=>TYPE_LABEL[t]||t;
+const cap=s=>String(s||'').replace(/^./,c=>c.toUpperCase());
+
+function startUi(){
+  try{const t=localStorage.getItem('nx-prospects-tab');if(['prospects','parked','leads'].includes(t))tab=t;}catch(e){}
+  try{const f=JSON.parse(localStorage.getItem('nx-prospects-filters')||'{}');FILTERS.forEach(k=>{if(f[k]!=null)F[k]=String(f[k]);});}catch(e){}
+}
+
+function siteHref(w){
+  const s=String(w||'').trim();
+  if(!s)return null;
+  const url=/^https?:\/\//i.test(s)?s:'https://'+s;
+  try{const u=new URL(url);return (u.protocol==='http:'||u.protocol==='https:')?u.href:null;}
+  catch(e){return null;}
+}
+function siteLabel(w){
+  const h=siteHref(w);
+  try{return new URL(h).hostname.replace(/^www\./,'');}
+  catch(e){return String(w||'').replace(/^https?:\/\//i,'').replace(/^www\./,'').split('/')[0];}
+}
+const nameOf=r=>r.display_name||r.company;
+const typeOf=r=>r.prospect_type||r.category;
+const campaignName=id=>{const c=campaigns.find(c=>String(c.id)===String(id));return c?c.name:null;};
+/* The finder search that surfaced a row: its matched opportunities (Will,
+   2026-10-20), apart from the Campaign. Only rows the finders proposed
+   (source finder, or none before 0047): a Fit360 wave row's entries come
+   from its wave, not from a search. */
+const fromFinder=r=>(r.source||'finder')==='finder';
+const finderIds=r=>fromFinder(r)?(r.matched_json||[]).filter(e=>typeof e==='string'&&e):[];
+const isOpportunity=e=>opportunities.some(o=>o.id===e);
+function finderLabel(e){
+  const o=opportunities.find(o=>o.id===e);if(o)return o.title;
+  if(e.startsWith('email-discovered:'))return 'Email discovery ('+e.slice('email-discovered:'.length)+')';
+  if(e==='portal-enquiry')return 'Portal enquiry';
+  return e;
+}
+function finderTags(r){
+  const ids=finderIds(r);
+  return ids.length?`<div class="opps"><span>Finder</span>${ids.map(e=>
+    `<span class="tag" title="Found by this finder search">${ms('travel_explore','sm')}${esc(finderLabel(e))}</span>`).join('')}</div>`:'';
+}
+
+/* Found for (D2): the pipelines a prospect's matches make it a provider for,
+   by the rule Accept tags with (073's fit_from_match: a supply match on the
+   3D Print Hub or the Mill Hub; a demand or deal match makes no fit), read
+   through each opportunity's kind so no opportunity is named here. A LinkedIn
+   find carries its source as a tag. An accepted lead shows the fit Contacts
+   holds. */
+const FIT_FROM_KIND={'print-supply':'3D Print Hub provider','mill-supply':'Mill Hub provider'};
+function fitsOf(r){
+  const out=[];
+  (r.matched_json||[]).forEach(e=>{const f=FIT_FROM_KIND[kindOf[e]];if(f&&!out.includes(f))out.push(f);});
+  return out;
+}
+function foundFor(r){
+  const known=r.status==='approved'?inContacts(r):null;
+  const fits=known&&C?(C.fits[known.id]||[]):fitsOf(r);
+  const tags=[];
+  if(r.source==='linkedin')tags.push(`<span class="tag">${ms('forum','sm')}LinkedIn comment</span>`);
+  fits.forEach(f=>tags.push(NXCRM.fitTag(f)));
+  /* A fit its matches give that Contacts has never held (Accept could not
+     reach Contacts, and crm-sync adopts the folder without it): tag it on
+     the company page, where its Lead card follows. One a person took off
+     stays off. */
+  if(known)fitsOf(r).filter(f=>!fits.includes(f)&&!(C.retired[known.id]||[]).includes(f)).forEach(f=>
+    tags.push(`<a class="tag empty" href="company.html?id=${encodeURIComponent(known.id)}" title="Tag it on the company page">${esc(f)}: not tagged yet</a>`));
+  if(!tags.length)tags.push('<span class="tag empty">Neither pipeline</span>');
+  return tags.join('');
+}
+
+/* In Contacts (D2, D5): the company Accept would find, in its order: the
+   folder slug, else a live domain of the website, else one company of the
+   same squashed name. Archived companies are not matched (Accept revives
+   one through its folder). Contacts never holds a free-mail domain. */
+const squash=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+function domainOf(w){
+  const h=siteHref(w);if(!h)return null;
+  try{const d=new URL(h).hostname.toLowerCase().replace(/\.$/,'').replace(/^www\./,'');return /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)?d:null;}
+  catch(e){return null;}
+}
+function inContacts(r){
+  if(!C)return null;
+  if(C.bySlug[r.company])return C.bySlug[r.company];
+  const d=domainOf(r.website);
+  if(d&&C.byDomain[d])return C.byDomain[d];
+  const named=C.byName[squash(r.display_name||'')]||[];
+  return named.length===1?named[0]:null;
+}
+function contactsCell(r){
+  if(!C)return '<span class="muted-t">Not read</span>';
+  const c=inContacts(r);
+  if(c)return `<a class="st info" href="company.html?id=${encodeURIComponent(c.id)}" title="Open ${esc(c.name)}">${ms('contacts','sm')}Already in Contacts</a>`;
+  return r.status==='approved'?'<span class="muted-t">Joins Contacts on the next sync</span>':'<span class="st">New</span>';
+}
+
+const BASE='id,company,category,matched_json,reasoning,judge_reason,website,quality,judged,judge_confidence,proposed_at,decided_at,decided_by,decision_note,status';
+const PLAN043=',prospect_type,recommended_campaign_id,campaign_id,source,display_name,list_overlap';
+const PLAN065=',sector,company_type';
+
+/* Any table read in pages of 1,000 (PostgREST's cap). */
+async function readAll(table,cols,order){
+  const PAGE=1000;let all=[];
+  for(let from=0;;from+=PAGE){
+    const {data,error}=await sb.from(table).select(cols).order(order||'id',{ascending:true}).range(from,from+PAGE-1);
+    if(error)return {data:null,error};
+    all=all.concat(data||[]);
+    if(!data||data.length<PAGE)return {data:all,error:null};
+  }
+}
+
+// The queue passed 1,000 rows on 28 Sept 2026; PostgREST returns at most
+// 1,000 per request, so the page reads in ranges until a short one.
+async function readQueue(cols){
+  const PAGE=1000;let all=[];
+  for(let from=0;;from+=PAGE){
+    const {data,error}=await sb.from('engine_lead_queue').select(cols)
+      .in('status',['pending','approved','rejected','blocked']).order('id',{ascending:true})
+      .range(from,from+PAGE-1);
+    if(error)return {data:null,error};
+    all=all.concat(data||[]);
+    if(!data||data.length<PAGE)return {data:all,error:null};
+  }
+}
+
+/* campaign_members, read in pages (code review, 4 October 2026). One
+   unpaged read ordered by ascending id drops the NEWEST members past
+   PostgREST's 1,000-row cap, the same failure readQueue's comment on the
+   Prospects page describes. A failed page returns what was read so far. */
+async function readMembers(cols){
+  const PAGE=1000;let all=[];
+  for(let from=0;;from+=PAGE){
+    const {data,error}=await sb.from('campaign_members').select(cols)
+      .in('status',['waiting','ready','in_smartlead','remove','error','replied'])
+      .order('id',{ascending:true}).range(from,from+PAGE-1);
+    if(error)return all;
+    all=all.concat(data||[]);
+    if(!data||data.length<PAGE)return all;
+  }
+}
+
+/* Contacts, for In Contacts and a lead's fit (plan 071's tables). A failed
+   read leaves the column saying so; the rest of the page stands. */
+async function readContacts(){
+  const [cq,fq,dq,tq,lq]=await Promise.all([
+    NXCRM.readAll(()=>sb.from('crm_companies').select('id,name,slug,archived_at').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_company_folders').select('company_id,area,slug,gone_at').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_company_domains').select('company_id,domain,retired_at').order('id',{ascending:true})),
+    sb.from('crm_tags').select('id,grp,label'),
+    NXCRM.readAll(()=>sb.from('crm_company_tags').select('company_id,tag_id,retired_at').order('id',{ascending:true})),
+  ]);
+  const bad=[cq,fq,dq,tq,lq].find(q=>q.error);
+  if(bad){banners.push(`Could not read Contacts, so In Contacts is blank: ${bad.error.message}.`);return null;}
+  const live={};(cq.data||[]).forEach(c=>{if(!c.archived_at)live[c.id]=c;});
+  const out={bySlug:{},byDomain:{},byName:{},fits:{},retired:{}};
+  (fq.data||[]).forEach(f=>{if(!f.gone_at&&live[f.company_id]&&!out.bySlug[f.slug])out.bySlug[f.slug]=live[f.company_id];});
+  (dq.data||[]).forEach(d=>{if(!d.retired_at&&live[d.company_id]&&!out.byDomain[d.domain])out.byDomain[d.domain]=live[d.company_id];});
+  Object.values(live).forEach(c=>{const k=squash(c.name);if(k)(out.byName[k]=out.byName[k]||[]).push(c);});
+  const fit={};(tq.data||[]).forEach(t=>{if(t.grp==='fit')fit[t.id]=t.label;});
+  (lq.data||[]).forEach(l=>{if(!fit[l.tag_id])return;const m=l.retired_at?out.retired:out.fits;(m[l.company_id]=m[l.company_id]||[]).push(fit[l.tag_id]);});
+  return out;
+}
+
+async function load(){
+  banners=[];
+  let pre=false,pre65=false;
+  let {data,error}=await readQueue(BASE+PLAN043+PLAN065);
+  if(error&&/sector|company_type/.test(error.message||'')){pre65=true;({data,error}=await readQueue(BASE+PLAN043));}
+  if(error&&/prospect_type|recommended_campaign_id|campaign_id|source|display_name|list_overlap/.test(error.message||'')){
+    pre=true;pre65=true;
+    ({data,error}=await readQueue(BASE));
+  }
+  if(error){banners.push(['err',`Could not read the prospects: ${error.message}.`]);loaded=true;prospects=parked=leads=rejected=[];render();return;}
+  pre0047=pre;
+  if(pre)banners.push('Migration 0047 has not been applied: prospects show without their Campaign, and Accept is paused until it is.');
+  const o=await readAll('prospect_options','field,value,position,active','position');
+  const n=await readAll('prospect_notes','id,company,body,by,at','id');
+  const optErr=o.error||n.error;
+  const queuePre65=pre65;
+  if(optErr)pre65=true;
+  pre0065=pre65;
+  if(!queuePre65&&optErr)banners.push(`Sector, Company type and notes could not be read (migration 0065 may not be applied): ${optErr.message}. Save and Add a company are paused until it is.`);
+  else if(pre65)banners.push('Migration 0065 has not been applied: Sector, Company type, notes, Save and Add a company are paused until it is. Accept, Park, Decline and Kill work as before.');
+  opts={sector:[],company_type:[]};
+  (o.data||[]).filter(r=>r.active!==false).forEach(r=>{if(opts[r.field])opts[r.field].push(r.value);});
+  notes={};
+  (n.data||[]).slice().reverse().forEach(r=>{(notes[r.company]=notes[r.company]||[]).push(r);});
+  const all=data||[];
+  prospects=all.filter(r=>r.status==='pending'&&r.quality!=='watch');
+  parked=all.filter(r=>r.status==='pending'&&r.quality==='watch');
+  const byCompany={};
+  all.filter(r=>r.status==='approved').forEach(r=>{byCompany[r.company]=r;});   // ascending id: newest wins
+  leads=Object.values(byCompany);
+  rejected=all.filter(r=>r.status==='rejected'||r.status==='blocked')
+    .sort((a,b)=>String(b.decided_at||'').localeCompare(String(a.decided_at||'')));
+
+  const {data:camps}=await sb.from('nx_campaigns').select('id,name,opportunity_id,active').eq('active',true).order('name',{ascending:true});
+  campaigns=camps||[];
+  const {data:opps}=await sb.from('opportunities').select('id,title').order('title',{ascending:true});
+  opportunities=opps||[];
+  /* Found for reads each opportunity's kind (see FIT_FROM_KIND). */
+  const {data:kinds}=await sb.from('opportunities').select('id,kind');
+  kindOf={};(kinds||[]).forEach(k=>{kindOf[k.id]=k.kind;});
+  const mem=await readMembers('id,company,campaign_id,version,status,reason,contact_email,updated_at');
+  members={};mem.forEach(m=>{members[m.company]=m;});
+  C=await readContacts();
+
+  const {data:intents}=await sb.from('engine_intents')
+    .select('id,type,payload_json,status,result_note')
+    .in('status',['pending','claimed','failed','done'])
+    .in('type',['accept-prospect','reject-lead','block-lead','unblock-lead','change-campaign',
+                'watch-lead','unpark-lead','edit-prospect','return-to-prospect','add-prospect-note',
+                'add-prospect','add-prospect-option'])
+    .order('id',{ascending:false}).limit(1000);
+  pendingFor={};
+  (intents||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    const p=i.payload_json||{};
+    const key=i.type==='add-prospect-note'?(p.company?'n'+p.company:null)
+      :i.type==='add-prospect'?(p.display_name?'a'+String(p.display_name).trim().toLowerCase():null)
+      :i.type==='add-prospect-option'?(p.field&&p.value?'o'+p.field+':'+p.value:null)
+      :(p.queue_row!=null?'q'+p.queue_row:(p.company?'c'+p.company:null));
+    if(!key)return;
+    if(i.status==='done')delete pendingFor[key];else pendingFor[key]=i;
+  });
+  if((intents||[]).length===1000)banners.push('Showing the newest 1,000 queued changes; older ones are not shown.');
+  loaded=true;
+  render();
+}
+
+function matchField(filter,value){if(!filter)return true;if(filter==='__unset')return !value;return value===filter;}
+function passes(r,campaignId){
+  const s=F['f-search'].trim().toLowerCase();
+  if(s&&!`${nameOf(r)} ${r.company} ${r.website||''}`.toLowerCase().includes(s))return false;
+  const t=F['f-type'],q=F['f-quality'],c=F['f-campaign'],src=F['f-source'];
+  if(t&&typeOf(r)!==t)return false;
+  if(!matchField(F['f-sector'],r.sector))return false;
+  if(!matchField(F['f-ctype'],r.company_type))return false;
+  if(q&&gradeOf(r)!==q)return false;
+  if(src&&(r.source||'finder')!==src)return false;
+  const fd=F['f-finder'];
+  if(fd==='__none'&&finderIds(r).some(isOpportunity))return false;
+  if(fd&&fd!=='__none'&&!finderIds(r).includes(fd))return false;
+  if(c==='none'&&campaignId!=null)return false;
+  if(c&&c!=='none'&&String(campaignId)!==c)return false;
+  return true;
+}
+const gradeOf=r=>(r.quality&&r.quality!=='watch')?r.quality:(r.judge_confidence||'medium');
+const campOf=r=>r.status==='approved'?(members[r.company]?members[r.company].campaign_id:null):r.recommended_campaign_id;
+/* The campaign the row offers: its own, while that campaign is switched on
+   (the dropdown lists only those), else None. Accept sends exactly this. */
+const campChoice=r=>{const c=campOf(r);return c!=null&&campaigns.some(x=>String(x.id)===String(c))?c:null;};
+
+/* ---------- the page ---------- */
+function render(){
+  const actions=`<button type="button" class="btn primary" data-act="toggleAdd"${pre0065?' disabled':''}>${ms('add_business','sm')}Add a company</button>`;
+  let h=NXShell.headHtml({title:'Prospects',lede:'Companies the finders, campaign lists and LinkedIn turn up. Accept a new one to add it to Contacts; one already there is tagged with its fit.',actions:loaded?actions:''});
+  h+=sectionTabs('marketing.html');
+  if(!loaded){$('page').innerHTML=h+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the prospects.</span></div></section>`;return;}
+  h+=banners.map(b=>Array.isArray(b)
+    ?`<div class="banner err">${ms('error')}<div class="banner-text"><span>${esc(b[1])}</span></div></div>`
+    :`<div class="banner">${ms('info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
+  h+=addFormHtml()+addsHtml();
+  const n={prospects:prospects.length,parked:parked.length,leads:leads.length};
+  /* The page's own views are the design's segmented control under the section's tabs. */
+  h+=`<div class="seg" role="group" aria-label="Prospects, parked or leads">`+
+    [['prospects','Prospects'],['parked','Parked'],['leads','Leads']].map(([id,name])=>
+      `<button type="button" data-act="tab" data-f="${id}" aria-pressed="${tab===id}">${name} <span class="num">${n[id].toLocaleString('en-GB')}</span></button>`).join('')+'</div>';
+  h+=toolbarHtml();
+  $('page').innerHTML=h+`<div id="plist">${listHtml()}</div>`;
+}
+
+const sel=(id,options,cur,label)=>`<label class="sr" for="${id}">${label}</label><select class="input" id="${id}">${options.map(([v,t])=>`<option value="${esc(v)}"${String(v)===String(cur)?' selected':''}>${esc(t)}</option>`).join('')}</select>`;
+function toolbarHtml(){
+  const unset=[['__unset','Not set']];
+  return `<div class="toolbar"><div class="search">${ms('search')}<label class="sr" for="f-search">Search</label><input class="input" id="f-search" type="search" autocomplete="off" value="${esc(F['f-search'])}" placeholder="Name or website"></div>`+
+    sel('f-type',[['','Any status']].concat(TYPES.map(x=>[x,typeLabel(x)])),F['f-type'],'Status')+
+    sel('f-sector',[['','Any sector']].concat(unset,opts.sector.map(x=>[x,x])),F['f-sector'],'Sector')+
+    sel('f-ctype',[['','Any company type']].concat(unset,opts.company_type.map(x=>[x,x])),F['f-ctype'],'Company type')+
+    sel('f-quality',[['','Any lead quality']].concat(QUALITIES.map(x=>[x,cap(x)])),F['f-quality'],'Lead quality')+
+    sel('f-campaign',[['','Any campaign'],['none','None']].concat(campaigns.map(x=>[String(x.id),x.name])),F['f-campaign'],'Campaign')+
+    sel('f-source',[['','Any source']].concat(Object.entries(SOURCES)),F['f-source'],'Source')+
+    /* The finder search that surfaced a row, its titles read live (never a copy of the register). */
+    `<label class="sr" for="f-finder">Finder</label><select class="input" id="f-finder">`+
+    [['','Any finder search']].concat(opportunities.map(o=>[o.id,o.title]),[['__none','Not from a finder search']])
+      .map(([v,t])=>`<option value="${esc(v)}"${v===F['f-finder']?' selected':''}>${esc(t)}</option>`).join('')+'</select></div>';
+}
+
+function listHtml(){
+  let rows,head,body;
+  if(tab==='leads'){
+    rows=leads.filter(r=>passes(r,campOf(r)));
+    head='<th>Company</th><th>Found for</th><th>Status</th><th>Campaign</th><th>In Contacts</th><th></th>';
+    body=rows.map(leadCard).join('');
+  }else{
+    const list=tab==='parked'?parked:prospects;
+    rows=list.filter(r=>passes(r,r.recommended_campaign_id));
+    head='<th>Company</th><th>Found for</th><th>Status</th><th>Campaign</th><th>Why it fits</th><th>In Contacts</th><th></th>';
+    body=rows.map(r=>prospectCard(r,tab==='parked')).join('');
+  }
+  const empty={prospects:'No prospects to decide. New ones arrive after the weekend finders run.',parked:'Nothing parked. Park keeps a company for a later decision.',leads:'No accepted leads yet.'}[tab];
+  const table=rows.length
+    ?`<section class="list"><div class="tscroll"><table class="tbl ptbl"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></section>`
+    :`<section class="list"><div class="empty-state">${ms(tab==='leads'?'person_search':'task_alt')}<span>${esc(empty)}</span></div></section>`;
+  return table+declinedHtml();
+}
+
+function site(r){
+  const href=siteHref(r.website);
+  return href
+    ?`<a class="site" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(siteLabel(r.website))}</a>`
+    :'<span>No website on file</span>';
+}
+function companyCell(r,extra){
+  const c=inContacts(r);
+  const name=c?`<a class="linkish" href="company.html?id=${encodeURIComponent(c.id)}">${esc(nameOf(r))}</a>`:`<span class="co-name">${esc(nameOf(r))}</span>`;
+  return `<td><div class="co-cell">${name}<small>${site(r)}</small>${extra?`<small>${esc(extra)}</small>`:''}</div></td>`;
+}
+function options(list,selected,labelFn){
+  return list.map(v=>`<option value="${esc(v)}"${String(v)===String(selected)?' selected':''}>${esc(labelFn?labelFn(v):v)}</option>`).join('');
+}
+function pick(r,field,fallback){const c=choices[r.id];return c&&field in c?c[field]:fallback;}
+function campaignSelect(id,selected,dataAttr,disabled){
+  return `<select class="input" id="${esc(id)}" ${dataAttr||''}${disabled?' disabled title="This status has no campaign: Chris contacts personally"':''}>
+    <option value=""${selected==null||selected===''?' selected':''}>None: Chris contacts personally</option>
+    ${campaigns.map(c=>`<option value="${esc(c.id)}"${String(c.id)===String(selected)?' selected':''}>${esc(c.name)}</option>`).join('')}
+  </select>`;
+}
+function optionSelect(field,id,selected,attrs){
+  const vals=opts[field].slice();if(selected&&!vals.includes(selected))vals.push(selected);
+  return `<select class="input" id="${esc(id)}" ${attrs}${pre0065?' disabled':''}>
+    <option value=""${!selected?' selected':''}>Not set</option>
+    ${vals.map(v=>`<option value="${esc(v)}"${v===selected?' selected':''}>${esc(v)}</option>`).join('')}
+    <option value="__add">Add an option</option></select>`;
+}
+/* The five fields and the website, shared by the prospect, parked and lead rows. */
+function fields(r,isParked){
+  const id=r.id,attr=f=>`data-id="${esc(id)}" data-f="${f}" data-edit="1"`;
+  const t=pick(r,'type',typeOf(r)),noCamp=NO_CAMPAIGN.includes(t);
+  const field=(label,forId,control)=>`<div class="field"><label for="${esc(forId)}">${label}</label>${control}</div>`;
+  const ask=UI.ask&&UI.ask.startsWith('addopt:')&&UI.ask.endsWith(':'+id)?UI.ask.split(':')[1]:null;
+  return `<div class="form-grid">
+    ${field('Status','type-'+id,`<select class="input" id="type-${esc(id)}" ${attr('type')}>${options(TYPES,t,typeLabel)}</select>`)}
+    ${field('Sector','sector-'+id,optionSelect('sector','sector-'+id,pick(r,'sector',r.sector||''),attr('sector')))}
+    ${field('Company type','ctype-'+id,optionSelect('company_type','ctype-'+id,pick(r,'company_type',r.company_type||''),attr('company_type')))}
+    ${field('Lead quality','quality-'+id,`<select class="input" id="quality-${esc(id)}" ${attr('quality')}${isParked?' disabled title="Unpark to grade"':''}>${options(QUALITIES,pick(r,'quality',gradeOf(r)),cap)}</select>`)}
+    ${field('Campaign','camp-'+id,campaignSelect('camp-'+id,noCamp?'':pick(r,'campaign',campChoice(r)==null?'':campChoice(r)),attr('campaign'),noCamp))}
+    ${field('Website','web-'+id,`<input class="input" id="web-${esc(id)}" value="${esc(pick(r,'website',r.website||''))}" ${attr('website')}${pre0065?' disabled':''}>`)}
+  </div>`+(ask?`<div class="inline-choice"><span>New ${ask==='sector'?'Sector':'Company type'} option, added for everyone:</span><label class="sr" for="opt-new">New option</label><input class="input" id="opt-new" autocomplete="off">`+
+    `<button type="button" class="btn sm primary" data-act="confirmOption" data-id="${esc(id)}" data-f="${ask}">Add the option</button><button type="button" class="btn sm quiet" data-act="closeAsk">Cancel</button></div>`:'');
+}
+function notesBlock(r){
+  const list=notes[r.company]||[],q=pendingFor['n'+r.company];
+  return `<details class="archive inpanel"${list.length?' open':''}><summary>Notes (${list.length})</summary><div class="arch-body notes">
+    ${list.map(n=>`<p class="note-item"><span class="muted-t">${esc(NXShell.personOf(n.by))}, ${esc(NXCRM.fmtDate(n.at))}</span><br>${esc(n.body)}</p>`).join('')}
+    ${q&&q.status!=='failed'?'<span class="status-line">A note is queued for the engine.</span>':''}
+    ${q&&q.status==='failed'?`<span class="status-line fail">The engine could not save a note: ${esc(q.result_note||'')}</span>`:''}
+    <label class="sr" for="note-${esc(r.id)}">New note</label><textarea class="input" id="note-${esc(r.id)}" data-id="${esc(r.id)}" data-draft="1" placeholder="What should the next person know about this company?"${pre0065?' disabled':''}>${esc(drafts[r.id]||'')}</textarea>
+    <div><button class="btn sm" type="button" data-act="addNote" data-id="${esc(r.id)}"${pre0065?' disabled':''}>${ms('note_add','sm')}Add note</button></div>
+  </div></details>`;
+}
+const saveBtn=r=>`<button class="btn sm primary" id="save-${esc(r.id)}" type="button" data-act="saveRow" data-id="${esc(r.id)}"${Object.keys(changed(r)).length?'':' hidden'}${saveAllowed(r)?'':' disabled'}>${ms('save','sm')}Save changes</button>`;
+/* Before migration 0065 only a lead's campaign change can be saved (the old change-campaign intent). */
+function saveAllowed(r){
+  if(!pre0065)return true;
+  const k=Object.keys(changed(r));
+  return r.status==='approved'&&k.length===1&&k[0]==='campaign';
+}
+const queuedWords={'accept-prospect':'Accept','reject-lead':'Decline','block-lead':'Kill','watch-lead':'Park','unpark-lead':'Unpark',
+  'edit-prospect':'Save','return-to-prospect':'Return to prospect','change-campaign':'Campaign change','unblock-lead':'Restore'};
+const queuedLine=q=>`<span class="status-line">${ms('schedule','sm')}${esc(queuedWords[q.type]||'Decision')} queued</span>`;
+const failedLine=q=>q&&q.status==='failed'?`<span class="fail">The engine could not do it: ${esc(q.result_note||'no reason recorded')}</span>`:'';
+const toggleBtn=r=>`<button type="button" class="btn sm quiet" data-act="openRow" data-id="${esc(r.id)}" aria-expanded="${UI.open===r.id}">${UI.open===r.id?'Hide details':'Show details'}</button>`;
+function askHtml(kind,id,label,placeholder,verb,danger){
+  return `<div class="inline-choice"><span>${label}</span><label class="sr" for="ask-${esc(id)}">Reason</label><input class="input" id="ask-${esc(id)}" autocomplete="off" placeholder="${esc(placeholder)}" value="${esc(asks['ask-'+id]||'')}">`+
+    `<button type="button" class="btn sm${danger?' danger':' primary'}" data-act="confirm${kind}" data-id="${esc(id)}">${verb}</button><button type="button" class="btn sm quiet" data-act="closeAsk">Cancel</button></div>`;
+}
+
+/* What Accept on the row would use: the type's no-campaign rule, then the row's choice. */
+function acceptCampaign(r){
+  if(NO_CAMPAIGN.includes(pick(r,'type',typeOf(r))))return 'None: Chris contacts personally';
+  const c=pick(r,'campaign',campChoice(r)==null?'':campChoice(r));
+  return c===''||c==null?'None: Chris contacts personally':(campaignName(c)||'None: Chris contacts personally');
+}
+function prospectCard(r,isParked){
+  const q=pendingFor['q'+r.id],queued=q&&q.status!=='failed';
+  const why=r.judge_reason||r.reasoning||'';
+  const src=SOURCES[r.source]||'Weekend finder';
+  const act=queued?queuedLine(q)
+    :`<button class="btn sm primary" type="button" data-act="accept" data-id="${esc(r.id)}"${pre0047?' disabled title="Waiting for migration 0047"':''}>${ms('check','sm')}Accept</button> ${toggleBtn(r)}`;
+  let out=`<tr${UI.open===r.id?' class="open"':''}>${companyCell(r,src)}<td><div class="pills">${foundFor(r)}</div></td>`+
+    `<td>${esc(typeLabel(typeOf(r)))}<small>${esc(cap(gradeOf(r)))}</small></td><td>${esc(acceptCampaign(r))}</td><td class="why">${esc(why)||'Not checked yet.'}</td>`+
+    `<td>${contactsCell(r)}</td><td class="act">${failedLine(q)}${act}</td></tr>`;
+  if(UI.open!==r.id)return out;
+  let decide;
+  if(queued)decide=queuedLine(q);
+  else{
+    const parkBtn=isParked
+      ?`<button class="btn sm" type="button" data-act="unpark" data-id="${esc(r.id)}">${ms('unarchive','sm')}Unpark</button>`
+      :`<button class="btn sm" type="button" title="Keep for a later decision; the finders leave it alone" data-act="park" data-id="${esc(r.id)}">${ms('inventory_2','sm')}Park</button>`;
+    decide=`${saveBtn(r)}<button class="btn sm primary" type="button" data-act="accept" data-id="${esc(r.id)}"${pre0047?' disabled':''}>${ms('check','sm')}Accept</button>${parkBtn}`+
+      `<button class="btn sm" type="button" data-act="reject" data-id="${esc(r.id)}">${ms('close','sm')}Decline</button>`+
+      `<button class="btn sm danger" type="button" title="Never propose or research this company again; only an admin can restore it" data-act="block" data-id="${esc(r.id)}">${ms('block','sm')}Kill</button>`;
+  }
+  const ask=UI.ask==='reject:'+r.id?askHtml('Reject',r.id,'Why not now? It is recorded, and a later finder lap may propose it again.','Optional','Decline it',false)
+    :UI.ask==='block:'+r.id?askHtml('Block',r.id,'Kill this company? It is never proposed or researched again; only an admin can restore it. Say why.','Required','Kill it',true):'';
+  out+=`<tr class="detail"><td colspan="7"><div class="detail-body">
+    ${finderTags(r)}
+    ${r.list_overlap?`<div class="hint">${ms('info')}<span>Already on the campaign list (${esc(r.list_overlap)}).</span></div>`:''}
+    ${fields(r,isParked)}
+    ${r.proposed_at?`<span class="muted-t">Found ${esc(NXCRM.fmtDate(r.proposed_at))}</span>`:''}
+    <div class="actions" id="act-${esc(r.id)}">${decide}</div>${ask}
+    ${notesBlock(r)}
+  </div></td></tr>`;
+  return out;
+}
+
+function memberLine(r){
+  const m=members[r.company];
+  if(!m)return '<span class="muted-t">No campaign: Chris contacts personally</span>';
+  const word=MEMBER_WORDS[m.status]||m.status;
+  const why=(m.status==='waiting'||m.status==='error')&&m.reason?`: ${m.reason}`:'';
+  const cls=m.status==='error'?' err':(m.status==='in_smartlead'||m.status==='replied'?' ok':'');
+  return `${esc(campaignName(m.campaign_id)||'A switched-off campaign')}<small><span class="st${cls}">${esc(word)}</span> ${esc(VERSION_WORDS[m.version]||m.version)} version${esc(why)}</small>`;
+}
+function leadCard(r){
+  const q=pendingFor['q'+r.id]||pendingFor['c'+r.company],queued=q&&q.status!=='failed';
+  const by=r.decided_by?' by '+NXShell.personOf(r.decided_by):'';
+  let out=`<tr${UI.open===r.id?' class="open"':''}>${companyCell(r,'Accepted '+NXCRM.fmtDate(r.decided_at)+by)}<td><div class="pills">${foundFor(r)}</div></td>`+
+    `<td>${esc(typeLabel(typeOf(r)))}<small>${esc(cap(gradeOf(r)))}</small></td><td>${memberLine(r)}</td><td>${contactsCell(r)}</td>`+
+    `<td class="act">${failedLine(q)}${queued?queuedLine(q):toggleBtn(r)}</td></tr>`;
+  if(UI.open!==r.id)return out;
+  const control=queued?queuedLine(q)
+    :`${saveBtn(r)}<button class="btn sm" type="button" data-act="returnLead" data-id="${esc(r.id)}">${ms('undo','sm')}Return to prospect</button>`;
+  const ask=UI.ask==='return:'+r.id?askHtml('Return',r.id,'Return this lead to Prospects? It leaves its campaign; the Pipedrive lead and its folder are kept. Say why.','Required','Return it',false)
+    :UI.ask==='move:'+r.id?moveAsk(r):'';
+  out+=`<tr class="detail"><td colspan="6"><div class="detail-body">
+    ${finderTags(r)}
+    ${fields(r,false)}
+    <span><a href="company.html?slug=${esc(encodeURIComponent(r.company))}">Company page</a></span>
+    <div class="actions" id="act-${esc(r.id)}">${control}</div>${ask}
+    ${notesBlock(r)}
+  </div></td></tr>`;
+  return out;
+}
+function moveAsk(r){
+  const diff=changed(r),off=diff.campaign==='';
+  const question=off?`Take ${esc(nameOf(r))} off its campaign? If it is already in Smartlead, it is taken out there too.`
+    :`Move ${esc(nameOf(r))} to ${esc(campaignName(diff.campaign)||'the new campaign')}? If it is already in Smartlead it is taken out of its current campaign.`;
+  return `<div class="inline-choice"><span>${question}</span>`+
+    `<button type="button" class="btn sm primary" data-act="confirmMove" data-id="${esc(r.id)}">${off?'Take it off':'Move it'}</button><button type="button" class="btn sm quiet" data-act="closeAsk">Cancel</button></div>`;
+}
+
+/* The Declined archive (the design's; the Rejected tab until plan 077):
+   declined and killed companies, newest first, with Restore for a killed one. */
+function declinedHtml(){
+  const rows=rejected.filter(r=>passes(r,null));
+  return `<details class="archive"${UI.declinedOpen?' open':''} id="declined"><summary>Declined (${rows.length})</summary><div class="arch-body">`+
+    (rows.length?rows.map(rejectedCard).join(''):'<div class="arch-row"><span class="arch-note">Nothing declined or killed.</span></div>')+'</div></details>';
+}
+function rejectedCard(r){
+  const q=pendingFor['q'+r.id];
+  /* A failed unblock used to bring the button back with no reason. */
+  const failed=q&&q.status==='failed'
+    ?`<span class="fail">The engine could not restore it: ${esc(q.result_note||'no reason recorded')}</span>`:'';
+  const action=r.status!=='blocked'?''
+    :(q&&q.status!=='failed'&&q.type==='unblock-lead'?queuedLine(q)
+      :`<button class="btn sm" type="button" data-act="unblock" data-id="${esc(r.id)}">${ms('undo','sm')}Restore</button>`);
+  const when=[NXCRM.fmtDate(r.decided_at),r.decided_by?'by '+NXShell.personOf(r.decided_by):''].filter(Boolean).join(' ');
+  const what=r.status==='blocked'?`Killed ${when}: never proposed again.`:`Declined ${when}. A later finder lap may propose it again.`;
+  const ask=UI.ask==='unblock:'+r.id?`<div class="inline-choice"><span>Restore ${esc(nameOf(r))}? It becomes eligible again on its next research lap.</span>`+
+    `<button type="button" class="btn sm primary" data-act="confirmUnblock" data-id="${esc(r.id)}">Restore it</button><button type="button" class="btn sm quiet" data-act="closeAsk">Cancel</button></div>`:'';
+  return `<div class="arch-row"><span class="co-name">${esc(nameOf(r))}</span>
+    <span class="arch-note">${esc(what)}${r.decision_note?' '+esc(r.decision_note):''}</span>
+    ${finderTags(r)}${failed}<span id="act-${esc(r.id)}">${action}</span>${ask}</div>`;
+}
+
+/* Add a company: a prospect of a person's own, decided like any other. */
+function addFormHtml(){
+  const v=UI.addValues||{};
+  return `<section class="panel" id="addForm"${UI.add?'':' hidden'}><h2>Add a company</h2><div class="form-grid">
+    <div class="field"><label for="add-name">Company name</label><input class="input" id="add-name" autocomplete="off" value="${esc(v.name||'')}"></div>
+    <div class="field"><label for="add-web">Website</label><input class="input" id="add-web" placeholder="example.com" autocomplete="off" value="${esc(v.web||'')}"></div>
+    <div class="field"><label for="add-type">Status</label><select class="input" id="add-type">${options(TYPES,v.type||'Cold',typeLabel)}</select></div>
+    <div class="field"><label for="add-sector">Sector</label><select class="input" id="add-sector"><option value="">Not set</option>${opts.sector.map(x=>`<option${x===v.sector?' selected':''}>${esc(x)}</option>`).join('')}</select></div>
+    <div class="field"><label for="add-ctype">Company type</label><select class="input" id="add-ctype"><option value="">Not set</option>${opts.company_type.map(x=>`<option${x===v.ctype?' selected':''}>${esc(x)}</option>`).join('')}</select></div>
+    <div class="field"><label for="add-quality">Lead quality</label><select class="input" id="add-quality">${options(QUALITIES,v.quality||'medium',cap)}</select></div>
+    <div class="field"><label for="add-camp">Campaign</label>${campaignSelect('add-camp',v.camp||'')}</div>
+  </div><div class="field"><label for="add-note">First note</label><textarea class="input" id="add-note" rows="2">${esc(v.note||'')}</textarea></div>
+  <div class="actions"><button class="btn primary" id="add-go" type="button" data-act="addCompany">${ms('add','sm')}Add to Prospects</button><button type="button" class="btn quiet" data-act="toggleAdd">Cancel</button></div></section>`;
+}
+/* What Add a company and Add an option are waiting for, or why the engine refused them. */
+function addsHtml(){
+  const lines=[];
+  for(const k in pendingFor){
+    const q=pendingFor[k],p=q.payload_json||{};
+    if(q.type==='add-prospect')lines.push(q.status==='failed'?`Could not add ${p.display_name}: ${q.result_note||'no reason recorded'}`:`Queued for the engine: ${p.display_name}`);
+    if(q.type==='add-prospect-option'&&q.status==='failed')lines.push(`Could not add the ${p.field==='sector'?'Sector':'Company type'} option ${p.value}: ${q.result_note||'no reason recorded'}`);
+  }
+  return lines.length?`<div class="hint">${ms('schedule')}<span>${lines.map(esc).join('. ')}.</span></div>`:'';
+}
+function toggleAdd(){UI.add=!UI.add;render();if(UI.add){const f=$('add-name');if(f&&f.focus)f.focus();}}
+
+/* ---------- writing: engine_intents only ---------- */
+async function raise(type,payload,verb,key,toastText){
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){NXShell.toast(`Could not queue it: ${error.message}`);return false;}
+  if(key)pendingFor[key]={type,status:'pending',payload_json:payload};
+  NXShell.toast(toastText||`${verb}, queued. The engine acts within a minute or two.`);
+  setTimeout(load,1200);
+  return true;
+}
+function changed(r){
+  const c=choices[r.id]||{},out={};
+  const cur={type:typeOf(r),sector:r.sector||'',company_type:r.company_type||'',quality:gradeOf(r),
+             campaign:campChoice(r)==null?'':String(campChoice(r)),website:r.website||''};
+  for(const k in c)if(String(c[k]??'')!==String(cur[k]??''))out[k]=c[k];
+  if(NO_CAMPAIGN.includes(c.type||cur.type)){delete out.campaign;if(cur.campaign!=='')out.campaign='';}
+  if(r.quality==='watch')delete out.quality;
+  return out;
+}
+const rowById=id=>[...prospects,...parked,...leads,...rejected].find(r=>String(r.id)===String(id));
+function payloadFields(diff){
+  const out={};
+  for(const k in diff){
+    if(k==='campaign')out.campaign_id=diff[k]===''?null:Number(diff[k]);
+    else out[k]=diff[k]===''?null:diff[k];
+  }
+  return out;
+}
+function refreshSave(id){
+  const r=rowById(id),b=$('save-'+id);
+  if(r&&b){b.hidden=!Object.keys(changed(r)).length;b.disabled=!saveAllowed(r);}
+}
+async function saveRow(id,moved){
+  const r=rowById(id);if(!r)return;
+  const diff=changed(r);if(!Object.keys(diff).length)return;
+  if(r.status==='approved'&&'campaign' in diff&&!moved){UI.ask='move:'+id;$('plist').innerHTML=listHtml();return;}
+  let ok;
+  if(pre0065){
+    const target=diff.campaign===''?null:Number(diff.campaign);
+    ok=await raise('change-campaign',{company:r.company,campaign_id:target,display_name:nameOf(r)},target==null?'Taken off its campaign':'Moved to '+(campaignName(target)||'the new campaign'),'c'+r.company);
+  }else ok=await raise('edit-prospect',{queue_row:Number(id),fields:payloadFields(diff)},'Saved','q'+id);
+  if(ok){delete choices[id];UI.ask=null;render();}
+}
+async function accept(id){
+  const r=rowById(id);if(!r)return;
+  const t=pick(r,'type',typeOf(r)),camp=String(pick(r,'campaign',campChoice(r)==null?'':campChoice(r)));
+  const payload={queue_row:Number(id),type:t,quality:pick(r,'quality',gradeOf(r)),
+                 campaign_id:(NO_CAMPAIGN.includes(t)||camp==='')?null:Number(camp)};
+  if(!pre0065){
+    const d=changed(r);
+    for(const k of ['sector','company_type','website'])if(k in d)payload[k]=d[k]===''?null:d[k];
+  }
+  const known=inContacts(Object.assign({},r,'website' in payload?{website:payload.website}:{}));
+  /* D5: one already in Contacts with no campaign is tagged, nothing more. */
+  const tagOnly=known&&payload.campaign_id==null;
+  const toastText=!tagOnly?null:fitsOf(r).length?`Accepted ${nameOf(r)}, queued: it is in Contacts already, so only its fit is tagged.`
+    :`Accepted ${nameOf(r)}, queued: it is in Contacts already and fits neither pipeline, so nothing is tagged.`;
+  const verb='Accepted as '+(payload.campaign_id==null?'a lead with no campaign':'a lead on '+(campaignName(payload.campaign_id)||'its campaign'));
+  if(await raise('accept-prospect',payload,verb,'q'+id,toastText)){delete choices[id];UI.open=null;render();}
+}
+
+const val=id=>String(($(id)||{}).value||'').trim();
+const focusOn=id=>{const f=$(id);if(f&&f.focus)f.focus();};
+function ask(key,id){UI.ask=key;delete asks['ask-'+id];$('plist').innerHTML=listHtml();focusOn('ask-'+id);}
+const ACT={
+  tab(el){tab=el.dataset.f;UI.open=null;UI.ask=null;try{localStorage.setItem('nx-prospects-tab',tab);}catch(e){}render();},
+  openRow(el){const id=Number(el.dataset.id);UI.open=UI.open===id?null:id;UI.ask=null;$('plist').innerHTML=listHtml();},
+  closeAsk(){UI.ask=null;for(const k in asks)delete asks[k];$('plist').innerHTML=listHtml();},
+  toggleAdd(){toggleAdd();},
+  accept(el){accept(el.dataset.id);},
+  saveRow(el){saveRow(el.dataset.id);},
+  confirmMove(el){saveRow(el.dataset.id,true);},
+  async park(el){const id=el.dataset.id;delete choices[id];if(await raise('watch-lead',{queue_row:Number(id)},'Parked','q'+id))render();},
+  async unpark(el){const id=el.dataset.id;if(await raise('unpark-lead',{queue_row:Number(id)},'Unparked','q'+id))render();},
+  reject(el){ask('reject:'+el.dataset.id,el.dataset.id);},
+  async confirmReject(el){const id=el.dataset.id;
+    if(await raise('reject-lead',{queue_row:Number(id),reason:val('ask-'+id)},'Declined','q'+id)){UI.ask=null;UI.open=null;render();}},
+  block(el){ask('block:'+el.dataset.id,el.dataset.id);},
+  async confirmBlock(el){const id=el.dataset.id,reason=val('ask-'+id);
+    if(!reason){focusOn('ask-'+id);return NXShell.toast('Say why first: Kill stops the finders proposing it again.');}
+    if(await raise('block-lead',{queue_row:Number(id),reason},'Killed','q'+id)){UI.ask=null;UI.open=null;render();}},
+  returnLead(el){ask('return:'+el.dataset.id,el.dataset.id);},
+  async confirmReturn(el){const id=el.dataset.id,reason=val('ask-'+id);
+    if(!reason){focusOn('ask-'+id);return NXShell.toast('Say why it goes back to Prospects.');}
+    if(await raise('return-to-prospect',{queue_row:Number(id),reason},'Returned to prospect','q'+id)){UI.ask=null;UI.open=null;render();}},
+  unblock(el){UI.declinedOpen=true;UI.ask='unblock:'+el.dataset.id;$('plist').innerHTML=listHtml();},
+  async confirmUnblock(el){const id=el.dataset.id;
+    if(await raise('unblock-lead',{queue_row:Number(id)},'Restored','q'+id)){UI.ask=null;render();}},
+  async addNote(el){
+    const id=el.dataset.id,r=rowById(id);if(!r)return;
+    const body=(drafts[id]||'').trim();if(!body){focusOn('note-'+id);return NXShell.toast('Write the note first.');}
+    if(await raise('add-prospect-note',{company:r.company,body},'Note added','n'+r.company)){delete drafts[id];render();}
+  },
+  async confirmOption(el){
+    const id=el.dataset.id,field=el.dataset.f,value=val('opt-new');
+    if(!value){focusOn('opt-new');return NXShell.toast('Type the new option first.');}
+    if(!(await raise('add-prospect-option',{field,value},'Option added','o'+field+':'+value)))return;
+    if(!opts[field].includes(value))opts[field].push(value);
+    choose(id,field,value);UI.ask=null;$('plist').innerHTML=listHtml();
+  },
+  async addCompany(){
+    const name=val('add-name');
+    if(!name){focusOn('add-name');return NXShell.toast('A company needs a name.');}
+    const t=val('add-type'),camp=val('add-camp');
+    const ok=await raise('add-prospect',{display_name:name,website:val('add-web')||null,type:t,
+      sector:val('add-sector')||null,company_type:val('add-ctype')||null,quality:val('add-quality'),
+      campaign_id:(NO_CAMPAIGN.includes(t)||camp==='')?null:Number(camp),note:val('add-note')||null},
+      `Added ${name} to Prospects`,'a'+name.toLowerCase());
+    if(ok){UI.add=false;UI.addValues=null;render();}
+  },
+};
+
+function saveFilters(){try{localStorage.setItem('nx-prospects-filters',JSON.stringify(F));}catch(e){}}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(!b||!ACT[b.dataset.act])return;
+  e.preventDefault();ACT[b.dataset.act](b);
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.id==='f-search'){F['f-search']=t.value;saveFilters();$('plist').innerHTML=listHtml();return;}
+  if(t.dataset&&t.dataset.draft){drafts[t.dataset.id]=t.value;return;}
+  if(t.id&&t.id.startsWith('ask-')){asks[t.id]=t.value;return;}
+  if(t.dataset&&t.dataset.edit&&t.dataset.f==='website'){choose(t.dataset.id,'website',t.value.trim());refreshSave(t.dataset.id);return;}
+  if(t.id&&t.id.startsWith('add-'))UI.addValues=Object.assign(UI.addValues||{},{[t.id.slice(4)]:t.value});
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(FILTERS.includes(t.id)){F[t.id]=t.value;saveFilters();$('plist').innerHTML=listHtml();return;}
+  if(t.id&&t.id.startsWith('add-')){UI.addValues=Object.assign(UI.addValues||{},{[t.id.slice(4)]:t.value});return;}
+  if(!(t.dataset&&t.dataset.edit))return;
+  const id=t.dataset.id,f=t.dataset.f;
+  if(t.value==='__add'){UI.ask=`addopt:${f}:${id}`;$('plist').innerHTML=listHtml();focusOn('opt-new');return;}
+  choose(id,f,f==='website'?t.value.trim():t.value);
+  if(f==='type'){$('plist').innerHTML=listHtml();return;}
+  refreshSave(id);
+});
+document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='declined')UI.declinedOpen=e.target.open;},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(UI.ask||UI.add)){UI.ask=null;UI.add=false;render();}});
 
 boot();
 </script>

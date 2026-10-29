@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint CRM: Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
+<link rel="stylesheet" href="crm.css?v=2">
+<style>
+  /* The Finder (plan 077, D9): the weekly finders, and what they look for. */
+  .tbl td.r, .tbl th.r { text-align: right; }
+  .opp { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border-faint); }
+  .opp:first-of-type { border-top: 0; padding-top: 0; }
+  .opp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .opp-head b { color: var(--fg); font-weight: 600; }
+  .opp .match { margin: 0; font-size: 13.5px; color: var(--fg-1); max-width: 80ch; }
+  .kw { display: flex; flex-wrap: wrap; gap: 5px; }
+  .ctl { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--fg-2); }
+  .ctl .input { padding: 6px 9px; }
+  .fail { font-size: 12px; color: var(--err-ink); display: block; }
+  /* The section's four tabs stay one row on a phone, scrolling inside themselves. */
+  @media (max-width: 560px) { .views[aria-label="Marketing"] { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .views[aria-label="Marketing"] a { padding-inline: 9px; flex: none; } }
+</style>
+</head>
+<body>
+<div id="login" class="door" style="display:none">
+  <span class="brand"><img src="nexpoint-mark.png" alt="" width="30" height="26"><span class="wordmark"><span class="nex">Nex</span><span class="pt">Point</span></span></span>
+  <h1>Sign in to the CRM</h1>
+  <p>For Will and Chris only: the database admits the two of you and nobody else.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <label class="sr" for="email">Email</label>
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <label class="sr" for="pw">Password</label>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+</div>
+
+<div id="admin" class="app" style="display:none">
+  <aside class="rail" id="rail" aria-label="Main"></aside>
+  <main class="main" id="main" tabindex="-1"><div class="page" id="page"></div></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
+        integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script src="admin-auth.js"></script>
+<script src="crm-shell.js?v=3"></script>
+<script src="crm.js?v=071"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a hint for which screen to show; the database decides (is_brief_admin, a second factor since plan 035)
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const PAGE_SECTION='marketing';
+let me=null;
+
+async function boot(){
+  const {data}=await sb.auth.getSession();const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)){if(await NXAdminAuth.requireAal2(sb))showAdmin(s.user);else showLogin(s);}else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))$('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pw').value});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  if(!(await NXAdminAuth.requireAal2(sb)))return;
+  showAdmin(data.user);
+}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,PAGE_SECTION);render();load();}
+
+/* The Finder, the last of Marketing's four pages (plan 077, D9). Weekly
+   finders: each finder job, what it looks at, its last run (engine_runs) and
+   how many companies that run put on Prospects and how many of those have been
+   accepted (engine_lead_queue). Find more now: the opportunities the finders
+   look for, switched on and off with an end date (set-opportunity), a deal to
+   find partners for, and Run a finder now (plan 072's rerun-job). The finders
+   take no territory: they are steered by the opportunities. Every change is an
+   engine_intents row; nothing here writes anything else. */
+const esc=NXCRM.esc, ms=NXShell.ms, plural=(n,a,b)=>`${n} ${n===1?a:(b||a+'s')}`;
+/* The Marketing section's four tabs (plan 077, D1): one page each, so each can be linked to. */
+const MARKETING_TABS=[['marketing.html','Prospects'],['marketing-campaigns.html','Campaigns'],['marketing-linkedin.html','LinkedIn'],['marketing-finder.html','Finder']];
+const sectionTabs=cur=>`<div class="views" role="tablist" aria-label="Marketing">`+MARKETING_TABS.map(([href,label])=>`<a role="tab" href="${href}" aria-selected="${href===cur}">${label}</a>`).join('')+'</div>';
+
+/* The five finder jobs in jobs.yaml, the days they run and what each one reads. */
+const FINDERS=[
+  ['finder-current-customer','Current customers','Saturdays','Fit360 current customers, against the switched-on opportunities'],
+  ['finder-former-customer','Former customers','Saturdays','Fit360 former customers, against the switched-on opportunities'],
+  ['finder-enquired','Enquirers','Sundays','Fit360 companies that enquired and never bought'],
+  ['finder-cold-pool','Cold list','Sundays',"Fit360's Cold sheet, a slice each week"],
+  ['finder-cold','New companies','Sundays','The web, for companies new to us'],
+];
+const FINDER_JOBS=FINDERS.map(f=>f[0]);
+const FINDER_INTENTS=['set-opportunity','rerun-job'];   // the intents this page raises, and so watches
+/* A run that only found the lock held is not the finder's last run (System's rule). */
+const LOCKED_OUT={'skipped-because-locked':true};
+let opps=[],runs={},found={},state='loading',problem='',banners=[];
+let pendingByOpp={},pendingDrafts={},rerunOf={};
+const UI={ask:null,deal:{slug:'',title:''}};
+
+async function load(){
+  banners=[];
+  const [oq,rq,iq]=await Promise.all([
+    sb.from('opportunities').select('id,title,kind,match,keywords,deal_slug,active,ends_on,draft,updated_by,updated_at').order('title',{ascending:true}),
+    sb.from('engine_runs').select('id,job,status,started_at,ended_at').in('job',FINDER_JOBS).order('started_at',{ascending:false}).limit(200),
+    sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at')
+      .in('status',['pending','claimed','failed','done']).in('type',FINDER_INTENTS)
+      .order('id',{ascending:false}).limit(1000),
+  ]);
+  if(oq.error){state='error';problem=oq.error.message;render();return;}
+  opps=oq.data||[];
+  runs={};
+  if(rq.error)banners.push(`Could not read the finders' runs, so Last run is blank: ${rq.error.message}.`);
+  else (rq.data||[]).forEach(r=>{if(!LOCKED_OUT[r.status]&&!runs[r.job])runs[r.job]=r;});
+  found={};
+  const ids=Object.values(runs).map(r=>r.id);
+  if(ids.length){
+    const qq=await sb.from('engine_lead_queue').select('id,run_id,status').in('run_id',ids);
+    if(qq.error)banners.push(`Could not read the prospects the finders put on Prospects: ${qq.error.message}.`);
+    else (qq.data||[]).forEach(q=>{const f=found[q.run_id]=found[q.run_id]||{all:0,accepted:0};f.all++;if(q.status==='approved')f.accepted++;});
+  }
+  if(iq.error)banners.push(`Could not read the queued changes: ${iq.error.message}.`);
+  if((iq.data||[]).length===1000)banners.push('Showing the newest 1,000 queued changes; older ones are not shown.');
+  // Plan 024's rule, on this board too (code review, 4 October 2026): a
+  // switch or an end date raised an intent and reloaded before the engine had
+  // run, so the change looked undone and a refusal was never shown.
+  pendingByOpp={};pendingDrafts={};rerunOf={};
+  (iq.data||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    const p=i.payload_json||{};
+    let map=null,key=null;
+    if(i.type==='rerun-job'){map=rerunOf;key=p.job;}
+    else if(p.id!=null){map=pendingByOpp;key=p.id;}
+    else if(p.deal_slug){map=pendingDrafts;key=p.deal_slug;}
+    if(!map||key==null)return;
+    if(i.status==='done')delete map[key];else map[key]=i;
+  });
+  state='ready';render();
+}
+
+/* What a row says about its newest intent (plan 024's rule, on this board
+   since the code review of 4 October 2026). A queued one is the line shown
+   in place of the control it came from, since the same decision twice would
+   be two intents; a failed one is a red line above the control, which stays. */
+const isQueued=q=>!!q&&q.status!=='failed';
+function intentLine(q,what){
+  if(!q)return '';
+  if(q.status==='failed')return `<span class="fail">${esc(what)} failed: ${esc(q.result_note||'the engine gave no reason')}</span>`;
+  return `<span class="status-line">${ms('schedule','sm')}${esc(what)} queued: the engine acts within a minute or two.</span>`;
+}
+
+function today(){return new Date().toISOString().slice(0,10);}
+function oppState(o){
+  if(o.draft)return ['','Draft: waiting for its search terms'];
+  if(!o.active)return ['','Switched off'];
+  if(o.ends_on&&String(o.ends_on).slice(0,10)<today())return ['','Ended '+NXCRM.fmtDate(String(o.ends_on).slice(0,10))];
+  return ['ok','Being searched'];
+}
+const RUN_WORDS={succeeded:'Ran','succeeded-with-warnings':'Ran with warnings',failed:'Failed',running:'Running'};
+
+function findersHtml(){
+  const rows=FINDERS.map(([job,name,when,looks])=>{
+    const r=runs[job],f=r?(found[r.id]||{all:0,accepted:0}):null;
+    const last=r?`${esc(NXCRM.fmtDate(r.started_at))}<small>${esc(RUN_WORDS[r.status]||r.status||'')}</small>`:'<span class="muted-t">Not run yet</span>';
+    return `<tr><td class="strong">${esc(name)}<small>${esc(when)}</small></td><td>${esc(looks)}</td><td>${last}</td>`+
+      `<td class="r num">${f?f.all:''}</td><td class="r num">${f?f.accepted:''}</td></tr>`;
+  }).join('');
+  return `<section class="panel"><h2>Weekly finders <span class="n">${FINDERS.length}</span></h2>`+
+    '<p class="picker-note">Every Saturday and Sunday the finders search for companies that match the opportunities below; each find arrives on Prospects. Both columns count the finder’s last run.</p>'+
+    `<div class="tscroll"><table class="tbl"><thead><tr><th>Finder</th><th>Looks at</th><th>Last run</th><th class="r">Qualified</th><th class="r">Accepted so far</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+}
+
+function runNowHtml(){
+  const pick=UI.runJob||FINDER_JOBS[0];
+  const q=rerunOf[pick];
+  const name=(FINDERS.find(f=>f[0]===pick)||[])[1]||pick;
+  const ask=UI.ask==='run'?`<div class="inline-choice"><span>Run the ${esc(name)} finder now? It searches as it does at the weekend.</span>`+
+    `<button type="button" class="btn sm primary" data-act="confirmRun">Run it now</button><button type="button" class="btn sm quiet" data-act="closeAsk">Cancel</button></div>`:'';
+  return `<div class="form-grid"><div class="field"><label for="run-job">Run a finder now</label><select class="input" id="run-job">`+
+    FINDERS.map(([job,label])=>`<option value="${esc(job)}"${job===pick?' selected':''}>${esc(label)}</option>`).join('')+`</select></div>`+
+    `<div class="actions">${isQueued(q)?intentLine(q,'Run'):`<button type="button" class="btn primary" data-act="run">${ms('travel_explore','sm')}Run the finder now</button>`}</div></div>`+
+    (q&&q.status==='failed'?intentLine(q,'The run you asked for'):'')+ask;
+}
+
+function oppHtml(o){
+  const [cls,label]=oppState(o);
+  /* The opportunity's newest intent: queued replaces its controls, a
+     failure sits above them. */
+  const q=pendingByOpp[o.id];
+  const kws=(o.keywords||[]).map(k=>`<span class="tag">${esc(k)}</span>`).join('');
+  const toggle=o.draft&&!(o.keywords||[]).length
+    ?'<span class="muted-t">Switch it on once its search terms are written.</span>'
+    :`<button type="button" class="btn sm${o.active?'':' primary'}" data-act="toggle" data-id="${esc(o.id)}" data-on="${o.active?'0':'1'}">${o.active?'Switch off':'Switch on'}</button>`;
+  return `<div class="opp"><div class="opp-head"><b>${esc(o.title)}</b><span class="st ${cls}">${esc(label)}</span>`+
+    (o.deal_slug?`<span class="muted-t">Deal: ${esc(o.deal_slug)}</span>`:'')+'</div>'+
+    (o.match?`<p class="match">${esc(o.match)}</p>`:'')+(kws?`<div class="kw">${kws}</div>`:'')+
+    `<div class="ctl">${intentLine(q,'Change')}${isQueued(q)?'':toggle}`+
+    `<label for="end-${esc(o.id)}">End date</label><input class="input" type="date" id="end-${esc(o.id)}" data-end="${esc(o.id)}" value="${esc(o.ends_on?String(o.ends_on).slice(0,10):'')}"${isQueued(q)?' disabled':''}>`+
+    (o.updated_by?`<span>Changed by ${esc(NXShell.personOf(o.updated_by))} ${esc(NXCRM.fmtDate(o.updated_at))}</span>`:'')+'</div></div>';
+}
+
+function render(){
+  let h=NXShell.headHtml({title:'Finder',lede:'The weekly finders, and what they look for. Results land in Prospects for you to accept.'});
+  h+=sectionTabs('marketing-finder.html');
+  if(state==='loading'){$('page').innerHTML=h+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the finders.</span></div></section>`;return;}
+  if(state==='error'){$('page').innerHTML=h+`<div class="banner err">${ms('error')}<div class="banner-text"><strong>Could not read the opportunities</strong>`+
+    `<span>${esc(problem)}. If this names a missing table, migration 0047 has not been applied yet; until then the finders search register.yaml.</span></div></div>`;return;}
+  h+=banners.map(b=>`<div class="banner">${ms('info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
+  h+=findersHtml();
+  const live=opps.filter(o=>oppState(o)[0]==='ok').length;
+  /* A draft asked for by deal folder has no row until the engine writes it. */
+  const drafts=Object.entries(pendingDrafts).map(([slug,q])=>intentLine(q,`Draft for ${slug}`)).join(' ');
+  const list=opps.length?opps.map(o=>oppHtml(o,pendingByOpp[o.id])).join(''):'<div class="empty-state"><span>No opportunities yet.</span></div>';
+  h+=`<section class="panel"><h2>Find more now</h2>${runNowHtml()}</section>`;
+  h+=`<section class="panel"><h2>What the finders look for <span class="n">${plural(live,'being searched','being searched')}</span></h2>`+
+    '<p class="picker-note">Switch an opportunity off, or give it an end date, and the finders stop looking for it. Campaigns keep running until you pause them on Campaigns.</p>'+
+    `<div>${list}</div></section>`;
+  h+=`<section class="panel"><h2>A deal to find partners for</h2><p class="picker-note">Type the deal's folder name, for example bilt-labs. Claude drafts its search terms from the deal's profile; switch it on to confirm them.</p>`+
+    `<div class="form-grid"><div class="field"><label for="deal-slug">Deal folder</label><input class="input" id="deal-slug" placeholder="bilt-labs" autocomplete="off" value="${esc(UI.deal.slug)}"></div>`+
+    `<div class="field"><label for="deal-title">What to find</label><input class="input" id="deal-title" placeholder="Distributors in a new territory for this deal" autocomplete="off" value="${esc(UI.deal.title)}"></div>`+
+    `<div class="actions"><button type="button" class="btn primary" data-act="draftDeal">Draft a deal opportunity</button></div></div>${drafts}</section>`;
+  $('page').innerHTML=h;
+}
+
+async function raise(type,payload,verb){
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){NXShell.toast(`Could not queue it: ${error.message}`);return false;}
+  NXShell.toast(verb);
+  setTimeout(load,1500);
+  return true;
+}
+const val=id=>String(($(id)||{}).value||'').trim();
+const ACT={
+  async toggle(el){
+    const id=el.dataset.id,on=el.dataset.on==='1',o=opps.find(x=>x.id===id);
+    const payload={id,active:on};
+    if(on&&o&&o.draft)payload.draft=false;
+    if(await raise('set-opportunity',payload,`${on?'Switched on':'Switched off'}, queued. The engine acts within a minute or two.`)){
+      pendingByOpp[id]={type:'set-opportunity',status:'pending'};render();}
+  },
+  run(){UI.runJob=val('run-job')||UI.runJob;UI.ask='run';render();},
+  closeAsk(){UI.ask=null;render();},
+  async confirmRun(){
+    const job=UI.runJob||FINDER_JOBS[0];
+    if(await raise('rerun-job',{job},'Asked for a run. Results land in Prospects for you to accept.')){
+      rerunOf[job]={type:'rerun-job',status:'pending'};UI.ask=null;render();}
+  },
+  async draftDeal(){
+    const slug=val('deal-slug'),title=val('deal-title');
+    if(!slug){const f=$('deal-slug');if(f&&f.focus)f.focus();return NXShell.toast('Name the deal folder first.');}
+    if(await raise('set-opportunity',{deal_slug:slug,title:title||('Deal: '+slug),draft:true,active:false},'Draft asked for, queued. The engine acts within a minute or two.')){
+      pendingDrafts[slug]={type:'set-opportunity',status:'pending'};UI.deal={slug:'',title:''};render();}
+  },
+};
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(!b||!ACT[b.dataset.act])return;
+  e.preventDefault();ACT[b.dataset.act](b);
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='run-job'){UI.runJob=t.value;UI.ask=null;render();return;}
+  const id=t.dataset&&t.dataset.end;
+  if(!id)return;
+  raise('set-opportunity',{id,ends_on:t.value||null},`${t.value?'End date set':'End date cleared'}, queued. The engine acts within a minute or two.`)
+    .then(ok=>{if(ok){pendingByOpp[id]={type:'set-opportunity',status:'pending'};render();}});
+});
+document.addEventListener('input',e=>{
+  if(e.target.id==='deal-slug')UI.deal.slug=e.target.value;
+  if(e.target.id==='deal-title')UI.deal.title=e.target.value;
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&UI.ask){UI.ask=null;render();}});
+
+boot();
+</script>
+</body>
+</html>

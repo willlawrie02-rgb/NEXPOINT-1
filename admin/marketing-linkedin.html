@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint CRM: LinkedIn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
+<link rel="stylesheet" href="crm.css?v=2">
+<style>
+  /* The freshness badge in the head: one pill, four states (health.linkedin_warnings).
+     A partial pull is the blue hint, never amber: the brand has none (the CRM design, 22 October). */
+  .fresh { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: 100%; padding: 6px 12px; border-radius: 999px; font: 600 12.5px/1.35 var(--font-body); font-variant-numeric: tabular-nums; white-space: normal; }
+  .fresh .ms { font-size: 17px; }
+  .fresh-good { background: var(--ok-wash); color: var(--ok-ink); }
+  .fresh-partial { background: var(--info-wash); color: var(--info-ink); }
+  .fresh-failed { background: var(--err-wash); color: var(--err-ink); }
+  .fresh-idle { background: var(--bg-alt); color: var(--fg-2); }
+  .stat-row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat-s .up { color: var(--ok-ink); font-weight: 600; }
+  .stat-s .down { color: var(--err-ink); font-weight: 600; }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+  /* Who comments: one stacked bar, nine segments (the eight labels and Not yet sorted, R34). */
+  .share-bar { display: flex; height: 14px; border-radius: 999px; overflow: hidden; background: var(--bg-alt); }
+  .share-bar > span { display: block; height: 100%; }
+  .share-key { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12.5px; color: var(--fg-2); }
+  .share-key > span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { display: inline-block; width: 12px; height: 10px; border-radius: 3px; flex: none; }
+  .unsorted { box-shadow: inset 0 0 0 1px var(--border-control); }
+  /* Followers: the 30-day line, no chart library. */
+  .trend svg { display: block; width: 100%; height: 120px; }
+  .trend-foot { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--fg-2); }
+  .avoid, .tpl { font-size: 13px; color: var(--fg-1); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; }
+  .brief ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+  .brief b { color: var(--fg); }
+  .rank-h { font: 600 12px/1.2 var(--font-body); color: var(--fg-2); padding-top: 6px; }
+  .tbl .acts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .tbl tr.choice td { background: var(--bg); }
+  .days { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+  .days .card { min-height: 92px; }
+  .days .day-h { font: 600 12.5px/1.2 var(--font-body); color: var(--fg-2); }
+  .slot { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-top: 1px solid var(--border-faint); }
+  .slot:first-of-type { border-top: 0; }
+  .slot-title { font-weight: 600; color: var(--fg); overflow-wrap: anywhere; }
+  .slot .actions { margin-top: 2px; }
+  .voices { display: flex; flex-wrap: wrap; gap: 6px; }
+  .key-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 8px 0 0; font-size: 12.5px; }
+  .key-list dt { font-weight: 600; color: var(--fg-1); }
+  .key-list dd { margin: 0; color: var(--fg-2); }
+  @media (max-width: 1080px) { .grid2 { grid-template-columns: minmax(0, 1fr); } .days { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  /* On a phone each table row stacks, so nothing scrolls sideways. */
+  @media (max-width: 720px) {
+    .tbl.stack { min-width: 0; }
+    .tbl.stack thead { display: none; }
+    .tbl.stack, .tbl.stack tbody, .tbl.stack tr, .tbl.stack td { display: block; }
+    .tbl.stack tr { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .tbl.stack tbody tr:last-child { border-bottom: 0; }
+    .tbl.stack td { padding: 3px 0; border-bottom: 0; }
+    .tbl.stack td[data-h]::before { content: attr(data-h) ": "; font: 600 12px/1.4 var(--font-body); color: var(--fg-2); }
+    .key-list { grid-template-columns: minmax(0, 1fr); }
+    .days { grid-template-columns: minmax(0, 1fr); }
+    .stat-row.two { grid-template-columns: minmax(0, 1fr); }
+  }
+  /* The section's four tabs stay one row on a phone, scrolling inside themselves. */
+  @media (max-width: 560px) { .views[aria-label="Marketing"] { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .views[aria-label="Marketing"] a { padding-inline: 9px; flex: none; } }
+</style>
+</head>
+<body>
+<div id="login" class="door" style="display:none">
+  <span class="brand"><img src="nexpoint-mark.png" alt="" width="30" height="26"><span class="wordmark"><span class="nex">Nex</span><span class="pt">Point</span></span></span>
+  <h1>Sign in to the CRM</h1>
+  <p>For Will and Chris only: the database admits the two of you and nobody else.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <label class="sr" for="email">Email</label>
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <label class="sr" for="pw">Password</label>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+</div>
+
+<div id="admin" class="app" style="display:none">
+  <aside class="rail" id="rail" aria-label="Main"></aside>
+  <main class="main" id="main" tabindex="-1"><div class="page" id="page"></div></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
+        integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script src="admin-auth.js"></script>
+<script src="crm-shell.js?v=3"></script>
+<script src="crm.js?v=071"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a hint for which screen to show; the database decides (is_brief_admin, a second factor since plan 035)
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const PAGE_SECTION='marketing';
+let me=null;
+
+async function boot(){
+  const {data}=await sb.auth.getSession();const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)){if(await NXAdminAuth.requireAal2(sb))showAdmin(s.user);else showLogin(s);}else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))$('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pw').value});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  if(!(await NXAdminAuth.requireAal2(sb)))return;
+  showAdmin(data.user);
+}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,PAGE_SECTION);startUi();render();load();}
+
+/* Marketing, LinkedIn (plan 077, D8; the CRM design's "The LinkedIn page"):
+   the LinkedIn analyser board (plan 2026-10-20, Task 9) moved into the CRM,
+   with the live queue page's follower trend, average engagement, posts this
+   week and queue health folded back in. It reads what the Saturday pull and
+   the Sunday routine leave in Supabase (migrations 0022 and 0070). HUMANS
+   POST, and nothing here contacts anyone. It writes only engine_intents:
+   Mark ready and Mark as posted record what you did (update-linkedin-queue),
+   and Add to Prospects puts a buyer's company on the Prospects page for a
+   decision (add-prospect, source linkedin). The engine acts within minutes. */
+const esc=NXCRM.esc, ms=NXShell.ms;
+
+/* The Marketing section's four tabs (plan 077, D1): one page each, so each can be linked to. */
+const MARKETING_TABS=[['marketing.html','Prospects'],['marketing-campaigns.html','Campaigns'],['marketing-linkedin.html','LinkedIn'],['marketing-finder.html','Finder']];
+const sectionTabs=cur=>`<div class="views" role="tablist" aria-label="Marketing">`+MARKETING_TABS.map(([href,label])=>`<a role="tab" href="${href}" aria-selected="${href===cur}">${label}</a>`).join('')+'</div>';
+
+/* The queue's rows and its intents, then the analyser's. */
+let queue=[],posts=[],pageStats=[],pending={};
+let pulls=[],lastGood=null,lastCompleted=null,sources=[],people=[],comments=[],briefs=[],addPending={};
+let windowPosts=[],buyers=[],banners=[],state='loading';
+const UI={view:'overview',btype:'',known:'',open:null,started:false,url:''};
+
+/* The analyser's rules, as linkedin_apify.yaml (window_days,
+   min_comments_to_rank) and health.py (LINKEDIN_PULL_OVERDUE,
+   LINKEDIN_SORTING_OVERDUE, LINKEDIN_PULL_STUCK) hold them. The board
+   shows three best and three worst (spec, "The board"); the Sunday sheet
+   shows five. */
+const WINDOW_DAYS=30;
+const PULL_OVERDUE_DAYS=8;
+const SORTING_OVERDUE_DAYS=2;
+const PULL_STUCK_HOURS=4;
+const MIN_COMMENTS_TO_RANK=5;
+const RANKED_EACH_WAY=3;
+const OURS=['chris','will','page'];
+const BUYER_LABELS=['lab-capacity','clinic-capacity','supplier','distributor'];
+const LABELS=BUYER_LABELS.concat(['peer','competitor','creator','unknown']);
+const KNOWN_TAGS=['deal','lead','prospect','hub-member','fit360-current','fit360-former','fit360-enquirer','new'];
+/* The six views, the segmented control under the Marketing tabs, each its own address. */
+const VIEWS=[['overview','Overview'],['buyers','Buyers'],['posts','Posts'],['briefs','Briefs'],['queue','Queue'],['voices','Voices']];
+const VIEW_IDS=VIEWS.map(v=>v[0]);
+/* The week's posting target (the priming bank posts Monday to Friday). */
+const WEEK_TARGET=5;
+/* Priming posts carry no link to the site, in the post or in its comments
+   (the launch plan, from Monday 26 October 2026); the queue file's notes say so. */
+const PRIMING_FROM='2026-10-26';
+/* A post's source by name (R39): Chris, Will, NexPoint page, or the voice's
+   own name from the linkedin_sources mirror; 'Watched voice' only when the
+   source is not in it. (R16 binds the session's sheets, not this board.) */
+const SOURCE_NAMES={chris:'Chris',will:'Will',page:'NexPoint page'};
+let sourcesById={};
+const sourceLabel=id=>SOURCE_NAMES[id]||(sourcesById[id]&&sourcesById[id].name)||'Watched voice';
+const ts=v=>v?new Date(v).getTime():NaN;
+
+/* The eight labels (global constraints) in words and in plain English;
+   unsorted is the bar's ninth segment, never folded into Unknown (R34). */
+const LABEL_WORDS={'lab-capacity':'Lab with capacity','clinic-capacity':'Clinic needing capacity',supplier:'Supplier',
+  distributor:'Distributor',peer:'Peer',competitor:'Competitor',creator:'Creator',unknown:'Unknown',unsorted:'Not yet sorted'};
+const LABEL_PLURAL={'lab-capacity':'Labs with capacity','clinic-capacity':'Clinics needing capacity',supplier:'Suppliers',
+  distributor:'Distributors',peer:'Peers',competitor:'Competitors',creator:'Creators',unknown:'Unknown',unsorted:'Not yet sorted'};
+const LABEL_HELP={'lab-capacity':'A lab or 3D print bureau with capacity to sell: a buyer.',
+  'clinic-capacity':'A clinic or practice that needs capacity: a buyer.',
+  supplier:'Makes or sells materials, machines or software into O&P: a buyer.',
+  distributor:'Distributes O&P products in a territory: a buyer.',
+  peer:'Works in O&P but is not buying: a clinician, technician or academic.',
+  competitor:'Offers what NexPoint offers: introductions, brokering or a marketplace.',
+  creator:'Posts for an audience: a coach, writer or media account.',
+  unknown:'The title and company do not clearly fit one buyer type, so not a buyer.',
+  unsorted:'Not yet seen by the Sunday routine, or seen under an earlier headline.'};
+/* The bar's colours, the brand's only (the CRM design, replacing R38): the
+   four buyer labels in colour, the fourth (distributors) the green with a
+   hatch as its second encoding, since the brand has three chart hues that
+   pass the colour-blind check; the other five in greys; Not yet sorted is
+   white with an outline, so it reads as "not yet" rather than a verdict. */
+const LABEL_COLOURS={'lab-capacity':'#005CC8',supplier:'#8BC53F','clinic-capacity':'#3D8EEB',distributor:'#8BC53F',
+  peer:'#5A6474',competitor:'#8E98A6',creator:'#B8C1CE',unknown:'#D9DEE5',unsorted:'#FFFFFF'};
+const HATCHED=['distributor'];
+const swatch=k=>HATCHED.includes(k)
+  ?`background:repeating-linear-gradient(135deg,${LABEL_COLOURS[k]} 0 3px,#FFFFFF 3px 5px)`:`background:${LABEL_COLOURS[k]}`;
+/* The known tags (linkedin_known.KNOWN_TAGS) in words and in plain
+   English. The hub tag reads as an account (R35). */
+const TAG_WORDS={deal:'Deal',lead:'Lead',prospect:'In Prospects','hub-member':'Hub account','fit360-current':'Fit360 current',
+  'fit360-former':'Fit360 former','fit360-enquirer':'Fit360 enquirer',new:'New'};
+const TAG_HELP={deal:'Already a deal: a company NexPoint is in conversation with.',
+  lead:'Already a lead: accepted on the Prospects page.',
+  prospect:'Already proposed on the Prospects page, waiting for a decision.',
+  'hub-member':'Already has a NexPoint Global Portal account.',
+  'fit360-current':'A current Fit360 customer, not yet on the Prospects page.',
+  'fit360-former':'A former Fit360 customer, not yet on the Prospects page.',
+  'fit360-enquirer':'Enquired about a Fit360 licence once, not yet on the Prospects page.',
+  new:'Not known to NexPoint: not in Fit360, the pipeline or the portal.'};
+const TAG_PILL={deal:'ok',lead:'ok',prospect:'ok','hub-member':'ok','fit360-current':'','fit360-former':'','fit360-enquirer':'',new:'info'};
+/* The four tags that may add to Prospects, and the prospect type each
+   becomes (config.CATEGORIES). The other four are already known and get a
+   link instead, never a write (R5). The CRM has a company page, so Deal,
+   Lead and Hub account open it (the CRM design, which turns R47's text-only
+   "In the pipeline" into a link): known_ref is the folder slug for a deal or
+   a lead, the account's id for a hub account, the queue row for a prospect. */
+const ADD_TYPE={'fit360-current':'Current customer','fit360-former':'Former customer','fit360-enquirer':'Enquired',new:'Cold'};
+const OPEN_LINK={deal:['In the pipeline','slug'],lead:['Open the company','slug'],prospect:['Open prospect','prospects'],
+  'hub-member':['Open account','org']};
+function openHref(kind,ref){
+  if(kind==='prospects')return 'marketing.html';
+  if(!ref)return null;
+  return `company.html?${kind}=${encodeURIComponent(ref)}`;
+}
+
+function startUi(){
+  /* Once, on arrival: the view the address names, else the last one shown. */
+  if(UI.started)return;
+  UI.started=true;
+  const q=new URLSearchParams(location.search);
+  let v=q.get('view');
+  if(!VIEW_IDS.includes(v)){try{v=localStorage.getItem('nx-linkedin-tab');}catch(e){v=null;}}
+  if(VIEW_IDS.includes(v))UI.view=v;
+}
+
+/* Every row, 1,000 at a time: PostgREST caps one read at 1,000, and the
+   commenter and comment tables outgrow that. */
+async function readPages(query){
+  const out=[];
+  for(let from=0;;from+=1000){
+    const {data,error}=await query().range(from,from+999);
+    if(error)return {data:out,error};
+    out.push(...(data||[]));
+    if((data||[]).length<1000)break;
+  }
+  return {data:out,error:null};
+}
+
+/* A missing table or column: the migration has not been applied. */
+const NO_SCHEMA=/does not exist|schema cache|could not find/i;
+async function load(){
+  startUi();
+  banners=[];
+  const qq=await sb.from('linkedin_queue')
+    .select('id,title,pillar,slot,format,status,scheduled_for,posted_url,posted_at,notes,matched_post_id,synced_at')
+    .order('scheduled_for',{ascending:true});
+  if(qq.error)banners.push(['err','Could not read the content queue',`${qq.error.message}. If it names a missing table, migration 0022 has not been applied.`]);
+  queue=qq.data||[];
+  /* The analyser's tables (0070). A read that fails is named once, and the
+     page still renders what it has; the Queue view works without them. */
+  const missing=[];let noSchema=false;
+  const take=(r,name)=>{if(r.error){missing.push(`${name} (${r.error.message})`);if(NO_SCHEMA.test(r.error.message||''))noSchema=true;return [];}return r.data||[];};
+  pulls=take(await sb.from('linkedin_pulls').select('id,week,phase,status,sources_done,sources_skipped,posts,comments,detail,started_at,finished_at')
+    .order('week',{ascending:false}).order('id',{ascending:false}).limit(2),'the pulls');
+  /* The last good pull names the badge; the last completed one (good or
+     partial, R37) runs its overdue clock. */
+  lastGood=take(await sb.from('linkedin_pulls').select('id,week,phase,status,sources_done,sources_skipped,posts,comments,detail,started_at,finished_at')
+    .eq('status','good').order('finished_at',{ascending:false}).limit(1),'the last good pull')[0]||null;
+  lastCompleted=take(await sb.from('linkedin_pulls').select('id,week,phase,status,sources_done,sources_skipped,posts,comments,detail,started_at,finished_at')
+    .in('status',['good','partial']).order('finished_at',{ascending:false}).limit(1),'the last completed pull')[0]||null;
+  sources=take(await sb.from('linkedin_sources').select('id,name,url,kind,ours,position,synced_at').order('position',{ascending:true}),'the sources');
+  sourcesById={};sources.forEach(s=>{sourcesById[s.id]=s;});
+  posts=take(await sb.from('linkedin_posts').select('id,url,posted_at,author,text_excerpt,post_type,reactions,comments,reposts,source_id,label_counts')
+    .order('posted_at',{ascending:false,nullsFirst:false}).limit(1000),'the posts');
+  pageStats=take(await sb.from('linkedin_page_stats').select('captured_at,followers,source_id').order('captured_at',{ascending:false}).limit(1000),'the follower counts');
+  briefs=take(await sb.from('linkedin_briefs').select('week,written_at,angles,avoid,template,path').order('week',{ascending:false}),'the briefs');
+  people=take(await readPages(()=>sb.from('linkedin_people').select('profile_url,name,headline,company,first_seen,last_seen,label,labelled_headline,known_tag,known_ref')
+    .order('profile_url',{ascending:true})),'the commenters');
+  comments=take(await readPages(()=>sb.from('linkedin_comments').select('id,post_id,profile_url,commented_at').order('id',{ascending:true})),'the comments');
+  if(noSchema)banners.unshift(['err','Migration 0070 has not been applied: the LinkedIn data is empty until it is.',`The Queue view works without it. Could not read ${missing.join('; ')}.`]);
+  else if(missing.length)banners.push(['err','Some LinkedIn data could not be read',`Could not read ${missing.join('; ')}.`]);
+  /* Every queue update and every LinkedIn add with a say in what a row
+     shows: waiting, claimed, failed (a failed update used to be invisible,
+     and the button quietly came back) or done. Newest first and capped. */
+  const {data:intents,error:iErr}=await sb.from('engine_intents')
+    .select('id,type,payload_json,status,result_note,requested_at').in('type',['update-linkedin-queue','add-prospect'])
+    .in('status',['pending','claimed','failed','done'])
+    .order('id',{ascending:false}).limit(1000);
+  if(iErr)banners.push(['info','Could not read the queued changes',iErr.message]);
+  pending={};addPending={};
+  /* Ascending id, last write wins: the newest update for a slot decides
+     what it shows. A done update STAYS in the map (status==='done' is read
+     in card()): this mirror refreshes Mon/Wed/Fri while updates commit
+     within minutes, so card() needs it to say a slot has moved. A done add
+     stays too: the person keeps the tag that showed the button until the
+     next Saturday pull tags them In Prospects. */
+  (intents||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+    const p=i.payload_json||{};
+    if(i.type==='update-linkedin-queue'){if(p.item_id)pending[p.item_id]=i;}
+    else if(p.source==='linkedin'&&p.display_name)addPending[companyKey(p.display_name)]=i;
+  });
+  if((intents||[]).length===1000)banners.push(['info','Showing the newest 1,000 queued changes; older ones are not shown.','']);
+  state='ready';render();
+}
+
+const companyKey=name=>String(name||'').trim().toLowerCase();
+const NONE='None';
+const fmt=n=>Number(n).toLocaleString('en-GB');
+const pct=(a,b)=>b?Math.round(100*a/b)+'%':NONE;
+const plural=(n,a,b)=>`${n} ${n===1?a:(b||a+'s')}`;
+/* Only an http(s) URL becomes a link. */
+function safeHref(u){
+  try{const x=new URL(String(u||''));return (x.protocol==='http:'||x.protocol==='https:')?x.href:'#';}
+  catch(e){return '#';}
+}
+/* Mark as posted takes only a post's address on linkedin.com. */
+function isLinkedInUrl(u){
+  try{const x=new URL(String(u||'').trim());
+    return (x.protocol==='https:'||x.protocol==='http:')&&(x.hostname==='linkedin.com'||x.hostname.endsWith('.linkedin.com'));}
+  catch(e){return false;}
+}
+function opening(p,n){
+  const t=String(p.text_excerpt||'').replace(/\s+/g,' ').trim();
+  const max=n||110;
+  return t?(t.length>max?t.slice(0,max)+'...':t):String(p.id||'');
+}
+function fmtDay(v){
+  if(!v)return '?';
+  const d=/^\d{4}-\d{2}-\d{2}$/.test(String(v))?new Date(v+'T00:00'):new Date(v);
+  return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
+function fmtWhen(v){
+  if(!v)return '?';
+  const d=new Date(v);
+  return d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+', '
+    +String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+
+/* --- the sheet's rules, replicated (linkedin_sheet.py) ------------------- */
+
+function latestPull(rows){
+  /* The newest pull: the latest week, then the latest row for it (latest_pull). */
+  let best=null;
+  rows.forEach(p=>{
+    const week=String(p.week||''),bestWeek=best?String(best.week||''):'';
+    if(!best||week>bestWeek||(week===bestWeek&&(p.id||0)>(best.id||0)))best=p;
+  });
+  return best;
+}
+function pullWords(pull){
+  /* The row's own detail, less the "<status>: " the pull opens it with (health._pull_words, R36). */
+  let d=String(pull.detail||'').trim();
+  const prefix=`${pull.status}: `;
+  if(d.startsWith(prefix))d=d.slice(prefix.length);
+  return d||'no detail recorded';
+}
+function isUnsorted(person){
+  /* Never labelled, or labelled against a headline that has changed since (is_unsorted). */
+  return !person.label||(person.labelled_headline||'')!==(person.headline||'');
+}
+function commentersOf(postRows){
+  /* Post id -> the distinct commenter profile URLs we hold for it, in
+     comment order (_commenters, R4). */
+  const ids=new Set(postRows.map(p=>p.id)),held={};
+  comments.slice().sort((a,b)=>String(a.commented_at||'').localeCompare(String(b.commented_at||''))||String(a.id).localeCompare(String(b.id)))
+    .forEach(c=>{
+      if(!ids.has(c.post_id)||!c.profile_url)return;
+      const list=held[c.post_id]||(held[c.post_id]=[]);
+      if(!list.includes(c.profile_url))list.push(c.profile_url);
+    });
+  return held;
+}
+function unsortedOnOurPosts(postRows){
+  /* How many people on our own posts still wait to be sorted (unsorted_on_our_posts). */
+  const byUrl={};people.forEach(p=>{byUrl[p.profile_url]=p;});
+  const held=commentersOf(postRows.filter(p=>OURS.includes(p.source_id)));
+  const urls=new Set();
+  Object.values(held).forEach(list=>list.forEach(u=>{if(byUrl[u]&&isUnsorted(byUrl[u]))urls.add(u);}));
+  return urls.size;
+}
+/* A pull's state in words: the badge never shows a raw status. */
+const PULL_STATE={failed:'failed',partial:'was partial',running:'is running'};
+function skippedWords(ids){
+  /* The sources a partial pull skipped, by name (R39): a voice the mirror
+     does not name is counted, never shown as its id. */
+  const named=[];let voices=0;
+  ids.forEach(id=>{const n=sourceLabel(id);if(n==='Watched voice')voices++;else if(!named.includes(n))named.push(n);});
+  if(voices)named.push(voices===1?'a watched voice':`${voices} watched voices`);
+  return named.join(', ');
+}
+function freshness(now){
+  /* health.linkedin_warnings, as a badge, in its order: no pull at all; no
+     good pull yet; no completed pull (good or partial, R37) for
+     PULL_OVERDUE_DAYS, named by the last good one; the latest pull failed,
+     or was partial (naming the sources it skipped), or is still running
+     PULL_STUCK_HOURS after it started (R43: a week nothing will close);
+     a done pull with no usable finish time (M12: grey, the sorting clock
+     cannot run); commenters on our own posts in the window still unsorted
+     SORTING_OVERDUE_DAYS after the latest pull closed (R32). Red beats the
+     blue partial beats grey; the title carries every line. Whatever the
+     state, the badge says when the last good pull was and what it read. */
+  const latest=latestPull(pulls);
+  const good=lastGood,completed=lastCompleted||good;
+  const read=good?` · ${(good.sources_done||[]).length} sources · ${good.posts||0} posts · ${good.comments||0} comments`:'';
+  const since=good?` · last good pull ${fmtWhen(good.finished_at)}${read}`:'';
+  if(!latest)return {state:'idle',text:'No pull has completed yet',title:'',icon:'schedule'};
+  const week=fmtDay(latest.week);
+  const lines=[];
+  const say=(state,text,suffix)=>lines.push({state,text,suffix:suffix==null?since:suffix});
+  if(!good)say('failed',`No good pull yet · the ${week} pull ${PULL_STATE[latest.status]||'is running'}`);
+  else if(now-ts(completed.finished_at)>=PULL_OVERDUE_DAYS*864e5)say('failed',`No good pull since ${fmtWhen(good.finished_at)}`,read);
+  const stuck=latest.status==='running'&&now-ts(latest.started_at)>PULL_STUCK_HOURS*36e5;
+  if(latest.status==='failed')say('failed',`Pull failed ${fmtDay(latest.finished_at||latest.started_at)}: ${pullWords(latest)}`);
+  else if(latest.status==='partial'){
+    const skipped=skippedWords(latest.sources_skipped||[]);
+    say('partial',`Partial pull ${fmtDay(latest.finished_at||latest.started_at)}: `+(skipped?`skipped ${skipped}`:pullWords(latest)));
+  }
+  else if(stuck)say('failed',`The ${week} pull did not finish (started ${fmtWhen(latest.started_at)})`);
+  const closed=latest.phase==='done'?ts(latest.finished_at):NaN;
+  if(latest.phase==='done'&&!closed)say('idle',`The ${week} pull has no usable finish time`);
+  else if(closed&&now-closed>SORTING_OVERDUE_DAYS*864e5){
+    const n=unsortedOnOurPosts(posts.filter(p=>ts(p.posted_at)>=now-WINDOW_DAYS*864e5));
+    if(n)say('failed',`${n} commenter${n===1?'':'s'} on our posts unsorted since ${fmtDay(latest.finished_at)}: the Sunday routine has not run`);
+  }
+  const running=latest.phase!=='done'&&!stuck?' · a pull is running':'';
+  const first=lines.find(l=>l.state==='failed')||lines.find(l=>l.state==='partial')||lines[0];
+  if(first)return {state:first.state,text:first.text+first.suffix+running,title:lines.map(l=>l.text).join('\n'),
+                   icon:{failed:'error',partial:'info'}[first.state]||'schedule'};
+  const pulled=latest.status==='good'?latest:good;
+  return {state:'good',text:`Pulled ${fmtWhen(pulled.finished_at)}${read}${running}`,title:'',icon:'check_circle'};
+}
+function sourcesReadBy(rows,latest){
+  /* The sources the latest pull mirrored (M4): synced_at on or after its
+     started_at. A voice dropped from the file keeps its old row (the pull
+     upserts, never deletes), so it is not listed. Before any pull, or for
+     a pull row with no start time, every row. */
+  const since=latest?ts(latest.started_at):NaN;
+  return since?rows.filter(s=>ts(s.synced_at)>=since):rows.slice();
+}
+function postStats(post){
+  /* What label_counts says about a post (R35): commenters, buyers, how
+     many are sorted, whether it ranks, and the buyer share. */
+  const counts=post.label_counts&&typeof post.label_counts==='object'?post.label_counts:{};
+  let commenters=0,buyers=0;
+  Object.keys(counts).forEach(k=>{const n=Number(counts[k])||0;commenters+=n;if(BUYER_LABELS.includes(k))buyers+=n;});
+  const sorted=commenters-(Number(counts.unsorted)||0);
+  return {counts,commenters,buyers,sorted,buyerShare:commenters?buyers/commenters:null,
+          ranks:commenters>=MIN_COMMENTS_TO_RANK&&2*sorted>=commenters};
+}
+function rankPosts(rows){
+  /* The best and worst posts for buyers (rank_posts, R35). A post ranks
+     only with MIN_COMMENTS_TO_RANK commenters, at least half of them
+     sorted; ties go to more commenters, then the newer post. No post is in
+     both lists: fewer than six ranking puts the better half (rounded up)
+     on top and the rest at the bottom, so a thin week still shows what to
+     avoid. */
+  const ranked=rows.map(p=>Object.assign({},p,postStats(p))).filter(p=>p.ranks);
+  const newer=(a,b)=>(ts(b.posted_at)||0)-(ts(a.posted_at)||0);
+  const ties=(a,b)=>(b.commenters-a.commenters)||newer(a,b)||String(a.id).localeCompare(String(b.id));
+  const best=ranked.slice().sort((a,b)=>(b.buyerShare-a.buyerShare)||ties(a,b));
+  const top=best.slice(0,Math.min(RANKED_EACH_WAY,Math.ceil(best.length/2)));
+  const shown=new Set(top.map(p=>p.id));
+  const rest=ranked.filter(p=>!shown.has(p.id)).sort((a,b)=>(a.buyerShare-b.buyerShare)||ties(a,b));
+  return [top,rest.slice(0,RANKED_EACH_WAY)];
+}
+
+/* --- the queue's own rules (the live queue page's, folded back in) -------- */
+
+const pad2=n=>String(n).padStart(2,'0');
+const isoDay=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+function weekDays(now){
+  /* Monday to Friday of the week holding `now`, as YYYY-MM-DD. */
+  const d=new Date(now);d.setHours(12,0,0,0);
+  d.setDate(d.getDate()-((d.getDay()+6)%7));
+  return [0,1,2,3,4].map(i=>{const x=new Date(d);x.setDate(d.getDate()+i);return isoDay(x);});
+}
+function authorOf(r){
+  /* The queue file writes who posts as the title's "[Chris]" or "[Will]" prefix. */
+  const m=/^\s*\[(Chris|Will)\]\s*/i.exec(String(r.title||''));
+  return m?m[1][0].toUpperCase()+m[1].slice(1).toLowerCase():'';
+}
+const slotTitle=r=>String(r.title||r.id||'').replace(/^\s*\[(Chris|Will)\]\s*/i,'');
+const slotDay=r=>String(r.scheduled_for||'').slice(0,10);
+function isPriming(r){
+  return slotDay(r)>=PRIMING_FROM&&/\bpriming\b/i.test(String(r.notes||''));
+}
+function postedThisWeek(now){
+  /* Posted this week, n of 5: slots posted (by their posted date, else
+     their own day) between this week's Monday and Sunday. */
+  const days=weekDays(now),mon=days[0];
+  const sun=new Date(mon+'T12:00');sun.setDate(sun.getDate()+6);
+  const end=isoDay(sun);
+  return queue.filter(r=>r.status==='posted'&&String(r.posted_at||slotDay(r)).slice(0,10)>=mon&&String(r.posted_at||slotDay(r)).slice(0,10)<=end).length;
+}
+function nextSlot(now){
+  const today=isoDay(new Date(now));
+  return queue.filter(r=>r.status!=='posted'&&slotDay(r)>=today).sort((a,b)=>slotDay(a).localeCompare(slotDay(b)))[0]||null;
+}
+
+/* --- the page ------------------------------------------------------------- */
+
+function windowAnchor(){
+  /* The 30-day window hangs off the latest finished pull, so the page holds
+     still between pulls; before the first, off now. */
+  const done=pulls.find(p=>p.phase==='done'&&p.finished_at);
+  return done?ts(done.finished_at):Date.now();
+}
+function viewsHtml(){
+  const n={buyers:buyers.length,queue:queue.filter(r=>r.status!=='posted').length};
+  return `<div class="seg" role="tablist" aria-label="LinkedIn views">`+VIEWS.map(([id,label])=>
+    `<a role="tab" href="marketing-linkedin.html?view=${id}" data-view="${id}" aria-selected="${UI.view===id}">${label}${id in n?` <span class="num">${n[id]}</span>`:''}</a>`).join('')+'</div>';
+}
+function badgeHtml(){
+  if(state==='loading')return `<span class="fresh fresh-idle">${ms('schedule')}Reading the last pull</span>`;
+  const f=freshness(Date.now());
+  return `<span class="fresh fresh-${f.state}" title="${esc(f.title||'')}">${ms(f.icon)}${esc(f.text)}</span>`;
+}
+function render(){
+  const page=$('page');if(!page)return;
+  /* What was typed for Mark as posted survives a redraw (a delayed reload from an earlier action). */
+  const typed=$('lp-url');
+  if(typed&&UI.open&&UI.open.startsWith('posted:'))UI.url=String(typed.value||'');
+  if(state==='ready'){
+    const anchor=windowAnchor();
+    windowPosts=posts.filter(p=>ts(p.posted_at)>=anchor-WINDOW_DAYS*864e5);
+    buyers=buyerList();
+  }
+  let h=NXShell.headHtml({title:'LinkedIn',lede:'Who comments on our posts, which posts draw buyers, and what to write next. Nobody is contacted from here.',actions:badgeHtml()});
+  h+=sectionTabs('marketing-linkedin.html')+viewsHtml();
+  h+=banners.map(([kind,strong,text])=>`<div class="banner${kind==='err'?' err':''}">${ms(kind==='err'?'error':'info')}<div class="banner-text"><strong>${esc(strong)}</strong>${text?`<span>${esc(text)}</span>`:''}</div></div>`).join('');
+  if(state==='loading'){page.innerHTML=h+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading LinkedIn.</span></div></section>`;return;}
+  const views={overview:viewOverview,buyers:viewBuyers,posts:viewPosts,briefs:viewBriefs,queue:viewQueue,voices:viewVoices};
+  page.innerHTML=h+views[UI.view]();
+}
+function setView(v){
+  if(!VIEW_IDS.includes(v))return;
+  UI.view=v;UI.open=null;
+  try{localStorage.setItem('nx-linkedin-tab',v);}catch(e){}
+  try{history.replaceState(null,'',`marketing-linkedin.html?view=${v}`);}catch(e){}
+  render();
+}
+
+/* --- Overview ------------------------------------------------------------ */
+
+function totals(rows){
+  let commenters=0,buyers=0;
+  rows.forEach(p=>{const s=postStats(p);commenters+=s.commenters;buyers+=s.buyers;});
+  return {commenters,buyers};
+}
+function latestFollowers(){
+  /* The latest count per source (pageStats is newest first). A 0022-era
+     row has no source; it was the page's. */
+  const latest={};
+  pageStats.forEach(s=>{const id=s.source_id||'page';if(!(id in latest))latest[id]=s.followers;});
+  return latest;
+}
+function tilesHtml(){
+  const ours=windowPosts.filter(p=>OURS.includes(p.source_id));
+  const all=totals(ours);
+  const share=all.commenters?pct(all.buyers,all.commenters):'None yet';
+  /* R33: our posts from the 7 days before the latest pull closed against
+     the 7 days before that; no comparison while either has no commenters. */
+  const anchor=windowAnchor();
+  const slice=(from,to)=>totals(ours.filter(p=>ts(p.posted_at)>=from&&ts(p.posted_at)<to));
+  const cur=slice(anchor-7*864e5,anchor),prev=slice(anchor-14*864e5,anchor-7*864e5);
+  let change='No comparison yet';
+  if(cur.commenters&&prev.commenters){
+    const d=Math.round(100*(cur.buyers/cur.commenters-prev.buyers/prev.commenters));
+    change=d?`<span class="${d>0?'up':'down'}">${d>0?'+':''}${d} pts</span> on last week`:'No change on last week';
+  }
+  const newToUs=buyers.filter(b=>!b.known_tag||b.known_tag==='new').length;
+  const latest=latestFollowers();
+  /* The total only once all three are counted: a partial sum is not a total. */
+  const have=OURS.filter(id=>latest[id]!=null);
+  const total=have.length===OURS.length?fmt(have.reduce((n,id)=>n+Number(latest[id]),0)):'Not yet';
+  const per=[['chris','Chris'],['will','Will'],['page','Page']].map(([id,w])=>`${w} ${latest[id]!=null?fmt(latest[id]):'not counted'}`).join(' · ');
+  const now=Date.now(),next=nextSlot(now),done=postedThisWeek(now);
+  const nextLine=next?`Next: ${esc(fmtDay(slotDay(next)))}${authorOf(next)?`, ${esc(authorOf(next))}`:''}`:'Nothing planned after today';
+  return `<div class="stat-row">
+    <div class="stat"><span class="stat-l">${ms('groups','sm')}Buyer share of comments</span><span class="stat-n num">${share}</span><span class="stat-s">${change} · our posts</span></div>
+    <div class="stat"><span class="stat-l">${ms('person_search','sm')}Buyer commenters</span><span class="stat-n num">${buyers.length}</span><span class="stat-s">${newToUs} new to us · ${buyers.length-newToUs} already known</span></div>
+    <div class="stat"><span class="stat-l">${ms('person_add','sm')}Followers</span><span class="stat-n num">${total}</span><span class="stat-s">${per}</span></div>
+    <div class="stat"><span class="stat-l">${ms('event_available','sm')}Posted this week</span><span class="stat-n num">${done} of ${WEEK_TARGET}</span><span class="stat-s">${nextLine}</span></div>
+  </div>`;
+}
+function renderShare(){
+  /* Who comments: every commenter on our posts in the window, by label. */
+  const ours=windowPosts.filter(p=>OURS.includes(p.source_id));
+  const sum={};let n=0;
+  ours.forEach(p=>{const c=postStats(p).counts;Object.keys(c).forEach(k=>{const v=Number(c[k])||0;sum[k]=(sum[k]||0)+v;n+=v;});});
+  const keys=LABELS.concat(['unsorted']);
+  if(!n)return `<p class="muted-t">No comments on our posts in the last ${WINDOW_DAYS} days yet.</p>`;
+  const bar=`<div class="share-bar" role="img" aria-label="${esc(keys.filter(k=>sum[k]).map(k=>`${LABEL_PLURAL[k]} ${pct(sum[k],n)}`).join(', '))}">`+
+    keys.filter(k=>sum[k]).map(k=>`<span${k==='unsorted'?' class="unsorted"':''} data-label="${k}" style="width:${(100*sum[k]/n).toFixed(1)}%;${swatch(k)}" title="${esc(LABEL_PLURAL[k])} ${pct(sum[k],n)}"></span>`).join('')+'</div>';
+  const key=`<div class="share-key">`+keys.map(k=>
+    `<span title="${esc(LABEL_HELP[k])}"><i class="sw${k==='unsorted'?' unsorted':''}" style="${swatch(k)}"></i>${esc(LABEL_PLURAL[k])} ${pct(sum[k]||0,n)}</span>`).join('')+'</div>';
+  return bar+key;
+}
+function followerPoints(){
+  /* The followers of Chris, Will and the page together, one point per day a
+     count was taken in the window, each source carried at its latest count
+     on or before that day; a day before all three were counted is left out. */
+  const rows=pageStats.slice().sort((a,b)=>String(a.captured_at||'').localeCompare(String(b.captured_at||'')));
+  const since=windowAnchor()-WINDOW_DAYS*864e5;
+  const days=[...new Set(rows.filter(s=>ts(s.captured_at)>=since).map(s=>String(s.captured_at).slice(0,10)))];
+  const out=[];
+  days.forEach(day=>{
+    const at={};
+    rows.forEach(s=>{if(String(s.captured_at).slice(0,10)<=day)at[s.source_id||'page']=Number(s.followers);});
+    if(OURS.every(id=>at[id]!=null&&!isNaN(at[id])))out.push({day,total:OURS.reduce((n,id)=>n+at[id],0)});
+  });
+  return out;
+}
+function trendHtml(){
+  const pts=followerPoints();
+  if(pts.length<2)return `<p class="muted-t">The trend shows once two Saturday pulls have counted the followers of Chris, Will and the page.</p>`;
+  const w=600,ht=120,pad=8;
+  const vals=pts.map(p=>p.total),min=Math.min(...vals),max=Math.max(...vals),span=(max-min)||1;
+  const line=pts.map((p,i)=>`${Math.round(pad+(w-2*pad)*(i/(pts.length-1)))},${Math.round(ht-pad-(ht-2*pad)*((p.total-min)/span))}`).join(' ');
+  const first=pts[0],last=pts[pts.length-1],d=last.total-first.total;
+  return `<div class="trend"><svg viewBox="0 0 ${w} ${ht}" preserveAspectRatio="none" role="img" aria-label="Followers from ${esc(fmt(first.total))} on ${esc(fmtDay(first.day))} to ${esc(fmt(last.total))} on ${esc(fmtDay(last.day))}">`+
+    `<polyline points="${line}" fill="none" stroke="#005CC8" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg></div>`+
+    `<div class="trend-foot"><span>${esc(fmtDay(first.day))}: ${esc(fmt(first.total))}</span><span>${d>=0?'+':''}${esc(fmt(d))} since ${esc(fmtDay(first.day))}</span><span>${esc(fmtDay(last.day))}: ${esc(fmt(last.total))}</span></div>`;
+}
+function angleHtml(a){
+  /* The angle's first sentence leads, as in the mockup. */
+  const s=String(a||''),i=s.indexOf('. ');
+  return i>0&&i<s.length-2?`<b>${esc(s.slice(0,i+1))}</b> ${esc(s.slice(i+2))}`:`<b>${esc(s)}</b>`;
+}
+function briefHtml(b,meta){
+  const angles=Array.isArray(b.angles)?b.angles:[];
+  return `<p class="muted-t">${meta}</p>
+    <ol>${angles.map(a=>`<li>${angleHtml(a)}</li>`).join('')}</ol>
+    <div class="avoid"><b>Avoid:</b> ${esc(b.avoid)}</div>
+    <div class="tpl"><b>Template</b> (a structure, not a filled-in post): ${esc(b.template)}</div>
+    <p class="muted-t">${ms('sync_alt','sm')} The drafting skill reads this: ${esc(b.path||'marketing/linkedin-briefs/'+String(b.week||'').slice(0,10)+'.md')}</p>`;
+}
+function briefPanel(){
+  const b=briefs[0];
+  const body=b?briefHtml(b,`Written ${esc(fmtWhen(b.written_at))} for the week of ${esc(fmtDay(b.week))}, from the best and worst posts by buyer engagement`)
+    :`<p class="muted-t">No brief yet. The Sunday routine writes the first one after the first good pull.</p>`;
+  return `<section class="panel brief"><h2>${ms('edit_note')}This week's brief</h2>${body}</section>`;
+}
+function rankedPanel(){
+  const [top,bottom]=rankPosts(windowPosts);
+  let body;
+  if(!top.length&&!bottom.length)body=`<p class="muted-t">No post ranks yet. A post ranks with ${MIN_COMMENTS_TO_RANK} or more commenters, at least half of them sorted.</p>`;
+  else{
+    const line=(p,cls)=>`<div class="item"><div class="item-main"><a class="linkish" href="${esc(safeHref(p.url))}" target="_blank" rel="noopener">${esc(opening(p))}</a>
+      <span class="item-sub">${esc(sourceLabel(p.source_id))} · ${esc(fmtDay(p.posted_at))} · ${p.commenters} commenters</span></div>
+      <span class="st ${cls}">${pct(p.buyers,p.commenters)} buyers</span></div>`;
+    body=(top.length?`<div class="rank-h">Best</div>`+top.map(p=>line(p,'ok')).join(''):'')+
+      (bottom.length?`<div class="rank-h">Worst</div>`+bottom.map(p=>line(p,'')).join(''):'');
+  }
+  return `<section class="panel"><h2>${ms('trending_up')}Best and worst for buyers</h2>
+    <p class="muted-t">Our posts and watched voices, last ${WINDOW_DAYS} days: the three best and three worst by buyer share. Never the same post in both.</p>${body}</section>`;
+}
+function viewOverview(){
+  const v=renderVoices();
+  const few=buyers.slice(0,8);
+  const buyersBody=buyers.length?buyerTable(few)+(buyers.length>few.length
+    ?`<p class="muted-t">The ${few.length} newest to us. <a href="marketing-linkedin.html?view=buyers" data-view="buyers">See all ${buyers.length} in Buyers</a></p>`:'')+badgeKey()
+    :`<p class="muted-t">No buyer commenters in the last ${WINDOW_DAYS} days yet.</p>`;
+  return `<section id="view-overview" class="col-stack">${tilesHtml()}
+    <section class="panel"><h2>${ms('groups')}Who comments on our posts</h2>
+      <p class="muted-t">Every commenter on our posts in the last ${WINDOW_DAYS} days, by label. Not yet sorted has its own segment: it is not a verdict.</p>${renderShare()}</section>
+    <section class="panel"><h2>${ms('show_chart')}Followers</h2>
+      <p class="muted-t">Chris, Will and the page together, over the last ${WINDOW_DAYS} days.</p>${trendHtml()}</section>
+    <div class="grid2">${briefPanel()}${rankedPanel()}</div>
+    <section class="panel"><h2>${ms('person_search')}Buyer commenters</h2>
+      <p class="muted-t">Only commenters it is confident about. Unsure ones go to Unknown, never Buyer. Company is read from the headline; 'not given' means the headline did not name one.</p>
+      ${buyersBody}</section>
+    <section class="panel"><h2>${ms('visibility')}Voices we read</h2>
+      <p class="muted-t">Edit the list in marketing/linkedin-voices.yaml in the workspace. Their posts teach the brief; nothing of theirs is copied into ours.</p>${v.overview}</section>
+  </section>`;
+}
+
+/* --- Buyers ---------------------------------------------------------------- */
+
+function buyerList(){
+  /* R35: people with a buyer label and at least one comment on an
+     in-window post of any source, newest to us first, each with the post
+     they commented on most recently. */
+  const byId={};windowPosts.forEach(p=>{byId[p.id]=p;});
+  const newest={};
+  comments.forEach(c=>{
+    const p=byId[c.post_id];
+    if(!p||!c.profile_url)return;
+    const when=String(c.commented_at||p.posted_at||'');
+    if(!newest[c.profile_url]||when>newest[c.profile_url].when)newest[c.profile_url]={when,post:p};
+  });
+  return people.filter(x=>BUYER_LABELS.includes(x.label)&&newest[x.profile_url])
+    .map(x=>Object.assign({},x,{post:newest[x.profile_url].post}))
+    .sort((a,b)=>String(b.first_seen||'').localeCompare(String(a.first_seen||''))||String(a.name||'').localeCompare(String(b.name||'')));
+}
+function tagOf(b){return KNOWN_TAGS.includes(b.known_tag)?b.known_tag:'new';}
+function buyerAction(b){
+  const tag=tagOf(b);
+  const link=OPEN_LINK[tag];
+  if(link){
+    const href=openHref(link[1],b.known_ref);
+    return href?`<a class="btn sm" href="${esc(href)}">${esc(link[0])}</a>`:`<span class="muted-t">${esc(link[0])}</span>`;
+  }
+  if(!ADD_TYPE[tag])return '';
+  const company=String(b.company||'').trim();
+  if(!company)return `<span class="muted-t">No company on the profile, so nothing to add.</span>`;
+  /* The newest add for this company decides: queued replaces the button, a
+     failure sits above it (never a lock), done says so with the way in. */
+  const q=addPending[companyKey(company)];
+  if(q&&q.status==='done')return `<span class="status-line">Added to Prospects.</span><a class="btn sm" href="marketing.html">Open prospect</a>`;
+  if(q&&q.status!=='failed')return `<span class="status-line">Queued: the engine adds it within a minute or two.</span>`;
+  const failed=q?`<span class="status-line fail">The engine could not add it: ${esc(q.result_note||'')}</span>`:'';
+  return failed+`<button type="button" class="btn sm primary" data-act="addToProspects" data-url="${esc(b.profile_url)}">${ms('add_business','sm')}Add to Prospects</button>`;
+}
+/* Add to Prospects asks first, in place under the row (the CRM design). */
+function addChoice(b){
+  const company=String(b.company||'').trim(),type=ADD_TYPE[tagOf(b)];
+  return `<tr class="choice"><td colspan="6"><div class="inline-choice"><span>Add ${esc(company)} to Prospects as ${esc(type)}? Nobody is contacted: it joins the Prospects page for a decision.</span>`+
+    `<button type="button" class="btn sm primary" data-act="confirmAdd" data-url="${esc(b.profile_url)}">Add to Prospects</button><button type="button" class="btn sm quiet" data-act="closeUi">Cancel</button></div></td></tr>`;
+}
+function buyerRow(b){
+  const tag=tagOf(b),post=b.post,pill=TAG_PILL[tag];
+  return `<tr>
+    <td data-h="Person"><b>${esc(b.name||'(no name)')}</b><small>${esc(b.headline||'')}</small></td>
+    <td data-h="Company">${b.company?esc(b.company):'<span class="muted-t">not given</span>'}</td>
+    <td data-h="Buyer type"><span class="st info" title="${esc(LABEL_HELP[b.label])}">${esc(LABEL_WORDS[b.label])}</span></td>
+    <td data-h="We know them?"><span class="st${pill?' '+pill:''}" title="${esc(TAG_HELP[tag])}">${esc(TAG_WORDS[tag])}</span></td>
+    <td data-h="Commented on"><a href="${esc(safeHref(post.url))}" target="_blank" rel="noopener">${esc(sourceLabel(post.source_id))} · ${esc(opening(post,60))}</a>
+      <small>${esc(fmtDay(post.posted_at))} · <a href="${esc(safeHref(b.profile_url))}" target="_blank" rel="noopener">profile</a></small></td>
+    <td><div class="acts">${buyerAction(b)}</div></td>
+  </tr>`+(UI.open==='add:'+b.profile_url?addChoice(b):'');
+}
+function buyerTable(rows){
+  return `<div class="tscroll"><table class="tbl stack"><thead><tr><th scope="col">Person</th><th scope="col">Company</th><th scope="col">Buyer type</th>
+    <th scope="col">We know them?</th><th scope="col">Commented on</th><th scope="col"><span class="sr">Action</span></th></tr></thead>
+    <tbody>${rows.map(buyerRow).join('')}</tbody></table></div>`;
+}
+function badgeKey(){
+  return `<details class="more"><summary>What the badges mean</summary><dl class="key-list">
+    ${BUYER_LABELS.map(k=>`<dt>${esc(LABEL_WORDS[k])}</dt><dd>${esc(LABEL_HELP[k])}</dd>`).join('')}
+    ${KNOWN_TAGS.map(k=>`<dt>${esc(TAG_WORDS[k])}</dt><dd>${esc(TAG_HELP[k])}</dd>`).join('')}
+  </dl><p class="muted-t">Commenters unseen for 90 days are deleted with their comments, buyers included, unless they are in the
+    pipeline (Deal, Lead, In Prospects) or were added to Prospects from here.</p></details>`;
+}
+function viewBuyers(){
+  const none=`<p class="muted-t">No buyer commenters in the last ${WINDOW_DAYS} days yet.</p>`;
+  const rows=buyers.filter(b=>(!UI.btype||b.label===UI.btype)&&(!UI.known||(UI.known==='new'?tagOf(b)==='new':tagOf(b)!=='new')));
+  const sel=(id,opts,cur,label)=>`<label class="sr" for="${id}">${label}</label><select class="input" id="${id}">${opts.map(([v,t])=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(t)}</option>`).join('')}</select>`;
+  return `<section id="view-buyers" class="panel"><h2>${ms('person_search')}Buyer commenters</h2>
+    <p class="muted-t">Only commenters it is confident about. Unsure ones go to Unknown, never Buyer. Company is read from the headline; 'not given' means the headline did not name one. Everyone with a buyer label who commented on a post from the last ${WINDOW_DAYS} days, newest to us first.</p>
+    <div class="toolbar">${sel('f-btype',[['','Every buyer type']].concat(BUYER_LABELS.map(k=>[k,LABEL_WORDS[k]])),UI.btype,'Buyer type')}
+      ${sel('f-known',[['','Known or new'],['new','New to us'],['known','Already known']],UI.known,'We know them?')}</div>
+    ${rows.length?buyerTable(rows)+badgeKey():(buyers.length?`<p class="muted-t">No buyer commenters match these filters.</p>`:none)}</section>`;
+}
+
+/* --- Posts ----------------------------------------------------------------- */
+
+const eng=p=>(Number(p.reactions)||0)+(Number(p.comments)||0)+(Number(p.reposts)||0);
+function viewPosts(){
+  const ours=windowPosts.filter(p=>OURS.includes(p.source_id));
+  const avg=ours.length?(Math.round(10*ours.reduce((n,p)=>n+eng(p),0)/ours.length)/10).toLocaleString('en-GB'):'None yet';
+  /* Measured: a post the queue's sync matched to a slot (the live queue page's column). */
+  const matched={};queue.forEach(r=>{if(r.matched_post_id)matched[r.matched_post_id]=r;});
+  const tiles=`<div class="stat-row two">
+    <div class="stat"><span class="stat-l">${ms('favorite','sm')}Average engagement</span><span class="stat-n num">${avg}</span><span class="stat-s">Reactions, comments and reposts per post, our ${plural(ours.length,'post')} in ${WINDOW_DAYS} days</span></div>
+    <div class="stat"><span class="stat-l">${ms('article','sm')}Posts read</span><span class="stat-n num">${windowPosts.length}</span><span class="stat-s">Ours ${ours.length} · watched voices ${windowPosts.length-ours.length}</span></div></div>`;
+  if(!windowPosts.length)return `<section id="view-posts" class="col-stack">${tiles}<section class="panel"><p class="muted-t">No posts in the last ${WINDOW_DAYS} days yet. They appear after the first Saturday pull.</p></section></section>`;
+  const noRank=`A post ranks with ${MIN_COMMENTS_TO_RANK} or more commenters, at least half of them sorted`;
+  return `<section id="view-posts" class="col-stack">${tiles}<section class="panel"><h2>${ms('article')}Posts read</h2>
+    <p class="muted-t">Every post from the last ${WINDOW_DAYS} days, newest first: ours and the watched voices'. Comments is LinkedIn's count; under it, how many commenters we have and how many of those are sorted. Buyer share shows once a post ranks.</p>
+    <div class="tscroll"><table class="tbl stack"><thead><tr><th scope="col">Source</th><th scope="col">Posted</th><th scope="col">Opening line</th>
+    <th scope="col">Comments</th><th scope="col">Reactions</th><th scope="col">Reposts</th><th scope="col">Buyer share</th><th scope="col">Measured</th></tr></thead><tbody>${windowPosts.map(p=>{
+    const s=postStats(p),slot=matched[p.id];
+    return `<tr>
+    <td data-h="Source">${esc(sourceLabel(p.source_id))}</td>
+    <td data-h="Posted" class="num">${esc(fmtDay(p.posted_at))}</td>
+    <td data-h="Opening line"><a href="${esc(safeHref(p.url))}" target="_blank" rel="noopener">${esc(opening(p))}</a>${p.post_type&&p.post_type!=='post'?`<small>${esc(p.post_type)}</small>`:''}</td>
+    <td data-h="Comments" class="num">${Number(p.comments)||0}${s.commenters?`<small>${s.commenters} commenters, ${s.sorted} sorted</small>`:''}</td>
+    <td data-h="Reactions" class="num">${Number(p.reactions)||0}</td>
+    <td data-h="Reposts" class="num">${Number(p.reposts)||0}</td>
+    <td data-h="Buyer share">${s.ranks?`<span class="st info">${pct(s.buyers,s.commenters)}</span>`:`<span class="muted-t" title="${noRank}">Too few sorted</span>`}</td>
+    <td data-h="Measured">${slot?`<span class="st ok" title="${esc(slotTitle(slot))}">Measured</span>`:''}</td>
+  </tr>`;}).join('')}</tbody></table></div></section></section>`;
+}
+
+/* --- Briefs ---------------------------------------------------------------- */
+
+function viewBriefs(){
+  if(!briefs.length)return `<section id="view-briefs" class="panel"><p class="muted-t">No brief yet. The Sunday routine writes the first one after the first good pull.</p></section>`;
+  const [now,...earlier]=briefs;
+  return `<section id="view-briefs" class="col-stack"><p class="muted-t">Each brief is also a file in the workspace, marketing/linkedin-briefs/&lt;week&gt;.md, which the drafting skill reads before it writes a post. Nothing here needs approving.</p>
+    <section class="panel brief"><h2>${ms('edit_note')}Week of ${esc(fmtDay(now.week))}</h2>${briefHtml(now,`Written ${esc(fmtWhen(now.written_at))}`)}</section>
+    ${earlier.length?`<details class="archive"><summary>Earlier briefs (${earlier.length})</summary><div class="arch-body">${earlier.map(b=>
+      `<section class="panel brief"><h3>Week of ${esc(fmtDay(b.week))}</h3>${briefHtml(b,`Written ${esc(fmtWhen(b.written_at))}`)}</section>`).join('')}</div></details>`:''}</section>`;
+}
+
+/* --- Queue ----------------------------------------------------------------- */
+
+const STATUS_WORDS={ready:'Ready to post',drafted:'Drafted',planned:'Planned',posted:'Posted'};
+const STATUS_PILL={ready:'info',drafted:'',planned:'',posted:'ok'};
+function renderQueue(){
+  /* The week as five day cards, then Ready to post, Drafted and Planned,
+     and the posted slots folded into the archive (Will's archive rule). */
+  if(!queue.length)return `<section class="panel"><p class="muted-t">No queue slots yet. They arrive with the engine's next copy of the queue file, on Monday, Wednesday or Friday at 07:40 (migration 0022 must be applied).</p></section>`;
+  const now=Date.now();
+  const cards=weekDays(now).map(day=>{
+    const slots=queue.filter(r=>slotDay(r)===day);
+    const lines=slots.length?slots.map(r=>`<span class="item-sub">${esc(authorOf(r)||'No author yet')}</span><span class="st${STATUS_PILL[r.status]?' '+STATUS_PILL[r.status]:''}">${esc(STATUS_WORDS[r.status]||r.status)}</span>`).join('')
+      :'<span class="muted-t">Nothing planned</span>';
+    return `<div class="card"><span class="day-h">${esc(new Date(day+'T12:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}))}</span>${lines}</div>`;
+  }).join('');
+  const groups=['ready','drafted','planned'].map(st=>{
+    const rows=queue.filter(r=>r.status===st);
+    return `<section class="panel"><h2>${esc(STATUS_WORDS[st])} <span class="n num">${rows.length}</span></h2>`+
+      (rows.length?rows.map(card).join(''):'<p class="muted-t">None.</p>')+'</section>';
+  }).join('');
+  const posted=queue.filter(r=>r.status==='posted').slice().reverse();  // newest posted first
+  const archive=posted.length?`<details class="archive"><summary>Posted (${posted.length})</summary><div class="arch-body">${posted.map(card).join('')}</div></details>`:'';
+  return `<section class="panel"><h2>${ms('calendar_view_week')}This week</h2><div class="days">${cards}</div></section>${groups}${archive}`;
+}
+
+const MIRROR_NOTE="this page catches up on Monday, Wednesday or Friday at 07:40";
+const newer=(a,b)=>!!a&&!!b&&new Date(a).getTime()>new Date(b).getTime();
+function card(r){
+  const q=pending[r.id];
+  const want=q?((q.payload_json||{}).status||''):'';
+  /* A done update newer than the mirror row: the queue file has moved and
+     this page has not caught up, so say so and offer no button. An older
+     done one is history; the row's own status decides. A failed update
+     shows as a red line above the button the status earns. */
+  const committed=!!q&&q.status==='done'&&newer(q.requested_at,r.synced_at);
+  const failed=!!q&&q.status==='failed';
+  const queued=!!q&&!failed&&!committed&&q.status!=='done';
+  const author=authorOf(r);
+  const meta=[fmtDay(slotDay(r)),author,String(r.pillar||'').replace(/-/g,' '),r.format].filter(Boolean).map(esc).join(' · ');
+  const link=r.posted_url?` · <a href="${esc(safeHref(r.posted_url))}" target="_blank" rel="noopener">View the post</a>`:'';
+  const fail=failed?`<span class="status-line fail">The engine could not do it: ${esc(q.result_note||'')}</span>`:'';
+  let controls='';
+  if(queued){
+    controls=`<span class="status-line">Queued: ${esc(STATUS_WORDS[want]||want)}. The engine saves it to the queue file within a few minutes; ${MIRROR_NOTE}.</span>`;
+  }else if(committed){
+    controls=`<span class="status-line">Saved to the queue file as ${esc(STATUS_WORDS[want]||want)}; ${MIRROR_NOTE}.</span>`;
+  }else if(r.status==='drafted'){
+    controls=fail+`<button type="button" class="btn sm" data-act="markReady" data-id="${esc(r.id)}">${ms('check','sm')}Mark ready</button>`;
+  }else if(r.status==='ready'||r.status==='planned'){
+    controls=fail+`<button type="button" class="btn sm primary" data-act="markPosted" data-id="${esc(r.id)}">${ms('task_alt','sm')}Mark as posted</button>`;
+  }else{
+    controls=fail;
+  }
+  let choice='';
+  if(UI.open==='ready:'+r.id)choice=`<div class="inline-choice"><span>Mark ${esc(slotTitle(r))} ready to post? The engine saves it to the queue file.</span>`+
+    `<button type="button" class="btn sm primary" data-act="confirmReady" data-id="${esc(r.id)}">Mark ready</button><button type="button" class="btn sm quiet" data-act="closeUi">Cancel</button></div>`;
+  if(UI.open==='posted:'+r.id)choice=`<div class="inline-choice"><span>Mark ${esc(slotTitle(r))} as posted? Paste the post's linkedin.com address.</span><label class="sr" for="lp-url">The post's linkedin.com address</label><input class="input" id="lp-url" type="url" value="${esc(UI.url)}" placeholder="https://www.linkedin.com/feed/update/..." autocomplete="off">`+
+    `<button type="button" class="btn sm primary" data-act="confirmPosted" data-id="${esc(r.id)}">Record the post</button><button type="button" class="btn sm quiet" data-act="closeUi">Cancel</button></div>`;
+  return `<div class="slot">
+    <span class="slot-title">${esc(slotTitle(r))}</span>
+    <span class="item-sub wrap">${meta}${link}</span>
+    ${isPriming(r)?`<div class="hint">${ms('link_off')}<span>Priming post: no links to the site, in the post or in its comments.</span></div>`:''}
+    ${r.notes?`<span class="item-sub wrap">${esc(r.notes)}</span>`:''}
+    <div class="actions">${controls}</div>${choice}
+  </div>`;
+}
+function viewQueue(){
+  const synced=queue.map(r=>r.synced_at).filter(Boolean).sort().pop();
+  /* Queue health (the live queue page's tile, folded back in): what is
+     ready, and how long since the last post. */
+  const ready=queue.filter(r=>r.status==='ready').length;
+  const lastPosted=queue.filter(r=>r.status==='posted').map(r=>String(r.posted_at||slotDay(r)).slice(0,10)).filter(Boolean).sort().pop();
+  const days=lastPosted?Math.max(0,Math.floor((Date.now()-new Date(lastPosted+'T00:00').getTime())/864e5)):null;
+  const health=`${ready} ready to post · ${days==null?'nothing posted yet':plural(days,'day')+' since the last post'}`;
+  return `<section id="view-queue" class="col-stack"><p class="muted-t">The content queue lives in the workspace (marketing/linkedin-queue.yaml); the engine copies it here on Monday, Wednesday and Friday at 07:40${synced?`, last on ${esc(fmtWhen(synced))}`:''}. Will and Chris post by hand: Mark as posted records the post and the engine writes it back to the file.</p>
+    <p class="status-line">${ms('monitor_heart','sm')}${esc(health)}</p>${renderQueue()}</section>`;
+}
+
+/* --- Voices ---------------------------------------------------------------- */
+
+function renderVoices(){
+  const latest=latestPull(pulls);
+  const list=sourcesReadBy(sources,latest).sort((a,b)=>((b.ours?1:0)-(a.ours?1:0))||((a.position||0)-(b.position||0)));
+  const none=sources.length&&latest
+    ?`<p class="muted-t">The ${esc(fmtDay(latest.week))} pull copied no sources: it closed before starting any run.</p>`
+    :`<p class="muted-t">No sources yet: the first Saturday pull fills this list.</p>`;
+  const overview=list.length?`<div class="voices">${list.map(s=>`<span class="tag${s.ours?' ours':''}">${esc(s.name||s.id)}</span>`).join('')}</div>`:none;
+  const all=list.length?`<div class="tscroll"><table class="tbl stack"><thead><tr><th scope="col">Name</th><th scope="col">Kind</th>
+    <th scope="col">Role</th><th scope="col">On LinkedIn</th></tr></thead><tbody>${list.map(s=>`<tr>
+    <td data-h="Name"><b>${esc(s.name||s.id)}</b><small>${esc(s.id)}</small></td>
+    <td data-h="Kind">${s.kind==='company'?'Company page':'Profile'}</td>
+    <td data-h="Role">${s.ours?'<span class="st info">Ours</span>':'<span class="st">Watched voice</span>'}</td>
+    <td data-h="On LinkedIn"><a href="${esc(safeHref(s.url))}" target="_blank" rel="noopener">${esc(s.url)}</a></td>
+  </tr>`).join('')}</tbody></table></div>`:none;
+  return {overview,all};
+}
+function viewVoices(){
+  return `<section id="view-voices" class="panel"><h2>${ms('visibility')}Voices we read</h2>
+    <p class="muted-t">The three NexPoint sources and the watched voices, as the last Saturday pull read them. Edit the list in marketing/linkedin-voices.yaml in the workspace; this page is read-only. Their posts teach the brief; nothing of theirs is copied into ours.</p>
+    ${renderVoices().all}</section>`;
+}
+
+/* --- the writes: engine_intents only --------------------------------------- */
+
+async function submitQueueIntent(payload,message){
+  /* Records what you did; nothing here posts. */
+  const {error}=await sb.from('engine_intents').insert({
+    type:'update-linkedin-queue',payload_json:payload,requested_by:me.email,status:'pending'});
+  if(error){NXShell.toast(`Could not queue it: ${error.message}`);return false;}
+  NXShell.toast(message);
+  /* The slot reads queued at once, in place of its buttons, so a second
+     click cannot raise a second intent before the reload reads it back. */
+  pending[payload.item_id]={status:'pending',payload_json:payload,requested_at:new Date().toISOString()};
+  UI.open=null;UI.url='';setTimeout(load,1500);render();
+  return true;
+}
+function markReady(id){UI.open='ready:'+id;render();}
+function markPosted(id){UI.open='posted:'+id;UI.url='';render();const f=$('lp-url');if(f&&f.focus)f.focus();}
+function confirmReady(id){
+  return submitQueueIntent({item_id:id,status:'ready'},'Marked ready, queued. The engine saves it within a few minutes.');
+}
+function confirmPosted(id){
+  // Records what YOU already published on LinkedIn: nothing here posts.
+  const url=String(($('lp-url')||{}).value||'').trim();
+  if(!isLinkedInUrl(url)){const f=$('lp-url');if(f&&f.focus)f.focus();NXShell.toast('That is not a linkedin.com address, so nothing was recorded.');return Promise.resolve(false);}
+  return submitQueueIntent({item_id:id,status:'posted',posted_url:url,posted_at:isoDay(new Date())},
+    'Post recorded, queued. The engine saves it within a few minutes.');
+}
+
+/* The page's other write: an engine_intents row the engine executes. */
+async function raise(type,payload,verb){
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email,status:'pending'});
+  if(error){NXShell.toast(`Could not queue it: ${error.message}`);return false;}
+  NXShell.toast(`${verb}, queued. The engine acts within a minute or two.`);
+  setTimeout(load,1500);
+  return true;
+}
+function addToProspects(url){UI.open='add:'+url;render();}
+async function confirmAdd(url){
+  /* Add to Prospects (spec, part 3): the existing add-prospect intent with
+     source linkedin and a note carrying who commented, on what, and their
+     profile. The handler's de-duplication against deals, leads, the queue
+     and the domain map stays; a known company never shows this button. */
+  const b=buyers.find(x=>x.profile_url===url);
+  if(!b)return;
+  const type=ADD_TYPE[tagOf(b)],company=String(b.company||'').trim();
+  if(!type||!company)return;
+  const post=b.post||{};
+  const note=`LinkedIn: ${b.name||'(no name)'}, ${b.headline||'(no headline)'}. Commented on ${post.url||'(post unknown)'}. Profile: ${b.profile_url}`;
+  if(await raise('add-prospect',{display_name:company,website:null,type,source:'linkedin',note},`Added ${company} to Prospects`)){
+    addPending[companyKey(company)]={status:'pending'};UI.open=null;render();
+  }
+}
+
+const ACT={
+  addToProspects(el){return addToProspects(el.dataset.url);},
+  confirmAdd(el){return confirmAdd(el.dataset.url);},
+  markReady(el){return markReady(el.dataset.id);},
+  markPosted(el){return markPosted(el.dataset.id);},
+  confirmReady(el){return confirmReady(el.dataset.id);},
+  confirmPosted(el){return confirmPosted(el.dataset.id);},
+  closeUi(){UI.open=null;UI.url='';render();},
+};
+document.addEventListener('click',e=>{
+  const v=e.target.closest('[data-view]');
+  if(v&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey&&e.button!==1){e.preventDefault();setView(v.dataset.view);return;}
+  const b=e.target.closest('[data-act]');
+  if(!b||!ACT[b.dataset.act])return;
+  e.preventDefault();ACT[b.dataset.act](b);
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='f-btype'){UI.btype=e.target.value;render();}
+  if(e.target.id==='f-known'){UI.known=e.target.value;render();}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&UI.open){UI.open=null;UI.url='';render();}
+  if(e.key==='Enter'&&e.target&&e.target.id==='lp-url'&&UI.open&&UI.open.startsWith('posted:')){e.preventDefault();confirmPosted(UI.open.slice(7));}
+});
+
+boot();
+</script>
+</body>
+</html>
