@@ -127,7 +127,15 @@ function showAdmin(u){$('login').style.display='none';$('admin').style.display='
    one of six reasons, the shared next step, Invite to the portal at Agreed,
    the Pipelines panel (every card, its stage, days in it and its last three
    moves) and the Introductions panel. `&card=<id>` scrolls to a stepper (the
-   stale job's address). */
+   stale job's address).
+
+   The Campaigns panel (a plan 077 follow-up; Will, walking the Marketing tab
+   on 29 October 2026: no part of the company page showed which campaign a
+   company was on) lists the company's live memberships of the campaign
+   lists, each with its campaign, the version it is on, its state in plain
+   words and the day it was added; removed ones fold into an archive. It is
+   read by the company's folder slugs and changes nothing: Add and Remove stay
+   on the Campaigns page. */
 const esc=NXCRM.esc, ms=NXShell.ms, plural=(n,a,b)=>`${n} ${n===1?a:(b||a+'s')}`;
 const PIPE_INTENTS=['add-card','edit-card','move-card','set-card-next','mark-card-dead','revive-card','link-card-site','invite-to-portal','move-introduction'];
 const ORG_INTENTS=['delete-account','erase-account','pause-org','resume-org','remove-org','restore-org','open-audit-strike','cure-strike','delete-user'];
@@ -166,6 +174,8 @@ let jobRows=[], J={problems:[]}, jobPending={}, T={missing:false,error:'',rows:[
 let D={missing:false,rows:[]};
 /* Plan 073: the company's pipeline cards, their moves, links and clocks, and its introductions. */
 let PL={missing:false,error:'',cards:[],moves:{},links:{},invoices:{},linked:{},intros:[],declared:{},orgs:{},orgCompany:{},companies:{}};
+/* The company's rows on the campaign lists (campaign_members, by folder slug) and the campaigns they name. */
+let CM={missing:false,error:'',rows:[],names:{}};
 
 async function load(){
   banners=[];
@@ -265,6 +275,7 @@ async function loadCompany(cid){
      queue:(qq.data||[]).slice().sort((a,b)=>String(b.proposed_at).localeCompare(String(a.proposed_at))),pnotes:prq.data||[]};
   await loadAccounts(C.sites.map(s=>s.org_id).filter(Boolean));
   await loadPipes(cid);
+  await loadCampaigns();
 }
 
 /* Plan 073: the company's cards and what their steppers show; its introductions on either side. */
@@ -810,6 +821,69 @@ function pipelinesPanel(){
   return `<section class="panel"><h2>Pipelines <span class="n num">${open.length}</span></h2><div>${open.length?open.map(row).join(''):'<p class="fact muted">No open card. A fit tag adds a Lead card; Add a card is on Pipelines.</p>'}</div>${arch}`+
     `<div class="panel-actions"><a class="btn sm" href="pipelines.html">${ms('view_kanban','sm')}Open Pipelines</a></div></section>`;
 }
+/* ---------- the Campaigns panel: which campaign lists the company is on ---------- */
+/* A member row is keyed by the folder's slug, so the company's live folders
+   find its rows (a company with no folder has none). The campaigns' names are
+   read for the rows found. A missing table names its migration; any other
+   error is shown in the panel and leaves the rest of the page. */
+async function loadCampaigns(){
+  CM={missing:false,error:'',rows:[],names:{}};
+  const slugs=[...new Set(C.folders.map(f=>f.slug))];
+  if(!slugs.length)return;
+  const mq=await sb.from('campaign_members').select('id,company,campaign_id,version,status,reason,added_by,created_at,updated_at').in('company',slugs).order('id',{ascending:false}).limit(500);
+  if(mq.error){if(isMissing(mq.error))CM.missing=true;else CM.error=mq.error.message;return;}
+  CM.rows=mq.data||[];
+  const ids=[...new Set(CM.rows.map(m=>m.campaign_id).filter(x=>x!=null))];
+  const nq=await (ids.length?sb.from('nx_campaigns').select('id,name,active').in('id',ids):none);
+  if(nq.error)banners.push(`Could not read the campaigns’ names: ${nq.error.message}.`);
+  (nq.data||[]).forEach(c=>{CM.names[c.id]=c;});
+}
+/* The version a member is on and its state, in plain words. A row waiting or
+   refused carries its reason underneath; one taken off the list (remove,
+   removed) is in the archive. */
+const CAMPAIGN_VERSION={current:'Current customer',former:'Former customer',enquired:'Enquirer',enquired_new:'New enquirer',cold:'Cold'};
+const CAMPAIGN_STATE={waiting:'Waiting to send',ready:'Ready to send',in_smartlead:'Sending',replied:'Replied',error:'Needs attention'};
+const CAMPAIGN_OFF=['remove','removed'];
+/* Why a member came off a list, by name: the same words as the Campaigns
+   page's Removed archive (marketing-campaigns.html, where this is copied
+   from; the two are kept identical by tests/test_crm_pages.py). The handlers
+   store "Removed by <address>: <reason>", "moved by <address>", "returned to
+   prospect by <address>" or "status <type> set by <address>". Any other
+   address left in a reason is named too. */
+const ADDRESS=/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
+function offWhy(m){
+  const r=String(m.reason||'').trim(), when=m.updated_at?NXCRM.fmtDate(m.updated_at):'';
+  let lead='Removed', who='', why=r, x;
+  if((x=r.match(/^Removed by (\S+): ([\s\S]*)$/))){who=NXShell.personOf(x[1]);why=x[2].trim();}
+  else if((x=r.match(/^moved by (\S+)$/i))){who=NXShell.personOf(x[1]);lead='Moved to another campaign';why='';}
+  else if((x=r.match(/^returned to prospect by (\S+)$/i))){who=NXShell.personOf(x[1]);lead='Returned to prospect';why='';}
+  else if((x=r.match(/^status (.+?) set by (\S+?)(?:: no campaign)?$/i))){who=NXShell.personOf(x[2]);lead=`Status set to ${x[1]}`;why='';}
+  why=why.replace(ADDRESS,a=>NXShell.personOf(a));
+  if(m.status==='remove'){
+    const said=why||(lead==='Removed'?'':lead.charAt(0).toLowerCase()+lead.slice(1));
+    const by=[who,when].filter(Boolean).join(', ');
+    return `Being taken out of Smartlead${said?': '+said:''}${by?` (${by})`:''}`;
+  }
+  return `${lead}${who?' by '+who:''}${when?', '+when:''}${why?': '+why:''}`;
+}
+/* The live memberships, newest first, then the removed ones in the panel's archive. */
+function campaignsPanel(){
+  if(CM.missing)return '<section class="panel"><h2>Campaigns</h2><p class="fact muted">The campaign lists are not there yet: migration 0047 has not been applied.</p></section>';
+  if(CM.error)return `<section class="panel"><h2>Campaigns</h2><p class="fact muted">Could not read the campaign lists: ${esc(CM.error)}</p></section>`;
+  const live=CM.rows.filter(m=>!CAMPAIGN_OFF.includes(m.status)), off=CM.rows.filter(m=>CAMPAIGN_OFF.includes(m.status));
+  const nameOf=m=>(CM.names[m.campaign_id]||{}).name||`Campaign ${m.campaign_id}`;
+  const row=m=>{
+    const why=(m.status==='waiting'||m.status==='error')&&m.reason?`<span class="item-sub wrap">${esc(m.reason)}</span>`:'';
+    const tone=m.status==='in_smartlead'||m.status==='replied'?' ok':m.status==='error'?' err':m.status==='ready'?' info':'';
+    return `<div class="mini"><span><a class="linkish" href="marketing-campaigns.html?campaign=${encodeURIComponent(m.campaign_id)}">${esc(nameOf(m))}</a>`+
+      `<span class="item-sub">${esc(CAMPAIGN_VERSION[m.version]||m.version||'')} \u00b7 Added ${esc(fmt(m.created_at))}</span>${why}</span>`+
+      `<span class="st${tone}">${esc(CAMPAIGN_STATE[m.status]||m.status)}</span></div>`;
+  };
+  const arch=off.length?`<details class="archive inpanel"><summary>Removed from campaigns (${off.length})</summary><div class="arch-body">${off.map(m=>
+    `<div class="arch-row"><span style="font-weight:600;color:var(--fg)">${esc(nameOf(m))}</span><span class="arch-note">${esc(offWhy(m))}</span></div>`).join('')}</div></details>`:'';
+  return `<section class="panel"><h2>Campaigns <span class="n num">${live.length}</span></h2><div>${live.length?live.map(row).join(''):'<p class="fact muted">Not on any campaign.</p>'}</div>${arch}`+
+    `<div class="panel-actions"><a class="btn sm" href="marketing-campaigns.html">${ms('campaign','sm')}Open Campaigns</a></div></section>`;
+}
 /* The company's introductions, as either party, with their board stage and the other company. */
 function introPanel(){
   const orgIds=C.sites.map(s=>s.org_id).filter(Boolean);
@@ -937,7 +1011,7 @@ function render(){
     return;
   }
   document.title=`NexPoint CRM: ${C.company.name}`;
-  page.innerHTML=backLink()+bn+headerCard()+`<div class="co-body"><div class="facts co-side">${aboutPanel()}${peoplePanel()}${sitesPanel()}${pipelinesPanel()}${introPanel()}${deskPanel()}${openTasksPanel()}</div>`+
+  page.innerHTML=backLink()+bn+headerCard()+`<div class="co-body"><div class="facts co-side">${aboutPanel()}${peoplePanel()}${sitesPanel()}${pipelinesPanel()}${campaignsPanel()}${introPanel()}${deskPanel()}${openTasksPanel()}</div>`+
     `<div class="facts co-main">${needsYouHtml()}${composerHtml()}${timelinePanel()}</div></div>`;
   jumpToJob();jumpToCard();
 }
