@@ -85,6 +85,25 @@ const has = (text, part, what) => {
   if (!String(text || "").includes(part)) throw new Error(`${what}: ${JSON.stringify(String(text || "").slice(0, 160))} does not include ${JSON.stringify(part)}`);
   return true;
 };
+/* The trap field: no person can reach it, and no browser fills it on its
+   own. On 29 October 2026 Chrome filled the old company_url trap from a
+   saved address when a real person accepted an autofill suggestion, and the
+   worker dropped the registration. So the trap carries nothing autofill
+   reads as a website, company or organisation field, no label, and one
+   autocomplete token, one-time-code, which browsers honour and never fill
+   from an address. */
+const AUTOFILL_WORDS = /url|web|site|compan|organi[sz]|business|firm|name|mail|tel|fax|phone|address|street|city|town|post|zip|country|region|state|province|county|locality|org|first|last|surname|user|login|card|cvc|cvv|csc|otp/i;
+async function trapUnreachable(trap) {
+  const a = await trap.evaluate((n) => ({
+    right: n.getBoundingClientRect().right, tab: n.tabIndex, hidden: n.getAttribute("aria-hidden"),
+    autocomplete: n.getAttribute("autocomplete"), labels: n.labels ? n.labels.length : 0,
+    name: n.getAttribute("name") || "", id: n.id || "", placeholder: n.getAttribute("placeholder") || "", label: n.getAttribute("aria-label") || "",
+  }));
+  if (!(a.right < 0 && a.tab === -1 && a.hidden === "true")) throw new Error("the trap is reachable: " + JSON.stringify(a));
+  if (a.autocomplete !== "one-time-code" || a.labels) throw new Error("a browser may fill the trap: " + JSON.stringify(a));
+  for (const k of ["name", "id", "placeholder", "label"]) if (AUTOFILL_WORDS.test(a[k])) throw new Error(`the trap's ${k} reads as a field autofill fills: ` + JSON.stringify(a));
+  return true;
+}
 
 // ---------------------------------------------------------------- the people
 const PASSWORD = "walk-password-1";
@@ -868,12 +887,11 @@ async function walkDoor() {
     has(b.payload.notes, "scripted walk", "the notes");
     await page.click("#introContent .success button");
   });
-  await step("the desk form has a trap field no person can reach, and posts what a bot puts in it", async () => {
+  await step("the desk form has a trap field no person can reach and no browser fills, and posts what a bot puts in it as company_url", async () => {
     await fillDesk();
-    const trap = page.locator('#introContent [name="company_url"]');
+    const trap = page.locator('#introContent [name="np_check"]');
     eq(await trap.count(), 1, "trap fields");
-    const box = await trap.evaluate((n) => { const r = n.getBoundingClientRect(); return { right: r.right, tab: n.tabIndex, hidden: n.getAttribute("aria-hidden") }; });
-    if (!(box.right < 0 && box.tab === -1 && box.hidden === "true")) throw new Error("the trap is reachable: " + JSON.stringify(box));
+    await trapUnreachable(trap);
     await trap.evaluate((n) => { n.value = "https://spam.example"; });
     await page.click("#introContent button[type=submit]");
     await page.waitForSelector("#introContent .success");
@@ -895,6 +913,7 @@ async function walkDoor() {
   await step("the Education sign-up sends name and email, nothing else", async () => {
     await page.click("text=Put me on the list");
     await page.waitForSelector("#introOverlay.open form");
+    await trapUnreachable(page.locator('#introContent [name="np_check"]'));
     await page.fill("#eName", "Walk Tester");
     await page.fill("#eEmail", "walk@example.com");
     await page.click("#introContent button[type=submit]");
@@ -985,6 +1004,11 @@ async function walkRegister() {
     await page.waitForSelector('form[data-np-step="2"] button[type=submit]:not([disabled])');
     eq(apiCalls(world, "GET /terms/current")[0].query.layer, "platform", "the terms layer asked for");
   });
+  await step("the register form has a trap field no person can reach and no browser fills (29 October 2026)", async () => {
+    const trap = page.locator('form[data-np-step="2"] [name="np_check"]');
+    eq(await trap.count(), 1, "trap fields");
+    return trapUnreachable(trap);
+  });
   await step("no country, or no tick on the terms, sends nothing", async () => {
     await page.fill("#qCountry", "");
     await submit();
@@ -1044,6 +1068,15 @@ async function walkRegister() {
     refusedWith(422, { error: "invalid terms_version_id" }, "Platform Terms have just been updated", "the refusal"));
   await step("any other refusal carries the server's reason", () =>
     refusedWith(502, { error: "organisation store failed (500)" }, 'quoting "organisation store failed (500)"', "the refusal"));
+  await step("what a bot puts in the register form's trap field reaches the worker as company_url", async () => {
+    delete world.api["POST /auth/register"];
+    const before = apiCalls(world, "POST /auth/register").length;
+    await page.locator('form[data-np-step="2"] [name="np_check"]').evaluate((n) => { n.value = "https://spam.example"; });
+    await page.waitForSelector('form[data-np-step="2"] button[type=submit]:not([disabled])');
+    await submit();
+    await until(() => apiCalls(world, "POST /auth/register").length === before + 1, "the registration");
+    eq(apiCalls(world, "POST /auth/register").pop().body.company_url, "https://spam.example", "the posted trap value");
+  });
   clean(world, errors, "the register form");
   await context.close();
 }
@@ -2491,6 +2524,11 @@ async function walkBoard() {
     eq(await page.isDisabled('#formContent button[type="submit"]'), true, "the button before the tick");
     eq((await page.textContent('#formContent button[type="submit"]')).trim(), "Post the opportunity", "the button");
   });
+  await step("the post form has a trap field no person can reach and no browser fills (29 October 2026)", async () => {
+    const trap = page.locator('#formContent form [name="np_check"]');
+    eq(await trap.count(), 1, "trap fields");
+    return trapUnreachable(trap);
+  });
   await step("a named post carries its naming and the terms version", async () => {
     await page.check('#formContent input[name="naming"][value="named"]');
     await page.fill('#formContent textarea[name="fit"]', "Spare MJF capacity, 400 parts a month.");
@@ -2501,6 +2539,17 @@ async function walkBoard() {
     eq([b.hub, b.side, b.payload.naming, b.terms_version_id], ["opportunities", "list_opportunity", "named", OPP_TERMS_ID], "the post");
     await page.waitForSelector("#formContent .success");
     has(await page.textContent("#formContent .success"), "We read every post.", "the success line");
+  });
+  await step("a post whose trap field a bot filled is dropped on the page: the success card, and nothing sent", async () => {
+    await open(page);
+    await page.click('#post button.btn-primary');
+    await page.waitForSelector("#formContent [data-post-terms] .terms-scroll");
+    await page.locator('#formContent form [name="np_check"]').evaluate((n) => { n.value = "https://spam.example"; });
+    await page.fill('#formContent textarea[name="fit"]', "Spare MJF capacity, 400 parts a month.");
+    await page.check("#formContent [data-np-terms-tick]");
+    await page.click('#formContent button[type="submit"]');
+    await page.waitForSelector("#formContent .success");
+    eq(apiCalls(world, "POST /requests").length, 2, "requests sent");
   });
   await step("a discount code shows only after screen 3's tick, in one call that names the opportunity and the terms version", async () => {
     await open(page);
@@ -2814,7 +2863,8 @@ async function walkHomepage() {
   await step("a filled trap field reaches the worker, and no copy is sent", async () => {
     const p = second.page;
     await p.fill("#f-name", "Bot"); await p.fill("#f-email", "bot@example.com");
-    await p.locator('#bookForm [name="company_url"]').evaluate((n) => { n.value = "https://spam.example"; });
+    await trapUnreachable(p.locator('#bookForm [name="np_check"]'));
+    await p.locator('#bookForm [name="np_check"]').evaluate((n) => { n.value = "https://spam.example"; });
     await p.click("#confirmBtn");
     await p.waitForSelector(".confirmed");
     eq(apiCalls(bot, "POST /requests")[0].body.company_url, "https://spam.example", "the posted trap value");

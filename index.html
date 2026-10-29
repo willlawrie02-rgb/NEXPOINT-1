@@ -2012,11 +2012,12 @@
     }).catch(() => {});
   }
 
-  /* `trap` is the value of the form's company_url field (code review,
-     4 October 2026). The field is off-screen and no person fills it; the
-     worker drops a request that carries one and answers ok. The form used to
-     post a hard-coded empty string, so there was nothing for a bot to fill.
-     It is read before the first render() here, which rebuilds the form. */
+  /* `trap` is the value of the form's trap field, posted as company_url
+     (code review, 4 October 2026). The field is off-screen and no person
+     fills it; the worker drops a request that carries one and answers ok.
+     The form used to post a hard-coded empty string, so there was nothing
+     for a bot to fill. It is read before the first render() here, which
+     rebuilds the form. */
   async function submitForm(trap) {
     state.sending = true; state.error = ''; render();
     const name = state.name.trim(), email = state.email.trim();
@@ -2064,7 +2065,14 @@
       </div>
 
       <form id="bookForm" novalidate>
-      <input type="text" name="company_url" value="" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
+      <!-- The trap field: out of the tab order, off-screen and hidden from
+           assistive technology; a bot fills it and the worker drops the
+           request. Nothing about it reads as a website, company or
+           organisation field, and its autocomplete token is one browsers
+           honour and never fill from a saved address (29 October 2026:
+           Chrome filled the old company_url field from a saved address and
+           a real request was dropped). -->
+      <input type="text" name="np_check" value="" tabindex="-1" autocomplete="one-time-code" aria-hidden="true" style="position:absolute;left:-9999px">
       <div class="form-grid-2">
         <div>
           <label class="field-label" for="f-name">Name</label>
@@ -2100,7 +2108,7 @@
     bookCard.querySelector('#bookForm').addEventListener('submit', (e) => {
       e.preventDefault();
       if (state.sending) return;
-      const trap = e.target.querySelector('[name="company_url"]').value;
+      const trap = e.target.querySelector('[name="np_check"]').value;
       const name = state.name.trim(), email = state.email.trim();
       if (!name || !EMAIL_RE.test(email)) {
         state.error = 'Add your name and a work email address so we can reply';

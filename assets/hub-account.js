@@ -444,7 +444,7 @@
         </div>
         ${tsKey ? '<div id="npTurnstile" style="margin-top:16px"></div>' : ''}
         <div id="npTermsBlock" style="margin-top:16px"></div>
-        <input type="text" name="company_url" value="" style="position:absolute;left:-9999px" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <input type="text" name="np_check" value="" tabindex="-1" autocomplete="one-time-code" aria-hidden="true" style="position:absolute;left:-9999px">
         <p class="np-sign-error" style="display:none"></p>
         <div class="privacy">Seen by NexPoint only. Never shared without your say-so.</div>
         <div class="modal-actions">
@@ -498,7 +498,13 @@
         website: draft.website || '',
         region: draft.region, country: draft.country, town: draft.town,
         interests: [], notes: '', terms_version_id: draft.terms_version_id,
-        company_url: e.target.querySelector('[name="company_url"]').value };
+        /* The trap field's value, posted under the worker's key. The field
+           carries nothing autofill reads as a website or company field and
+           an autocomplete token browsers honour and never fill from a saved
+           address: on 29 October 2026 Chrome filled the old company_url
+           field from a saved address, the worker dropped the registration
+           and the page still said "Check your inbox". */
+        company_url: e.target.querySelector('[name="np_check"]').value };
       /* Where the confirmation link should bring them back to (see
          openQuestionnaire): the worker validates it and appends it to the
          link. */
