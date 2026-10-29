@@ -10,6 +10,30 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
 <link rel="stylesheet" href="crm.css?v=2">
+<style>
+  /* Live Listings' own parts, as the design's prototype draws them (plan 075). */
+  .opp { display: flex; flex-direction: column; gap: 10px; }
+  .opp-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: var(--fg-2); }
+  .opp-top .ref { font: 600 12px/1 var(--font-body); color: var(--fg-2); }
+  .opp h3 { font: 600 16px/1.3 var(--font-display); color: var(--fg); margin: 0; }
+  .opp-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 6px 18px; font-size: 13px; color: var(--fg-1); }
+  .opp-facts .k { display: block; font-size: 11.5px; color: var(--fg-2); }
+  .opp-facts .no-owner { color: var(--err-ink); font-weight: 600; }
+  .editor { display: flex; flex-direction: column; gap: 12px; }
+  .editor .form-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .editor textarea.input { min-height: 72px; }
+  .editor .priv { border: 1px dashed var(--border-control); border-radius: var(--radius); padding: 12px; background: var(--bg-alt); }
+  .editor .priv > .tg-label { display: block; margin-bottom: 8px; }
+  .hosts .tbl td { vertical-align: top; }
+  .hosts .tbl td small { display: block; color: var(--fg-2); font-size: 12px; }
+  .decl { display: flex; gap: 8px; flex-wrap: wrap; }
+  .decl span { font-size: 12px; color: var(--fg-2); }
+  .decl span b { font-weight: 600; color: var(--fg-1); }
+  .fail-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12.5px; color: var(--err-ink); }
+  .picker-opts.cols { display: flex; flex-wrap: wrap; gap: 6px; }
+  .note-line { font-size: 12.5px; color: var(--fg-2); display: flex; gap: 6px; align-items: flex-start; margin: 10px 0 0; }
+  .note-line .ms { width: auto; font-size: 16px; }
+</style>
 </head>
 <body>
 <div id="login" class="door" style="display:none">
@@ -38,6 +62,8 @@
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
+<script src="crm.js?v=071"></script>
+<script src="jobs.js?v=085"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -45,6 +71,7 @@ const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a h
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const PAGE_SECTION='listings';
 let me=null;
 
 async function boot(){
@@ -63,15 +90,579 @@ async function doLogin(){
   if(!(await NXAdminAuth.requireAal2(sb)))return;
   showAdmin(data.user);
 }
-function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,'listings');render();}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,PAGE_SECTION);load();}
 
-/* Plan 075 builds Live Listings. Until it does, the page says so and points at
-   the boards that do its job today (the spec's Page inventory). */
-function render(){
-  $('page').innerHTML=NXShell.headHtml({title:'Live Listings',lede:'What seekers can find on each hub and on the Opportunities Board.'})
-    +NXShell.comingHtml({plan:'075',icon:'storefront',what:'The live opportunities by state, and one row per host on the 3D Print Hub and the Mill Hub with its membership, declarations and strikes.',
-      until:[['opportunities.html','Open Opportunities'],['index.html','Open the Opportunities list'],['print-hub.html','Open the 3D Print Hub'],['mill-hub.html','Open the Mill Hub']]});
+/* Live Listings (plan 075, D8 and D9): what seekers can find. Three tabs.
+   Opportunities is 070's board_opportunities, drawn by state (Waiting for a
+   draft, Draft ready, Live, Withheld; Ended in the archive), with the
+   editor in place, Set the owner, Introduce someone, a quarter's code sales,
+   and the Opportunities Board's own requests (a post to approve, an
+   introduction to make), which the Inbox sends here. The one direct write
+   is 070's: status on board_opportunities, under its column grant, because
+   no intent may make a card public (G3a); every other change is a literal
+   raise of one intent. 3D Print Hub and Mill Hub are one row per host on
+   the hub, with its membership, the last three months' declarations and
+   its open strikes; a Removed hosts archive with Restore to the hub. */
+const esc=NXCRM.esc, ms=NXShell.ms;
+const LISTING_INTENTS=['save-board-opportunity','end-board-opportunity','introduce-on-board','record-code-sales','publish-to-live-site','restore-org','review-web-request'];
+const TABS=[['opportunities','Opportunities'],['print','3D Print Hub'],['mill','Mill Hub']];
+const LEDE={opportunities:'Every opportunity on the Opportunities Board, by state; a live one goes to seekers on the next publish.',
+  print:'One row per host on the 3D Print Hub: what it offers, its membership, its declarations and its strikes.',
+  mill:'One row per host on the Mill Hub: what it offers, its membership, its declarations and its strikes.'};
+const STATE_WORD={posted:'Waiting for a draft',draft:'Draft ready',live:'Live',withheld:'Withheld',ended:'Ended'};
+const STATE_CLASS={posted:'s-tocontact',draft:'s-talking',live:'s-agreed',withheld:'s-known',ended:'s-known'};
+const FILTERS=[['all','All'],['posted','Waiting for a draft'],['draft','Draft ready'],['live','Live'],['withheld','Withheld']];
+const CAT_LABEL={manufacturing:'Manufacturing and capacity',materials:'Materials and products',partnership:'Partnerships and franchise',
+  succession:'Succession and acquisition',equipment:'Equipment and technology',talent:'Talent and people'};
+const KIND_LABEL={introduction:'Introduction',discount_code:'Discount code'};
+const NAMING_LABEL={anonymised:'Anonymised',named:'Named'};
+const HUB_NAME={print:'3D Print Hub',mill:'Mill Hub'};
+const UI={tab:'opportunities',filter:'all',open:null,editing:null,dirty:false,ownerQuery:'',ownerPick:null,orgQuery:'',orgPick:null,introReq:null};
+let state='loading', problem='', banners=[], missing080=false;
+let D={opps:[],intros:[],reports:[],reveals:{},companies:{},sites:[],orgs:{},listings:[],revs:{},machines:{},vocab:{},invoices:{},declarations:[],strikes:[],won:[],waiting:[],requests:[]};
+let intentByKey={}, readIntents=[], sending=[], seq=0;
+const todayIso=()=>NXJOBS.todayIn();
+const fmt=v=>NXCRM.fmtDate(v);
+const money=(v,cur)=>`${esc(cur||'GBP')} ${Number(v||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const pct=v=>v==null||v===''?'':`${+(Number(v)*100).toFixed(2)}%`;
+/* The last three months owed a declaration: the three before this one. */
+function lastPeriods(){
+  const t=todayIso(); let y=Number(t.slice(0,4)), m=Number(t.slice(5,7)); const out=[];
+  for(let i=0;i<3;i++){m-=1;if(m===0){m=12;y-=1;}out.push(`${y}-${String(m).padStart(2,'0')}`);}
+  return out;
 }
+
+async function load(){
+  banners=[];missing080=false;
+  const q=new URLSearchParams(location.search);
+  const tab=q.get('tab');UI.tab=TABS.some(t=>t[0]===tab)?tab:'opportunities';
+  const all=(table,cols,order)=>NXCRM.readAll(()=>sb.from(table).select(cols).order(order||'id',{ascending:true}));
+  const [oq,iq,rq,vq,cq,sq,gq,lq,tq,mq,dq,kq,pq,bq,wq]=await Promise.all([
+    sb.from('board_opportunities').select('*').order('sort',{ascending:true,nullsFirst:false}),
+    sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,brief_id,listing_id,created_at').order('id',{ascending:false}).limit(1000),
+    sb.from('board_code_reports').select('*').order('quarter',{ascending:false}),
+    sb.from('board_code_reveals').select('id,opportunity_id').limit(1000),
+    all('crm_companies','id,name,slug,archived_at'),
+    all('crm_sites','id,company_id,org_id,name,town,country'),
+    all('organisations','id,name,host_print,host_mill,sub_status,sub_period,hidden_at,paused_by,paused_reason,removed_at,removed_reason,closed_at,deleted_at,erased_at,score'),
+    all('listings','id,org_id,hub,status,live_revision_id,pending_revision_id,created_at'),
+    sb.from('vocab_terms').select('kind,term,label'),
+    sb.from('membership_invoices').select('id,org_id,kind,period,period_start,period_end,amount,xero_invoice_number,invoice_date,due_date,invoiced_at,clock_start,hide_on,hidden_at,restored_at,extended_to,paid_at,paid_source,voided_at,reminder_7_at,reminder_12_at').order('id',{ascending:false}).limit(1000),
+    sb.from('declarations').select('id,org_id,hub,period,status').in('period',lastPeriods()),
+    sb.from('strikes').select('id,org_id,source,opened_at,cured_at').limit(1000),
+    sb.from('crm_pipeline_cards').select('id,board,company_id,site_id,stage,won_at,dead_at').eq('board','hub'),
+    sb.from('inbox').select('*').eq('kind','listing').limit(1000),
+    sb.from('web_requests').select('*').eq('hub','opportunities').in('status',['new','reviewing']).order('created_at',{ascending:false}),
+  ]);
+  if(oq.error){
+    if(/does not exist|schema cache|Could not find|board_opportunities/i.test(oq.error.message||'')){missing080=true;banners.push('Migration 0080 has not been applied: the opportunities show here once it is.');}
+    else banners.push(`Could not read the opportunities: ${oq.error.message}.`);
+  }
+  for(const [what,r] of [['introductions',iq],['companies',cq],['sites',sq],['accounts',gq],['listings',lq],['vocabulary',tq],['membership invoices',mq],['declarations',dq],['strikes',kq],['pipeline cards',pq],['listings waiting for approval',bq],['requests',wq]])
+    if(r.error)banners.push(`Could not read the ${what}: ${r.error.message}.`);
+  D={opps:oq.data||[],intros:iq.data||[],reports:rq.data||[],reveals:{},companies:{},sites:sq.data||[],orgs:{},listings:lq.data||[],revs:{},machines:{},vocab:{},invoices:{},
+     declarations:dq.data||[],strikes:kq.data||[],won:[],waiting:bq.data||[],requests:wq.data||[]};
+  (vq.data||[]).forEach(v=>{D.reveals[v.opportunity_id]=(D.reveals[v.opportunity_id]||0)+1;});
+  (cq.data||[]).forEach(c=>{D.companies[c.id]=c;});
+  (gq.data||[]).forEach(o=>{D.orgs[o.id]=o;});
+  (tq.data||[]).forEach(v=>{(D.vocab[v.kind]=D.vocab[v.kind]||{})[v.term]=v.label;});
+  (mq.data||[]).forEach(r=>{if(r.voided_at)return;const have=D.invoices[r.org_id];if(!have||String(r.period_start)>String(have.period_start))D.invoices[r.org_id]=r;});
+  const today=todayIso();
+  D.won=(pq.data||[]).filter(c=>c.won_at&&!c.dead_at&&(NXJOBS.london(c.won_at)||{}).iso===today);
+  const revIds=[...new Set(D.listings.flatMap(l=>[l.live_revision_id,l.pending_revision_id]).filter(Boolean))];
+  if(revIds.length){
+    const [rvq,mcq]=await Promise.all([sb.from('listing_revisions').select('*').in('id',revIds),
+      sb.from('listing_machines').select('*').in('revision_id',revIds).order('position',{ascending:true})]);
+    for(const [what,r] of [['listing revisions',rvq],['machines',mcq]])if(r.error)banners.push(`Could not read the ${what}: ${r.error.message}.`);
+    (rvq.data||[]).forEach(r=>{D.revs[r.id]=r;});
+    (mcq.data||[]).forEach(m=>{(D.machines[m.revision_id]=D.machines[m.revision_id]||[]).push(m);});
+  }
+  /* jobs.js reads a listing's machines and capacity in words */
+  NXJOBS.use({vocab:D.vocab,revisions:D.revs,machines:D.machines,orgs:D.orgs,listings:D.listings});
+  const xq=await sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at,requested_by')
+    .in('status',['pending','claimed','failed','done']).in('type',LISTING_INTENTS).order('id',{ascending:false}).limit(1000);
+  if(xq.error)banners.push(`Could not read the queued actions: ${xq.error.message}.`);
+  if((xq.data||[]).length===1000)banners.push('Showing the newest 1,000 queued actions; older ones are not on this page.');
+  readIntents=xq.data||[];sending=[];watch(readIntents);
+  state='ready';render();
+}
+function keysOf(i){
+  const p=i.payload_json||{}, t=i.type;
+  if(t==='save-board-opportunity'||t==='end-board-opportunity')return p.id?['opp:'+p.id]:['opp:new'];
+  if(t==='introduce-on-board')return ['opp:'+p.opportunity_id].concat(p.request_id!=null?['req:'+p.request_id]:[]);
+  if(t==='record-code-sales')return ['opp:'+p.opportunity_id];
+  if(t==='restore-org')return ['org:'+p.org_id];
+  if(t==='review-web-request')return ['req:'+p.request_id];
+  return [];
+}
+function watch(rows){
+  intentByKey={};
+  rows.slice().sort((a,b)=>a.id-b.id).forEach(i=>keysOf(i).forEach(k=>{if(i.status==='done')delete intentByKey[k];else intentByKey[k]=i;}));
+}
+const btn=(act,label,icon,data,cls)=>`<button type="button" class="btn sm${cls?' '+cls:''}" data-act="${act}"${Object.entries(data||{}).map(([k,v])=>` data-${k}="${esc(v)}"`).join('')}>${icon?ms(icon,'sm'):''}${esc(label)}</button>`;
+const link=(href,label,icon,cls)=>`<a class="btn sm${cls?' '+cls:''}" href="${esc(href)}">${icon?ms(icon,'sm'):''}${esc(label)}</a>`;
+const cancel=()=>btn('closeUi','Cancel','',{},'quiet');
+const input=(id,ph,v,type)=>`<label class="sr" for="${id}">${esc(ph)}</label><input class="input" id="${id}" type="${type||'text'}" placeholder="${esc(ph)}" value="${esc(v||'')}">`;
+const area=(id,ph,v)=>`<label class="sr" for="${id}">${esc(ph)}</label><textarea class="input" id="${id}" placeholder="${esc(ph)}">${esc(v||'')}</textarea>`;
+const select=(id,opts,cur,disabled)=>`<select class="input" id="${id}"${disabled?' disabled':''}>${opts.map(([v,l])=>`<option value="${esc(v)}"${String(v)===String(cur==null?'':cur)?' selected':''}>${esc(l)}</option>`).join('')}</select>`;
+const field=(label,inner)=>`<div class="field"><span class="flabel">${esc(label)}</span>${inner}</div>`;
+const failLine=i=>i&&i.status==='failed'?`<div class="fail-line">${ms('error','sm')}<span>Failed: ${esc(NXJOBS.sentence(i.result_note))}</span></div>`:'';
+const queuedLine=i=>i&&i.status!=='failed'?'<span class="picker-note">Queued, moments away.</span>':'';
+const val=id=>String(($(id)||{}).value||'').trim();
+const coLink=id=>D.companies[id]?`<a class="linkish" href="company.html?id=${esc(id)}">${esc(D.companies[id].name)}</a>`:'';
+const orgLink=id=>D.orgs[id]?`<a class="linkish" href="company.html?org=${esc(encodeURIComponent(id))}">${esc(D.orgs[id].name||'Account')}</a>`:esc((D.orgs[id]||{}).name||'');
+const oppById=id=>D.opps.find(o=>String(o.id)===String(id))||null;
+const offAccount=o=>!!(o&&(o.removed_at||o.deleted_at||o.erased_at||o.closed_at));
+const ownerName=o=>o.owner_company_id==null?'':((D.companies[o.owner_company_id]||{}).name||`company ${o.owner_company_id}`);
+
+/* ---------- opportunities ---------- */
+function feeLine(o){
+  if(o.fee_note)return o.fee_note;
+  if(o.fee_rate!=null)return `${pct(o.fee_rate)} agreed`;
+  return 'Fee not agreed yet';
+}
+function soFar(o){
+  const n=D.intros.filter(i=>i.brief_id===o.id).length, uses=D.reveals[o.id]||0, reps=D.reports.filter(r=>r.opportunity_id===o.id);
+  const parts=[n?`${n} ${n===1?'introduction':'introductions'}`:'no introductions yet'];
+  if(o.kind==='discount_code')parts.push(`${uses} ${uses===1?'use':'uses'} logged`,reps.length?`reported for ${reps.map(r=>r.quarter).sort().reverse().join(', ')}`:'no quarter reported');
+  return parts.join(', ');
+}
+function ownerFact(o){
+  const set=btn('openUi','Set the owner','business',{ui:'owner:'+o.id},'quiet');
+  if(o.owner_company_id==null)return `<span class="no-owner">No owner</span> ${set}`;
+  return coLink(o.owner_company_id)+(o.owner_org_id?'':' <span class="muted-t">no portal account set</span>')+' '+set;
+}
+function oppCard(o){
+  const q=intentByKey['opp:'+o.id];
+  const top=`<div class="opp-top"><span class="ref">${esc(o.ref)}</span><span class="stage ${STATE_CLASS[o.status]||''}">${esc(STATE_WORD[o.status]||o.status)}</span>`+
+    `<span class="tag mini">${esc(CAT_LABEL[o.cat]||o.cat||'No category')}</span><span class="tag mini">${esc(NAMING_LABEL[o.naming]||o.naming)}</span>${o.dir?`<span class="tag mini">${esc(o.dir==='TWO-WAY'?'Two-way':o.dir==='SEEKING'?'Seeking':'Offering')}</span>`:''}</div>`;
+  const facts=`<div class="opp-facts"><span><span class="k">Owner</span>${ownerFact(o)}</span><span><span class="k">Model</span>${esc(KIND_LABEL[o.kind]||o.kind)}, ${esc(feeLine(o))}</span>`+
+    `<span><span class="k">Since</span>${esc(fmt(o.created_at))}</span><span><span class="k">So far</span>${esc(soFar(o))}</span></div>`;
+  let acts='';
+  if(q&&q.status!=='failed')acts=queuedLine(q);
+  else{
+    const b=[];
+    if(o.status==='posted')b.push('<span class="st">The brief-writer is drafting it</span>');
+    if(o.status==='draft')b.push(btn('openEditor','Review and publish','rate_review',{opp:o.id},'primary'));
+    if(o.status==='live'){
+      b.push(btn('openUi','Introduce someone','handshake',{ui:'intro:'+o.id},'primary'));
+      if(o.kind==='discount_code')b.push(btn('openUi','Record a quarter’s code sales','sell',{ui:'code:'+o.id}));
+      b.push(btn('openEditor','Edit','edit',{opp:o.id},'quiet'));
+      b.push(btn('setStatus','Withhold','visibility_off',{opp:o.id,status:'withheld'},'quiet'));
+    }
+    if(o.status==='withheld'){b.push(btn('setStatus','Back to draft','undo',{opp:o.id,status:'draft'}));b.push(btn('openEditor','Edit','edit',{opp:o.id},'quiet'));}
+    b.push(btn('openUi','End','block',{ui:'end:'+o.id},'quiet'));
+    acts=failLine(q)+b.join('');
+  }
+  return `<section class="panel opp" id="opp-${esc(o.id)}">${top}<h3>${esc((o.public||{}).title||'(no title yet)')}</h3>${facts}<div class="actions">${acts}</div>${oppChoice(o)}</section>`;
+}
+function oppChoice(o){
+  const u=UI.open;
+  if(UI.editing===o.id)return editorHtml(o);
+  if(u==='owner:'+o.id)return ownerPicker(o);
+  if(u==='intro:'+o.id)return introduceForm(o,null);
+  if(u==='code:'+o.id)return `<div class="inline-choice"><span>The supplier’s report for the quarter: what was sold with the code${o.code_terms?' ('+esc(o.code_terms)+')':''}, at ${o.fee_rate!=null?esc(pct(o.fee_rate)):'no rate set'}.</span>${input('cs-q-'+o.id,'Quarter, for example 2026-Q3')}${input('cs-units-'+o.id,'Units (optional)')}${input('cs-value-'+o.id,'Value sold')}${input('cs-cur-'+o.id,'Currency','GBP')}${input('cs-note-'+o.id,'Note (optional)')}${btn('recordCode','Record the quarter','sell',{opp:o.id},'primary')}${cancel()}</div>`;
+  if(u==='end:'+o.id)return `<div class="inline-choice"><span>Why has ${esc(o.ref)} ended? Kept on the opportunity; its card comes off the board at once.</span>${input('en-why-'+o.id,'The reason')}${btn('end','End the opportunity','block',{opp:o.id},'danger')}${cancel()}</div>`;
+  return '';
+}
+/* Set the owner (070 D11): a company from Contacts, then the site whose
+   account answers its introductions. */
+function ownerPicker(o){
+  const qtext=UI.ownerQuery.trim().toLowerCase();
+  const matches=qtext?Object.values(D.companies).filter(c=>!c.archived_at&&String(c.name||'').toLowerCase().includes(qtext)).sort((a,b)=>String(a.name).localeCompare(String(b.name))).slice(0,12):[];
+  const chosen=UI.ownerPick!=null?D.companies[UI.ownerPick]:null;
+  let h=`<div class="picker"><span class="tg-label">The company behind ${esc(o.ref)}, from Contacts</span>`+input('ow-q-'+o.id,'Type part of the name',UI.ownerQuery)+
+    `<div class="actions">${btn('findOwner','Find the company','search',{opp:o.id})}${cancel()}</div>`;
+  if(qtext)h+=matches.length?`<div class="picker-opts cols">${matches.map(c=>`<button type="button" class="opt" data-act="pickOwner" data-opp="${esc(o.id)}" data-company="${esc(c.id)}" aria-pressed="${UI.ownerPick===c.id}">${esc(c.name)}</button>`).join('')}</div>`
+    :'<p class="picker-note">No company in Contacts matches. Add it on Contacts first.</p>';
+  if(chosen){
+    const sites=D.sites.filter(s=>s.company_id===chosen.id&&s.org_id&&!offAccount(D.orgs[s.org_id]));
+    h+=`<p class="picker-note">${esc(chosen.name)}. ${sites.length?'The site whose account answers its introductions:':'No site of this company has a portal account yet: introductions wait until it registers.'}</p>`+
+      (sites.length?`<label class="sr" for="ow-site-${esc(o.id)}">Site</label>${select('ow-site-'+o.id,[['','No site yet']].concat(sites.map(s=>[s.org_id,s.name])),sites.length===1?sites[0].org_id:'')}`:'')+
+      `<div class="actions">${btn('saveOwner','Set the owner','business',{opp:o.id},'primary')}${cancel()}</div>`;
+  }
+  return h+'</div>';
+}
+/* Introduce (070, D3 to D5): one introduction on the opportunity, from a
+   member's request or by us. The fee is agreed in writing first; the side
+   that sells is the owner on an OFFERING, the company introduced on a
+   SEEKING, and the desk's choice on a TWO-WAY one. */
+function introduceForm(o,r){
+  const sells=o.dir==='OFFERING'?'owner':o.dir==='SEEKING'?'introduced':'';
+  const ownerSells=sells==='owner', id=o.id;
+  const qtext=UI.orgQuery.trim().toLowerCase();
+  const matches=qtext?Object.values(D.orgs).filter(g=>!g.removed_at&&!g.deleted_at&&!g.erased_at&&String(g.name||'').toLowerCase().includes(qtext)).sort((a,b)=>String(a.name).localeCompare(String(b.name))).slice(0,12):[];
+  const picked=UI.orgPick?D.orgs[UI.orgPick]:null;
+  return `<div class="picker editor"><span class="tg-label">${r?`Introducing ${esc(r.company||('ENQ-'+String(r.id).padStart(4,'0')))} to`:'Introducing an account to'} ${esc(ownerName(o)||'the owner')}, the owner of ${esc(o.ref)}</span>`+
+    (r?'':`${input('i-orgq-'+id,'Type part of the account’s name',UI.orgQuery)}<div class="actions">${btn('findOrg','Find the account','search',{opp:id})}</div>`+
+      (qtext?(matches.length?`<div class="picker-opts cols">${matches.map(g=>`<button type="button" class="opt" data-act="pickOrg" data-org="${esc(g.id)}" aria-pressed="${UI.orgPick===g.id}">${esc(g.name)}</button>`).join('')}</div>`
+        :'<p class="picker-note">No open account by that name. A company with no account registers first.</p>'):'')+
+      (picked?`<p class="picker-note">Introducing ${esc(picked.name)}.</p>`:''))+
+    `<div class="form-grid">${field('Who sells (they declare monthly and are invoiced)',select('i-sells-'+id,[['','Choose who sells'],['owner','The owner sells'],['introduced','The company introduced sells']],sells,o.dir!=='TWO-WAY'))}`+
+    field('Fee model',select('i-model-'+id,[['recurring','Recurring: declared monthly, billed quarterly'],['success_fee','Success fee: recorded by hand, never declared']],'recurring'))+
+    field('Fee rate (a percentage; blank for the schedule: 6, 5, 4, 3 and 2 per cent by year)',input('i-rate-'+id,'Fee rate',ownerSells&&o.fee_rate!=null?+(Number(o.fee_rate)*100).toFixed(2):''))+
+    field('Fee in words (as agreed in writing)',input('i-note-'+id,'The fee in words',ownerSells?o.fee_note||'':''))+
+    field('Agreed on (the date of the written agreement)',input('i-agreed-'+id,'Agreed on','','date'))+
+    field(r&&o.source!=='desk'?'Agreement ref (optional: the written agreement this runs on, for example the email filed under the company’s folder)':'Agreement ref (required: the written agreement this runs on, for example the email filed under the company’s folder)',input('i-ref-'+id,'deals/company/emails/2026-10-20_fee-agreed.md'))+
+    `</div>${field(r?'Notes (optional, for the desk only: the owner sees what the company asking wrote)':'Notes (what the company wants, in a line: the owner reads this in its offer email, so leave out the company name and anything that identifies it)',area('i-notes-'+id,'Notes'))}`+
+    `<div class="hint">${ms('info')}<span>This makes the introduction: the owner is emailed its offer from the portal, answers on its account page, and the introduction email goes to both on acceptance. No email goes out by hand.</span></div>`+
+    `<div class="actions">${btn('introduce','Introduce','handshake',{opp:id,req:r?r.id:''},'primary')}${cancel()}</div></div>`;
+}
+/* The payload from the form's fields, or the sentence that stops it: pure,
+   so a test runs it (ported from the Opportunities Board, plan 070). */
+function introducePayload(f){
+  const errors=[];
+  if(f.request_id==null&&!f.introduced_org_id)errors.push('choose the account to introduce');
+  if(f.dir==='TWO-WAY'&&!f.selling_side)errors.push('say who sells: the owner or the company introduced');
+  if(!String(f.fee_note||'').trim())errors.push('write the fee in words: it is agreed in writing before any introduction');
+  if(f.fee_model!=='success_fee'&&!f.fee_agreed_at)errors.push('give the date the fee was agreed');
+  const rate=String(f.fee_rate||'').trim();
+  if(rate!==''&&!(Number(rate)>=0&&Number(rate)<=100))errors.push('the fee rate is a percentage between 0 and 100');
+  if((f.introduced_org_id||f.source==='desk')&&!String(f.agreement_ref||'').trim())
+    errors.push('name the written agreement this runs on (agreement ref)');
+  if(errors.length)return {payload:null,error:errors.join('; ')};
+  const payload={opportunity_id:f.opportunity_id};
+  if(f.request_id!=null)payload.request_id=f.request_id;else payload.introduced_org_id=f.introduced_org_id;
+  if(f.dir==='TWO-WAY')payload.selling_side=f.selling_side;
+  payload.fee_model=f.fee_model||'recurring';
+  if(rate!=='')payload.fee_rate=Number(rate)/100;
+  payload.fee_note=String(f.fee_note).trim();
+  if(f.fee_agreed_at)payload.fee_agreed_at=f.fee_agreed_at;
+  if(String(f.agreement_ref||'').trim())payload.agreement_ref=String(f.agreement_ref).trim();
+  if(String(f.notes||'').trim())payload.notes=String(f.notes).trim();
+  return {payload,error:null};
+}
+
+/* ---- the editor (ported from the Opportunities list, plan 070) ---- */
+const escT=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const unesc=s=>String(s||'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+const inlineEm=s=>escT(s).replace(/\*([^*\n]+)\*/g,'<em>$1</em>');
+function htmlToText(h){
+  let t=(h||'').trim();
+  t=t.replace(/<\/p>\s*<p>/gi,'\n\n').replace(/^<p>/i,'').replace(/<\/p>$/i,'');
+  t=t.replace(/<br\s*\/?>/gi,'\n').replace(/<\/?em>/gi,'*').replace(/<\/?b>/gi,'');
+  return unesc(t);
+}
+function textToDetail(t){
+  return String(t||'').trim().split(/\n\s*\n/).filter(Boolean).map(p=>'<p>'+inlineEm(p.trim()).replace(/\n/g,'<br>')+'</p>').join('');
+}
+function fitToText(h){return htmlToText((h||'').replace(/^<b>Best fit:<\/b>\s*/i,''));}
+function textToFit(t){t=String(t||'').trim();return t?'<b>Best fit:</b> '+inlineEm(t):'';}
+const csv=v=>String(v||'').split(',').map(s=>s.trim()).filter(Boolean);
+/* The signals and the locked teaser, one per line as "Headline | Caption". */
+const pairsToText=list=>(list||[]).map(p=>`${p[0]||''} | ${p[1]||''}`).join('\n');
+const textToPairs=t=>String(t||'').split('\n').map(l=>l.split('|').map(s=>s.trim())).map(p=>[p[0]||'',p.slice(1).join(' | ')||'']).filter(p=>p[0]||p[1]);
+const dealVal=d=>Array.isArray(d)?d.join(', '):(d||'');
+/* The editor's values from the row, in the save handler's own keys: the
+   snapshot the save diffs against, so an unchanged field is never re-sent. */
+function valuesOf(o){
+  const pub=(o&&o.public)||{}, priv=(o&&o.private)||{};
+  return {
+    dir:o?o.dir||'':'', cat:o?o.cat||'':'',
+    public:{head:pub.head||'', title:pub.title||'', regions:pub.regions||[], sum:pub.sum||'', fit:pub.fit||'', tags:pub.tags||[],
+      detail:pub.detail||'', signals:pub.signals||[], locked:pub.locked||[]},
+    private:{deal:Array.isArray(priv.deal)?priv.deal:(priv.deal||null), confidentiality:priv.confidentiality||'standard', terms:priv.terms||null, products:priv.products||[]},
+    owner_company_id:o&&o.owner_company_id!=null?o.owner_company_id:null, owner_org_id:(o&&o.owner_org_id)||null,
+    naming:o?o.naming||'anonymised':'anonymised', display_name:(o&&o.display_name)||null,
+    kind:o?o.kind||'introduction':'', code:(o&&o.code)||null, code_terms:(o&&o.code_terms)||null,
+    fee_model:o?o.fee_model||'recurring':'recurring', fee_rate:o&&o.fee_rate!=null?Number(o.fee_rate):null,
+    fee_note:(o&&o.fee_note)||null, fee_agreed_at:(o&&o.fee_agreed_at)||null, agreement_ref:(o&&o.agreement_ref)||null,
+  };
+}
+/* Every field the editor holds, read back in the same keys. */
+function formValues(){
+  const dealParts=csv(val('f_deal')), rate=val('f_fee_rate');
+  return {
+    dir:val('f_dir'), cat:val('f_cat'),
+    public:{head:val('f_head'), title:val('f_title'), regions:csv(val('f_regions')), sum:val('f_sum'), fit:textToFit(val('f_fit')), tags:csv(val('f_tags')),
+      detail:textToDetail(val('f_detail')), signals:textToPairs(val('f_signals')), locked:textToPairs(val('f_locked'))},
+    private:{deal:dealParts.length>1?dealParts:(dealParts[0]||null), confidentiality:val('f_conf')||'standard', terms:val('f_terms')||null, products:csv(val('f_products'))},
+    owner_company_id:UI.ownerPick!=null?UI.ownerPick:(oppById(UI.editing)||{}).owner_company_id??null, owner_org_id:val('f_site')||null,
+    naming:val('f_naming'), display_name:val('f_display')||null,
+    kind:val('f_kind'), code:val('f_code')||null, code_terms:val('f_code_terms')||null,
+    fee_model:val('f_fee_model'), fee_rate:rate===''?null:Number(rate)/100,
+    fee_note:val('f_fee_note')||null, fee_agreed_at:val('f_fee_agreed')||null, agreement_ref:val('f_agreement')||null,
+  };
+}
+function editorHtml(o){
+  /* A save the engine refused comes back minutes later: the form shows what
+     was typed, over the row, with the engine's sentence. */
+  const q=o?intentByKey['opp:'+o.id]:null;
+  const refused=!!(o&&q&&q.status==='failed'&&q.type==='save-board-opportunity'&&String((q.payload_json||{}).id)===String(o.id));
+  const base=valuesOf(o), typed=refused?(q.payload_json||{}):{};
+  const v=refused?{...base,...typed,public:{...base.public,...(typed.public||{})},private:{...base.private,...(typed.private||{})}}:base;
+  const pub=v.public, priv=v.private;
+  const sites=D.sites.filter(s=>s.company_id===(UI.ownerPick!=null?UI.ownerPick:v.owner_company_id)&&s.org_id&&!offAccount(D.orgs[s.org_id]));
+  /* No defaulted choice on a new opportunity (the standing correction of 30 September 2026). */
+  const DIRS=(o?[]:[['','Choose a direction']]).concat([['OFFERING','Offering'],['SEEKING','Seeking'],['TWO-WAY','Two-way']]);
+  const CATS=(o?[]:[['','Choose a category']]).concat(Object.entries(CAT_LABEL));
+  const KINDS=(o?[]:[['','Choose the kind']]).concat([['introduction','Introduction'],['discount_code','Discount code']]);
+  return `<div class="picker editor"><span class="tg-label">${o?`Edit ${esc(o.ref)}`:'New opportunity'}</span>`+
+    (refused?`<div class="fail-line">${ms('error','sm')}<span>Your last save was refused: ${esc(NXJOBS.sentence(q.result_note))} The fields show what you typed.</span></div>`:'')+
+    `<div class="form-grid">${field('Direction',select('f_dir',DIRS,v.dir))}${field('Category',select('f_cat',CATS,v.cat))}`+
+    `${field('Card headline (short: the card shows it; blank shows the title)',input('f_head','UK supplier of medical filament',pub.head))}${field('Title',input('f_title','The opportunity, as the panel heads it',pub.title))}`+
+    `${field('Regions (comma-separated)',input('f_regions','North America, United Kingdom',pub.regions.join(', ')))}${field('Tags (comma-separated)',input('f_tags','Succession, Confidential',pub.tags.join(', ')))}</div>`+
+    field('Summary',area('f_sum','Summary',pub.sum))+field('Best fit (plain text; "Best fit:" is added)',area('f_fit','labs with SLS printing capability',fitToText(pub.fit)))+
+    field('Detail (plain text; a blank line between paragraphs)',area('f_detail','Detail',htmlToText(pub.detail)))+
+    field('Signals (one per line: Headline | Caption)',area('f_signals','Funded | established 20+ year operation',pairsToText(pub.signals)))+
+    field('Locked teaser (one per line: Label | Hidden value; a signed-in account sees the label, the value shows redacted)',area('f_locked','Company name | ████',pairsToText(pub.locked)))+
+    `<div class="priv"><span class="tg-label">Private: never published</span><div class="form-grid">`+
+    field('Owner site (the account that answers introductions)',select('f_site',[['','No site with an account yet']].concat(sites.map(s=>[s.org_id,s.name])),v.owner_org_id))+
+    field('Naming',select('f_naming',[['anonymised','Anonymised'],['named','Named']],v.naming))+field('Display name (when named; blank shows the company’s name)',input('f_display','Display name',v.display_name))+
+    field('Kind',select('f_kind',KINDS,v.kind))+field('Code (discount code only; never on the card)',input('f_code','Code',v.code))+
+    field('What the code gives (shown on the card)',input('f_code_terms','15% off list price',v.code_terms))+field('Fee model',select('f_fee_model',[['recurring','Recurring'],['success_fee','Success fee']],v.fee_model))+
+    field('Fee rate (a percentage; blank for the schedule)',input('f_fee_rate','Fee rate',v.fee_rate==null?'':+(v.fee_rate*100).toFixed(2)))+field('Fee in words (as agreed in writing)',input('f_fee_note','Fee in words',v.fee_note))+
+    field('Agreed on',input('f_fee_agreed','Agreed on',v.fee_agreed_at,'date'))+field('Agreement ref (where the written agreement is filed)',input('f_agreement','deals/company/emails/2026-10-20_fee-agreed.md',v.agreement_ref))+
+    field('Grounded in (deal slug, comma for several)',input('f_deal','talarmade',dealVal(priv.deal)))+field('Confidentiality',input('f_conf','standard',priv.confidentiality))+
+    field('Terms (optional)',input('f_terms','Terms',priv.terms))+field('Products (comma-separated, optional)',input('f_products','Products',priv.products.join(', ')))+'</div></div>'+
+    `<p class="picker-note">${o&&o.status==='draft'?'Never published: Publish sets it live and asks the engine to publish the board; an opportunity goes live only with an owner company.':'Saving queues the change for the engine; a live opportunity’s card changes on the next publish.'}</p>`+
+    `<div class="actions">${btn('saveEditor','Save','save',{},'primary')}${o&&o.status==='draft'?btn('publish','Publish','rocket_launch',{opp:o.id}):''}${btn('closeEditor','Cancel','',{},'quiet')}</div></div>`;
+}
+
+/* The Opportunities Board's own requests (the Inbox sends them here): a post
+   to approve, which creates the opportunity in Waiting for a draft, and an
+   introduction a member asked for against a live card. */
+function requestsPanel(){
+  const posts=D.requests.filter(r=>r.side==='list_opportunity'), asks=D.requests.filter(r=>r.side==='request_intro'&&String(r.brief_ref||'').trim());
+  if(!posts.length&&!asks.length)return '';
+  const ref=r=>'ENQ-'+String(r.id).padStart(4,'0');
+  const row=(r,acts)=>{
+    const q=intentByKey['req:'+r.id];
+    const facts=[r.company,r.contact_name,r.email,r.location,r.created_at?'received '+fmt(r.created_at):''].filter(Boolean).map(esc).join(' · ');
+    const words=((r.payload||{}).fit||(r.payload||{}).describe)?`<p class="fact">In their words: ${esc((r.payload||{}).fit||(r.payload||{}).describe)}</p>`:'';
+    return `<div class="item"><div class="item-main"><strong>${esc(ref(r))}</strong> ${esc(r.company||'(no company given)')}<span class="item-sub">${facts}</span>${words}</div>`+
+      `<div class="actions">${q&&q.status!=='failed'?queuedLine(q):failLine(q)+acts(r)}</div>${UI.open==='declinereq:'+r.id?`<div class="inline-choice"><span>Why is this declined? Kept on the request.</span>${input('dr-why-'+r.id,'The reason')}${btn('declineRequest','Decline','',{req:r.id},'danger')}${cancel()}</div>`:''}${UI.open==='introreq:'+r.id?introduceForRequest(r):''}</div>`;
+  };
+  let h='';
+  if(posts.length)h+=`<section class="panel"><h2>${ms('post_add')}Posts to approve <span class="n num">${posts.length}</span></h2>`+posts.map(r=>row(r,x=>btn('reviewRequest','Approve and draft the brief','check',{req:x.id,status:'approved'},'primary')+btn('openUi','Decline with a note','',{ui:'declinereq:'+x.id},'quiet'))).join('')+'</section>';
+  if(asks.length)h+=`<section class="panel"><h2>${ms('handshake')}Introductions to make <span class="n num">${asks.length}</span></h2>`+asks.map(r=>row(r,x=>btn('openUi','Introduce','handshake',{ui:'introreq:'+x.id},'primary')+btn('openUi','Decline with a note','',{ui:'declinereq:'+x.id},'quiet'))).join('')+'</section>';
+  return h;
+}
+function introduceForRequest(r){
+  const askedRef=String(r.brief_ref||'').replace(/^BRIEF\s+/i,'');
+  const o=D.opps.find(x=>x.ref===askedRef);
+  if(!o)return `<p class="picker-note">No opportunity ${esc(askedRef)} on the board: it may have ended. Decline the request with a note.</p>`;
+  if(!o.owner_org_id)return `<p class="picker-note">${esc(o.ref)} has no owner account yet: set the owner on its card first.</p>`;
+  return introduceForm(o,r);
+}
+function opportunitiesTab(){
+  if(missing080)return requestsPanel();
+  const working=D.opps.filter(o=>o.status!=='ended'), ended=D.opps.filter(o=>o.status==='ended').sort((a,b)=>String(b.ended_at||'').localeCompare(String(a.ended_at||'')));
+  const shown=working.filter(o=>UI.filter==='all'||o.status===UI.filter);
+  const filters=`<div class="filters-mini" role="group" aria-label="Show opportunities">${FILTERS.map(([v,l])=>`<button type="button" class="opt" data-act="filter" data-f="${v}" aria-pressed="${UI.filter===v}">${esc(l)} <span class="n num">${v==='all'?working.length:working.filter(o=>o.status===v).length}</span></button>`).join('')}</div>`;
+  const pickIntro=UI.open==='introduce-pick'?`<section class="panel"><h2>${ms('handshake')}Introduce someone on which opportunity?</h2><div class="picker-opts cols">${working.filter(o=>o.status==='live'&&o.owner_org_id).map(o=>`<button type="button" class="opt" data-act="openUi" data-ui="intro:${esc(o.id)}">${esc(o.ref)} ${esc((o.public||{}).title||'')}</button>`).join('')||'<span class="picker-note">No live opportunity with an owner account yet.</span>'}</div><div class="actions">${cancel()}</div></section>`:'';
+  const newOpp=UI.editing==='new'?`<section class="panel">${editorHtml(null)}</section>`:'';
+  const cards=shown.length?shown.map(oppCard).join(''):'<section class="panel"><div class="empty-state"><p>Nothing here. Approving a post creates an opportunity; so does New opportunity.</p></div></section>';
+  const arch=ended.length?`<details class="archive"><summary>Ended (${ended.length})</summary><div class="arch-body">${ended.map(o=>`<div class="arch-row"><strong>${esc(o.ref)}</strong> ${esc((o.public||{}).title||'')}<span class="arch-note">Ended ${esc(fmt(o.ended_at))}${o.ended_reason?': '+esc(o.ended_reason):''}${ownerName(o)?', owner '+esc(ownerName(o)):''}</span></div>`).join('')}</div></details>`:'';
+  return requestsPanel()+filters+pickIntro+newOpp+cards+arch;
+}
+
+/* ---------- the hubs ---------- */
+const openStrikes=orgId=>{const yearAgo=Date.now()-365*864e5;return D.strikes.filter(s=>s.org_id===orgId&&!s.cured_at&&new Date(s.opened_at).getTime()>yearAgo).length;};
+function membershipCell(o){
+  const r=D.invoices[o.id];
+  if(o.paused_by)return `<span class="st err">Paused by us</span><small>${esc(fmt(o.hidden_at))}${o.paused_reason?': '+esc(o.paused_reason):''}</small>`;
+  if(!r)return o.sub_status&&o.sub_status!=='none'?'<span class="st">Billed before Xero, by hand</span>':'<span class="st">Not billed yet</span>';
+  if(r.paid_at)return `<span class="st ok">Paid</span><small>${esc(r.xero_invoice_number||'')}, ${esc(r.period==='monthly'?'monthly':'yearly')} to ${esc(fmt(r.period_end))}</small>`;
+  if(!r.invoiced_at)return '<span class="st">Invoice being raised</span>';
+  if(r.hidden_at&&!r.restored_at)return `<span class="st err">Hidden: unpaid</span><small>Hidden since ${esc(fmt(r.hidden_at))}, ${esc(r.xero_invoice_number||'')}</small>`;
+  const n=NXJOBS.clockDay(r,todayIso());
+  return (n==null?'<span class="st info">Unpaid</span>':NXJOBS.clockHtml(r,n))+`<small>${esc(r.xero_invoice_number||'')}</small>`;
+}
+function declCell(o,hub){
+  return `<div class="decl">${lastPeriods().map(p=>{
+    const d=D.declarations.find(x=>x.org_id===o.id&&x.hub===hub&&x.period===p);
+    const word=!d?'missing':d.status==='submitted'||d.status==='closed'?'declared':d.status==='nothing'?'nothing':d.status;
+    const mon=NXJOBS.day(p+'-01').split(' ')[1];
+    return `<span><b>${esc(mon)}</b> ${esc(word)}</span>`;}).join('')}</div>`;
+}
+function strikesCell(o){
+  const n=openStrikes(o.id);
+  if(!n)return '<span class="st">None</span>';
+  return `<span class="st${n>=2?' err':''}">${n} open ${n===1?'strike':'strikes'}</span>`;
+}
+function hostRow(l,hub){
+  const o=D.orgs[l.org_id]||{id:l.org_id,name:'(account)'}, rev=D.revs[l.live_revision_id]||{};
+  const machines=NXJOBS.machineLines(rev), ms_=(D.machines[rev.id]||[]);
+  const mats=[...new Set(ms_.flatMap(m=>m.materials||[]))].map(t=>NXJOBS.lab('material',t));
+  const cap=NXJOBS.capacityOf(rev), leads=ms_.map(m=>m.lead_time_days).filter(v=>v!=null);
+  const lead=leads.length?(Math.min(...leads)===Math.max(...leads)?`${Math.min(...leads)} days`:`${Math.min(...leads)} to ${Math.max(...leads)} days`):'';
+  return `<tr><td>${orgLink(o.id)}${rev.town?`<small>${esc(rev.town)}</small>`:''}${o.score!=null?`<small>Score ${esc(o.score)}</small>`:''}</td>`+
+    `<td>${machines.length?machines.map(esc).join('<br>'):'<span class="muted-t">None listed</span>'}${mats.length?`<small>${esc(mats.join(', '))}</small>`:''}</td>`+
+    `<td class="num">${cap!=null?esc(`${cap} a month`):''}</td><td>${esc(lead)}</td><td>${esc(NXJOBS.fmtVal(rev.ships_to,'region'))}</td>`+
+    `<td>${(()=>{const cell=membershipCell(o);return (l.status==='hidden'&&!/Hidden|Paused/.test(cell)?'<span class="st err">Hidden</span> ':'')+cell;})()}</td><td>${declCell(o,hub)}</td><td>${strikesCell(o)}</td></tr>`;
+}
+function hubTab(hub){
+  const mine=D.listings.filter(l=>l.hub===hub&&(l.status==='live'||l.status==='hidden')&&l.live_revision_id);
+  const off=offAccount;
+  const live=mine.filter(l=>!off(D.orgs[l.org_id])).sort((a,b)=>String((D.orgs[a.org_id]||{}).name||'').localeCompare(String((D.orgs[b.org_id]||{}).name||'')));
+  const removed=mine.filter(l=>off(D.orgs[l.org_id]));
+  let h='';
+  const wonNames=D.won.map(c=>{const s=D.sites.find(x=>x.id===c.site_id);return {name:(D.companies[c.company_id]||{}).name,org:s&&s.org_id};})
+    .filter(w=>w.name&&(!w.org||mine.some(l=>l.org_id===w.org)||!D.listings.some(l=>l.org_id===w.org)));
+  if(wonNames.length)h+=`<div class="banner ok">${ms('celebration')}<div class="banner-text"><span>${esc(wonNames.map(w=>w.name).join(', '))} moved here from Hub Providers today.</span></div></div>`;
+  const waiting=D.waiting.filter(r=>r.hub===hub);
+  if(waiting.length)h+=`<div class="hint">${ms('pending_actions')}<span>Waiting for approval, not live yet: ${waiting.map(r=>{
+    const href=/^company\.html\?/.test(String(r.board||''))?r.board+'&job='+encodeURIComponent(r.item_key||''):'inbox.html';
+    return `<a class="linkish blue" href="${esc(href)}">${esc(r.name||'(no name)')}</a>`;}).join(', ')}. Each is decided in the Inbox. <a class="linkish blue" href="inbox.html">Open the Inbox</a></span></div>`;
+  h+=`<section class="panel hosts"><h2>${ms('storefront')}Hosts on the ${esc(HUB_NAME[hub])} <span class="n num">${live.length}</span></h2>`+
+    (live.length?`<div class="tscroll"><table class="tbl"><thead><tr><th>Site</th><th>Machines and materials</th><th class="num">Pairs a month</th><th>Lead time</th><th>Ships to</th><th>Membership</th><th>Declarations</th><th>Strikes</th></tr></thead><tbody>${live.map(l=>hostRow(l,hub)).join('')}</tbody></table></div>`
+      :'<div class="empty-state"><p>No live host yet. A host shows here once its listing is approved in the Inbox.</p></div>')+
+    `<p class="note-line">${ms('info')}<span>A seeker sees the three best fits by name once it has accepted the introduction terms for that search; its pick emails that site its offer at once. A provider learns who the seeker is only when it accepts.</span></p></section>`;
+  if(removed.length)h+=`<details class="archive"><summary>Removed hosts (${removed.length})</summary><div class="arch-body">${removed.map(l=>{
+    const o=D.orgs[l.org_id]||{}, q=intentByKey['org:'+o.id], why=o.removed_reason||'', when=o.removed_at||o.closed_at||o.deleted_at;
+    const restore=o.removed_at&&!o.deleted_at&&!o.erased_at&&!o.closed_at;
+    return `<div class="arch-row">${orgLink(o.id)}<span class="arch-note">${o.removed_at?'Removed':o.closed_at?'Closed':'Deleted'} ${esc(fmt(when))}${why?': '+esc(why):''}</span>`+
+      (restore?(q&&q.status!=='failed'?queuedLine(q):failLine(q)+btn('openUi','Restore to the hub','undo',{ui:'restore:'+o.id},'quiet')):'')+
+      (UI.open==='restore:'+o.id?`<div class="inline-choice"><span>Put ${esc(o.name||'this host')} back on the hub? Seekers can find it again at once.</span>${btn('restore','Restore to the hub','undo',{org:o.id},'primary')}${cancel()}</div>`:'')+'</div>';
+  }).join('')}</div></details>`;
+  return h;
+}
+
+/* ---------- the page ---------- */
+function tabsHtml(){
+  const onHub=hub=>D.listings.filter(l=>l.hub===hub&&l.status!=='declined'&&!offAccount(D.orgs[l.org_id])).length;
+  const n={opportunities:D.opps.filter(o=>o.status!=='ended').length,print:onHub('print'),mill:onHub('mill')};
+  return `<div class="views" role="tablist" aria-label="Live Listings">`+TABS.map(([id,label])=>`<a role="tab" href="listings.html?tab=${id}" aria-selected="${UI.tab===id}">${esc(label)}<span class="n num">${n[id]}</span></a>`).join('')+'</div>';
+}
+function render(){
+  const page=$('page');
+  const bn=banners.map(b=>`<div class="banner">${ms('info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
+  if(state==='loading'){page.innerHTML=NXShell.headHtml({title:'Live Listings'})+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the listings.</span></div></section>`;return;}
+  const actions=UI.tab==='opportunities'&&!missing080?btn('openUi','Introduce someone','handshake',{ui:'introduce-pick'},'primary')+btn('newOpp','New opportunity','add',{}):'';
+  let h=NXShell.headHtml({title:'Live Listings',lede:LEDE[UI.tab],actions})+bn+tabsHtml();
+  h+=UI.tab==='opportunities'?opportunitiesTab():hubTab(UI.tab);
+  page.innerHTML=h;
+}
+
+/* ---------- raising ---------- */
+async function raise(type,payload,toastText){
+  const temp={id:1e15+(++seq),type,payload_json:payload,status:'pending',requested_by:me.email};
+  sending.push(temp);watch(readIntents.concat(sending));UI.open=null;render();
+  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
+  if(error){sending=sending.filter(x=>x!==temp);watch(readIntents.concat(sending));render();NXShell.toast(`Could not queue it: ${error.message}`);return false;}
+  if(toastText)NXShell.toast(toastText);
+  setTimeout(load,1500);
+  return true;
+}
+const queued=v=>`${v}, queued. The engine acts within a minute or two.`;
+/* The one direct write (070 D9): status, and updated_at with it. Live is
+   one click: the status, then the publish (J2 leak-guards the rows). */
+async function setStatus(id,status){
+  const {error}=await sb.from('board_opportunities').update({status:status,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){
+    NXShell.toast(/live_needs_owner/.test(error.message||'')?'An opportunity goes live only with an owner company: set it on the card first.'
+      :/live_code_needs_code/.test(error.message||'')?'A discount-code opportunity goes live only with its code: add it in Edit.'
+      :`Could not change the status: ${error.message}`);
+    return false;
+  }
+  await raise('publish-to-live-site',{},queued(status==='live'?'Set live; publishing the board':status==='withheld'?'Withheld; publishing the board':'Back to draft; publishing the board'));
+  return true;
+}
+
+const ACT={
+  openUi(el){
+    const ui=el.dataset.ui;
+    if(/^intro:/.test(ui)){const o=oppById(ui.slice(6));if(o&&!o.owner_org_id){NXShell.toast('Set the owner first: an introduction goes to the owner’s account.');return;}}
+    UI.open=ui;UI.editing=null;UI.ownerQuery='';UI.ownerPick=null;UI.orgQuery='';UI.orgPick=null;render();
+  },
+  closeUi(){UI.open=null;render();},
+  filter(el){UI.filter=el.dataset.f;render();},
+  findOwner(el){UI.ownerQuery=val('ow-q-'+el.dataset.opp);UI.ownerPick=null;render();},
+  pickOwner(el){UI.ownerPick=Number(el.dataset.company);render();},
+  saveOwner(el){
+    const o=oppById(el.dataset.opp), c=UI.ownerPick!=null?D.companies[UI.ownerPick]:null;
+    if(!o||!c){NXShell.toast('Pick the company first.');return false;}
+    const payload={id:o.id,owner_company_id:c.id};
+    const site=val('ow-site-'+o.id);
+    if(site)payload.owner_org_id=site;
+    return raise('save-board-opportunity',{...payload},queued(`Owner of ${o.ref} set to ${c.name}`));
+  },
+  findOrg(el){UI.orgQuery=val('i-orgq-'+el.dataset.opp);UI.orgPick=null;render();},
+  pickOrg(el){UI.orgPick=el.dataset.org;render();},
+  introduce(el){
+    const o=oppById(el.dataset.opp);if(!o)return false;
+    const r=el.dataset.req?D.requests.find(x=>String(x.id)===String(el.dataset.req)):null;
+    const id=o.id, v=k=>val(`i-${k}-${id}`);
+    const form={opportunity_id:o.id,dir:o.dir,source:o.source,request_id:r?r.id:null,introduced_org_id:r?null:(UI.orgPick||null),
+      selling_side:v('sells'),fee_model:v('model'),fee_rate:v('rate'),fee_note:v('note'),fee_agreed_at:v('agreed'),agreement_ref:v('ref'),notes:v('notes')};
+    const {payload,error}=introducePayload(form);
+    if(error){NXShell.toast(error.charAt(0).toUpperCase()+error.slice(1)+'.');return false;}
+    return raise('introduce-on-board',{...payload},queued(`Introduced on ${o.ref}: the owner is emailed its offer`));
+  },
+  reviewRequest(el){
+    const r=D.requests.find(x=>String(x.id)===String(el.dataset.req));if(!r)return false;
+    return raise('review-web-request',{request_id:r.id,status:el.dataset.status},queued(el.dataset.status==='approved'?'Approved: the brief-writer is drafting it':'Marked reviewing'));
+  },
+  declineRequest(el){
+    const r=D.requests.find(x=>String(x.id)===String(el.dataset.req));if(!r)return false;
+    const reason=val('dr-why-'+r.id);
+    if(!reason){NXShell.toast('Give a reason: every declined request keeps one on the record.');return false;}
+    return raise('review-web-request',{request_id:r.id,status:'declined',reason},queued('Declined'));
+  },
+  setStatus(el){return setStatus(el.dataset.opp,el.dataset.status);},
+  newOpp(){UI.editing='new';UI.dirty=false;UI.open=null;UI.ownerPick=null;render();},
+  openEditor(el){const o=oppById(el.dataset.opp);if(!o)return;UI.editing=o.id;UI.dirty=false;UI.open=null;UI.ownerPick=null;render();},
+  closeEditor(){UI.editing=null;UI.dirty=false;render();},
+  edited(){UI.dirty=true;},
+  saveEditor(){
+    const o=UI.editing==='new'?null:oppById(UI.editing);
+    const now=formValues(), rate=val('f_fee_rate');
+    if(rate!==''&&!(Number(rate)>=0&&Number(rate)<=100)){NXShell.toast('The fee rate is a percentage between 0 and 100.');return false;}
+    if(!now.public.title){NXShell.toast('Give it a title.');return false;}
+    if(!now.dir){NXShell.toast('Choose the direction.');return false;}
+    if(!now.cat){NXShell.toast('Choose the category.');return false;}
+    if(!now.kind){NXShell.toast('Choose the kind.');return false;}
+    const before=o?valuesOf(o):null, payload={};
+    for(const [k,v] of Object.entries(now)){if(!before||JSON.stringify(before[k])!==JSON.stringify(v))payload[k]=v;}
+    if(!o){for(const k of Object.keys(payload))if(payload[k]===null)delete payload[k];}
+    if(o)payload.id=o.id;
+    if(o&&Object.keys(payload).length===1){UI.editing=null;UI.dirty=false;render();NXShell.toast('Nothing changed.');return false;}
+    UI.editing=null;UI.dirty=false;
+    return raise('save-board-opportunity',{...payload},queued(o?`Saved ${o.ref}`:'New opportunity saved; the engine gives it its reference'));
+  },
+  async publish(el){
+    const o=oppById(el.dataset.opp);if(!o)return false;
+    if(UI.editing===o.id&&UI.dirty){NXShell.toast('Save your changes first, then Publish.');return false;}
+    UI.editing=null;UI.dirty=false;return setStatus(o.id,'live');
+  },
+  recordCode(el){
+    const o=oppById(el.dataset.opp);if(!o)return false;
+    const v=k=>val(`cs-${k}-${o.id}`);
+    const quarter=v('q').toUpperCase(), value=v('value'), units=v('units'), currency=(v('cur')||'GBP').toUpperCase();
+    if(o.fee_rate==null){NXShell.toast('Set the fee rate on the opportunity first (Edit): the fee is the value at that rate.');return false;}
+    if(!/^\d{4}-Q[1-4]$/.test(quarter)){NXShell.toast('The quarter is YYYY-Qn, for example 2026-Q3.');return false;}
+    if(D.reports.some(r=>r.opportunity_id===o.id&&r.quarter===quarter)){NXShell.toast(`The ${quarter} report for ${o.ref} is already recorded.`);return false;}
+    if(value===''||!(Number(value)>=0)){NXShell.toast('Give the value sold with the code, from the supplier’s report.');return false;}
+    if(units!==''&&!/^\d+$/.test(units)){NXShell.toast('Units is a whole number, or left blank.');return false;}
+    if(!/^[A-Z]{3}$/.test(currency)){NXShell.toast('The currency is a three-letter code, for example GBP.');return false;}
+    const payload={opportunity_id:o.id,quarter,value:Number(value),currency};
+    if(units!=='')payload.units=Number(units);
+    if(v('note'))payload.note=v('note');
+    return raise('record-code-sales',{...payload},queued(`Recorded ${o.ref}’s ${quarter} code sales`));
+  },
+  end(el){
+    const o=oppById(el.dataset.opp);if(!o)return false;
+    const reason=val('en-why-'+o.id);
+    if(!reason){NXShell.toast('Give a reason: an ended opportunity keeps one.');return false;}
+    return raise('end-board-opportunity',{id:o.id,reason},queued(`Ended ${o.ref}`));
+  },
+  restore(el){
+    const o=D.orgs[el.dataset.org];if(!o)return false;
+    return raise('restore-org',{org_id:o.id},queued(`Restored ${o.name||'the host'} to the hub`));
+  },
+};
+/* Typing in the editor marks it: Publish then asks for a save first. */
+document.addEventListener('input',e=>{if(e.target&&e.target.closest&&e.target.closest('.editor'))ACT.edited();});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(b&&ACT[b.dataset.act]){e.preventDefault();ACT[b.dataset.act](b);}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&(UI.open||UI.editing)){UI.open=null;UI.editing=null;render();return;}
+  if(e.key==='Enter'&&/^ow-q-/.test(e.target.id||'')){e.preventDefault();ACT.findOwner({dataset:{opp:e.target.id.slice(5)}});}
+  if(e.key==='Enter'&&/^i-orgq-/.test(e.target.id||'')){e.preventDefault();ACT.findOrg({dataset:{opp:e.target.id.slice(7)}});}
+});
 
 boot();
 </script>

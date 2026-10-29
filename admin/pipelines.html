@@ -78,7 +78,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
 <script src="crm.js?v=071"></script>
-<script src="jobs.js?v=079"></script>
+<script src="jobs.js?v=085"></script>
 <script src="pipelines.js?v=073"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -398,7 +398,7 @@ function render(){
   const title=(TABS.find(t=>t[0]===UI.tab)||TABS[0])[1];
   if(state==='loading'){page.innerHTML=NXShell.headHtml({title:'Pipelines'})+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the boards.</span></div></section>`;return;}
   if(state==='missing'){page.innerHTML=NXShell.headHtml({title:'Pipelines',lede:'The pipelines are not there yet: migration 0078 has not been applied.'})+
-    `<section class="panel"><div class="empty-state">${ms('view_kanban')}<p>Once it is, every card shows here.</p><div class="until"><a class="btn sm" href="print-hub.html">Open the 3D Print Hub</a><a class="btn sm" href="mill-hub.html">Open the Mill Hub</a></div></div></section>`;return;}
+    `<section class="panel"><div class="empty-state">${ms('view_kanban')}<p>Once it is, every card shows here.</p><div class="until"><a class="btn sm" href="listings.html?tab=print">Open the 3D Print Hub</a><a class="btn sm" href="listings.html?tab=mill">Open the Mill Hub</a></div></div></section>`;return;}
   if(state==='error'){page.innerHTML=NXShell.headHtml({title:'Pipelines'})+`<div class="banner err">${ms('error')}<div class="banner-text"><strong>Could not read the boards</strong><span>${esc(problem)}</span></div></div>`;return;}
   const boardTab=UI.tab==='hub'||UI.tab==='consultancy';
   const actions=boardTab?btn('openUi','Add a card','add',{ui:'add'},'primary')+(UI.tab==='consultancy'?`<a class="btn sm" href="consultancy.html">${ms('draw','sm')}Make a signing link</a>`:''):'';

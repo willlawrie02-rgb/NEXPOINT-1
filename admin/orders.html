@@ -27,12 +27,9 @@
   .selrow { width: 22px; }
   .selbar { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 13px;
             color: var(--fg-2); flex-wrap: wrap; }
-  /* Statement, declaration and evidence statuses — the same ink-on-wash
-     badge language as admin.css's .stg-*, for vocabularies only this
-     board speaks. */
-  .stg-draft     { background: var(--bg-alt);    color: var(--fg-2); }
-  .stg-issued    { background: var(--info-wash); color: var(--info-ink); }
-  .stg-void      { background: var(--cold-wash); color: var(--cold-ink); }
+  /* Declaration and evidence statuses — the same ink-on-wash badge language
+     as admin.css's .stg-*, for vocabularies only this board speaks. The
+     statement badges went to Money with the statements (plan 075). */
   .stg-submitted { background: var(--ok-wash);   color: var(--ok-ink); }
   .stg-nothing   { background: var(--bg-alt);    color: var(--fg-2); }
   .stg-missing   { background: var(--err-wash);  color: var(--err-ink); }
@@ -81,12 +78,6 @@
                       border-radius: var(--radius-sm); color: var(--fg-1);
                       font: 600 12.5px/1 var(--font-body); padding: 8px 10px; outline: none; }
   .monthpick select:focus-visible { border-color: var(--np-blue); box-shadow: var(--ring); }
-  table.stlines { width: auto; min-width: 60%; margin: 8px 0 4px; border-collapse: collapse; font-size: 12.5px; }
-  table.stlines th { padding: 4px 14px 4px 0; font: 600 11px/1 var(--font-body); letter-spacing: 0.05em;
-                     text-transform: uppercase; color: var(--fg-2); text-align: left;
-                     border-bottom: 1px solid var(--border-faint); }
-  table.stlines td { padding: 5px 14px 5px 0; border-bottom: 1px solid var(--border-faint);
-                     vertical-align: top; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -96,14 +87,15 @@ no separate "app skin". Refuses the dark-panel dashboard the incumbent shipped.
 OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
 ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
 accent, green reserved for "go" semantics, the square logo in a translucent bar.
-STORY: the money board. Three questions in the order the desk asks them —
-what is billable (statements), does the declared month agree with what the
-CC inbox saw (reconciliation) — with the pre-declarations order ledger kept
+STORY: the declarations board. Does the declared month agree with what the
+CC inbox saw (reconciliation), with the pre-declarations order ledger kept
 below as a filter. Order emails with no introduction and disputed lines are
-decided in the Inbox since plan 072.
+decided in the Inbox since plan 072; the statements, what is billable, are
+on Money since plan 075 (D10), with the by-hand Mark invoiced and Mark paid
+for them. The legacy ledger keeps its own order_ids path for both.
 Every action here is an engine_intents row: the browser reads freely and
 changes nothing itself.
-FIRST VIEWPORT: brand bar, boards tabs, "Orders", then statements.
+FIRST VIEWPORT: brand bar, boards tabs, "Orders", then the reconciliation.
 FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 -->
 
@@ -125,7 +117,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 <div id="admin" style="display:none">
   <header class="topbar">
     <div class="wrap bar">
-      <a class="brandmark" href="index.html">
+      <a class="brandmark" href="inbox.html">
         <img src="nexpoint-logo.png" alt="NexPoint">
         <span class="admin-tag">Admin</span>
       </a>
@@ -142,15 +134,13 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         <span class="navgroup">
           <a href="inbox.html">Inbox</a>
           <a href="marketing.html">Prospects</a>
-          <a href="print-hub.html">3D Print Hub</a>
-          <a href="mill-hub.html">Mill Hub</a>
-          <a href="opportunities.html">Opportunities</a>
-          <a href="index.html">Opportunities list</a>
+          <a href="listings.html">Live Listings</a>
         </span>
         <span class="navgroup">
           <a href="contacts.html">Contacts</a>
           <a href="pipelines.html">Pipelines</a>
           <a href="orders.html" aria-current="page">Orders</a>
+          <a href="money.html">Money</a>
           <a href="consultancy.html">Consultancy</a>
         </span>
         <span class="navgroup">
@@ -167,35 +157,14 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <span class="count" id="count"></span>
         </div>
         <p class="note">
-          The money board. Quarterly statements are what gets invoiced; the reconciliation
-          shows whether each provider site declared the month the CC mailbox saw. Order emails
-          with no introduction, and disputed lines, are decided in the Inbox.
+          The reconciliation shows whether each provider site declared the month the CC mailbox
+          saw. Order emails with no introduction, and disputed lines, are decided in the Inbox.
           Nothing here changes a row directly: each action queues the engine.
         </p>
+        <!-- Plan 075 (D10): the quarterly statements, what gets invoiced, are on Money, with
+             Raise invoice in Xero and the by-hand Mark invoiced and Mark paid. -->
+        <p class="note">Statements are on Money. <a href="money.html?tab=statements">Open Money</a></p>
         <div id="banner"></div>
-
-        <div class="sect">
-          <div class="colhead"><h2>Statements</h2><span class="n" id="stN"></span><span class="rule"></span></div>
-          <p class="muted" style="margin:0 0 12px">
-            One per site per quarter. Issue happens in the engine; invoicing and settling happen here.
-            Select issued statements to mark them invoiced, then invoiced ones to mark them paid.
-          </p>
-          <div class="selbar" id="stSelbar" style="display:none">
-            <span id="stSelCount"></span>
-            <button class="btn btn-pri btn-sm" id="stInvBtn" onclick="markStatements('invoiced')">Mark invoiced</button>
-            <button class="btn btn-grn btn-sm" id="stPaidBtn" onclick="markStatements('paid')">Mark paid</button>
-            <span class="muted" id="stSelHint"></span>
-          </div>
-          <div class="register">
-            <table>
-              <thead><tr>
-                <th scope="col" class="selrow"></th><th scope="col">Quarter</th><th scope="col">Site</th><th scope="col">Value</th><th scope="col">Fee</th>
-                <th scope="col">Status</th><th scope="col">Issued</th><th scope="col">Invoiced</th><th scope="col">Paid</th><th scope="col">Manage</th>
-              </tr></thead>
-              <tbody id="stRows"><tr><td colspan="10" style="color:var(--fg-2)">Loading…</td></tr></tbody>
-            </table>
-          </div>
-        </div>
 
         <div class="sect">
           <div class="colhead"><h2>Declarations reconciliation</h2><span class="n" id="recN"></span><span class="rule"></span></div>
@@ -217,8 +186,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         <details class="legacy" id="legacy">
           <summary>Legacy order ledger</summary>
           <p class="muted" style="margin:0 0 12px">
-            Orders logged before the monthly declaration model, kept whole. The same two actions
-            apply, one order at a time rather than a statement at a time.
+            Orders logged before the monthly declaration model, kept whole. Mark invoiced and
+            Mark paid apply here one order at a time; the quarterly statements are on Money.
           </p>
           <div class="toolbar" id="filters"></div>
           <div class="selbar" id="selbar" style="display:none">
@@ -254,12 +223,12 @@ const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 let me=null;
-let statements=[],declarations=[],decLines=[],intros=[],orders=[];
+let declarations=[],decLines=[],intros=[],orders=[];
 /* Matched evidence for the month in the picker only. */
 let periodEvidence=[];
 let orgById={},introById={};
-let selStatements=new Set(),selected=new Set(),filter='uninvoiced',month='';
-let intentById={},pendByStatement={},pendByOrder={},pendByOrg={};
+let selected=new Set(),filter='uninvoiced',month='';
+let intentById={},pendByOrder={},pendByOrg={};
 /* Set when any read the reconciliation section depends on failed, so an
    empty result can be told apart from a load that never happened —
    dueSites() reads an empty intros[] the same way whether nothing was
@@ -277,9 +246,10 @@ const DEAD_STAGES=['dead','expired','declined'];
 const DECLARED=['submitted','nothing','closed'];
 /* How long a seeker gets to confirm a line before the desk should look. */
 const CONFIRM_DAYS=7;
-/* resolve-dispute and match-order-evidence moved to the Inbox (plan 072). */
+/* resolve-dispute and match-order-evidence moved to the Inbox (plan 072);
+   the statements' mark-invoiced and mark-paid to Money (plan 075). The two
+   stay here for the legacy ledger, by order_ids. */
 const MONEY_INTENTS=['mark-invoiced','mark-paid','open-audit-strike'];
-const ST_BADGE={draft:'DRAFT',issued:'ISSUED',invoiced:'INVOICED',paid:'PAID',void:'VOID'};
 const DEC_BADGE={submitted:'SUBMITTED',nothing:'NOTHING DECLARED',missing:'MISSING',
                  due:'DUE',overdue:'OVERDUE',closed:'CLOSED'};
 
@@ -314,11 +284,6 @@ function fmtDate(v){
   return new Date(v).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
 }
 const amount=n=>Number(n||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
-function fmtTotals(totals,key){
-  const parts=Object.entries(totals||{});
-  if(!parts.length)return '—';
-  return parts.map(([cur,b])=>`<span class="cur">${esc(cur)}</span>${amount((b||{})[key])}`).join('<br>');
-}
 /* Ids beat blanks: a party whose name did not load still says which org it is. */
 function orgName(id){if(id==null||id==='')return '—';return orgById[id]||('org '+id);}
 const introRef=i=>i?(i.ref||('INTRO-'+String(i.id).padStart(4,'0'))):'—';
@@ -382,8 +347,7 @@ async function load(){
     $('month').innerHTML=months.map(m=>
       `<option value="${esc(m)}">${esc(monthLabel(m))}</option>`).join('');
   }
-  const [stQ,introQ,orgQ,ordQ,intentQ]=await Promise.all([
-    sb.from('statements').select('*').order('quarter',{ascending:false}),
+  const [introQ,orgQ,ordQ,intentQ]=await Promise.all([
     sb.from('introductions').select('id,ref,hub,org_a,org_b,stage,introduced_at'),
     sb.from('organisations').select('id,name'),
     sb.from('orders').select('*').order('logged_at',{ascending:false}),
@@ -391,7 +355,6 @@ async function load(){
       .in('status',['pending','claimed','failed','done']).in('type',MONEY_INTENTS)
       .order('id',{ascending:false}).limit(1000),
   ]);
-  if(stQ.error)warn('statements',stQ.error,MIG_HINT);
   if(introQ.error)warn('introductions',introQ.error,'');
   if(ordQ.error)warn('the legacy order ledger',ordQ.error,
     'Migration 0024 (schema) and 0025 (engine_worker grants) may not be applied yet.');
@@ -399,12 +362,11 @@ async function load(){
     'Party names show as their ids until this read succeeds.');
   introError=!!introQ.error;
 
-  statements=stQ.data||[];
   intros=introQ.data||[];orders=ordQ.data||[];
   orgById={};(orgQ.data||[]).forEach(o=>{orgById[o.id]=o.name;});
   introById={};intros.forEach(i=>{introById[i.id]=i;});
 
-  intentById={};pendByStatement={};pendByOrder={};pendByOrg={};
+  intentById={};pendByOrder={};pendByOrg={};
   /* Ascending id, last write wins: the newest intent for a row decides
      what it shows (the read is newest-first and capped, so the sort
      restores the order). A key whose newest intent is done is dropped, so
@@ -415,14 +377,13 @@ async function load(){
   byId.forEach(i=>{
     intentById[i.id]=i;
     const p=i.payload_json||{};
-    (p.statement_ids||[]).forEach(id=>put(pendByStatement,id,i));
     (p.order_ids||[]).forEach(id=>put(pendByOrder,id,i));
     if(i.type==='open-audit-strike'&&p.org_id!=null)put(pendByOrg,p.org_id,i);
   });
   if((intentQ.data||[]).length===1000)note('Showing the newest 1,000 intent rows; older rows are not on this page.');
 
   await loadPeriod();
-  selStatements=new Set();selected=new Set();
+  selected=new Set();
   render();
 }
 
@@ -454,14 +415,10 @@ async function loadPeriod(){
 }
 
 function render(){
-  renderStatements();
   renderReconciliation();
   renderLedger();
   const owed=dueSites(month).length;
-  $('count').textContent=[
-    statements.length?`${statements.length} statement${statements.length===1?'':'s'}`:'',
-    owed?`${owed} site${owed===1?'':'s'} owed ${monthLabel(month)}`:'',
-  ].filter(Boolean).join(' · ');
+  $('count').textContent=owed?`${owed} site${owed===1?'':'s'} owed ${monthLabel(month)}`:'';
 }
 
 /* A queued intent replaces a row's buttons: the same decision twice
@@ -476,94 +433,6 @@ function manageFor(q,fallback){
       <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button></span>${fallback}`;
   if(q)return '<span class="status">Queued, the engine acts within a minute or two.</span>';
   return fallback;
-}
-
-/* ── Statements ────────────────────────────────────────────────────── */
-
-function statementLines(s){
-  const rows=Array.isArray(s.lines)?s.lines:[];
-  if(!rows.length)return '<p class="muted" style="padding:6px 0">No lines on this statement.</p>';
-  return `<table class="stlines">
-    <thead><tr><th scope="col">Reference</th><th scope="col">Month</th><th scope="col">Hub</th><th scope="col">Units</th><th scope="col">Value</th><th scope="col">Fee</th></tr></thead>
-    <tbody>${rows.map(l=>`<tr>
-      <td>${esc(l.ref||'—')}</td><td>${esc(l.period||'—')}</td><td>${esc(l.hub||'—')}</td>
-      <td>${l.units==null?'—':esc(l.units)}</td>
-      <td>${esc(l.currency||'GBP')} ${amount(l.value)}</td>
-      <td>${esc(l.currency||'GBP')} ${amount(l.fee)}</td></tr>`).join('')}</tbody></table>`;
-}
-
-function renderStatements(){
-  $('stN').textContent=statements.length;
-  if(!statements.length){
-    $('stRows').innerHTML='<tr><td colspan="10" style="color:var(--fg-2)">No statements yet. The engine drafts one per site per quarter from the declared lines.</td></tr>';
-    updateStatementSelbar();
-    return;
-  }
-  $('stRows').innerHTML=statements.map(s=>{
-    const q=pendByStatement[s.id];
-    const selectable=s.status==='issued'||s.status==='invoiced';
-    const box=selectable&&!q
-      ?`<input type="checkbox" aria-label="Select statement ${esc(s.quarter)} for ${esc(orgName(s.org_id))}" ${selStatements.has(s.id)?'checked':''} onchange="toggleStatement(${s.id},this.checked)">`
-      :'';
-    const invoiced=s.invoiced_at
-      ?`<span class="flag flag-yes">${fmtDate(s.invoiced_at)}</span>${s.invoice_ref?`<br><span class="muted">${esc(s.invoice_ref)}</span>`:''}`
-      :'<span class="flag flag-no">—</span>';
-    return `<tr>
-      <td class="selrow">${box}</td>
-      <td class="rref">${esc(s.quarter||'—')}</td>
-      <td>${esc(orgName(s.org_id))}</td>
-      <td class="money">${fmtTotals(s.totals,'value')}</td>
-      <td class="money">${fmtTotals(s.totals,'fee')}</td>
-      <td><span class="stg stg-${esc(s.status)}">${esc(ST_BADGE[s.status]||s.status)}</span></td>
-      <td>${fmtDate(s.issued_at)}</td>
-      <td>${invoiced}</td>
-      <td>${s.paid_at?`<span class="flag flag-yes">${fmtDate(s.paid_at)}</span>`:'<span class="flag flag-no">—</span>'}</td>
-      <td><div class="actions" style="margin-top:0">${manageFor(q,'<span class="muted">'+(selectable?'select to act':'nothing to do')+'</span>')}</div></td>
-    </tr>
-    <tr class="detail"><td colspan="10">
-      <details><summary><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
-        ${(Array.isArray(s.lines)?s.lines.length:0)} line${(Array.isArray(s.lines)?s.lines.length:0)===1?'':'s'}</summary>
-        ${statementLines(s)}</details></td></tr>`;
-  }).join('');
-  updateStatementSelbar();
-}
-
-function toggleStatement(id,on){
-  if(on)selStatements.add(id);else selStatements.delete(id);
-  updateStatementSelbar();
-}
-
-function selectedStatements(){return statements.filter(s=>selStatements.has(s.id));}
-
-function updateStatementSelbar(){
-  const rows=selectedStatements();
-  $('stSelbar').style.display=rows.length?'flex':'none';
-  if(!rows.length)return;
-  $('stSelCount').textContent=`${rows.length} selected`;
-  const canInvoice=rows.every(s=>s.status==='issued');
-  const canPay=rows.every(s=>s.status==='invoiced');
-  $('stInvBtn').disabled=!canInvoice;
-  $('stPaidBtn').disabled=!canPay;
-  $('stSelHint').textContent=canInvoice||canPay?''
-    :'A statement is invoiced only from issued, and paid only from invoiced. Select one status at a time.';
-}
-
-function markStatements(kind){
-  const rows=selectedStatements();
-  if(!rows.length)return;
-  const ids=rows.map(s=>s.id);
-  if(kind==='invoiced'){
-    if(!rows.every(s=>s.status==='issued')){alert('Only issued statements can be marked invoiced.');return;}
-    const ref=prompt(`Invoice reference for ${ids.length} statement(s) (optional):`,'');
-    if(ref===null)return;
-    const payload={statement_ids:ids};
-    if(ref.trim())payload.invoice_ref=ref.trim();
-    raise('mark-invoiced',payload,'Marked invoiced');
-  }else{
-    if(!rows.every(s=>s.status==='invoiced')){alert('Only invoiced statements can be marked paid.');return;}
-    if(!confirm(`Mark ${ids.length} statement(s) as paid?`))return;
-    raise('mark-paid',{statement_ids:ids},'Marked paid');
-  }
 }
 
 /* ── Declarations reconciliation ───────────────────────────────────── */
@@ -785,7 +654,10 @@ function markSelected(kind){
     return;
   }
   if(!confirm(`Mark ${ids.length} order(s) as ${label}?${dropped?` (${dropped} ineligible selection(s) will be skipped.)`:''}`))return;
-  raise(kind==='invoiced'?'mark-invoiced':'mark-paid',{order_ids:ids},`Marked ${label}`);
+  /* The ledger's own path (handlers._one_id_list: order_ids; a statement's
+     ids are sent from Money since plan 075). */
+  if(kind==='invoiced')raise('mark-invoiced',{order_ids:ids},'Marked invoiced');
+  else raise('mark-paid',{order_ids:ids},'Marked paid');
 }
 
 /* ── Intents ───────────────────────────────────────────────────────── */
@@ -794,7 +666,7 @@ async function raise(type,payload,verb){
   const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
   if(error){$('banner').innerHTML=`<div class="banner">Could not queue it: ${esc(error.message)}</div>`;return;}
   $('banner').innerHTML=`<div class="banner" style="border-color:var(--ok-line);color:var(--ok-ink)">${esc(verb)}, queued. The engine acts within a minute or two.</div>`;
-  selStatements=new Set();selected=new Set();
+  selected=new Set();
   setTimeout(load,1200);
 }
 

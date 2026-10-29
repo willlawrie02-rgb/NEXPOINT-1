@@ -70,7 +70,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
 <script src="crm.js?v=071"></script>
-<script src="jobs.js?v=079"></script>
+<script src="jobs.js?v=085"></script>
 <script src="pipelines.js?v=073"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -142,7 +142,7 @@ const ORG_INTENTS=['delete-account','erase-account','pause-org','resume-org','re
 const CRM_INTENTS=Object.keys(NXCRM.KEYS);
 const STRIKE_SOURCE={seeker_check:'Seeker check',audit:'Audit',no_declaration:'No declaration',undeclared_evidence:'Undeclared evidence'};
 const LISTING_BADGE={pending:'Waiting for approval',live:'Live',declined:'Declined',hidden:'Hidden'};
-const HUB={print:['3D Print Hub','print-hub.html'],mill:['Mill Hub','mill-hub.html']};
+const HUB={print:['3D Print Hub','listings.html?tab=print'],mill:['Mill Hub','listings.html?tab=mill']};
 /* The score's bands, from the engine's constants (statements.SCORE_BAND_GREEN
    = 80, statements.SCORE_BAND_AMBER = 60). The middle band is neutral: the
    brand has no amber. */
@@ -150,7 +150,7 @@ const SCORE_BAND_GREEN=80, SCORE_BAND_AMBER=60;
 const TERMS_LAYERS=[['platform','Platform'],['host','Host'],['introduction','Introduction']];
 const QUEUE_WORD={approved:'Accepted from Prospects',rejected:'Rejected on Prospects',withdrawn:'Withdrawn from Prospects',blocked:'Blocked on Prospects'};
 const BACK={'contacts.html':'Contacts','organisations.html':'Accounts','leads.html':'Prospects','inbox.html':'Inbox',
-  'print-hub.html':'3D Print Hub','mill-hub.html':'Mill Hub','dashboard.html':'Dashboard','introductions.html':'Introductions','orders.html':'Orders',
+  'print-hub.html':'3D Print Hub','mill-hub.html':'Mill Hub','listings.html':'Live Listings','money.html':'Money','dashboard.html':'Dashboard','introductions.html':'Introductions','orders.html':'Orders',
   'pipelines.html':'Pipelines',
   /* plan 077: Marketing's four tabs */
   'marketing.html':'Prospects','marketing-campaigns.html':'Campaigns','marketing-linkedin.html':'LinkedIn','marketing-finder.html':'Finder'};
@@ -540,7 +540,7 @@ function accountBlock(o){
     rows.push(['Listings',listingsLine(o.id)]);
     const reqs=A.requests.filter(r=>r.org_id===o.id);
     if(reqs.length)rows.push(['Requests',requestsLine(reqs)]);
-    rows.push(['Membership',`${subLine(o)} <a class="linkish blue" href="organisations.html">Record payment on Accounts</a>`]);
+    rows.push(['Membership',`${subLine(o)} <a class="linkish blue" href="money.html?tab=memberships">Open Money</a>`]);
     rows.push(['Score',scoreLine(o)]);
     rows.push(['Fees owed',feesLine(o.id)]);
   }

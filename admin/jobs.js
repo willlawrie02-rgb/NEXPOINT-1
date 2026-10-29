@@ -127,8 +127,8 @@ const KINDS={
     line:r=>`${plural(Number(r.name)||0,'statement')} for ${r.ref} ready to invoice`},
   /* Plan 049's three: an invoice on its 14-day clock (status is the clock's
      day, the engine's count), a listing hidden for it, an invoice Xero did
-     not raise. Record payment and Extend the clock are on Accounts until
-     Money (075). */
+     not raise. Record payment (by hand) and Extend the clock are decided in
+     the panel (plan 075), the literal raises as on Money. */
   membership_unpaid:{group:'money',icon:'payments',label:'Membership unpaid',
     line:r=>{const d=Number(r.status);
       return isNaN(d)?`${who(r)} has not paid its membership invoice`
@@ -152,6 +152,19 @@ const KINDS={
     line:r=>`${who(r)} has gone quiet for ${plural(Math.max(14,Math.floor((Number(r.age_hours)||0)/24)),'day')}`,panel:stalePanel},
   retention:{group:'money',icon:'auto_delete',label:'Retention period over',
     line:r=>`${who(r)}: its records may now be erased`,panel:retentionPanel},
+  /* Plan 075 (D4): a fee invoice a week past its due date and unpaid. No
+     reminder goes: a person chases it from Money's Xero invoices tab, which
+     the card opens (ref is the Xero number). */
+  fee_overdue:{group:'money',icon:'receipt_long',label:'Fee invoice overdue',opensBoard:true,
+    line:r=>`${who(r)} has not paid ${r.ref?'fee invoice '+r.ref:'its fee invoice'}, a week past its due date`},
+  /* Plan 075 (D7): the supplier's code-sales report for the quarter that
+     ended is not recorded. Record a quarter's code sales is on Money. */
+  code_report_due:{group:'money',icon:'sell',label:'Code-sales report due',opensBoard:true,
+    line:r=>`${who(r)}’s code-sales report for ${r.ref} is due for the quarter that ended`},
+  /* Plan 070 (D10), left to plan 075: the brief-writer's draft waits for a
+     person to review and publish it on Live Listings. */
+  opportunity_draft:{group:'approve',icon:'rate_review',label:'Opportunity draft ready',opensBoard:true,
+    line:r=>`${r.ref} is drafted: review and publish it`},
   dispute:{group:'problem',icon:'gavel',label:'Dispute',
     line:r=>/^evidence:/.test(String(r.item_id||''))
       ?`${who(r)} disputes an order email${r.ref?` (${r.ref})`:''}`
@@ -193,7 +206,8 @@ function hrefOf(r){
 /* What a button that opens a card's board says (copy check, 23 October). */
 const BOARD_LABEL=[[/^print-hub\.html/,'Open the 3D Print Hub board'],[/^mill-hub\.html/,'Open the Mill Hub board'],
   [/^opportunities\.html/,'Open the Opportunities Board'],[/^introductions\.html/,'Open the Introductions register'],
-  [/^orders\.html/,'Open Orders'],[/^system\.html/,'Open System'],[/^inbox\.html/,'Open the Inbox'],[/^contacts\.html/,'Open Contacts']];
+  [/^orders\.html/,'Open Orders'],[/^system\.html/,'Open System'],[/^inbox\.html/,'Open the Inbox'],[/^contacts\.html/,'Open Contacts'],
+  [/^money\.html/,'Open Money'],[/^listings\.html/,'Open Live Listings']];
 const boardLabel=b=>((BOARD_LABEL.find(([re])=>re.test(String(b||'')))||[])[1])||'Open the page that decides it';
 const companyHref=r=>{
   const b=String(r.board||'');
@@ -717,7 +731,7 @@ const XERO=/^https:\/\/(in\.)?xero\.com\//;
 function membershipPanel(r,ctx){
   const inv=(ctx.invoices||[]).find(x=>String(x.id)===String(r.item_id));
   if(!inv)return {body:para(esc('This invoice could not be read. It may have been paid already; the next refresh says.')),
-    actions:link('organisations.html','Open Accounts','payments')};
+    actions:link(companyHref(r),'Open the company page','open_in_new')};
   const n=r.kind==='membership_unpaid'&&!isNaN(Number(r.status))?Number(r.status):clockDay(inv,ctx.today||todayIn());
   const what=[inv.xero_invoice_number,amount(inv.amount,inv.currency),inv.period==='monthly'?'Monthly':'Yearly',
     inv.invoice_date?'raised '+day(inv.invoice_date):''].filter(Boolean).join(', ');
@@ -729,15 +743,27 @@ function membershipPanel(r,ctx){
     if(inv.hidden_at&&!inv.restored_at)rows.push(['Hidden since',esc(day(inv.hidden_at))]);
     else if(inv.extended_to||inv.hide_on)rows.push(['Hides on',esc(day(inv.extended_to||inv.hide_on)+', unless paid')]);
   }
-  return {body:(r.kind==='invoice_not_raised'||n==null?'':clockHtml(inv,n))+kv(rows)
-      +para('Record payment and Extend the clock are on Accounts until Money ships.'),
-    actions:link('organisations.html','Open Accounts','payments')+(XERO.test(String(inv.xero_online_url||''))?link(inv.xero_online_url,'Open in Xero','open_in_new','quiet'):'')};
+  const k=r.item_key, unpaid=r.kind!=='invoice_not_raised'&&!inv.paid_at&&!inv.voided_at;
+  /* Plan 075: Record payment (by hand) and Extend the clock here, as on Money. */
+  const who=r.name&&!PLACEHOLDER.test(String(r.name))?r.name:'this host';
+  return {intent:'membership:'+inv.org_id,
+    body:(r.kind==='invoice_not_raised'||n==null?'':clockHtml(inv,n))+kv(rows)
+      +(r.kind==='invoice_not_raised'?para('The worker tries again on its own; the error above is what Xero said.'):''),
+    actions:(unpaid?btn('jobOpen','Record payment (by hand)','payments',{key:k,ui:'paid'},'primary')+btn('jobOpen','Extend the clock','more_time',{key:k,ui:'extend'}):'')
+      +(XERO.test(String(inv.xero_online_url||''))?link(inv.xero_online_url,'Open in Xero','open_in_new','quiet'):'')
+      +link('money.html?tab=memberships','Open Money','payments','quiet'),
+    choice:isOpen(ctx,'paid',r)?choice(`Mark ${esc(who)}’s invoice ${esc(inv.xero_invoice_number||'(not raised yet)')} as paid by hand? Use this only when Xero has not matched the payment itself. Mark it paid in Xero too.`,
+        btn('jobSubPaid','Record the payment','payments',{key:k},'primary')+cancel())
+      :isOpen(ctx,'extend',r)?choice(`Until which day may ${esc(who)} pay invoice ${esc(inv.xero_invoice_number||'')} before its listing is hidden? Every unpaid invoice due before then moves to it, and a hidden listing comes back at once.`,
+        input(fid('jb-until',r),'A day after today, as YYYY-MM-DD')+input(fid('jb-why',r),'Why the extra time? Kept on the invoice')
+        +btn('jobExtendClock','Extend the clock','more_time',{key:k},'primary')+cancel()):''};
 }
 
+/* The Dashboard's "invoiced, payment outstanding" rows: the provider owes
+   the fee, which is invoiced from its statement on Money (plan 075). */
 function unpaidIntroPanel(r){
-  const b=String(r.board||'');
-  return {body:para('Record commission is on the hub’s board until Money ships.'),
-    actions:SAFE_BOARD.test(b)?link(b,boardLabel(b),'open_in_new'):''};
+  return {body:para('The fee is invoiced from its statement on Money, and reads paid there once Xero says so.'),
+    actions:link('money.html?tab=statements','Open Money','payments')};
 }
 
 function retentionPanel(r,ctx){
@@ -815,6 +841,20 @@ const ACT={
   jobClose(el,ctx){ctx.close();},
   jobRetry(el,ctx){if(ctx.retry)return ctx.retry(el.dataset.intent);},
   jobAccount(el,ctx){const r=rowOf(el,ctx);if(r&&ctx.account)ctx.account(el.dataset.what,r.org_id||r.item_id);},
+  /* Plan 075: the membership jobs' by-hand controls, the literal raises as on Money. */
+  jobSubPaid(el,ctx){
+    const r=rowOf(el,ctx);if(!r)return;
+    const inv=(ctx.invoices||[]).find(x=>String(x.id)===String(r.item_id));if(!inv)return;
+    return ctx.raise('record-sub-paid',{org_id:inv.org_id,invoice_id:inv.id},r.item_key,'Payment recorded');
+  },
+  jobExtendClock(el,ctx){
+    const r=rowOf(el,ctx);if(!r)return;
+    const inv=(ctx.invoices||[]).find(x=>String(x.id)===String(r.item_id));if(!inv)return;
+    const until=String(ctx.val(fid('jb-until',r))||'').trim(), reason=String(ctx.val(fid('jb-why',r))||'').trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(until)||until<=(ctx.today||todayIn()))return ctx.need(fid('jb-until',r),'Give a day after today, as YYYY-MM-DD.');
+    if(!reason)return ctx.need(fid('jb-why',r),'Give a reason: an extension carries one.');
+    return ctx.raise('extend-membership-clock',{org_id:inv.org_id,until,reason},r.item_key,'Clock extended');
+  },
   jobApproveListing(el,ctx){
     const r=rowOf(el,ctx);if(!r)return;
     return ctx.raise('approve-listing',{listing_id:r.item_id},spot(r),'Approved');
@@ -1004,7 +1044,9 @@ Object.assign(ACT,{
 
 const TYPES=['approve-listing','decline-listing','approve-listing-revision','decline-listing-revision',
   'add-provider','decline-intro-request','reroute-introduction','reissue-acceptance',
-  'resolve-dispute','match-order-evidence','dismiss-inbox-item'];
+  'resolve-dispute','match-order-evidence','dismiss-inbox-item',
+  /* plan 075: the membership jobs' by-hand controls */
+  'record-sub-paid','extend-membership-clock'];
 const LISTING_TYPES=TYPES.slice(0,4);
 /* The key a job looks its newest open intent up by (the page reduces the
    intents newest-wins, then calls this for each). */
@@ -1016,6 +1058,7 @@ function intentKey(i){
   if(i.type==='resolve-dispute')return `dispute:${p.kind}:${p.id}`;
   if(i.type==='match-order-evidence')return 'evidence:'+p.evidence_id;
   if(i.type==='dismiss-inbox-item'||i.type==='restore-inbox-item')return 'nn:'+p.item_key;
+  if(i.type==='record-sub-paid'||i.type==='extend-membership-clock')return 'membership:'+p.org_id;
   if(i.type==='edit-task'||i.type==='done-task')return 'task:'+p.task_id;
   if(i.type==='add-task')return 'add:'+String(p.title||'').trim().toLowerCase();
   if(i.type==='tick-task')return 'tick:'+(p.source||'')+'\u0001'+(p.task||'');
@@ -1153,7 +1196,7 @@ async function read(sb,rows,opt){
 
 window.NXJOBS={GROUPS,KINDS,TYPES,TASK_TYPES,BUCKETS,kindOf,lineOf,ageText,day,sentence,clockHtml,clockDay,boardLabel,runTime,hubName,hrefOf,inPlace,domId,
   read,use,body,item,ACT,intentKey,doneWords,london,todayIn,dueBucket,dueText,sundayOf,taskRow,taskForm,
-  humanise,lab,fmtVal,revisionDiff,machineDiff,mixesNoReview,diffTable,submittedTable,machineLines,needLines,
+  humanise,lab,fmtVal,monthName,revisionDiff,machineDiff,mixesNoReview,diffTable,submittedTable,machineLines,needLines,
   shipsTo,shipsToUnset,capacityOf,successorOf,rerouteControl,partyGuess,
   SPENT_STAGES,REISSUABLE_STAGES,REV_FIELDS,KIND_OF,CADENCE_LABEL};
 })();

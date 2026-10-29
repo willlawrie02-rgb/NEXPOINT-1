@@ -1,5 +1,26 @@
 /* NexPoint Admin — shared hub-board module (Print / Mill / Opportunities).
 
+   Plan 075 (D10), after plan 076: NO PAGE LOADS THIS MODULE. print-hub.html,
+   mill-hub.html and opportunities.html are pointers to Live Listings
+   (listings.html?tab=print|mill|opportunities), which lists every host and
+   every opportunity (D8, D9); the Opportunities list (index.html) is a
+   pointer to the Inbox. The file stays, unchanged below this note, because
+   the tests still pin its behaviour until Live Listings is held to each
+   piece in its place: the live host card (listingCard, offerControl,
+   offerToSeeker, the linked introductions), the host column and the
+   Removed archive (renderCol), a picked request's Add a provider and
+   Decline (seekerCard, addProvider, declineRequest, SEEKER_INTENTS), Resend
+   on the offers the inbox view does not list (introManage,
+   reissueAcceptance, successorOf), the opportunities half
+   (renderOpportunities, oppRow, setOwner, codeBlock, recordCodeSales,
+   openIntroduceDialog, introducePayload, renderRegister, reqCard's
+   Introduce), the vocabulary (STATUS_HELP, stg, renderLegend, the badge
+   maps, seekRef, isDeskRequest, humanise, lab, fmtVal, needLines) and the
+   legacy Make-introduction window (openIntroModal, createIntro). Nothing
+   here can reach a browser: the admin sync publishes it, but no page's
+   <script> names it. Delete it, with its tests re-pointed, once Live
+   Listings owns the lot.
+
    Page contract:
    window.HUB = {
      hub: 'print', title: '3D Print Hub',
