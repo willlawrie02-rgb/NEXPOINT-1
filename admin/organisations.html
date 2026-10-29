@@ -69,10 +69,10 @@ its working, subscription standing (with the Founding badge honoured for
 life, spec §3), host status and listings per hub, open strikes with the
 source that opened them and the date they must cure by, the Pipedrive ids
 that tie the row to the CRM, and fees owed on confirmed-but-uninvoiced
-orders. Three actions, all intents: record a payment, cure a strike, open
-an audit strike. The engine advances the billing period and lifts a
-subscription-hide (never a strike-hide — that clears only when the strikes
-themselves cure).
+orders. Read-only since plan 075 (D10): Record payment (by hand), Extend
+the clock and the billing-from choice are Money's, and the account's own
+controls are its company page's (plan 071 PR 3). The board watches the
+three membership intents, so a payment in flight shows on its row.
 FIRST VIEWPORT: brand bar, boards tabs, "Accounts", then the register.
 FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 -->
@@ -96,7 +96,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
 <div id="admin" style="display:none">
   <header class="topbar">
     <div class="wrap bar">
-      <a class="brandmark" href="index.html">
+      <a class="brandmark" href="inbox.html">
         <img src="nexpoint-logo.png" alt="NexPoint">
         <span class="admin-tag">Admin</span>
       </a>
@@ -113,15 +113,13 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         <span class="navgroup">
           <a href="inbox.html">Inbox</a>
           <a href="marketing.html">Prospects</a>
-          <a href="print-hub.html">3D Print Hub</a>
-          <a href="mill-hub.html">Mill Hub</a>
-          <a href="opportunities.html">Opportunities</a>
-          <a href="index.html">Opportunities list</a>
+          <a href="listings.html">Live Listings</a>
         </span>
         <span class="navgroup">
           <a href="contacts.html">Contacts</a>
           <a href="pipelines.html">Pipelines</a>
           <a href="orders.html">Orders</a>
+          <a href="money.html">Money</a>
           <a href="consultancy.html">Consultancy</a>
         </span>
         <span class="navgroup">
@@ -141,17 +139,17 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           Every account on the Global Portal, for the money: the follow-through score and its
           working, subscription standing, host status and listings per hub, open strikes with their
           source and cure date, the Pipedrive ids, and fees owed on confirmed but uninvoiced orders.
-          Each host's membership invoice shows under its subscription: Record payment (by hand) marks
-          it paid when Xero has not matched the payment itself, Extend the clock moves the day an
-          unpaid invoice hides the listing, and Bill from the first introduction, said before
-          approval, starts the billing at the hub's first new introduction. Everything else an
-          account needs is on its company page, opened from its name: Pause and Resume, Remove from
-          the hub and Restore, strikes with Cure and Open audit strike, Delete account and, for a
-          closed or deleted account, Erase the records (Will, 22 October 2026: Contacts replaces this
-          board, which keeps the money until Money, plan 075, takes it). A removed, closed or deleted
-          account drops into the Archive below the register, out of the working list. Closed is the
-          holder's own state: only the holder reopens it, from the account page.
+          Each host's membership invoice shows under its subscription, read-only. Memberships are on
+          Money: Record payment (by hand), Extend the clock and Bill from the first introduction are
+          there. Everything else an account needs is on its company page, opened from its name: Pause
+          and Resume, Remove from the hub and Restore, strikes with Cure and Open audit strike, Delete
+          account and, for a closed or deleted account, Erase the records (Will, 22 October 2026:
+          Contacts replaces this board). A removed, closed or deleted account drops into the Archive
+          below the register, out of the working list. Closed is the holder's own state: only the
+          holder reopens it, from the account page.
         </p>
+        <!-- Plan 075 (D10): the three money controls plan 049 put here are Money's. -->
+        <p class="note">Memberships are on Money. <a href="money.html?tab=memberships">Open Money</a></p>
         <div id="banner"></div>
         <div class="register">
           <table>
@@ -206,14 +204,16 @@ const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 let me=null, orgs=[], strikes=[], listings=[];
-let intentById={}, pendingByOrg={}, pendingByStrike={}, townByOrg={}, termsByOrg={}, invoicesByOrg={}, invoicesRead=false;
+let pendingByOrg={}, pendingByStrike={}, townByOrg={}, termsByOrg={}, invoicesByOrg={}, invoicesRead=false;
 
 /* The score's bands, verbatim from the engine's own constants
    (statements.SCORE_BAND_GREEN = 80, statements.SCORE_BAND_AMBER = 60):
    80 and over is green, 60 to 79 amber, below 60 red. */
 const SCORE_BAND_GREEN=80, SCORE_BAND_AMBER=60;
-/* The money only: the rest moved to the company page (plan 071 PR 3); plan
-   049's membership intents stay here with Record payment (Will, 23 Oct 2026). */
+/* Watched, not raised: plan 075 (D10) moved Record payment (by hand), Extend
+   the clock and the billing-from choice to Money and the membership job's
+   panel. The board still reads the three, so a row whose payment is in
+   flight says so instead of showing a stale invoice line. */
 const ORG_INTENTS=['record-sub-paid','extend-membership-clock','defer-membership-billing'];
 const STRIKE_SOURCE={seeker_check:'seeker check',audit:'audit',
                      no_declaration:'no declaration',undeclared_evidence:'undeclared evidence'};
@@ -347,15 +347,14 @@ async function load(){
     m[cur]=(m[cur]||0)+Number(o.value||0)*Number(o.fee_rate||0);
   });
 
-  intentById={};pendingByOrg={};pendingByStrike={};
+  pendingByOrg={};pendingByStrike={};
   /* Ascending id, last write wins: the newest intent for a row decides
      what it shows (the read is newest-first and capped, so the sort
      restores the order). A row whose newest intent is done is dropped, so
-     a success that followed a failure clears it and the buttons come back
+     a success that followed a failure clears it and the lines come back
      (hub-board.js's newestIntent, inline). */
   const byId=(intentsQ.data||[]).slice().sort((a,b)=>a.id-b.id);
   byId.forEach(i=>{
-    intentById[i.id]=i;
     const p=i.payload_json||{};
     const map=p.strike_id!=null?pendingByStrike:p.org_id!=null?pendingByOrg:null;
     if(!map)return;
@@ -416,7 +415,8 @@ function subBadge(o){
 /* Plan 049: each host's membership invoices (membership_invoices, 0075).
    The newest row per account, and its unpaid ones oldest first: the oldest
    unpaid one is what hides the listing, what Record payment (by hand)
-   marks paid and what Extend the clock moves, so it is the one shown. */
+   marks paid and what Extend the clock moves (both on Money since plan
+   075), so it is the one shown. */
 function indexInvoices(rows){
   invoicesByOrg={};
   rows.forEach(r=>{
@@ -431,7 +431,6 @@ const invoicesOf=orgId=>invoicesByOrg[orgId]||{newest:null,unpaid:[]};
    been lifted. A sub_status 'hidden' with none behind it is a hide from
    before the 10 September rule, shown as a pause (Resume is on the company page). */
 const feeHidden=orgId=>invoicesOf(orgId).unpaid.some(r=>r.hidden_at&&!r.restored_at);
-const oldestUnpaid=(orgId,raised)=>invoicesOf(orgId).unpaid.filter(r=>!raised||r.invoiced_at)[0]||null;
 const SYMBOL={GBP:'\u00a3',USD:'US$',EUR:'\u20ac'};
 const money=(amount,cur)=>`${SYMBOL[cur]||`${cur||''} `}${Number(amount||0).toLocaleString('en-GB')}`;
 function invoiceLines(o){
@@ -516,16 +515,18 @@ function pipedriveCell(o){
     :'<br><span class="muted">not linked to Pipedrive</span>';
 }
 
-/* A queued intent replaces the buttons it came from: the same decision
+/* A queued intent (raised on Money or the membership job's panel, never
+   here since plan 075) shows in place of the row's lines: the same decision
    twice would be two intents, and the engine would run both. A failed one
-   is information, not a lock: it renders as a full-width line ABOVE the
-   buttons the row's own state earns, with Try again, so a stale failure
-   never hides Pause, Record payment or Cure (plan 024). */
+   is information, not a lock: it renders as a full-width line ABOVE what
+   the row's own state earns, so a stale failure never hides the row's
+   lines or the link to Money (plan 024). Try again is where the control
+   is, on Money. */
 function manageFor(q,fallback){
   if(q&&q.status==='failed')
     return `<span class="fail-line" style="flex-basis:100%;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <span class="status fail">Failed: ${esc(q.result_note||'')}</span>
-      <button class="btn btn-gh btn-sm" onclick="retry(${q.id})">Try again</button></span>${fallback}`;
+      <a class="btn btn-gh btn-sm" href="money.html?tab=memberships">Try again on Money</a></span>${fallback}`;
   if(q)return '<span class="status">Queued, moments away.</span>';
   return fallback;
 }
@@ -593,22 +594,13 @@ function render(feesByOrg){
   $('count').textContent=active.length?`${active.length} account${active.length===1?'':'s'}`:'';
   $('orgRows').innerHTML = active.length ? active.map(o=>{
     const q=pendingByOrg[o.id];
-    const state=orgState(o);
     const inv=invoicesOf(o.id);
+    /* Plan 075 (D10): nothing to press here. The row says what is owed
+       (invoiceLines, under the subscription) and where the money is done. */
     const buttons=[
-      inv.unpaid.length||(invoicesRead&&!inv.newest&&o.sub_period&&o.billing_started_at)
-        ?`<button class="btn btn-grn btn-sm" data-org-id="${esc(o.id)}" onclick="recordPaid(this.dataset.orgId)">
-            <span class="material-symbols-outlined" aria-hidden="true">payments</span>Record payment (by hand)</button>`
+      inv.unpaid.length?'<span class="muted">unpaid</span>'
         :o.sub_period?'<span class="muted">nothing unpaid</span>':'<span class="muted">no subscription yet</span>',
-      oldestUnpaid(o.id,true)
-        ?`<button class="btn btn-gh btn-sm" data-org-id="${esc(o.id)}" onclick="extendClock(this.dataset.orgId)">
-            <span class="material-symbols-outlined" aria-hidden="true">more_time</span>Extend the clock</button>`
-        :'',
-      (o.sub_status||'none')==='none'&&!inv.newest
-        ?(o.billing_from==='first_introduction'
-          ?`<button class="btn btn-gh btn-sm" data-org-id="${esc(o.id)}" onclick="deferBilling(this.dataset.orgId,'approval')">Bill at approval</button>`
-          :`<button class="btn btn-gh btn-sm" data-org-id="${esc(o.id)}" onclick="deferBilling(this.dataset.orgId,'first_introduction')">Bill from the first introduction</button>`)
-        :'',
+      '<span class="muted">Memberships are on Money. <a href="money.html?tab=memberships">Open Money</a></span>',
       '<span class="muted">Pause, remove, strikes and delete are on the company page</span>',
     ].join('');
     return `<tr>
@@ -667,53 +659,9 @@ function archiveRow(o,feesByOrg,counts){
   </tr>`;
 }
 
-async function raise(type,payload,verb){
-  const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
-  if(error){$('banner').innerHTML=`<div class="banner">Could not queue it: ${esc(error.message)}</div>`;return;}
-  $('banner').innerHTML=`<div class="banner" style="border-color:var(--ok-line);color:var(--ok-ink)">${esc(verb)}, queued. The engine acts within a minute or two.</div>`;
-  setTimeout(load,1200);
-}
-/* Record payment (by hand), plan 049 P5: the fallback beside Xero's own
-   paid read, which restores a host within fifteen minutes. */
-function recordPaid(orgId){
-  const r=oldestUnpaid(orgId);
-  if(!invoicesOf(orgId).newest){
-    /* Billed before plan 049, invoiced by hand: as before, the due date moves on one period. */
-    if(!confirm(`Record the subscription for "${orgName(orgId)}" as paid? It was invoiced by hand before the Xero invoices; this moves its due date on by one period.`))return;
-    raise('record-sub-paid',{org_id:orgId},'Payment recorded');
-    return;
-  }
-  if(!r)return;
-  if(!confirm(`Mark ${orgName(orgId)}'s invoice ${r.xero_invoice_number||'(not raised yet)'} as paid by hand? Use this only when Xero has not matched the payment itself. Mark it paid in Xero too.`))return;
-  raise('record-sub-paid',{org_id:orgId,invoice_id:r.id},'Payment recorded');
-}
-/* Extend the clock (plan 049 P9): the oldest unpaid invoice hides on the
-   day given instead, and a host it hid comes back at once. Xero's due date
-   is left as issued. */
-function extendClock(orgId){
-  const r=oldestUnpaid(orgId,true);
-  const raw=prompt(`Until which day may "${orgName(orgId)}" pay invoice ${(r&&r.xero_invoice_number)||''} before its listing is hidden? (YYYY-MM-DD, after today; every unpaid invoice due before then moves to it, and a hidden listing comes back at once)`,'');
-  if(raw===null)return;
-  const until=raw.trim();
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(until)||until<=todayIso()){alert('Give a day after today, as YYYY-MM-DD.');return;}
-  const reason=prompt('Why the extra time? (kept on the invoice)','');
-  if(reason===null)return;
-  if(!reason.trim()){alert('An extension carries its reason.');return;}
-  raise('extend-membership-clock',{org_id:orgId,until:until,reason:reason.trim()},'Clock extended');
-}
-/* Bill from the first introduction (plan 049 P6; Host Agreement 1.3 §2):
-   said before approval, for a site whose only hub relationships are
-   Schedule B entries. The engine refuses it once the host is billed. */
-function deferBilling(orgId,to){
-  const first=to==='first_introduction';
-  const reason=prompt(first
-    ?`Bill "${orgName(orgId)}" from the hub's first new introduction for it, not at approval? Use this when its only hub relationships are Schedule B entries. A reason to keep on the account (optional):`
-    :`Bill "${orgName(orgId)}" at approval again? A reason to keep on the account (optional):`,'');
-  if(reason===null)return;
-  const deferPayload={org_id:orgId,billing_from:to};
-  if(reason.trim())deferPayload.reason=reason.trim();
-  raise('defer-membership-billing',deferPayload,first?'Billing from the first introduction':'Billing at approval');
-}
+/* No intent is raised from this board since plan 075 (D10): Record payment
+   (by hand), Extend the clock and the billing-from choice are Money's, and
+   the account's own controls are its company page's. */
 function stateCell(o){
   const state=orgState(o);
   const off=state==='removed'||state==='deleted'||state==='closed'||state==='erased';
@@ -723,19 +671,14 @@ function stateCell(o){
   if(state==='unpaid'){
     const since=String(o.hidden_at||'').slice(0,10);
     return `<span class="stg stg-unpaid" title="${esc(`Hidden since ${since} for an unpaid membership invoice`)}">${ORG_STATE[state]}</span>`
-      +`<br><span class="muted">${esc(`since ${since}; paying restores it, or Extend the clock`)}</span>`;
+      +`<br><span class="muted">${esc(`since ${since}; paying restores it, or Extend the clock on Money`)}</span>`;
   }
   const title=state==='on'?'On the hub: seekers can find it and the desk can route to it'
     :`${ORG_STATE[state]} since ${String(when||'').slice(0,10)} by ${who||'unknown'}${why?': '+why:''}`;
   const feeToo=state==='paused'&&o.sub_status==='hidden'&&feeHidden(o.id)
-    ?'<br><span class="muted">and hidden for an unpaid membership invoice; paying restores it, or Extend the clock</span>':'';
+    ?'<br><span class="muted">and hidden for an unpaid membership invoice; paying restores it, or Extend the clock on Money</span>':'';
   return `<span class="stg stg-${esc(state)}" title="${esc(title)}">${ORG_STATE[state]}</span>${
     state!=='on'?`<br><span class="muted">${esc(String(when||'').slice(0,10))} · ${esc(who||'unknown')}</span>`:''}${feeToo}`;
-}
-function retry(intentId){
-  const i=intentById[intentId];
-  if(!i)return;
-  raise(i.type,i.payload_json||{},'Sent again');
 }
 
 boot();
