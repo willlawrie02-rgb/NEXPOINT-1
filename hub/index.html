@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet">
 <!-- The shared sheet and script are asked for by version on this page (13 Oct
      2026): browsers keep them for four hours and the page for ten minutes, so
      a visitor who had been here earlier got the new hero with the old sheet
@@ -162,7 +162,9 @@
   @media (max-width: 1100px) { .doors--four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 640px) { .doors--four { grid-template-columns: minmax(0, 1fr); } }
   /* no flash of the wrong account state: both hero states and the header slot wait for the
-     account check (assets/hub-account.js sets data-np-checking until /auth/me has answered) */
+     account check (data-np-checking, set first thing in <body> and cleared by
+     assets/hub-account.js once /auth/me has answered); the slot is drawn signed out from the
+     start, so the header links are already where a stranger will see them */
   body[data-np-checking] .np-stranger, body[data-np-checking] .np-holder, body[data-np-checking] [data-np-account-slot] { visibility: hidden; }
   /* signed in, the hero's one action is the account button (Will, 14 October, evening); the
      holder block lays out like the stranger's, and exists only once the account check says
@@ -179,6 +181,10 @@
 </style>
 </head>
 <body>
+<!-- The account check's flag goes on before anything is drawn (Will, 30 October 2026): the
+     module that used to set it arrives after the first paint, so a signed-in visitor saw the
+     signed-out hero first. The timer is the fallback for a module that never arrives. -->
+<script>document.body.setAttribute('data-np-checking', ''); setTimeout(function () { document.body.removeAttribute('data-np-checking'); }, 3000);</script>
 <!--
 v3 · 2026-08-15 - rebuilt from Chris's 14 Aug review.
 CHANGED: hub cards are image-buttons and sit directly under the hero · Product Hub
@@ -205,7 +211,7 @@ away to the left and brings the doors in from the right in its place.
       <a href="https://millhub.nexpoint.co.uk/" class="hide-m">Mill Hub</a>
       <a href="https://opportunities.nexpoint.co.uk/" class="hide-m">Opportunities Board</a>
       <button class="btn btn-outline" onclick="openIntro('THE PORTAL','Talk to the desk')">Talk to the desk</button>
-      <span data-np-account-slot><a href="#" onclick="event.preventDefault();openSignIn()">Sign in</a></span>
+      <span data-np-account-slot><a href="#" data-np-signin onclick="event.preventDefault();openSignIn()">Sign in</a> <button class="btn btn-primary" type="button" data-np-join onclick="window.NPAccount&&NPAccount.openQuestionnaire({})">Create your hub account</button></span>
     </nav>
   </div>
 </header>
@@ -456,10 +462,6 @@ away to the left and brings the doors in from the right in its place.
   </div>
 </div>
 
-<script src="../assets/hub-account.js"></script>
-<script src="assets/vendor/leaflet/leaflet.js" defer></script>
-<script src="assets/site-map.js" defer></script>
-<script src="assets/portal.js?v=20261014.2"></script>
 <script>
 /* ─── The stage swap: the hero gives way sideways to the four doors (Will, 14 October 2026) ───
    The shape is in the style block in the head. This decides whether the swap is on (the two
@@ -631,5 +633,12 @@ away to the left and brings the doors in from the right in its place.
   } else reveal();
 })();
 </script>
+<!-- The shared modules come after the stage swap (30 October 2026): the swap must be set
+     before the first paint, and a module the browser has to fetch or recheck would hold
+     it back while the page painted the stacked layout, the doors showing under the hero. -->
+<script src="../assets/hub-account.js"></script>
+<script src="assets/vendor/leaflet/leaflet.js" defer></script>
+<script src="assets/site-map.js" defer></script>
+<script src="assets/portal.js?v=20261014.2"></script>
 </body>
 </html>
