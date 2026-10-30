@@ -139,7 +139,7 @@ async function load(){
   const all=(table,cols,order)=>NXCRM.readAll(()=>sb.from(table).select(cols).order(order||'id',{ascending:true}));
   const [oq,iq,rq,vq,cq,sq,gq,lq,tq,mq,dq,kq,pq,bq,wq]=await Promise.all([
     sb.from('board_opportunities').select('*').order('sort',{ascending:true,nullsFirst:false}),
-    sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,brief_id,listing_id,created_at').order('id',{ascending:false}).limit(1000),
+    sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,brief_id,listing_id,created_at,introduced_at,fee_model').order('id',{ascending:false}).limit(1000),
     sb.from('board_code_reports').select('*').order('quarter',{ascending:false}),
     sb.from('board_code_reveals').select('id,opportunity_id').limit(1000),
     all('crm_companies','id,name,slug,archived_at'),
@@ -502,10 +502,20 @@ function membershipCell(o){
   const n=NXJOBS.clockDay(r,todayIso());
   return (n==null?'<span class="st info">Unpaid</span>':NXJOBS.clockHtml(r,n))+`<small>${esc(r.xero_invoice_number||'')}</small>`;
 }
+// A declaration is owed for a month only by a host with an introduction on
+// that hub accepted before the month ended, in a stage that carries a fee and
+// not a success fee (declarations.py, _qualifying_sites): a host with none
+// reads "not owed", never "missing" (the CN8 walk, 30 Oct 2026).
+function declOwed(intros,orgId,hub,period){
+  const y=Number(period.slice(0,4)), m=Number(period.slice(5,7));
+  const end=m===12?`${y+1}-01-01`:`${y}-${String(m+1).padStart(2,'0')}-01`;
+  return intros.some(i=>i.org_a===orgId&&i.hub===hub&&i.introduced_at&&String(i.introduced_at).slice(0,10)<end
+    &&!['dead','expired','declined'].includes(i.stage)&&i.fee_model!=='success_fee');
+}
 function declCell(o,hub){
   return `<div class="decl">${lastPeriods().map(p=>{
     const d=D.declarations.find(x=>x.org_id===o.id&&x.hub===hub&&x.period===p);
-    const word=!d?'missing':d.status==='submitted'||d.status==='closed'?'declared':d.status==='nothing'?'nothing':d.status;
+    const word=d?(d.status==='submitted'||d.status==='closed'?'declared':d.status==='nothing'?'nothing':d.status):declOwed(D.intros,o.id,hub,p)?'missing':'not owed';
     const mon=NXJOBS.day(p+'-01').split(' ')[1];
     return `<span><b>${esc(mon)}</b> ${esc(word)}</span>`;}).join('')}</div>`;
 }
