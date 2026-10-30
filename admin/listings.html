@@ -208,6 +208,20 @@ const select=(id,opts,cur,disabled)=>`<select class="input" id="${id}"${disabled
 const field=(label,inner)=>`<div class="field"><span class="flabel">${esc(label)}</span>${inner}</div>`;
 const failLine=i=>i&&i.status==='failed'?`<div class="fail-line">${ms('error','sm')}<span>Failed: ${esc(NXJOBS.sentence(i.result_note))}</span></div>`:'';
 const queuedLine=i=>i&&i.status!=='failed'?'<span class="picker-note">Queued, moments away.</span>':'';
+/* The board's last publish (the walk of 29 October 2026): a failed one reads
+   in the head, with the time it was asked for (the intents table keeps no
+   other clock; the engine acts within a minute or two of it), until any
+   later action is raised from this page: an intent with a higher id among
+   those the page reads, so the clearing holds across a reload, a tab and
+   both admins. The old line stayed until the next press, through every
+   edit and save, and misled the walk. Publish the board again raises a
+   fresh publish: a save never publishes by itself. */
+function publishLine(){
+  const all=readIntents.concat(sending);
+  const p=all.filter(i=>i.type==='publish-to-live-site').sort((a,b)=>b.id-a.id)[0];
+  if(!p||p.status!=='failed'||all.some(i=>i.id>p.id))return '';
+  return `<div class="banner err">${ms('error')}<div class="banner-text"><strong>The board was not published</strong><span>The publish asked for at ${esc(NXJOBS.runTime(p.requested_at))} failed: ${esc(NXJOBS.sentence(p.result_note))}</span><span>${btn('publishAgain','Publish the board again','rocket_launch',{},'quiet')}</span></div></div>`;
+}
 const val=id=>String(($(id)||{}).value||'').trim();
 const coLink=id=>D.companies[id]?`<a class="linkish" href="company.html?id=${esc(id)}">${esc(D.companies[id].name)}</a>`:'';
 const orgLink=id=>D.orgs[id]?`<a class="linkish" href="company.html?org=${esc(encodeURIComponent(id))}">${esc(D.orgs[id].name||'Account')}</a>`:esc((D.orgs[id]||{}).name||'');
@@ -277,8 +291,10 @@ function ownerPicker(o){
     :'<p class="picker-note">No company in Contacts matches. Add it on Contacts first.</p>';
   if(chosen){
     const sites=D.sites.filter(s=>s.company_id===chosen.id&&s.org_id&&!offAccount(D.orgs[s.org_id]));
+    /* Its current site when the owner is picked again; otherwise its one account, or none chosen among several. */
+    const siteNow=o.owner_company_id===chosen.id&&sites.some(s=>s.org_id===o.owner_org_id)?o.owner_org_id:(sites.length===1?sites[0].org_id:'');
     h+=`<p class="picker-note">${esc(chosen.name)}. ${sites.length?'The site whose account answers its introductions:':'No site of this company has a portal account yet: introductions wait until it registers.'}</p>`+
-      (sites.length?`<label class="sr" for="ow-site-${esc(o.id)}">Site</label>${select('ow-site-'+o.id,[['','No site yet']].concat(sites.map(s=>[s.org_id,s.name])),sites.length===1?sites[0].org_id:'')}`:'')+
+      (sites.length?`<label class="sr" for="ow-site-${esc(o.id)}">Site</label>${select('ow-site-'+o.id,[['','No site yet']].concat(sites.map(s=>[s.org_id,s.name])),siteNow)}`:'')+
       `<div class="actions">${btn('saveOwner','Set the owner','business',{opp:o.id},'primary')}${cancel()}</div>`;
   }
   return h+'</div>';
@@ -334,6 +350,14 @@ function introducePayload(f){
 }
 
 /* ---- the editor (ported from the Opportunities list, plan 070) ---- */
+/* A company's sites with an open portal account, and the one account chosen
+   for an opportunity whose owner has no site set yet (none when it has
+   several, or one already). */
+const sitesOf=companyId=>companyId==null?[]:D.sites.filter(s=>s.company_id===companyId&&s.org_id&&!offAccount(D.orgs[s.org_id]));
+function oneAccount(o){
+  const s=o&&o.owner_company_id!=null&&!o.owner_org_id?sitesOf(o.owner_company_id):[];
+  return s.length===1?s[0].org_id:'';
+}
 const escT=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const unesc=s=>String(s||'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
 const inlineEm=s=>escT(s).replace(/\*([^*\n]+)\*/g,'<em>$1</em>');
@@ -392,7 +416,15 @@ function editorHtml(o){
   const base=valuesOf(o), typed=refused?(q.payload_json||{}):{};
   const v=refused?{...base,...typed,public:{...base.public,...(typed.public||{})},private:{...base.private,...(typed.private||{})}}:base;
   const pub=v.public, priv=v.private;
-  const sites=D.sites.filter(s=>s.company_id===(UI.ownerPick!=null?UI.ownerPick:v.owner_company_id)&&s.org_id&&!offAccount(D.orgs[s.org_id]));
+  const ownerId=UI.ownerPick!=null?UI.ownerPick:v.owner_company_id;
+  const sites=sitesOf(ownerId);
+  /* The owner, named where its sites are offered, and its one account chosen
+     when the row has none (the walk of 29 October 2026): the chosen site is
+     part of the form, so Save sends it with whatever else changed, and
+     Publish asks for the save first (openEditor marks the form). A refused
+     save shows the site it sent, a cleared one included. */
+  const ownerNow=ownerId==null?'':((D.companies[ownerId]||{}).name||`company ${ownerId}`);
+  const siteNow=('owner_org_id' in typed)?(typed.owner_org_id||''):(base.owner_org_id||oneAccount(o));
   /* No defaulted choice on a new opportunity (the standing correction of 30 September 2026). */
   const DIRS=(o?[]:[['','Choose a direction']]).concat([['OFFERING','Offering'],['SEEKING','Seeking'],['TWO-WAY','Two-way']]);
   const CATS=(o?[]:[['','Choose a category']]).concat(Object.entries(CAT_LABEL));
@@ -406,8 +438,9 @@ function editorHtml(o){
     field('Detail (plain text; a blank line between paragraphs)',area('f_detail','Detail',htmlToText(pub.detail)))+
     field('Signals (one per line: Headline | Caption)',area('f_signals','Funded | established 20+ year operation',pairsToText(pub.signals)))+
     field('Locked teaser (one per line: Label | Hidden value; a signed-in account sees the label, the value shows redacted)',area('f_locked','Company name | ████',pairsToText(pub.locked)))+
-    `<div class="priv"><span class="tg-label">Private: never published</span><div class="form-grid">`+
-    field('Owner site (the account that answers introductions)',select('f_site',[['','No site with an account yet']].concat(sites.map(s=>[s.org_id,s.name])),v.owner_org_id))+
+    `<div class="priv"><span class="tg-label">Private: never published</span>`+
+    `<p class="picker-note">${ownerNow?`Owner: ${esc(ownerNow)}. Change it with Set the owner on the card.`:`No owner yet: Set the owner on the card${o?'':' once it is saved'}.`}</p><div class="form-grid">`+
+    field('Owner site (the account that answers introductions)',select('f_site',[['','No site with an account yet']].concat(sites.map(s=>[s.org_id,s.name])),siteNow))+
     field('Naming',select('f_naming',[['anonymised','Anonymised'],['named','Named']],v.naming))+field('Display name (when named; blank shows the company’s name)',input('f_display','Display name',v.display_name))+
     field('Kind',select('f_kind',KINDS,v.kind))+field('Code (discount code only; never on the card)',input('f_code','Code',v.code))+
     field('What the code gives (shown on the card)',input('f_code_terms','15% off list price',v.code_terms))+field('Fee model',select('f_fee_model',[['recurring','Recurring'],['success_fee','Success fee']],v.fee_model))+
@@ -530,7 +563,7 @@ function render(){
   const bn=banners.map(b=>`<div class="banner">${ms('info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
   if(state==='loading'){page.innerHTML=NXShell.headHtml({title:'Live Listings'})+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the listings.</span></div></section>`;return;}
   const actions=UI.tab==='opportunities'&&!missing080?btn('openUi','Introduce someone','handshake',{ui:'introduce-pick'},'primary')+btn('newOpp','New opportunity','add',{}):'';
-  let h=NXShell.headHtml({title:'Live Listings',lede:LEDE[UI.tab],actions})+bn+tabsHtml();
+  let h=NXShell.headHtml({title:'Live Listings',lede:LEDE[UI.tab],actions})+bn+publishLine()+tabsHtml();
   h+=UI.tab==='opportunities'?opportunitiesTab():hubTab(UI.tab);
   page.innerHTML=h;
 }
@@ -601,8 +634,9 @@ const ACT={
     return raise('review-web-request',{request_id:r.id,status:'declined',reason},queued('Declined'));
   },
   setStatus(el){return setStatus(el.dataset.opp,el.dataset.status);},
+  publishAgain(){return raise('publish-to-live-site',{},queued('Publishing the board'));},
   newOpp(){UI.editing='new';UI.dirty=false;UI.open=null;UI.ownerPick=null;render();},
-  openEditor(el){const o=oppById(el.dataset.opp);if(!o)return;UI.editing=o.id;UI.dirty=false;UI.open=null;UI.ownerPick=null;render();},
+  openEditor(el){const o=oppById(el.dataset.opp);if(!o)return;UI.editing=o.id;UI.dirty=!!oneAccount(o);UI.open=null;UI.ownerPick=null;render();},
   closeEditor(){UI.editing=null;UI.dirty=false;render();},
   edited(){UI.dirty=true;},
   saveEditor(){
