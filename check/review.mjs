@@ -11,9 +11,17 @@ const fail = (msg) => fails.push(msg);
 
 // ---------------------------------------------------------------- the trap field
 // The worker drops any request whose company_url is filled. That only works
-// where the form has such a field for a bot to fill: the three forms a
-// stranger may send used to post a hard-coded empty string.
-const TRAP = /<input[^>]*name="company_url"[^>]*>/;
+// where the form has such a field for a bot to fill: the forms a stranger
+// may send used to post a hard-coded empty string. And the field must be
+// one no browser fills on its own: on 29 October 2026 Chrome filled a trap
+// named company_url from a saved address when a real person accepted an
+// autofill suggestion, and the worker dropped the registration. So the trap
+// is named np_check, its name, id, label and placeholder say nothing
+// autofill reads as a website, company or organisation field, and its one
+// autocomplete token is one-time-code, which browsers honour and never fill
+// from a saved address; each form posts its value as company_url.
+const TRAP = /<input[^>]*name="np_check"[^>]*>/;
+const AUTOFILL_WORDS = /url|web|site|compan|organi[sz]|business|firm|name|mail|tel|fax|phone|address|street|city|town|post|zip|country|region|state|province|county|locality|org|first|last|surname|user|login|card|cvc|cvv|csc|otp/i;
 const formIn = (t, opener) => {
   const from = t.indexOf(opener);
   return from < 0 ? "" : t.slice(from, t.indexOf("</form>", from));
@@ -22,11 +30,27 @@ const bodyOf = (t, name) => {
   const m = t.match(new RegExp("function " + name + "\\([^)]*\\)\\s*\\{[\\s\\S]*?\\n\\}"));
   return m ? m[0] : "";
 };
+function trapCheck(where, markup) {
+  if (!markup) { fail(`${where}: form not found`); return; }
+  const m = markup.match(TRAP);
+  if (!m) { fail(`${where} has no trap field (name="np_check") for a bot to fill`); return; }
+  const tag = m[0];
+  if (!/autocomplete="one-time-code"/.test(tag)) fail(`${where}: the trap's autocomplete token is not one-time-code, so a browser may fill it`);
+  for (const attr of ["name", "placeholder", "aria-label"]) {
+    const v = (tag.match(new RegExp(`\\b${attr}="([^"]*)"`)) || [])[1] || "";
+    if (AUTOFILL_WORDS.test(v)) fail(`${where}: the trap's ${attr} ("${v}") reads as a field autofill fills`);
+  }
+  // no id: nothing to label it by, and nothing for autofill to read
+  if (/\bid="/.test(tag)) fail(`${where}: the trap has an id`);
+  if (/<label[^>]*>[^<]*<input[^>]*name="np_check"/.test(markup)) fail(`${where}: the trap sits inside a label`);
+  if (!/tabindex="-1"/.test(tag) || !/aria-hidden="true"/.test(tag)) fail(`${where}: the trap is in the tab order or read by assistive technology`);
+}
 {
   const home = read("index.html");
-  if (!TRAP.test(formIn(home, '<form id="bookForm"'))) fail("index.html: the intro-call form has no company_url field for a bot to fill");
+  trapCheck("index.html: the intro-call form", formIn(home, '<form id="bookForm"'));
   const send = home.slice(home.indexOf("async function submitForm"), home.indexOf("function render()"));
   if (/company_url:\s*''/.test(send)) fail("index.html: the intro-call form posts a hard-coded empty company_url");
+  if (!/const trap = e\.target\.querySelector\('\[name="np_check"\]'\)\.value/.test(home)) fail("index.html: the intro-call form does not read the trap field");
 
   const portal = read("hub/assets/portal.js");
   const forms = [
@@ -35,13 +59,22 @@ const bodyOf = (t, name) => {
   ];
   for (const [what, opener, handler] of forms) {
     const form = formIn(portal, `<form onsubmit="return ${opener}">`);
-    if (!TRAP.test(form) && !/\$\{TRAP_FIELD\}/.test(form)) fail(`hub/assets/portal.js: ${what} has no company_url field for a bot to fill`);
+    if (!TRAP.test(form) && !/\$\{TRAP_FIELD\}/.test(form)) fail(`hub/assets/portal.js: ${what} has no trap field for a bot to fill`);
     const body = bodyOf(portal, handler);
     if (!body) fail(`hub/assets/portal.js: ${handler} was not found`);
-    else if (/company_url:\s*''/.test(body)) fail(`hub/assets/portal.js: ${what} posts a hard-coded empty company_url`);
+    else if (!/company_url:\s*trapValue\(form\)/.test(body)) fail(`hub/assets/portal.js: ${what} does not post the trap field as company_url`);
   }
-  if (/\$\{TRAP_FIELD\}/.test(portal) && !TRAP.test((portal.match(/const TRAP_FIELD\s*=\s*'[^\n]*/) || [""])[0]))
-    fail("hub/assets/portal.js: TRAP_FIELD is not a company_url input");
+  trapCheck("hub/assets/portal.js: TRAP_FIELD", (portal.match(/const TRAP_FIELD\s*=\s*'([^\n]*)';/) || ["", ""])[1]);
+  if (!/querySelector\('\[name="np_check"\]'\)/.test(portal)) fail("hub/assets/portal.js: trapValue does not read the trap field");
+
+  const account = read("assets/hub-account.js");
+  trapCheck("assets/hub-account.js: the register form", formIn(account, '<form data-np-step="2">'));
+  if (!/company_url:\s*e\.target\.querySelector\('\[name="np_check"\]'\)\.value/.test(account)) fail("assets/hub-account.js: the register form does not post the trap field as company_url");
+
+  const opps = read("opportunities/index.html");
+  trapCheck("opportunities/index.html: the capture form", formIn(opps, '<form onsubmit="event.preventDefault();submitCapture(this)">'));
+  if (!/company_url:\s*fd\.get\('np_check'\)\|\|''/.test(opps)) fail("opportunities/index.html: the capture form does not post the trap field as company_url");
+  if (!/if\(fd\.get\('np_check'\)\)\s*return showSuccess\(\);/.test(opps)) fail("opportunities/index.html: a filled trap is not dropped");
 }
 
 // ---------------------------------------------------------------- the return address

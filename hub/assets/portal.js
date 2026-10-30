@@ -74,10 +74,15 @@ function serializeForm(form){
    whose company_url is filled and answers ok. The desk form and the
    Education sign-up used to post a hard-coded empty string, so there was
    nothing for a bot to fill. Off-screen, out of the tab order and hidden
-   from assistive technology; it has no id, so serializeForm leaves it be. */
-const TRAP_FIELD = '<input type="text" name="company_url" value="" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">';
+   from assistive technology; it has no id, so serializeForm leaves it be.
+   Its name says nothing a browser's autofill reads as a website, company or
+   organisation field, and its autocomplete token, one-time-code, is one
+   browsers honour and never fill from a saved address (29 October 2026:
+   Chrome filled the old company_url field from a saved address and the
+   worker dropped a real request). The value is posted as company_url. */
+const TRAP_FIELD = '<input type="text" name="np_check" value="" tabindex="-1" autocomplete="one-time-code" aria-hidden="true" style="position:absolute;left:-9999px">';
 function trapValue(form){
-  const t = form.querySelector('[name="company_url"]');
+  const t = form.querySelector('[name="np_check"]');
   return t ? t.value : '';
 }
 

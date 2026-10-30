@@ -1133,7 +1133,10 @@ function openBrief(id){
 const CAPTURE_ENDPOINT="https://api.nexpoint.co.uk/requests";
 async function submitCapture(form){
   const fd=new FormData(form);
-  if(fd.get('company_url')) return showSuccess();            // honeypot tripped → drop silently
+  /* The trap field, filled: dropped here with the success card, before any
+     post (the other forms send it and the worker drops it; the outcome is
+     the same, and this page has never let it leave). */
+  if(fd.get('np_check')) return showSuccess();
   const post=(fd.get('enquiry_kind')||'')==='post';
   const payload={
     hub:'opportunities',
@@ -1144,7 +1147,7 @@ async function submitCapture(form){
       goals:profile.goals||[], pressing:profile.pressing||[], timeline:profile.timeline||'',
       direction:profile.direction||'', product_types:profile.productTypes||[], products:productSummary(),
       describe:profile.describe||'', source:'opportunities page' },
-    company_url: fd.get('company_url')||'',
+    company_url: fd.get('np_check')||'',                     // the trap field, under the worker's key
   };
   /* Plan 070: a post names or keeps back its company, as chosen, and carries
      the Opportunity Terms version its tick accepted (screen 1). */
@@ -1253,7 +1256,7 @@ function openForm(subject, ref, mode){
     <form onsubmit="event.preventDefault();submitCapture(this)">
       <input type="hidden" name="brief_ref" value="${ref||''}">
       ${post?'<input type="hidden" name="enquiry_kind" value="post">':''}
-      <input type="text" name="company_url" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
+      <input type="text" name="np_check" value="" tabindex="-1" autocomplete="one-time-code" aria-hidden="true" style="position:absolute;left:-9999px">
       ${naming}
       <div class="form-grid"><div class="field full"><label>${fieldLabel}</label><textarea name="fit" required placeholder="${placeholder}"></textarea></div></div>
       ${post?'<div data-post-terms></div>':''}
