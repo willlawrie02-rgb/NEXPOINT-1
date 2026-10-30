@@ -56,6 +56,17 @@
   .section .sub { font-size: clamp(16px, 1.25vw, 18px); line-height: 1.55; max-width: 720px; }
   .hub-hero .door h3 { font-weight: 700; }
 
+  /* The choice cards' pictures (Will, 30 Oct 2026): the work you receive and the machine you
+     own, in a panel on the right that fades in from the card's white. Hidden on phones, where
+     the card is the full width and the words need it. */
+  .door--pic { flex-direction: row; }
+  .door--pic .door__body { flex: 1 1 0; min-width: 0; }
+  .door--pic .door__media { position: relative; flex: 0 0 36%; }
+  .door--pic .door__media img { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; object-position: 58% 50%; }
+  .door--pic .door__media::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(90deg, var(--surface) 0%, rgba(255, 255, 255, .55) 22%, rgba(255, 255, 255, 0) 50%); }
+  @media (max-width: 640px) { .door--pic .door__media { display: none; } }
+
   /* the proof band: a hairline grid with the numerals at full strength */
   .net-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0; padding: 0; }
   .net { flex-direction: column; align-items: flex-start; gap: 10px; padding: clamp(24px, 3vh, 36px) clamp(20px, 2.4vw, 36px); border-left: 1px solid var(--border); }
@@ -159,21 +170,23 @@ own pages · logo path fixed.
            plan 055): the choice is the whole point of the page, so it replaces
            the illustration and the hero buttons, and the doors section below. -->
       <div class="hero-choice">
-        <a class="door door--row enter enter--right" style="--d:0ms" href="find.html">
+        <a class="door door--row door--pic enter enter--right" style="--d:0ms" href="find.html">
           <div class="door__body">
             <span class="door__kicker">I need capacity</span>
             <h3>Find print capacity</h3>
             <p>Tell us the material, quantity and lead time. We show you the sites that fit and make the introduction.</p>
             <span class="go">Find print capacity <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
           </div>
+          <div class="door__media"><img src="assets/img/print-need.jpg" alt="Illustration of an open box holding a pair of blue 3D-printed insoles" width="720" height="720"></div>
         </a>
-        <a class="door door--row enter enter--right" style="--d:70ms" href="offer.html">
+        <a class="door door--row door--pic enter enter--right" style="--d:70ms" href="offer.html">
           <div class="door__body">
             <span class="door__kicker">I have capacity</span>
             <h3>Offer print capacity</h3>
             <p>Own machines? The first labs to join get hub referrals first and help set the certification standards.</p>
             <span class="go">Offer print capacity <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
           </div>
+          <div class="door__media"><img src="assets/img/print-have.jpg" alt="Illustration of an enclosed white 3D printer printing a blue insole" width="720" height="720"></div>
         </a>
       </div>
     </div>
