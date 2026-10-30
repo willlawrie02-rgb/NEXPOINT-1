@@ -24,7 +24,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet" />
 
 <style>
   :root {
@@ -125,6 +125,7 @@
      hub-account module fills it with Sign in and Create your hub account, or
      the signed-in name and Sign out, so the header reads the same everywhere. */
   [data-np-account-slot] { display: inline-flex; align-items: center; gap: clamp(14px, 1.6vw, 24px); }
+  body[data-np-checking] [data-np-account-slot] { visibility: hidden; }
   [data-np-account-slot] a[data-np-signin] { font: 600 12px/1 var(--font-body); letter-spacing: .05em; text-transform: uppercase; color: rgba(255, 255, 255, 0.8); text-decoration: none; }
   [data-np-account-slot] a[data-np-signin]:hover { color: #fff; }
   [data-np-account-slot] .btn-primary { background: var(--np-blue); color: #fff; font: 600 13px/1 var(--font-body); padding: 12px 18px; border-radius: 4px; }
@@ -848,6 +849,11 @@
 <noscript><img src="https://www.365-syndicate.com/818863.png" style="display:none;" alt="" width="1" height="1" /></noscript>
 </head>
 <body>
+<!-- No flash of the wrong account state (Will, 30 October 2026): the header's account
+     slot waits, hidden, until the account check has answered (assets/hub-account.js clears
+     data-np-checking then). It is set here, before the header is drawn, because the module
+     arrives after the first paint; the timer is the fallback for a module that never does. -->
+<script>document.body.setAttribute('data-np-checking', ''); setTimeout(function () { document.body.removeAttribute('data-np-checking'); }, 3000);</script>
 
 <!-- ───── Navbar ───── -->
 <header class="navbar">
@@ -864,7 +870,9 @@
     </div>
     <div class="navbar__actions">
       <button class="btn btn--outline" data-nav="book">Talk to the desk</button>
-      <span data-np-account-slot></span>
+      <!-- the signed-out controls are drawn from the start, so the links beside them
+           are already where they will stay; the account module redraws the slot -->
+      <span data-np-account-slot><a href="/hub/?signin=1" data-np-signin>Sign in</a> <a class="btn btn-primary" href="/hub/?join=1" data-np-join>Create your hub account</a></span>
       <button class="nav-burger" type="button" data-menu-toggle aria-expanded="false" aria-controls="navMenu" aria-label="Open menu">
         <span class="material-symbols-outlined ico-menu" aria-hidden="true">menu</span>
         <span class="material-symbols-outlined ico-close" aria-hidden="true">close</span>
@@ -1439,10 +1447,13 @@
 
 <!-- The hub's account module (plan 055): fills the header's account slot. On
      the main site the signed-out controls are plain links to the hub door,
-     so no sign-in box or questionnaire is loaded here. -->
+     so no sign-in box or questionnaire is loaded here. Both modules are deferred:
+     the page's own script below must run before the first paint, since it pins
+     the hero, and a module the browser has to fetch or recheck would hold it back
+     while the page painted unpinned (30 October 2026). -->
 <script>window.NP_ACCOUNT_LINKS = { signin: '/hub/?signin=1&return=' + encodeURIComponent(location.href), join: '/hub/?join=1' };</script>
-<script src="assets/hub-account.js"></script>
-<script src="hub/assets/world-map.js"></script>
+<script src="assets/hub-account.js" defer></script>
+<script src="hub/assets/world-map.js" defer></script>
 <script>
 (function () {
   // ─── Smooth scroll + nav active-state (IntersectionObserver, no scroll listener) ───

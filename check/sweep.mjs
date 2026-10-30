@@ -343,6 +343,33 @@ for (const p of pages.filter((x) => x.startsWith("printhub/") || x.startsWith("m
   if (!/window\.NP_APEX\s*=/.test(t)) fail(`${p}: window.NP_APEX is gone (portal.js needs it)`);
 }
 
+// ---------------------------------------------------------------- the first paint
+// 30 October 2026: pages flashed a wrong first frame and then jumped. The browser
+// paints whatever it has while it waits for a script it must fetch or recheck, so
+// (1) a page that shows its header slot before the account check (no data-np-wall)
+// sets data-np-checking first thing in <body>, and draws the slot signed out from
+// the start so the links beside it do not move; (2) the inline script that pins a
+// page's opening layout runs before any blocking external script in <body>; (3) the
+// icon font blocks rather than swaps, so an icon never shows as its name.
+for (const p of pages) {
+  const t = read(p);
+  const body = t.slice(t.indexOf("<body"));
+  const slot = body.match(/<span data-np-account-slot>([\s\S]*?)<\/span>/);
+  if (slot && !/<body[^>]*data-np-wall/.test(t)) {
+    const flag = body.search(/document\.body\.setAttribute\('data-np-checking'/);
+    const header = body.search(/<header\b/);
+    if (flag < 0 || (header >= 0 && flag > header)) fail(`${p}: data-np-checking is not set before the header is drawn (the signed-out state flashes first)`);
+    if (!/data-np-signin/.test(slot[1]) || !/data-np-join/.test(slot[1])) fail(`${p}: the account slot is not drawn signed out in the markup (the header links move when it fills)`);
+  }
+  const pin = body.search(/classList\.(toggle|add)\('(js-hero-pin|np-swap-on)'/);
+  if (pin >= 0) {
+    const blocking = [...body.matchAll(/<script\b[^>]*\bsrc="[^"]*"[^>]*>/g)].find((m) => !/\b(defer|async)\b/.test(m[0]));
+    if (blocking && blocking.index < pin) fail(`${p}: ${blocking[0]} blocks before the script that pins the opening layout (the page paints unpinned, then jumps)`);
+  }
+  const icons = t.match(/Material\+Symbols\+Outlined[^"]*/);
+  if (icons && !/display=block/.test(icons[0])) fail(`${p}: the icon font should load with display=block (an icon shows as its name until it arrives)`);
+}
+
 // ---------------------------------------------------------------- the names people read
 // Will's ruling, 8 October 2026 (plan 052 task 3.1): the Account is the company
 // and a User is a person signed in. Words people read never say "member(s)" or

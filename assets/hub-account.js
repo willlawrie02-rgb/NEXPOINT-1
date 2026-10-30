@@ -107,7 +107,9 @@
          button nor the holder's line (hub/index.html hides both, and the
          header slot, while this attribute is on), so a signed-in visitor
          never sees Create your hub account flash first (Will, 14 Oct). A
-         slow answer shows the stranger state after three seconds, as before. */
+         slow answer shows the stranger state after three seconds, as before.
+         The door and the main site also set it themselves, first thing in
+         <body>: this module arrives after the first paint (30 Oct). */
       whenDom(() => {
         if (!document.body) return;
         document.body.setAttribute('data-np-checking', '');
