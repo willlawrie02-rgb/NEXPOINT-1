@@ -140,6 +140,8 @@ const esc=NXCRM.esc, ms=NXShell.ms, plural=(n,a,b)=>`${n} ${n===1?a:(b||a+'s')}`
 const PIPE_INTENTS=['add-card','edit-card','move-card','set-card-next','mark-card-dead','revive-card','link-card-site','invite-to-portal','move-introduction'];
 const ORG_INTENTS=['delete-account','erase-account','pause-org','resume-org','remove-org','restore-org','open-audit-strike','cure-strike','delete-user'];
 const CRM_INTENTS=Object.keys(NXCRM.KEYS);
+/* Plan 054 (D1): the composer's Note, watched so a queued or failed note shows by the composer. */
+const NOTE_INTENTS=['add-note'];
 const STRIKE_SOURCE={seeker_check:'Seeker check',audit:'Audit',no_declaration:'No declaration',undeclared_evidence:'Undeclared evidence'};
 const LISTING_BADGE={pending:'Waiting for approval',live:'Live',declined:'Declined',hidden:'Hidden'};
 const HUB={print:['3D Print Hub','listings.html?tab=print'],mill:['Mill Hub','listings.html?tab=mill']};
@@ -158,11 +160,11 @@ const none=Promise.resolve({data:[],error:null});
 const todayIso=()=>new Date().toISOString().slice(0,10);
 const fmt=v=>NXCRM.fmtDate(v);
 
-const UI={open:null,edit:null,tl:'all',tlMax:50,job:null,flashDone:false,card:null,cardDone:false,reason:null};
+const UI={open:null,edit:null,tl:'all',tlMax:50,job:null,flashDone:false,card:null,cardDone:false,reason:null,composer:'note'};
 let state='loading', problem='', banners=[];
 let C=null;
 let A={orgs:[],listings:[],revisions:[],strikes:[],fees:{},terms:{},users:[],versions:{},requests:[]};
-let intentById={}, pendingByOrg={}, pendingByStrike={}, pendingByUser={}, pendingByPerson={}, pendingBySite={}, crmOpen=[], doneOrg=[];
+let intentById={}, pendingByOrg={}, pendingByStrike={}, pendingByUser={}, pendingByPerson={}, pendingBySite={}, crmOpen=[], doneOrg=[], noteByCompany={};
 /* Plan 073: the newest open pipeline intent per card and per introduction. */
 let pendingByCard={}, pendingByIntro={};
 /* The intents read, and those on their way since: a press shows queued at once (plan 072). */
@@ -187,7 +189,7 @@ async function load(){
   if(st.error&&!missing){state='error';problem=st.error.message;render();return;}
   const imported=!st.error&&(st.data||[]).some(r=>r.key==='imported_at');
   const iq=await sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at,requested_by')
-    .in('status',['pending','claimed','failed','done']).in('type',[...ORG_INTENTS,...CRM_INTENTS,...NXJOBS.TYPES,...NXJOBS.TASK_TYPES,...PIPE_INTENTS])
+    .in('status',['pending','claimed','failed','done']).in('type',[...ORG_INTENTS,...CRM_INTENTS,...NXJOBS.TYPES,...NXJOBS.TASK_TYPES,...PIPE_INTENTS,...NOTE_INTENTS])
     .order('id',{ascending:false}).limit(1000);
   if(iq.error)banners.push(`Could not read the queued changes: ${iq.error.message}.`);
   if((iq.data||[]).length===1000)banners.push('Showing the newest 1,000 intent rows; older ones are not on this page.');
@@ -381,11 +383,16 @@ const crmKey=(i,p)=>i.type==='edit-company'?`co:${p.company_id}`
   :i.type==='tag-company'?`tag:${p.company_id}:${p.tag_id!=null?p.tag_id:String(p.label||'').toLowerCase()}`
   :i.type==='add-person'||i.type==='add-site'?`${i.type}:${p.company_id}:${String(p.name||'').toLowerCase()}`:null;
 function watch(rows){
-  intentById={};pendingByOrg={};pendingByStrike={};pendingByUser={};pendingByPerson={};pendingBySite={};doneOrg=[];jobPending={};pendingByCard={};pendingByIntro={};
+  intentById={};pendingByOrg={};pendingByStrike={};pendingByUser={};pendingByPerson={};pendingBySite={};doneOrg=[];jobPending={};pendingByCard={};pendingByIntro={};noteByCompany={};
   const open={};
   rows.slice().sort((a,b)=>a.id-b.id).forEach(i=>{
     intentById[i.id]=i;
     const p=i.payload_json||{};
+    /* plan 054: a company's newest add-note that is still queued, or failed in the last week */
+    if(i.type==='add-note'&&p.company_id!=null){
+      if(i.status==='done')delete noteByCompany[p.company_id];
+      else if(i.status!=='failed'||new Date(i.requested_at).getTime()>Date.now()-7*864e5)noteByCompany[p.company_id]=i;
+    }
     /* A job's and a task's newest open intent, keyed as jobs.js looks them up. */
     const jk=NXJOBS.TYPES.includes(i.type)||NXJOBS.TASK_TYPES.includes(i.type)?NXJOBS.intentKey(i):null;
     if(jk!=null){if(i.status==='done')delete jobPending[jk];else jobPending[jk]=i;}
@@ -701,12 +708,35 @@ function needsYouHtml(){
   return `<section class="desk" aria-labelledby="needs-h"><div class="desk-head"><h2 id="needs-h">${ms('pending_actions')}Needs you</h2><span class="sub">${plural(jobRows.length,'job')} from the Inbox</span></div>${
     jobRows.map(r=>NXJOBS.item(r,ctx)).join('')}</section>`;
 }
-/* The composer has the Task half; a note joins it when notes move onto the CRM (054). */
+/* Plan 054 (D1): the composer is Note or Task, the design's one second-level control. A note is a
+   file in the company's folder (add-note), indexed onto the timeline by the next crm-sync; @claude
+   in it is answered in the same file. The Task half is plan 072's. A company with no live folder
+   has nowhere for a note to go and is told so here, before anything is queued. */
+const NO_FOLDER_NOTE='No workspace folder: accept the company on Prospects, or add it with a folder.';
+const noteFolder=()=>C&&!C.company.archived_at?C.folders.find(f=>f.area==='deals'||f.area==='leads'):null;
 function composerHtml(){
   if(!C||T.missing||T.error)return '';
-  return `<section class="panel"><div class="composer-row"><h2>Add a task</h2></div><div class="composer">${input('cp-title','For example: send the hub pricing')}`+
-    `<div class="composer-row"><span class="left"><label class="sr" for="cp-due">Due</label><input class="input" type="date" id="cp-due"><span class="picker-note">Goes to our tasks in the Inbox.</span></span>`+
-    `${btn('taskAdd','Add task','',{form:'cp',company:C.id},'primary')}</div></div></section>`;
+  const task=UI.composer==='task';
+  const seg=`<div class="seg" role="group" aria-label="Note or task">`+
+    `<button type="button" data-act="composerPick" data-pick="note" aria-pressed="${!task}">Note</button>`+
+    `<button type="button" data-act="composerPick" data-pick="task" aria-pressed="${task}">Task</button></div>`;
+  let half;
+  if(task){
+    half=`${input('cp-title','For example: send the hub pricing')}`+
+      `<div class="composer-row"><span class="left"><label class="sr" for="cp-due">Due</label><input class="input" type="date" id="cp-due"><span class="picker-note">Goes to our tasks in the Inbox.</span></span>`+
+      `${btn('taskAdd','Add task','',{form:'cp',company:C.id},'primary')}</div>`;
+  }else if(!noteFolder()){
+    half=`<p class="picker-note">${NO_FOLDER_NOTE}</p>`;
+  }else{
+    const np=noteByCompany[C.id];
+    const noteState=!np?'':np.status==='failed'
+      ?`<div class="fail-line"><span>Failed: ${esc(NXJOBS.sentence(np.result_note))}</span>${btn('retry','Try again','',{intent:np.id},'quiet')}</div>`
+      :'<p class="picker-note"><span class="status-line">Note queued.</span> It shows on the timeline after the next sync.</p>';
+    half=noteState+`<label class="sr" for="cp-note">The note</label><textarea class="input" id="cp-note" rows="4" placeholder="What happened, or a question for Claude starting @claude"></textarea>`+
+      `<div class="composer-row"><span class="picker-note">Shows on the timeline after the next sync; @claude in it is answered there.</span>`+
+      `${btn('noteAdd','Add note','',{company:C.id},'primary')}</div>`;
+  }
+  return `<section class="panel"><div class="composer-row"><h2>Add a note or a task</h2>${seg}</div><div class="composer">${half}</div></section>`;
 }
 function openTasksPanel(){
   const ctx=jobCtx();
@@ -1049,6 +1079,14 @@ const orgOf=el=>orgById(el.dataset.orgId)||{};
 const ACT={
   openUi(el){open(el,el.dataset.ui);},
   closeUi(){UI.open=null;UI.edit=null;UI.reason=null;render();},
+  /* plan 054: the composer's Note */
+  composerPick(el){UI.composer=el.dataset.pick==='task'?'task':'note';render();},
+  async noteAdd(){
+    if(!noteFolder())return need('cp-note',NO_FOLDER_NOTE);
+    const body=val('cp-note');
+    if(!body)return need('cp-note','Type the note first.');
+    return raise('add-note',{company_id:C.id,body},'Note added','Note added. It shows on the timeline after the next sync.');
+  },
   tlFilter(el){UI.tl=el.dataset.f;UI.tlMax=50;render();},
   moreTl(){UI.tlMax+=200;render();},
   retry(el){const i=intentById[el.dataset.intent];if(i)return raise(i.type,i.payload_json||{},'Tried again');},
