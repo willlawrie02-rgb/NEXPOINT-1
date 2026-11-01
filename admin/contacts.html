@@ -266,7 +266,7 @@ function render(){
   if(state==='error'){$('page').innerHTML=h+`<div class="banner err">${ms('error')}<div class="banner-text"><strong>Could not read Contacts</strong><span>${esc(problem)}</span></div></div>`;return;}
   if(state==='loading'){$('page').innerHTML=h+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading Contacts.</span></div></section>`;return;}
   if(state==='empty'){$('page').innerHTML=h+`<section class="panel"><div class="empty-state">${ms('contacts')}<h3>Contacts fills once the import has run</h3>`+
-    `<p>The import brings in every workspace folder, portal account and Pipedrive record. Until it has run, every account and its company page are reached from Accounts.</p>`+
+    `<p>The import brings in every workspace folder and portal account. Until it has run, every account and its company page are reached from Accounts.</p>`+
     `<div class="until"><a class="btn sm" href="organisations.html">Open Accounts</a></div></div></section>`;return;}
   h+=banners.map(b=>`<div class="banner">${ms('info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
   if(UI.open==='addperson'){
