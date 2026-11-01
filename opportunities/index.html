@@ -1126,10 +1126,11 @@ function openBrief(id){
 /* One capture path (audit plan 028): this page posts to the same /requests
    route every other form uses, on the custom domain, inside the Cloudflare
    burst rule. It used to post the old portal shape to the worker's shared
-   development hostname, which fell through the router into the retired
-   Pipedrive capture: outside the rate rule, and a lead minted from any
-   valid-looking email. `credentials:'include'` sends the hub session cookie, so a
-   signed-in account's request arrives carrying its member_id. */
+   development hostname, which fell through the router into a capture route
+   retired in 2026 (it wrote straight to the CRM of the day, outside the rate
+   rule, from any valid-looking email; that CRM was cancelled under plan 054).
+   `credentials:'include'` sends the hub session cookie, so a signed-in
+   account's request arrives carrying its member_id. */
 const CAPTURE_ENDPOINT="https://api.nexpoint.co.uk/requests";
 async function submitCapture(form){
   const fd=new FormData(form);
