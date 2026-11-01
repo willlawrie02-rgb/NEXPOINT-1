@@ -560,7 +560,7 @@ function leadCard(r){
   if(UI.open!==r.id)return out;
   const control=queued?queuedLine(q)
     :`${saveBtn(r)}<button class="btn sm" type="button" data-act="returnLead" data-id="${esc(r.id)}">${ms('undo','sm')}Return to prospect</button>`;
-  const ask=UI.ask==='return:'+r.id?askHtml('Return',r.id,'Return this lead to Prospects? It leaves its campaign; the Pipedrive lead and its folder are kept. Say why.','Required','Return it',false)
+  const ask=UI.ask==='return:'+r.id?askHtml('Return',r.id,'Return this lead to Prospects? It leaves its campaign; its folder is kept. Say why.','Required','Return it',false)
     :UI.ask==='move:'+r.id?moveAsk(r):'';
   out+=`<tr class="detail"><td colspan="6"><div class="detail-body">
     ${finderTags(r)}

@@ -67,9 +67,8 @@ accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
 STORY: every account on the Global Portal — the follow-through score and
 its working, subscription standing (with the Founding badge honoured for
 life, spec §3), host status and listings per hub, open strikes with the
-source that opened them and the date they must cure by, the Pipedrive ids
-that tie the row to the CRM, and fees owed on confirmed-but-uninvoiced
-orders. Read-only since plan 075 (D10): Record payment (by hand), Extend
+source that opened them and the date they must cure by, and fees owed on
+confirmed-but-uninvoiced orders. Read-only since plan 075 (D10): Record payment (by hand), Extend
 the clock and the billing-from choice are Money's, and the account's own
 controls are its company page's (plan 071 PR 3). The board watches the
 three membership intents, so a payment in flight shows on its row.
@@ -138,7 +137,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         <p class="note">
           Every account on the Global Portal, for the money: the follow-through score and its
           working, subscription standing, host status and listings per hub, open strikes with their
-          source and cure date, the Pipedrive ids, and fees owed on confirmed but uninvoiced orders.
+          source and cure date, and fees owed on confirmed but uninvoiced orders.
           Each host's membership invoice shows under its subscription, read-only. Memberships are on
           Money: Record payment (by hand), Extend the clock and Bill from the first introduction are
           there. Everything else an account needs is on its company page, opened from its name: Pause
@@ -505,16 +504,6 @@ function strikeCell(orgId){
   }).join('')+(cured?`<span class="muted">${cured} cured</span>`:'');
 }
 
-function pipedriveCell(o){
-  const bits=[
-    o.pipedrive_org_id?`org ${esc(o.pipedrive_org_id)}`:'',
-    o.pipedrive_lead_id?`lead ${esc(o.pipedrive_lead_id)}`:'',
-  ].filter(Boolean);
-  return bits.length
-    ?`<br><span class="muted pd">Pipedrive: ${bits.join(', ')}</span>`
-    :'<br><span class="muted">not linked to Pipedrive</span>';
-}
-
 /* A queued intent (raised on Money or the membership job's panel, never
    here since plan 075) shows in place of the row's lines: the same decision
    twice would be two intents, and the engine would run both. A failed one
@@ -605,7 +594,7 @@ function render(feesByOrg){
     ].join('');
     return `<tr>
       <td>${nameCell(o,activeNames)}${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}${websiteLine(o)}${termsLines(o.id)}
-        ${o.fee_exempt_note?`<br><span class="muted">${esc(o.fee_exempt_note)}</span>`:''}${pipedriveCell(o)}</td>
+        ${o.fee_exempt_note?`<br><span class="muted">${esc(o.fee_exempt_note)}</span>`:''}</td>
       <td>${scoreCell(o)}</td>
       <td>${subBadge(o)}</td>
       <td>${hostBadge('Print',o.host_print)}${hostBadge('Mill',o.host_mill)}</td>
@@ -651,7 +640,7 @@ function archiveRow(o,feesByOrg,counts){
     ?'<span class="muted">Closed by the account holder: it reopens only from the account page</span>'
     :'<span class="muted">Restore, Delete and Erase are on the company page</span>';
   return `<tr>
-    <td>${nameCell(o,counts)}${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}${pipedriveCell(o)}</td>
+    <td>${nameCell(o,counts)}${o.domain?`<br><span class="muted">${esc(o.domain)}</span>`:''}</td>
     <td>${stateCell(o)}${o.removed_reason?`<br><span class="muted">${esc(o.removed_reason)}</span>`:''}${retentionLine(o)}</td>
     <td>${strikeCell(o.id)}</td>
     <td class="fees">${fmtMoney(feesByOrg[o.id])}</td>
