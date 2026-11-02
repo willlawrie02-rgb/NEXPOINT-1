@@ -78,7 +78,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
 <script src="crm.js?v=071"></script>
-<script src="jobs.js?v=085"></script>
+<script src="jobs.js?v=086"></script>
 <script src="pipelines.js?v=073"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -127,6 +127,8 @@ const LEDE={hub:'One card per site, one board for both hubs. Paid hosts move to 
   clients:'Paid consultancy engagements: the term, the introductions made and the statements.'};
 const INTRO_FILTERS=[['all','All'],['hub','Hub'],['opportunities','Opportunities']];
 const UI={tab:'hub',open:null,reason:null,filter:'all',companyQuery:'',pickCompany:null,hubs:[],kind:'search'};
+/* A redraw mid-drag would drop the card the operator is holding. */
+const checkBack=NXJOBS.poll(sb,load,()=>!!UI.open||!!document.querySelector('.dragging'));
 let state='loading', problem='', banners=[];
 let D={cards:[],moves:{},companies:{},sites:{},lastMail:{},invoices:{},links:{},intros:[],declared:{},disputed:{},orgs:{},orgCompany:{},statements:{},opps:{},reroute:new Set()};
 let intentByCard={}, intentByIntro={}, intentByAdd={}, sending=[], readIntents=[], seq=0;
@@ -181,6 +183,7 @@ async function load(){
   if(pq.error)banners.push(`Could not read the queued moves: ${pq.error.message}.`);
   if((pq.data||[]).length===1000)banners.push('Showing the newest 1,000 intent rows; older ones are not on this page.');
   readIntents=pq.data||[];sending=[];watch(readIntents);
+  checkBack.watch(pq.data);
   state='ready';render();
 }
 
@@ -423,11 +426,12 @@ async function raise(type,payload,toastText){
   const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
   if(error){sending=sending.filter(x=>x!==temp);watch(readIntents.concat(sending));render();NXShell.toast(`Could not queue it: ${error.message}`);return false;}
   NXShell.toast(toastText);
+  checkBack.pressed();
   setTimeout(load,1500);
   return true;
 }
 /* The CRM's one toast for a queued action (the shell's wording). */
-const queued=v=>`${v}, queued. The engine acts within a minute or two.`;
+const queued=v=>`${v}, queued. This page updates by itself.`;
 const cardById=id=>D.cards.find(c=>String(c.id)===String(id));
 const introById=id=>D.intros.find(i=>String(i.id)===String(id));
 const val=id=>String(($(id)||{}).value||'').trim();

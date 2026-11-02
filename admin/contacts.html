@@ -58,6 +58,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
 <script src="crm.js?v=071"></script>
+<script src="jobs.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -94,6 +95,7 @@ const esc=NXCRM.esc, ms=NXShell.ms, plural=(n,a,b)=>`${n} ${n===1?a:(b||a+'s')}`
 const CRM_INTENTS=['add-person','edit-person','delete-user'];   // the intents this page raises, and so watches
 const CAP=200;
 const UI={tab:'companies',q:'',kind:'all',fit:'all',acct:'all',pstatus:'active',pportal:'all',open:null,edit:null};
+const checkBack=NXJOBS.poll(sb,load,()=>!!(UI.open||UI.edit));
 let D=null, state='loading', problem='', banners=[];
 let intentById={}, pendingByPerson={}, pendingByUser={}, addsQueued=[];
 
@@ -135,6 +137,7 @@ async function load(){
   index(cq.data,fq.data,dq.data,tq.data||[],lq.data,sq.data,pq.data,eq.data,mq.data||[],oq.data||[]);
   D.profileOf={};(uq.data||[]).forEach(u=>{D.profileOf[u.user_id]=u;});
   watch(iq.data||[]);
+  checkBack.watch(iq.data);
   state='ready';render();
 }
 
@@ -293,7 +296,8 @@ function render(){
 async function raise(type,payload,verb){
   const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
   if(error){NXShell.toast(`Could not queue it: ${error.message}`);return false;}
-  NXShell.toast(`${verb}, queued. The engine acts within a minute or two.`);
+  NXShell.toast(`${verb}, queued. This page updates by itself.`);
+  checkBack.pressed();
   setTimeout(load,1500);
   return true;
 }

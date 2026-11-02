@@ -70,7 +70,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
 <script src="crm.js?v=071"></script>
-<script src="jobs.js?v=085"></script>
+<script src="jobs.js?v=086"></script>
 <script src="pipelines.js?v=073"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -161,6 +161,8 @@ const todayIso=()=>new Date().toISOString().slice(0,10);
 const fmt=v=>NXCRM.fmtDate(v);
 
 const UI={open:null,edit:null,tl:'all',tlMax:50,job:null,flashDone:false,card:null,cardDone:false,reason:null,composer:'note'};
+/* A half-typed note or task in the composer is on no form UI knows of. */
+const checkBack=NXJOBS.poll(sb,load,()=>!!(UI.open||UI.edit||val('cp-note')||val('cp-title')));
 let state='loading', problem='', banners=[];
 let C=null;
 let A={orgs:[],listings:[],revisions:[],strikes:[],fees:{},terms:{},users:[],versions:{},requests:[]};
@@ -195,6 +197,7 @@ async function load(){
   if((iq.data||[]).length===1000)banners.push('Showing the newest 1,000 intent rows; older ones are not on this page.');
   readIntents=iq.data||[];sending=[];
   watch(readIntents);
+  checkBack.watch(iq.data);
   let cid=null;
   if(imported){cid=await findCompany(key);if(cid===false)return;}
   if(cid!=null)await loadCompany(cid);
@@ -1061,7 +1064,8 @@ async function raise(type,payload,verb,toastText){
     sending=sending.filter(x=>x!==temp);watch(readIntents.concat(sending));render();
     NXShell.toast(`Could not queue it: ${error.message}`);return false;
   }
-  NXShell.toast(toastText||`${verb}, queued. The engine acts within a minute or two.`);
+  NXShell.toast(toastText||`${verb}, queued. This page updates by itself.`);
+  checkBack.pressed();
   setTimeout(load,1500);
   return true;
 }

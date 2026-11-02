@@ -39,7 +39,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
 <script src="crm.js?v=071"></script>
-<script src="jobs.js?v=085"></script>
+<script src="jobs.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -83,6 +83,7 @@ const LEDE='Every job that needs us, in one queue. Each line opens the page wher
 const DONE_TYPES=[...NXJOBS.TYPES,'tick-task','done-task','rerun-job'];
 const CAP=500;
 const UI={filter:'all',open:null,rows:new Set()};
+const checkBack=NXJOBS.poll(sb,load,()=>!!UI.open);
 let loaded=false, queueError=false, banners=[], rows=[], J={problems:[]};
 let base=[], sending=[], sendSeq=0, intents=[], intentById={}, pending={}, tickByKey={};
 let T={missing:false,error:'',open:[],done:[]}, WS={error:'',rows:[]}, M={error:'',rows:[]}, P={ok:false,rows:[],names:{}};
@@ -140,6 +141,7 @@ async function load(){
   if((nq.data||[]).length===1000)banners.push(['info','Showing the newest 1,000 decisions; older ones are not on this page.']);
   sending=[];
   watch(nq.data||[]);
+  checkBack.watch(nq.data);
 
   /* The jobs decided in place read what their panels need, once. */
   J=await NXJOBS.read(sb,rows.filter(NXJOBS.inPlace),{});
@@ -360,7 +362,8 @@ async function raise(type,payload,spot,verb,toastText){
     sending=sending.filter(x=>x!==temp);reduce(base.concat(sending));render();
     NXShell.toast(`Could not queue it: ${error.message}`);return false;
   }
-  NXShell.toast(toastText||`${verb}, queued. The engine acts within a minute or two.`);
+  NXShell.toast(toastText||`${verb}, queued. This page updates by itself.`);
+  checkBack.pressed();
   setTimeout(load,1500);
   return true;
 }

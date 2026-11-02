@@ -63,7 +63,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
 <script src="crm.js?v=071"></script>
-<script src="jobs.js?v=085"></script>
+<script src="jobs.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -118,6 +118,7 @@ const KIND_LABEL={introduction:'Introduction',discount_code:'Discount code'};
 const NAMING_LABEL={anonymised:'Anonymised',named:'Named'};
 const HUB_NAME={print:'3D Print Hub',mill:'Mill Hub'};
 const UI={tab:'opportunities',filter:'all',open:null,editing:null,dirty:false,ownerQuery:'',ownerPick:null,orgQuery:'',orgPick:null,introReq:null};
+const checkBack=NXJOBS.poll(sb,load,()=>!!(UI.open||UI.editing));
 let state='loading', problem='', banners=[], missing080=false;
 let D={opps:[],intros:[],reports:[],reveals:{},companies:{},sites:[],orgs:{},listings:[],revs:{},machines:{},vocab:{},invoices:{},declarations:[],strikes:[],won:[],waiting:[],requests:[]};
 let intentByKey={}, readIntents=[], sending=[], seq=0;
@@ -184,6 +185,7 @@ async function load(){
   if(xq.error)banners.push(`Could not read the queued actions: ${xq.error.message}.`);
   if((xq.data||[]).length===1000)banners.push('Showing the newest 1,000 queued actions; older ones are not on this page.');
   readIntents=xq.data||[];sending=[];watch(readIntents);
+  checkBack.watch(xq.data);
   state='ready';render();
 }
 function keysOf(i){
@@ -585,10 +587,11 @@ async function raise(type,payload,toastText){
   const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
   if(error){sending=sending.filter(x=>x!==temp);watch(readIntents.concat(sending));render();NXShell.toast(`Could not queue it: ${error.message}`);return false;}
   if(toastText)NXShell.toast(toastText);
+  checkBack.pressed();
   setTimeout(load,1500);
   return true;
 }
-const queued=v=>`${v}, queued. The engine acts within a minute or two.`;
+const queued=v=>`${v}, queued. This page updates by itself.`;
 /* The one direct write (070 D9): status, and updated_at with it. Live is
    one click: the status, then the publish (J2 leak-guards the rows). */
 async function setStatus(id,status){

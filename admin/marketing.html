@@ -64,6 +64,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
 <script src="crm.js?v=071"></script>
+<script src="jobs.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -115,6 +116,8 @@ let opts={sector:[],company_type:[]},notes={},opportunities=[],kindOf={},C=null,
 // Review fix: a dropdown changed but not yet saved survives every re-render.
 const choices={},drafts={},asks={};
 const UI={open:null,ask:null,add:false,addValues:null,declinedOpen:false};
+/* Every field here is kept in choices, drafts, asks or addValues and a redraw puts it back, so only typing holds a reload. */
+const checkBack=NXJOBS.poll(sb,load);
 function choose(id,field,value){(choices[id]=choices[id]||{})[field]=value;}
 
 const TYPES=['Current customer','Former customer','Enquired','Cold','Known contact','Former contact'];
@@ -341,6 +344,7 @@ async function load(){
                 'watch-lead','unpark-lead','edit-prospect','return-to-prospect','add-prospect-note',
                 'add-prospect','add-prospect-option'])
     .order('id',{ascending:false}).limit(1000);
+  checkBack.watch(intents);
   pendingFor={};
   (intents||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
     const p=i.payload_json||{};
@@ -634,7 +638,8 @@ async function raise(type,payload,verb,key,toastText){
   const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
   if(error){NXShell.toast(`Could not queue it: ${error.message}`);return false;}
   if(key)pendingFor[key]={type,status:'pending',payload_json:payload};
-  NXShell.toast(toastText||`${verb}, queued. The engine acts within a minute or two.`);
+  NXShell.toast(toastText||`${verb}, queued. This page updates by itself.`);
+  checkBack.pressed();
   setTimeout(load,1200);
   return true;
 }
