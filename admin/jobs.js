@@ -2,7 +2,7 @@
    yields, as the Inbox (inbox.html) and the company page's Needs you
    (company.html) show it and decide it.
 
-   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=079">:
+   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=086">:
    shared admin files are cached in browsers for up to four hours, so bump
    ?v= on every change (and on every page that links it).
 
@@ -23,6 +23,9 @@
      that loads this adds both to its one intent read.
    - read(sb, rows): the rows the panels need for the jobs given, read once.
      It writes nothing; intent reads stay on the pages, by the board rules.
+   - poll(sb, load, hold): the page checks back by itself (plan 079). It reads
+     the status of the open intents the page hands it, nothing else, and runs
+     the page's load() when one has moved on.
 
    ctx, as each page builds it: the tables read() returns (listings,
    revisions, machines, requests, introductions, orgs, evidence, lines,
@@ -1194,8 +1197,70 @@ async function read(sb,rows,opt){
   return out;
 }
 
+/* ── The page checks back by itself (plan 079, Phase 0) ─────────────────── */
+
+/* A press is an intent the engine acts on a minute or so later. The page gives
+   poll() every intent row it reads (watch) and says when a press has gone in
+   (pressed); poll() re-reads the status of the open rows only, and runs the
+   page's whole load(), up to 1,000 intents, only when one has moved on.
+
+   The first look is 5 s after a press, then 5, 10 and 20 s apart, then every
+   20 s, for 10 minutes of looking; a new press or a row not seen before gives
+   10 more. A hidden tab neither looks nor spends them, and looks as soon as it
+   is back. A reload redraws the page, so one that falls due while someone is
+   typing, or while hold() says a form is open, waits until they have finished. */
+const POLL_GAPS=[5000,5000,10000,20000], POLL_LIMIT=6e5;
+const isOpenIntent=s=>s==='pending'||s==='claimed';
+function typing(){
+  const a=document.activeElement;
+  return !!a&&(a.tagName==='TEXTAREA'||(a.tagName==='INPUT'&&!/^(checkbox|radio|button|submit)$/i.test(a.type||'')));
+}
+function poll(sb,load,hold){
+  let open=new Map(),timer=null,step=0,left=POLL_LIMIT,owed=false,looking=false;
+  function arm(pressedNow){
+    if(timer!=null||document.hidden)return;
+    if(!pressedNow&&!owed&&(!open.size||left<=0))return;
+    const gap=POLL_GAPS[Math.min(step++,POLL_GAPS.length-1)];
+    left-=gap;
+    timer=setTimeout(look,gap);
+  }
+  async function look(){
+    timer=null;
+    if(looking)return arm();
+    looking=true;
+    try{
+      if(!owed&&open.size){
+        const ids=[...open.keys()];
+        const {data,error}=await sb.from('engine_intents').select('id,status').in('id',ids);
+        if(!error){
+          const now=new Map((data||[]).map(r=>[r.id,r.status]));
+          if(ids.some(id=>open.has(id)&&now.get(id)!==open.get(id)))owed=true;
+          open=new Map([...open].map(([id,s])=>[id,ids.includes(id)?now.get(id):s]).filter(([,s])=>isOpenIntent(s)));
+        }
+      }
+      if(owed&&!typing()&&!(hold&&hold())){owed=false;await load();}
+    }finally{looking=false;arm();}
+  }
+  document.addEventListener('visibilitychange',()=>{
+    clearTimeout(timer);timer=null;
+    if(!document.hidden&&(owed||(open.size&&left>0)))return look();
+  });
+  return {
+    /* A failed read (no rows) says nothing, so the rows already watched stay watched. */
+    watch(rows){
+      if(!rows)return;
+      const next=new Map();let fresh=false;
+      rows.forEach(r=>{if(isOpenIntent(r.status)){next.set(r.id,r.status);if(!open.has(r.id))fresh=true;}});
+      open=next;owed=false;
+      if(fresh){left=POLL_LIMIT;if(timer==null)step=0;}
+      arm();
+    },
+    pressed(){clearTimeout(timer);timer=null;step=0;left=POLL_LIMIT;arm(true);},
+  };
+}
+
 window.NXJOBS={GROUPS,KINDS,TYPES,TASK_TYPES,BUCKETS,kindOf,lineOf,ageText,day,sentence,clockHtml,clockDay,boardLabel,runTime,hubName,hrefOf,inPlace,domId,
-  read,use,body,item,ACT,intentKey,doneWords,london,todayIn,dueBucket,dueText,sundayOf,taskRow,taskForm,
+  read,poll,use,body,item,ACT,intentKey,doneWords,london,todayIn,dueBucket,dueText,sundayOf,taskRow,taskForm,
   humanise,lab,fmtVal,monthName,revisionDiff,machineDiff,mixesNoReview,diffTable,submittedTable,machineLines,needLines,
   shipsTo,shipsToUnset,capacityOf,successorOf,rerouteControl,partyGuess,
   SPENT_STAGES,REISSUABLE_STAGES,REV_FIELDS,KIND_OF,CADENCE_LABEL};
