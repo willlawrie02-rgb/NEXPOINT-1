@@ -8,9 +8,10 @@
                       site; pick one
      4  the request   one call that goes straight to the site picked
 
-   The ranking is the worker's (POST /listings/search): material, region and
-   the volume asked for are hard filters, then a weighted score on every
-   field the seeker filled in (material, capacity, location, lead time). The
+   The ranking is the worker's (POST /listings/search): rigid or soft, region
+   and the volume asked for are hard filters, then a weighted score on every
+   field the seeker filled in (capacity, location, lead time, and a material
+   if one is named, which is scored and never filters; plan 080). The
    worker records the search and the acceptance, ranks up to ten and names
    the best three (`named`, with `company`). Those three are shown as cards,
    each tagged "Best fit for your request"; every ranked site is a pin on
@@ -85,6 +86,15 @@
     const c = (window.NP && NP.config && NP.config()) || null;
     return (c && c.deskRef) || (HUB === 'mill' ? 'MILL HUB' : '3D PRINT HUB');
   }
+
+  /* The two boxes (plan 080): the first thing a seeker chooses, on both hubs.
+     The same words as labels.js, desk.py and app/jobs.js in their runtimes. */
+  const DEVICES = [
+    { type: 'rigid', title: 'Rigid shell', sub: 'Three-quarter or full foot',
+      imgs: ['insole-rigid-three-quarter', 'insole-rigid-full-foot'] },
+    { type: 'soft', title: 'Soft insole', sub: 'Three-quarter or full foot',
+      imgs: ['insole-soft-three-quarter', 'insole-soft-full-foot'] },
+  ];
 
   /* ── countries ────────────────────────────────────────────────────────
      portal.js's REGIONS map flattened, exactly as the listing form reads
@@ -167,6 +177,20 @@
       '<span>' + esc(label) + '</span></label>';
   }
 
+  /* One click on a box is the whole choice; the two pictures only show what
+     the type covers (plan 080, P1a). alt is empty because the title is the
+     box's name, and a screen reader would otherwise say it three times. */
+  function deviceCard(d) {
+    return '<label class="device-card">' +
+      '<input type="radio" name="fDevice" id="fDevice-' + esc(d.type) + '" value="' + esc(d.type) + '">' +
+      '<span class="device-card__pics">' +
+      d.imgs.map((img) => '<img src="assets/img/' + esc(img) + '.webp" alt="" width="720" height="432">').join('') +
+      '</span>' +
+      '<span class="device-card__t">' + esc(d.title) + '</span>' +
+      '<span class="device-card__s">' + esc(d.sub) + '</span>' +
+      '</label>';
+  }
+
   /* The seeker's town and country: what the account already knows first,
      then whatever the last hub page carried over, so nobody types their
      country twice on the same visit. */
@@ -191,10 +215,15 @@
       '<form id="findForm" novalidate>' +
       '<div class="form-grid">' +
 
-        '<div class="field full"><label for="fMaterial">Material</label>' +
+        '<div class="field full"><label id="fDeviceLabel">What do you need made?</label>' +
+        '<div class="device-grid" id="fDevice" role="radiogroup" aria-labelledby="fDeviceLabel">' +
+        DEVICES.map(deviceCard).join('') +
+        '</div></div>' +
+
+        '<div class="field full"><label for="fMaterial">Material (optional)</label>' +
         '<input id="fMaterial" placeholder="Select from the list or type your own">' +
-        '<span class="np-hint">Name the material you need. Add more if any of them would do; ' +
-        'we match on the first and carry the rest with your request.</span></div>' +
+        '<span class="np-hint">Know the material you want? Name it and we put the ' + esc(siteNounPlural()) +
+        ' that make it first. If it is not on the list, type it in.</span></div>' +
 
         '<div class="field full"><label for="fProcess">Process (optional)</label>' +
         '<input id="fProcess" placeholder="Select from the list or type your own"></div>' +
@@ -239,7 +268,7 @@
         '</div></div>' +
 
         '<div class="field full"><label for="fNotes">Anything else we should know? (optional)</label>' +
-        '<textarea id="fNotes" placeholder="Tolerances, finishing, the deadline behind the deadline">' +
+        '<textarea id="fNotes" placeholder="Three-quarter or full foot, tolerances, finishing, the deadline behind the deadline">' +
         '</textarea></div>' +
 
       '</div>' +
@@ -265,12 +294,35 @@
     }) : null;
     if (!TA.fCountry && el('fCountry')) el('fCountry').value = country;
 
+    wireDevice();
     wireGroup('fCadence', 'fCadence');
     wireGroup('fLeadMode', 'fLeadMode');
     wireGroup('fServices', 'service');
     el('fCadence').addEventListener('change', syncConditionalFields);
     el('fLeadMode').addEventListener('change', syncConditionalFields);
     el('findForm').addEventListener('submit', onSearch);
+  }
+
+  function materialsFor(type) {
+    const all = (vocab && vocab.materials) || [];
+    const some = all.filter((m) => m.device_type === type);
+    return some.length ? some : all;   /* a stale vocab.js has no types: offer everything */
+  }
+
+  /* The two boxes' sibling of wireGroup, which matches `.pick` only. A box also
+     narrows the material list to its type (plan 080, P5); typing still reaches
+     everything, and what is already chosen stays chosen. */
+  function wireDevice() {
+    const group = el('fDevice');
+    if (!group) return;
+    group.addEventListener('change', () => {
+      group.querySelectorAll('input').forEach((box) => {
+        const card = box.closest('.device-card');
+        if (card) card.classList.toggle('is-on', box.checked);
+      });
+      const on = group.querySelector('input:checked');
+      if (on && TA.fMaterial && TA.fMaterial.setOptions) TA.fMaterial.setOptions(materialsFor(on.value));
+    });
   }
 
   /* A chip group keeps `.is-on` in step with its own control. One listener
@@ -334,16 +386,39 @@
     return Number.isInteger(n) ? n : NaN;
   }
 
+  /* A narrowed list means a seeker can type a material it no longer offers,
+     and the worker must still get the vocabulary's term: "PA12" typed under
+     soft is pa12_nylon12, not an unmatched "PA12". Matched against the whole
+     list, on term or label, whatever the case; anything else stays as typed,
+     and duplicates go. */
+  function canonicalMaterials(values) {
+    const all = (vocab && vocab.materials) || [];
+    const out = [];
+    values.forEach((v) => {
+      const needle = String(v).trim().toLowerCase();
+      const hit = all.find((m) => m.term.toLowerCase() === needle || m.label.toLowerCase() === needle);
+      const value = hit ? hit.term : String(v).trim();
+      if (!out.some((o) => o.toLowerCase() === value.toLowerCase())) out.push(value);
+    });
+    return out;
+  }
+
   /* The ask, read off the form once. Since plan 067 the worker's search
      takes every field here (`materials` and `quantity_unit` included: the
      search records the whole ask), so bodyFor sends it as it is. The notes
      sentence still spells the volume and the other materials out for the
      desk, which reads the request's notes. */
   function buildSpec() {
-    const materials = TA.fMaterial ? TA.fMaterial.value() : [];
-    if (!materials.length) return { error: 'Name the material you need.', focus: 'fMaterial' };
+    const on = document.querySelector('#fDevice input:checked');
+    if (!on) return { error: 'Choose what you need made.', focus: 'fDevice-rigid' };
+    /* Words typed but not yet a chip still count: the hint says "type it in",
+       and value() returns chips only. Without this a seeker who types TPU and
+       clicks Find is searched with no material, and nothing tells them. */
+    const typed = el('fMaterial') ? el('fMaterial').value.trim() : '';
+    const chips = TA.fMaterial ? TA.fMaterial.value() : [];
+    const materials = canonicalMaterials(typed ? chips.concat(typed) : chips);
 
-    const process = TA.fProcess ? TA.fProcess.value() : (val('fProcess') || null);
+    const process =TA.fProcess ? TA.fProcess.value() : (val('fProcess') || null);
 
     const quantity = wholeNumber(val('fQuantity'));
     if (quantity === null || !Number.isFinite(quantity) || quantity < 1) {
@@ -379,7 +454,8 @@
 
     return { spec: {
       hub: HUB,
-      material: materials[0],
+      device_type: on.value,
+      material: materials[0] || null,
       materials: materials,
       process: process || null,
       quantity: quantity,
@@ -702,8 +778,11 @@
     const line = matches.length
       ? 'No exact match yet. These are the closest fits we have; ' +
         'pick one you would still like to meet, or tell the desk and we will route it by hand.'
-      : 'No ' + esc(siteNounPlural()) + ' are listed on the ' + esc(hubName()) +
-        ' yet. Tell the desk what you need and we will route it by hand.';
+      : (spec && spec.device_type)
+        ? 'No ' + esc(siteNounPlural()) + ' on the ' + esc(hubName()) +
+          ' make this yet. Tell the desk what you need and we will route it by hand.'
+        : 'No ' + esc(siteNounPlural()) + ' are listed on the ' + esc(hubName()) +
+          ' yet. Tell the desk what you need and we will route it by hand.';
     box.hidden = false;
     box.innerHTML =
       '<div class="cap-empty">' +
@@ -977,7 +1056,7 @@
      the pick. The terms version is added by runSearch. */
   function bodyFor(s) {
     return {
-      hub: s.hub, material: s.material, materials: s.materials, process: s.process,
+      hub: s.hub, device_type: s.device_type, material: s.material, materials: s.materials, process: s.process,
       quantity: s.quantity, quantity_unit: s.quantity_unit, cadence: s.cadence,
       max_lead_time_days: s.max_lead_time_days, needed_by: s.needed_by,
       town: s.town, country: s.country, services: s.services, notes: s.notes,

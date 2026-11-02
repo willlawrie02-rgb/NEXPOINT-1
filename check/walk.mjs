@@ -1470,6 +1470,7 @@ async function walkFindMap() {
   });
   await step("Find the sites that fit opens the terms gate: no search, no card, before the tick", async () => {
     has(await page.textContent("#findSubmit"), "Find the sites that fit", "the button");
+    await page.click(deviceBox("rigid"));
     await page.fill("#fMaterial", "PA12"); await page.press("#fMaterial", "Enter");
     await page.fill("#fQuantity", "200");
     await page.fill("#fMaxLead", "10");
@@ -1496,6 +1497,7 @@ async function walkFindMap() {
     const body = apiCalls(world, "POST /listings/search")[0].body;
     eq([body.hub, body.town, body.country, body.max_lead_time_days, body.quantity, body.terms_version_id],
       ["print", "Leeds", "United Kingdom", 10, 250, 12], "the search's hub, town, country, lead time, the corrected quantity and terms version");
+    eq(body.device_type, "rigid", "the box chosen rides with the search");
     eq(body.material, "pa12_nylon12", "the first material is `material`, as the vocabulary names it");
     eq(Array.isArray(body.materials) && body.materials[0], "pa12_nylon12", "`materials` carries the list");
     eq(await page.locator("#capGrid .cap").count(), 3, "cards");
@@ -1608,6 +1610,193 @@ async function walkFindMap() {
     if (m.map > m.inner) throw new Error(`the map ends at ${m.map}px in a ${m.inner}px window`);
   });
   clean(world, errors, "the find map");
+  await context.close();
+}
+
+/* The two picture boxes (plan 080): rigid or soft decides who can appear, on
+   both hubs, and material and process are optional extras. The vocabulary
+   stub answers nothing, so this runs on vocab.js's seed. A box is clicked on
+   its picture, as a person does: the radio itself is one invisible pixel. */
+function deviceBox(type) { return `.device-card:has(#fDevice-${type})`; }
+async function openFindForm(page, url) {
+  await page.goto(url);
+  await page.waitForSelector("body[data-np-open]");
+  await page.waitForSelector("#findForm");
+  await page.fill("#fQuantity", "200");
+}
+/* What the material field offers right now. The wait lets a blur's delayed
+   close finish first, or it would shut the list this click opens. */
+async function offered(page) {
+  await page.waitForTimeout(150);
+  await page.click("#fMaterial");
+  await page.waitForSelector(".ta:has(#fMaterial) .ta-list:not([hidden])");
+  const items = await page.$$eval(".ta:has(#fMaterial) .ta-list .ta-item", (els) => els.map((e) => e.textContent.trim()));
+  await page.keyboard.press("Escape");
+  return items;
+}
+/* Find, the tick, Accept: the body of the search that ran. */
+async function searchAsked(page, world) {
+  const before = apiCalls(world, "POST /listings/search").length;
+  await page.click("#findSubmit");
+  await page.waitForSelector("#stepTerms:not([hidden]) #searchTick");
+  await page.check("#searchTick");
+  await page.click("#searchAccept");
+  await until(() => apiCalls(world, "POST /listings/search").length > before, "the search");
+  await page.waitForSelector("#step2:not([hidden])");
+  return apiCalls(world, "POST /listings/search").pop().body;
+}
+
+async function walkFindDevice() {
+  area = "Finding capacity: rigid or soft, in two picture boxes";
+  const world = newWorld({ user: USER });
+  const { context, page, errors } = await visit(world);
+  const SUB = "Three-quarter or full foot";
+  const activeId = () => page.evaluate(() => document.activeElement && document.activeElement.id);
+  const litBoxes = () => page.$$eval("#fDevice .device-card.is-on input", (els) => els.map((e) => e.value));
+
+  for (const [hub, key, origin, site] of [["3D Print Hub", "print", PRINT, "site"], ["Mill Hub", "mill", MILL, "cell"]]) {
+    await openFindForm(page, `${origin}/find.html`);
+    await step(`${hub}: the two boxes come first, nothing chosen, each with its two pictures`, async () => {
+      await page.waitForFunction(() => [...document.querySelectorAll(".device-card img")].every((i) => i.complete));
+      const boxes = await page.$$eval("#fDevice .device-card", (els) => els.map((c) => ({
+        value: c.querySelector('input[type="radio"]').value, checked: c.querySelector("input").checked,
+        title: c.querySelector(".device-card__t").textContent, sub: c.querySelector(".device-card__s").textContent,
+        pics: [...c.querySelectorAll("img")].map((i) => i.getAttribute("src")),
+        widths: [...c.querySelectorAll("img")].map((i) => i.naturalWidth),
+      })));
+      eq(boxes.map((b) => b.value), ["rigid", "soft"], "the radios");
+      eq(boxes.map((b) => b.checked), [false, false], "nothing chosen to begin with");
+      eq(boxes.map((b) => b.title), ["Rigid shell", "Soft insole"], "the names");
+      eq(boxes.map((b) => b.sub), [SUB, SUB], "the line under each");
+      eq(boxes[0].pics, ["assets/img/insole-rigid-three-quarter.webp", "assets/img/insole-rigid-full-foot.webp"], "the rigid pictures, left then right");
+      eq(boxes[1].pics, ["assets/img/insole-soft-three-quarter.webp", "assets/img/insole-soft-full-foot.webp"], "the soft pictures, left then right");
+      for (const b of boxes) if (!b.widths.every((w) => w > 0)) throw new Error(`a ${b.value} picture did not load: ${b.widths}`);
+      has(await page.textContent("#fDeviceLabel"), "What do you need made?", "the question");
+      eq(await page.$eval("#findForm .form-grid .field", (f) => !!f.querySelector("#fDevice")), true, "the boxes are the first field");
+      eq(await page.getAttribute("#fDevice", "role"), "radiogroup", "the group's role");
+      return eq(await page.getAttribute("#fDevice", "aria-labelledby"), "fDeviceLabel", "the group's name");
+    });
+    await step(`${hub}: a box's words keep their own case, not the label capitals`, async () => {
+      /* textContent hides capitals, and portal.css capitalises any label in a .field. */
+      const styles = await page.$$eval(".device-card__t, .device-card__s", (els) => els.map((e) => {
+        const s = getComputedStyle(e); return [s.textTransform, s.letterSpacing];
+      }));
+      eq(styles.length, 4, "the words in the two boxes");
+      for (const s of styles) eq(s, ["none", "normal"], "the computed text-transform and letter-spacing");
+    });
+    await step(`${hub}: the material is optional, in the hub's own words`, async () => {
+      has(await page.textContent('label[for="fMaterial"]'), "Material (optional)", "the label");
+      has(await page.$eval("#fMaterial", (i) => i.closest(".field").querySelector(".np-hint").textContent),
+        `Know the material you want? Name it and we put the ${site}s that make it first. If it is not on the list, type it in.`, "the hint");
+      has(await page.getAttribute("#fNotes", "placeholder"), "Three-quarter or full foot, tolerances, finishing, the deadline behind the deadline", "the notes");
+      has(await page.textContent(".flow-step .hint"),
+        `Choose what you need made. If you know the material or process you want, add it; if not, leave them blank and we will match you on the type. Nothing goes to any ${site} until you pick one.`, "the panel hint");
+      return has(await page.textContent("#step2 .hint"),
+        "Ranked by fit: capacity, location and lead time, and the material if you named one. The three that fit best are named. Pick one.", "the results hint");
+    });
+    await step(`${hub}: at phone width the boxes stack and nothing runs off the screen`, async () => {
+      await page.setViewportSize({ width: 375, height: 740 });
+      await page.waitForTimeout(150);
+      const m = await page.evaluate(() => {
+        const [a, b] = [...document.querySelectorAll(".device-card")].map((c) => c.getBoundingClientRect());
+        return { scroll: document.documentElement.scrollWidth, inner: window.innerWidth, stacked: b.top >= a.bottom && Math.round(a.left) === Math.round(b.left) };
+      });
+      await page.setViewportSize({ width: 1280, height: 900 });
+      if (m.scroll > m.inner) throw new Error(`the page is ${m.scroll}px wide in a ${m.inner}px window`);
+      return eq(m.stacked, true, "the boxes stack");
+    });
+    await step(`${hub}: Find with nothing chosen asks for it, with no terms gate and no search`, async () => {
+      await page.click("#findSubmit");
+      has(await page.textContent("#findErr"), "Choose what you need made.", "the message");
+      eq(await page.locator("#stepTerms:not([hidden])").count(), 0, "the gate");
+      eq(await activeId(), "fDevice-rigid", "the focus lands on the first box");
+      return eq(apiCalls(world, "POST /listings/search").filter((c) => c.body.hub === key).length, 0, "searches");
+    });
+    await step(`${hub}: a box and no material opens the gate, and the search goes on the type alone`, async () => {
+      await page.click(deviceBox("soft"));
+      eq(await litBoxes(), ["soft"], "the box lit");
+      const body = await searchAsked(page, world);
+      return eq([body.hub, body.device_type, body.material, body.materials], [key, "soft", null, []], "the search's hub, type, material and materials");
+    });
+    await step(`${hub}: no ${site} offers the type: a plain message and the route to the desk`, async () => {
+      has(await page.textContent("#noMatch"), `No ${site}s on the ${hub} make this yet. Tell the desk what you need and we will route it by hand.`, "the message");
+      return eq(await page.locator("#noMatchDesk").count(), 1, "the desk's button");
+    });
+    await step(`${hub}: the landing card says what the find form now asks`, async () => {
+      await page.goto(`${origin}/`);
+      return has(await page.textContent("body"), "Tell us what you need made, how many and how soon. We show you the sites that fit and make the introduction.", "the card");
+    });
+  }
+
+  await step("3D Print Hub: Rigid narrows the list, and TPU typed and entered is still TPU (Chris's exception)", async () => {
+    await openFindForm(page, `${PRINT}/find.html`);
+    eq(await offered(page), ["PA11", "PA12", "PA12 Tough", "TPU", "Polyprop", "Resin SLA", "PETG", "Carbon-Filled Nylon"], "the list before a box is chosen");
+    await page.click(deviceBox("rigid"));
+    eq(await offered(page), ["PA11", "PA12", "PA12 Tough", "Polyprop", "PETG", "Carbon-Filled Nylon"], "the rigid list");
+    await page.fill("#fMaterial", "TPU"); await page.press("#fMaterial", "Enter");
+    has(await page.textContent(".ta:has(#fMaterial) .ta-chips"), "TPU", "the chip");
+    const body = await searchAsked(page, world);
+    return eq([body.device_type, body.material, body.materials], ["rigid", "tpu", ["tpu"]], "the search");
+  });
+  await step("3D Print Hub: TPU typed and left in the field, with no Enter, still counts", async () => {
+    await openFindForm(page, `${PRINT}/find.html`);
+    await page.click(deviceBox("rigid"));
+    await page.fill("#fMaterial", "TPU");
+    const body = await searchAsked(page, world);
+    return eq([body.device_type, body.material, body.materials], ["rigid", "tpu", ["tpu"]], "the search");
+  });
+  await step("3D Print Hub: Soft and PA12 typed is the vocabulary's PA12, and a soft list offers the soft two", async () => {
+    await openFindForm(page, `${PRINT}/find.html`);
+    await page.click(deviceBox("soft"));
+    eq(await offered(page), ["TPU", "Resin SLA"], "the soft list");
+    await page.fill("#fMaterial", "PA12");
+    const body = await searchAsked(page, world);
+    return eq([body.device_type, body.materials], ["soft", ["pa12_nylon12"]], "the search");
+  });
+  await step("3D Print Hub: a seeker's own words stay as typed, a repeat counts once, and a chip survives a change of box", async () => {
+    await openFindForm(page, `${PRINT}/find.html`);
+    await page.click(deviceBox("soft"));
+    await page.waitForTimeout(150);
+    await page.click("#fMaterial");
+    await page.click('.ta:has(#fMaterial) .ta-item:has-text("TPU")');
+    await page.click(deviceBox("rigid"));
+    has(await page.textContent(".ta:has(#fMaterial) .ta-chips"), "TPU", "the chip after the change of box");
+    await page.fill("#fMaterial", "nylon 12 blend"); await page.press("#fMaterial", "Enter");
+    await page.fill("#fMaterial", "tpu");
+    const body = await searchAsked(page, world);
+    return eq(body.materials, ["tpu", "nylon 12 blend"], "the materials");
+  });
+  await step("3D Print Hub: Tab reaches the boxes and the arrow keys move the choice", async () => {
+    await openFindForm(page, `${PRINT}/find.html`);
+    await page.evaluate(() => { const f = document.getElementById("findForm"); f.tabIndex = -1; f.focus(); });
+    await page.keyboard.press("Tab");
+    eq(await activeId(), "fDevice-rigid", "Tab lands on the first box");
+    eq(await litBoxes(), [], "Tab alone chooses nothing");
+    await page.keyboard.press("ArrowRight");
+    eq(await activeId(), "fDevice-soft", "the arrow moves to the second box");
+    eq(await page.isChecked("#fDevice-soft"), true, "the second box is chosen");
+    eq(await litBoxes(), ["soft"], "the second box lit");
+    await page.keyboard.press("ArrowLeft");
+    eq(await page.isChecked("#fDevice-rigid"), true, "the first box is chosen again");
+    return eq(await litBoxes(), ["rigid"], "the first box lit");
+  });
+  await step("Mill Hub: the four corrected materials, Soft offers EVA and PU, and no list offers a metal", async () => {
+    await openFindForm(page, `${MILL}/find.html`);
+    eq(await offered(page), ["EVA", "PU", "PP", "Carbon fibre"], "the list before a box is chosen");
+    await page.click(deviceBox("soft"));
+    eq(await offered(page), ["EVA", "PU"], "the soft list");
+    await page.click(deviceBox("rigid"));
+    eq(await offered(page), ["PP", "Carbon fibre"], "the rigid list");
+    for (const metal of ["aluminium", "titanium", "stainless"]) {
+      await page.fill("#fMaterial", metal);
+      const items = await page.$$eval(".ta:has(#fMaterial) .ta-list .ta-item:not(:has(.ta-item__free))", (els) => els.map((e) => e.textContent.trim()));
+      eq(items, [], `what the list offers for ${metal}`);
+    }
+    await page.fill("#fMaterial", "pp");
+    const body = await searchAsked(page, world);
+    return eq([body.hub, body.device_type, body.material], ["mill", "rigid", "pp_sheet"], "PP typed is the Mill Hub's term");
+  });
+  clean(world, errors, "the two boxes");
   await context.close();
 }
 
@@ -2430,6 +2619,43 @@ async function walkAccountAnswers() {
     });
     check("the deep link: no script errors", errors.length === 0, errors.slice(0, 3).join(" | "));
   }
+}
+
+/* What was asked, in words, on the account page (plan 080): first in a
+   request's facts and an offer's line, and the need box's first row. With no
+   material named, this is all that says what the search was for. */
+async function walkAccountDevice() {
+  area = "The account page: rigid or soft, in words";
+  const soon = new Date(Date.now() + 5 * 86400000).toISOString();
+  const world = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+    org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", founding: true, host_print: "approved", host_mill: "none", fee_exempt_note: null },
+    site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
+      sub_status: "trial", founding: true, paused: false, removed: false, verified: true },
+    introductions: [{ id: 7, ref: "INTRO-0007", hub: "print", stage: "awaiting_acceptance", seeker_request_id: 3, accepted_a_at: null, accepted_b_at: null,
+      acceptance_expires_at: soon, declined_at: null, created_at: "2026-10-08T09:00:00Z", role: "provider", introduced_at: null }],
+    offers: [{ introduction_id: 7, ref: "INTRO-0007", hub: "print", acceptance_expires_at: soon,
+      request: { device_type: "soft", material: null, quantity: 40, cadence: "one_off", town: "Bristol", country: "United Kingdom", point: { lat: 51.45, lng: -2.59 } },
+      site: { town: "Leeds", country: "United Kingdom", point: { lat: 53.8, lng: -1.55 } } }],
+    requests: [{ id: 3, ref: "PS-0046", hub: "print", device_type: "rigid", material: null, quantity: 500, cadence: "recurring", status: "open",
+      created_at: "2026-10-01T09:00:00Z", no_match: false, picks: [] }],
+    hubs_used: ["print"],
+  }) });
+  const { context, page, errors } = await visit(world);
+  await page.goto(`${APEX}/hub/account/`);
+  await step("a request and an offer with no material say what was asked, the words first", async () => {
+    await page.waitForSelector("#introductions:not([hidden])");
+    const lines = await page.$$eval("#introductions .acct-card .hint, #introductions .acct-row__meta span", (els) => els.map((e) => e.textContent));
+    has(lines.join(" | "), "Rigid shell · 500 · Recurring", "the request's facts");
+    return has(lines.join(" | "), "Soft insole · 40 · One off", "the offer's line");
+  });
+  await step("the need box's first row is Product, and a blank material has no row", async () => {
+    await page.waitForSelector("#pairMap-7 .leaflet-popup .np-need");
+    const rows = await page.$$eval("#pairMap-7 .leaflet-popup .np-need dt", (els) => els.map((dt) => [dt.textContent, dt.nextElementSibling.textContent]));
+    eq(rows[0], ["Product", "Soft insole"], "the first row");
+    return eq(rows.some((r) => r[0] === "Material"), false, "a Material row");
+  });
+  clean(world, errors, "the account page's words");
+  await context.close();
 }
 
 // ================================================================ the Opportunities Board (plan 070)
@@ -4402,6 +4628,10 @@ if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountAnswers) + 1, 0, wa
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkPeople) + 1, 0, walkClose);
 /* The listing form's ship picker (plan 055) walks straight after the find map. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkFindMap) + 1, 0, walkOfferMap);
+/* The two picture boxes (plan 080) walk straight after the find map, and what
+   they ask for on the account page straight after the hub answers. */
+if (ONLY !== "boards") parts.splice(parts.indexOf(walkFindMap) + 1, 0, walkFindDevice);
+if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountAnswers) + 1, 0, walkAccountDevice);
 /* The membership beside the terms and an edit as a change (plan 068) walk straight after the ship picker. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkOfferMap) + 1, 0, walkOfferCommit);
 if (ONLY === "sign") parts.splice(0, parts.length, walkSign);

@@ -3,20 +3,21 @@
    listing form and the find form offer the same words and store the same
    terms. The worker owns the list (`/vocab`, `/attributes`); the seed below
    is the same data as migration 0031 as corrected by 0033 (the print
-   materials and the two services, 8 September) and 0056 (Dye colours
-   retired, plan 045), kept here so a page still renders a full set of
-   choices when the routes are not deployed yet or the network drops. Terms
-   are canonical: never invent one here that the migrations do not have, or
-   a listing and a search will stop matching. */
+   materials and the two services, 8 September), 0056 (Dye colours retired,
+   plan 045) and 0087 (the Mill Hub's materials, and each material's
+   device_type, which the seed also carries; plan 080), kept here so a page
+   still renders a full set of choices when the routes are not deployed yet
+   or the network drops. Terms are canonical: never invent one here that the
+   migrations do not have, or a listing and a search will stop matching. */
 (function () {
   'use strict';
 
   const API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
     ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
 
-  /* ── the seed (migrations 0031, 0033 and 0056, verbatim terms and labels) ── */
+  /* ── the seed (migrations 0031, 0033, 0056 and 0087, verbatim terms and labels) ── */
 
-  const t = (term, label) => ({ term: term, label: label });
+  const t = (term, label, device_type) => ({ term: term, label: label, device_type: device_type || null });
 
   /* regions are hub-agnostic */
   const REGIONS = [
@@ -35,22 +36,20 @@
   const MATERIALS = {
     /* the eight of migration 0033, in its order */
     print: [
-      t('pa11', 'PA11'),
-      t('pa12_nylon12', 'PA12'),
-      t('pa12_tough', 'PA12 Tough'),
-      t('tpu', 'TPU'),
-      t('pp', 'Polyprop'),
-      t('resin_sla', 'Resin SLA'),
-      t('petg', 'PETG'),
-      t('carbon_filled_nylon', 'Carbon-Filled Nylon'),
+      t('pa11', 'PA11', 'rigid'),
+      t('pa12_nylon12', 'PA12', 'rigid'),
+      t('pa12_tough', 'PA12 Tough', 'rigid'),
+      t('tpu', 'TPU', 'soft'),
+      t('pp', 'Polyprop', 'rigid'),
+      t('resin_sla', 'Resin SLA', 'soft'),
+      t('petg', 'PETG', 'rigid'),
+      t('carbon_filled_nylon', 'Carbon-Filled Nylon', 'rigid'),
     ],
     mill: [
-      t('eva', 'EVA'),
-      t('pp_sheet', 'PP sheet'),
-      t('carbon_fibre', 'carbon fibre'),
-      t('aluminium', 'aluminium'),
-      t('titanium', 'titanium'),
-      t('stainless', 'stainless'),
+      t('eva', 'EVA', 'soft'),
+      t('pu', 'PU', 'soft'),
+      t('pp_sheet', 'PP', 'rigid'),
+      t('carbon_fibre', 'Carbon fibre', 'rigid'),
     ],
   };
 
@@ -142,7 +141,7 @@
     if (!Array.isArray(d) || !d.length) return { terms: seedFor(kind, hub), source: 'seed' };
     const terms = d
       .filter((row) => row && row.term)
-      .map((row) => t(String(row.term), String(row.label == null ? row.term : row.label)));
+      .map((row) => t(String(row.term), String(row.label == null ? row.term : row.label), row.device_type));
     return terms.length ? { terms: terms, source: 'api' } : { terms: seedFor(kind, hub), source: 'seed' };
   }
 

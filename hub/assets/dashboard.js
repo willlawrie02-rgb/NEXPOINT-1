@@ -355,9 +355,16 @@
     '</div>';
   }
 
+  /* Rigid or soft, in words (plan 080): the same words as find.js, labels.js,
+     desk.py and app/jobs.js. An unknown value has no words, so nothing prints. */
+  var DEVICE_WORDS = { rigid: 'Rigid shell', soft: 'Soft insole' };
+  function deviceWords(r) {
+    return (r && Object.prototype.hasOwnProperty.call(DEVICE_WORDS, r.device_type)) ? DEVICE_WORDS[r.device_type] : '';
+  }
+
   function requestCard(r, byId, tag) {
     var picks = Array.isArray(r.picks) ? r.picks : [];
-    var facts = [lab('material', r.hub, r.material), r.quantity, lab('cadence', r.hub, r.cadence)].filter(Boolean).map(String).join(' · ');
+    var facts = [deviceWords(r), lab('material', r.hub, r.material), r.quantity, lab('cadence', r.hub, r.cadence)].filter(Boolean).map(String).join(' · ');
     var body;
     /* Picks win over the flag: a request routed by hand keeps no_match, and its
        pick must still show. The flag only words the empty state. */
@@ -399,7 +406,7 @@
   function offerLine(o) {
     if (!o || !o.request) return '';
     var r = o.request;
-    return [lab('material', o.hub, r.material), lab('process', o.hub, r.process), r.quantity, lab('cadence', o.hub, r.cadence),
+    return [deviceWords(r), lab('material', o.hub, r.material), lab('process', o.hub, r.process), r.quantity, lab('cadence', o.hub, r.cadence),
       r.max_lead_time_days != null ? 'within ' + r.max_lead_time_days + ' days' : '',
       [r.town, r.country].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
   }
@@ -445,6 +452,8 @@
     if (!r) return '';
     var rows = [];
     var one = function (n, s, p) { return Number(n) === 1 ? n + ' ' + s : n + ' ' + p; };
+    var words = deviceWords(r);
+    if (words) rows.push(['Product', words]);
     var material = lab('material', hub, r.material);
     if (material) rows.push(['Material', material]);
     var process = lab('process', hub, r.process);
