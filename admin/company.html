@@ -70,7 +70,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
 <script src="crm.js?v=071"></script>
-<script src="jobs.js?v=086"></script>
+<script src="jobs.js?v=087"></script>
 <script src="pipelines.js?v=073"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -142,6 +142,7 @@ const ORG_INTENTS=['delete-account','erase-account','pause-org','resume-org','re
 const CRM_INTENTS=Object.keys(NXCRM.KEYS);
 /* Plan 054 (D1): the composer's Note, watched so a queued or failed note shows by the composer. */
 const NOTE_INTENTS=['add-note'];
+const TICK_INTENTS=['tick-task'];
 const STRIKE_SOURCE={seeker_check:'Seeker check',audit:'Audit',no_declaration:'No declaration',undeclared_evidence:'Undeclared evidence'};
 const LISTING_BADGE={pending:'Waiting for approval',live:'Live',declined:'Declined',hidden:'Hidden'};
 const HUB={print:['3D Print Hub','listings.html?tab=print'],mill:['Mill Hub','listings.html?tab=mill']};
@@ -174,6 +175,8 @@ let readIntents=[], sending=[], sendSeq=0;
 let allCompanies=null;
 /* Plan 072: the company's jobs from the inbox view, what their panels read, their open intents, and our tasks for it. */
 let jobRows=[], J={problems:[]}, jobPending={}, T={missing:false,error:'',rows:[]};
+/* The workspace's checkboxes for this company, by folder, and the newest tick of each. */
+let WS={error:'',rows:[]}, tickByKey={};
 /* Plan 076: the company's conversations on the Desk (0079; a missing table hides the panel). */
 let D={missing:false,rows:[]};
 /* Plan 073: the company's pipeline cards, their moves, links and clocks, and its introductions. */
@@ -191,7 +194,7 @@ async function load(){
   if(st.error&&!missing){state='error';problem=st.error.message;render();return;}
   const imported=!st.error&&(st.data||[]).some(r=>r.key==='imported_at');
   const iq=await sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at,requested_by')
-    .in('status',['pending','claimed','failed','done']).in('type',[...ORG_INTENTS,...CRM_INTENTS,...NXJOBS.TYPES,...NXJOBS.TASK_TYPES,...PIPE_INTENTS,...NOTE_INTENTS])
+    .in('status',['pending','claimed','failed','done']).in('type',[...ORG_INTENTS,...CRM_INTENTS,...NXJOBS.TYPES,...NXJOBS.TASK_TYPES,...PIPE_INTENTS,...NOTE_INTENTS,...TICK_INTENTS])
     .order('id',{ascending:false}).limit(1000);
   if(iq.error)banners.push(`Could not read the queued changes: ${iq.error.message}.`);
   if((iq.data||[]).length===1000)banners.push('Showing the newest 1,000 intent rows; older ones are not on this page.');
@@ -217,15 +220,19 @@ async function load(){
    column or table names its migration and leaves the rest of the page. */
 const isMissing=e=>!!e&&/does not exist|schema cache|Could not find/i.test(e.message||'');
 async function loadJobs(orgIds){
-  jobRows=[];J={problems:[]};T={missing:false,error:'',rows:[]};
-  const [iq,tq]=await Promise.all([
+  jobRows=[];J={problems:[]};T={missing:false,error:'',rows:[]};WS={error:'',rows:[]};
+  const wsFolders=C?C.folders.filter(f=>f.area==='deals'||f.area==='leads'):[];
+  const [iq,tq,wq]=await Promise.all([
     orgIds.length?sb.from('inbox').select('*').in('org_id',orgIds).order('created_at',{ascending:true}).limit(200):none,
     C?sb.from('crm_tasks').select('id,title,company_id,due_on,source,created_at,created_by,done_at,done_by').eq('company_id',C.id).is('done_at',null).order('id',{ascending:true}).limit(200):none,
+    wsFolders.length?sb.from('engine_tasks').select('owner,task,source,collected_at').or(wsFolders.map(f=>`source.like.${f.area}/${f.slug}/*`).join(',')).order('owner').limit(200):none,
   ]);
   if(iq.error)banners.push(isMissing(iq.error)?'Migration 0077 has not been applied: Needs you shows the Inbox’s jobs here once it is.':`Could not read this company’s jobs: ${iq.error.message}.`);
   jobRows=iq.data||[];
   if(tq.error){if(isMissing(tq.error))T.missing=true;else T.error=tq.error.message;}
   else T.rows=tq.data||[];
+  if(wq.error)WS.error=`Could not read the workspace checkboxes: ${wq.error.message}.`;
+  else WS.rows=wq.data||[];
   if(jobRows.length){
     J=await NXJOBS.read(sb,jobRows,{orgIds});
     J.problems.forEach(p=>banners.push(p));
@@ -386,7 +393,7 @@ const crmKey=(i,p)=>i.type==='edit-company'?`co:${p.company_id}`
   :i.type==='tag-company'?`tag:${p.company_id}:${p.tag_id!=null?p.tag_id:String(p.label||'').toLowerCase()}`
   :i.type==='add-person'||i.type==='add-site'?`${i.type}:${p.company_id}:${String(p.name||'').toLowerCase()}`:null;
 function watch(rows){
-  intentById={};pendingByOrg={};pendingByStrike={};pendingByUser={};pendingByPerson={};pendingBySite={};doneOrg=[];jobPending={};pendingByCard={};pendingByIntro={};noteByCompany={};
+  intentById={};pendingByOrg={};pendingByStrike={};pendingByUser={};pendingByPerson={};pendingBySite={};doneOrg=[];jobPending={};pendingByCard={};pendingByIntro={};noteByCompany={};tickByKey={};
   const open={};
   rows.slice().sort((a,b)=>a.id-b.id).forEach(i=>{
     intentById[i.id]=i;
@@ -396,6 +403,7 @@ function watch(rows){
       if(i.status==='done')delete noteByCompany[p.company_id];
       else if(i.status!=='failed'||new Date(i.requested_at).getTime()>Date.now()-7*864e5)noteByCompany[p.company_id]=i;
     }
+    if(i.type==='tick-task')tickByKey[NXJOBS.intentKey(i)]=i;
     /* A job's and a task's newest open intent, keyed as jobs.js looks them up. */
     const jk=NXJOBS.TYPES.includes(i.type)||NXJOBS.TASK_TYPES.includes(i.type)?NXJOBS.intentKey(i):null;
     if(jk!=null){if(i.status==='done')delete jobPending[jk];else jobPending[jk]=i;}
@@ -463,7 +471,7 @@ function subLine(o){
   if(s==='none'&&!o.sub_period)return 'No membership yet';
   const rate=o.sub_rate_gbp!=null?`, £${Number(o.sub_rate_gbp).toLocaleString('en-GB')}`:'';
   const pill=s==='active'?'<span class="st ok">Paid</span>':s==='hidden'?'<span class="st err">Unpaid, hidden</span>':s==='overdue'?'<span class="st">Overdue</span>':'';
-  return `${esc((o.sub_period==='monthly'?'Monthly':'Annual')+rate)}${o.founding?' <span class="tag mini">Founding</span>':''} ${pill}`;
+  return `${esc((o.sub_period==='monthly'?'Monthly':'Annual')+rate)} ${pill}`;
 }
 function scoreLine(o){
   if(o.score==null)return '<span class="st">Not scored yet</span>';
@@ -726,7 +734,7 @@ function composerHtml(){
   let half;
   if(task){
     half=`${input('cp-title','For example: send the hub pricing')}`+
-      `<div class="composer-row"><span class="left"><label class="sr" for="cp-due">Due</label><input class="input" type="date" id="cp-due"><span class="picker-note">Goes to our tasks in the Inbox.</span></span>`+
+      `<div class="composer-row"><span class="left"><label class="sr" for="cp-due">Due</label><input class="input" type="date" id="cp-due"><span class="picker-note">Shows under Open tasks here and in the Inbox.</span></span>`+
       `${btn('taskAdd','Add task','',{form:'cp',company:C.id},'primary')}</div>`;
   }else if(!noteFolder()){
     half=`<p class="picker-note">${NO_FOLDER_NOTE}</p>`;
@@ -741,6 +749,26 @@ function composerHtml(){
   }
   return `<section class="panel"><div class="composer-row"><h2>Add a note or a task</h2>${seg}</div><div class="composer">${half}</div></section>`;
 }
+/* The same checkboxes as the Inbox's From the workspace, for this company. They
+   are collected at 07:00, so a tick done since then shows ticked. */
+const tickOf=t=>tickByKey[NXJOBS.intentKey({type:'tick-task',payload_json:t})];
+const isTicked=t=>{const q=tickOf(t);return !!q&&q.status==='done'&&new Date(q.requested_at).getTime()>new Date(t.collected_at).getTime();};
+function workspaceTasks(){
+  if(WS.error)return `<div class="due-h">From the workspace</div><p class="picker-note">${esc(WS.error)}</p>`;
+  if(!WS.rows.length)return '';
+  return '<div class="due-h">From the workspace</div>'+WS.rows.map(t=>{
+    /* Tasks in emails/ files are verbatim received material: never ticked. */
+    const inEmail=/\/emails\//.test(t.source||'');
+    const q=tickOf(t), failed=!!q&&q.status==='failed', ticked=isTicked(t), queued=!!q&&!failed&&!ticked&&q.status!=='done';
+    const tick=inEmail?`<span class="tick locked" title="Filed email: verbatim received material, never edited">${ms('lock')}</span>`
+      :ticked||queued?`<span class="tick on" aria-hidden="true">${ms('check')}</span>`
+      :`<button type="button" class="tick" data-act="tick" data-s="${esc(t.source)}" data-t="${esc(t.task)}" aria-label="Tick: ${esc(t.task)}">${ms('check')}</button>`;
+    const meta=`<span>${esc(t.owner)}</span>`+(inEmail?'<span>Filed email: it cannot be ticked</span>':'')
+      +(ticked?'<span>Ticked; the list refreshes at 07:00</span>':'')+(queued?'<span class="status-line">Queued</span>':'');
+    return `<div class="task-row">${tick}<div class="task-main"><span class="task-text">${esc(t.task)}</span><span class="task-meta">${meta}</span>${
+      failed?`<div class="fail-line"><span>Failed: ${esc(NXJOBS.sentence(q.result_note))}</span>${btn('retry','Try again','',{intent:q.id},'quiet')}</div>`:''}</div></div>`;
+  }).join('');
+}
 function openTasksPanel(){
   const ctx=jobCtx();
   let body;
@@ -754,9 +782,11 @@ function openTasksPanel(){
     body=(UI.open==='task:add:ot'?NXJOBS.taskForm(ctx,null,{form:'ot',companyId:C.id}):'')+
       adds.map(i=>`<div class="task-row"><span class="tick on" aria-hidden="true">${ms(i.status==='failed'?'close':'check')}</span><div class="task-main"><span class="task-text">${esc((i.payload_json||{}).title||'')}</span>${
         i.status==='failed'?`<div class="fail-line"><span>Failed: ${esc(NXJOBS.sentence(i.result_note))}</span>${btn('retry','Try again','',{intent:i.id},'quiet')}</div>`:'<span class="task-meta"><span class="status-line">Queued</span></span>'}</div></div>`).join('')+
-      (T.rows.length?T.rows.map(t=>NXJOBS.taskRow(t,ctx,false,false)).join(''):adds.length?'':'<p class="fact muted">None. Add one from the composer.</p>');
+      (T.rows.length?T.rows.map(t=>NXJOBS.taskRow(t,ctx,false,false)).join(''):adds.length||WS.rows.length||WS.error?'':'<p class="fact muted">None. Add one from the composer.</p>');
   }
-  return `<section class="panel"><div class="composer-row"><h2>Open tasks <span class="n num">${T.rows.length}</span></h2>${T.missing||T.error||!C?'':btn('taskOpen','Add task','add',{form:'ot'})}</div><div>${body}</div></section>`;
+  body+=workspaceTasks();
+  const count=T.rows.length+WS.rows.filter(t=>!isTicked(t)).length;
+  return `<section class="panel"><div class="composer-row"><h2>Open tasks <span class="n num">${count}</span></h2>${T.missing||T.error||!C?'':btn('taskOpen','Add task','add',{form:'ot'})}</div><div>${body}</div></section>`;
 }
 /* What jobs.js's panels and decisions are given (see its header). account()
    calls the account panel's own Pause, Remove or Erase and puts the cursor in
@@ -1081,6 +1111,8 @@ const open=(el,ui)=>{UI.open=ui;render();};
 const orgOf=el=>orgById(el.dataset.orgId)||{};
 
 const ACT={
+  /* The workspace tick: the engine flips that checkbox in the file it came from and commits. */
+  tick(el){return raise('tick-task',{source:el.dataset.s,task:el.dataset.t},'Ticked');},
   openUi(el){open(el,el.dataset.ui);},
   closeUi(){UI.open=null;UI.edit=null;UI.reason=null;render();},
   /* plan 054: the composer's Note */

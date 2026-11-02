@@ -23,9 +23,9 @@
     consultancy: ['lead', 'contacted', 'conversation', 'agreed', 'invoiced', 'paid'],
   };
   const NAMES = {
-    hub: { lead: 'Lead', contacted: 'Contacted', conversation: 'In conversation', agreed: 'Agreed',
+    hub: { lead: 'Accepted', contacted: 'Contacted', conversation: 'In conversation', agreed: 'Agreed',
       account: 'Account created', applied: 'Applied', invoiced: 'Invoiced', paid: 'Paid + live' },
-    consultancy: { lead: 'Lead', contacted: 'Contacted', conversation: 'In conversation', agreed: 'Agreed',
+    consultancy: { lead: 'Accepted', contacted: 'Contacted', conversation: 'In conversation', agreed: 'Agreed',
       invoiced: 'Invoiced', paid: 'Paid' },
   };
   const HAND = { hub: ['conversation', 'agreed'], consultancy: ['conversation'] };

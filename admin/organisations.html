@@ -13,7 +13,7 @@
 <style>
   .muted { color: var(--fg-2); font-size: 12.5px; }
   .terms-missing { color: var(--warn-ink); font-weight: 600; font-size: 12.5px; }
-  .subb, .hostb, .founding {
+  .subb, .hostb {
     display: inline-block; border-radius: 999px; text-transform: uppercase;
     letter-spacing: 0.05em; white-space: nowrap;
   }
@@ -30,8 +30,6 @@
   .hostb-applied  { background: var(--info-wash); color: var(--info-ink); }
   .hostb-approved { background: var(--ok-wash);  color: var(--ok-ink); }
   .hostb-declined { background: var(--cold-wash); color: var(--cold-ink); }
-  .founding { background: var(--np-green); color: #fff; font: 700 9.5px/1 var(--font-body);
-              padding: 3px 7px; margin-left: 6px; }
   .fees { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .fees .cur { color: var(--fg-2); font-size: 11.5px; margin-right: 4px; }
   /* Follow-through score — one number, banded, with the whole working
@@ -65,8 +63,7 @@ OWN-WORLD: NexPoint light — #F5F7FA ground, white cards on #E3E7ED hairlines,
 ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
 accent, green reserved for "go" semantics, horizontal logo in a translucent bar.
 STORY: every account on the Global Portal — the follow-through score and
-its working, subscription standing (with the Founding badge honoured for
-life, spec §3), host status and listings per hub, open strikes with the
+its working, subscription standing, host status and listings per hub, open strikes with the
 source that opened them and the date they must cure by, and fees owed on
 confirmed-but-uninvoiced orders. Read-only since plan 075 (D10): Record payment (by hand), Extend
 the clock and the billing-from choice are Money's, and the account's own
@@ -407,8 +404,7 @@ function subBadge(o){
   const label = s==='none' ? 'No subscription' : s.charAt(0).toUpperCase()+s.slice(1);
   let extra='';
   if(s!=='none'&&o.sub_rate_gbp!=null)extra=` — £${Number(o.sub_rate_gbp).toLocaleString('en-GB')}/${o.sub_period==='monthly'?'mo':'yr'}`;
-  const founding=o.founding?'<span class="founding">Founding</span>':'';
-  return `<span class="subb subb-${esc(s)}">${esc(label)}</span>${esc(extra)}${founding}${invoiceLines(o)}`;
+  return `<span class="subb subb-${esc(s)}">${esc(label)}</span>${esc(extra)}${invoiceLines(o)}`;
 }
 
 /* Plan 049: each host's membership invoices (membership_invoices, 0075).

@@ -2,7 +2,7 @@
    yields, as the Inbox (inbox.html) and the company page's Needs you
    (company.html) show it and decide it.
 
-   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=086">:
+   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=087">:
    shared admin files are cached in browsers for up to four hours, so bump
    ?v= on every change (and on every page that links it).
 
@@ -425,11 +425,14 @@ function shipsToUnset(l){
   return !to||!to.length;
 }
 
+/* What a seeker chose on the find page (plan 080). The engine's desk.py, the
+   worker's labels.js and the website's find.js and dashboard.js say the same words. */
+const DEVICE_WORDS={rigid:'Rigid shell',soft:'Soft insole'};
 /* What the seeker asked for, as the prototype's list (rows for kv()): Wants,
    Volume, Ships to, Lead time, then Needed by, Services and Notes. */
 function needLines(r){
   const rows=[], has=v=>v!=null&&String(v).trim()!==''&&!(Array.isArray(v)&&!v.length);
-  const want=[has(r.material)?fmtVal(r.material,'material'):'',has(r.process)?fmtVal(r.process,'process'):''].filter(Boolean).join(', ');
+  const want=[DEVICE_WORDS[r.device_type]||'',has(r.material)?fmtVal(r.material,'material'):'',has(r.process)?fmtVal(r.process,'process'):''].filter(Boolean).join(', ');
   if(want)rows.push(['Wants',esc(want)]);
   const vol=[has(r.quantity)?String(r.quantity):'',has(r.cadence)?lab('cadence',r.cadence).toLowerCase():''].filter(Boolean).join(', ');
   if(vol)rows.push(['Volume',esc(vol)]);
