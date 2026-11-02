@@ -78,7 +78,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
 <script src="crm.js?v=071"></script>
-<script src="jobs.js?v=086"></script>
+<script src="jobs.js?v=087"></script>
 <script src="pipelines.js?v=073"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -471,9 +471,9 @@ const ACT={
     if(el.dataset.board==='hub'){
       if(!UI.hubs.length)return NXShell.toast('Pick the 3D Print Hub, the Mill Hub or both.');
       const site=val('ac-site');
-      return raise('add-card',{board:'hub',company_id:c.id,site_id:site?Number(site):null,hubs:UI.hubs.slice()},queued(`Added ${c.name} to Hub Providers at Lead`));
+      return raise('add-card',{board:'hub',company_id:c.id,site_id:site?Number(site):null,hubs:UI.hubs.slice()},queued(`Added ${c.name} to Hub Providers at Accepted`));
     }
-    return raise('add-card',{board:'consultancy',company_id:c.id,brief:val('ac-brief'),deal_kind:UI.kind},queued(`Added ${c.name} to Consultancy at Lead`));
+    return raise('add-card',{board:'consultancy',company_id:c.id,brief:val('ac-brief'),deal_kind:UI.kind},queued(`Added ${c.name} to Consultancy at Accepted`));
   },
   revive(el){
     const c=cardById(el.dataset.card);

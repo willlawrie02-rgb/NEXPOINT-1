@@ -14,6 +14,10 @@
   /* Prospects in the CRM's look (plan 077, D2): Chris's page, each prospect a table row
      that opens in place for its five fields, its notes and every decision. */
   .ptbl td { vertical-align: middle; }
+  .th-sort { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+  .th-sort:hover { color: var(--blue); }
+  .th-sort:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+  .th-sort .order { font-weight: 400; }
   .ptbl td.why { min-width: 220px; max-width: 360px; font-size: 13px; color: var(--fg-1); }
   .ptbl td.act { white-space: nowrap; text-align: right; }
   .ptbl .pills { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -64,7 +68,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=3"></script>
 <script src="crm.js?v=071"></script>
-<script src="jobs.js?v=086"></script>
+<script src="jobs.js?v=087"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -115,7 +119,7 @@ let prospects=[],parked=[],leads=[],rejected=[],campaigns=[],members={},pendingF
 let opts={sector:[],company_type:[]},notes={},opportunities=[],kindOf={},C=null,banners=[],loaded=false;
 // Review fix: a dropdown changed but not yet saved survives every re-render.
 const choices={},drafts={},asks={};
-const UI={open:null,ask:null,add:false,addValues:null,declinedOpen:false};
+const UI={open:null,ask:null,add:false,addValues:null,declinedOpen:false,sort:'found'};
 /* Every field here is kept in choices, drafts, asks or addValues and a redraw puts it back, so only typing holds a reload. */
 const checkBack=NXJOBS.poll(sb,load);
 function choose(id,field,value){(choices[id]=choices[id]||{})[field]=value;}
@@ -124,6 +128,7 @@ const TYPES=['Current customer','Former customer','Enquired','Cold','Known conta
 const TYPE_LABEL={'Enquired':'Enquired, no action'};
 const NO_CAMPAIGN=['Known contact','Former contact'];
 const QUALITIES=['high','medium','low'];
+const SORT_WORDS={found:'newest found first',name:'A-Z'};
 const SOURCES={finder:'Weekend finder','fit360-list':'Fit360 campaign list','existing-lead':'Existing lead',manual:'Added by hand',linkedin:'LinkedIn comment'};
 /* A campaign version's name, as Campaigns shows it. */
 const VERSION_WORDS={current:'Current customer',former:'Former customer',enquired:'Enquired',enquired_new:'Enquired (new contact)',cold:'Cold'};
@@ -137,6 +142,7 @@ const cap=s=>String(s||'').replace(/^./,c=>c.toUpperCase());
 function startUi(){
   try{const t=localStorage.getItem('nx-prospects-tab');if(['prospects','parked','leads'].includes(t))tab=t;}catch(e){}
   try{const f=JSON.parse(localStorage.getItem('nx-prospects-filters')||'{}');FILTERS.forEach(k=>{if(f[k]!=null)F[k]=String(f[k]);});}catch(e){}
+  try{const o=localStorage.getItem('nx-prospects-sort');if(o in SORT_WORDS)UI.sort=o;}catch(e){}
 }
 
 function siteHref(w){
@@ -418,16 +424,22 @@ function toolbarHtml(){
       .map(([v,t])=>`<option value="${esc(v)}"${v===F['f-finder']?' selected':''}>${esc(t)}</option>`).join('')+'</select></div>';
 }
 
+/* The Company heading swaps the list between its two orders (Will, 2 Nov 2026). */
+function sorted(rows){
+  if(UI.sort==='name')return rows.slice().sort((a,b)=>nameOf(a).localeCompare(nameOf(b),'en-GB',{sensitivity:'base'}));
+  return rows.slice().sort((a,b)=>String(b.proposed_at||'').localeCompare(String(a.proposed_at||''))||b.id-a.id);
+}
+const companyHead=()=>`<button type="button" class="th-sort" data-act="sortCompany" aria-label="Company, in order ${esc(SORT_WORDS[UI.sort])}. Change the order">Company <span class="order">${esc(SORT_WORDS[UI.sort])}</span>${ms('swap_vert','sm')}</button>`;
 function listHtml(){
   let rows,head,body;
   if(tab==='leads'){
-    rows=leads.filter(r=>passes(r,campOf(r)));
-    head='<th>Company</th><th>Found for</th><th>Status</th><th>Campaign</th><th>In Contacts</th><th></th>';
+    rows=sorted(leads.filter(r=>passes(r,campOf(r))));
+    head=`<th>${companyHead()}</th><th>Found for</th><th>Status</th><th>Campaign</th><th>In Contacts</th><th></th>`;
     body=rows.map(leadCard).join('');
   }else{
     const list=tab==='parked'?parked:prospects;
-    rows=list.filter(r=>passes(r,r.recommended_campaign_id));
-    head='<th>Company</th><th>Found for</th><th>Status</th><th>Campaign</th><th>Why it fits</th><th>In Contacts</th><th></th>';
+    rows=sorted(list.filter(r=>passes(r,r.recommended_campaign_id)));
+    head=`<th>${companyHead()}</th><th>Found for</th><th>Status</th><th>Campaign</th><th>Why it fits</th><th>In Contacts</th><th></th>`;
     body=rows.map(r=>prospectCard(r,tab==='parked')).join('');
   }
   const empty={prospects:'No prospects to decide. New ones arrive after the weekend finders run.',parked:'Nothing parked. Park keeps a company for a later decision.',leads:'No accepted leads yet.'}[tab];
@@ -492,6 +504,10 @@ function notesBlock(r){
   </div></details>`;
 }
 const saveBtn=r=>`<button class="btn sm primary" id="save-${esc(r.id)}" type="button" data-act="saveRow" data-id="${esc(r.id)}"${Object.keys(changed(r)).length?'':' hidden'}${saveAllowed(r)?'':' disabled'}>${ms('save','sm')}Save changes</button>`;
+/* Cancel puts a row's fields back as last saved. Only what was edited here counts: a no-campaign status
+   can offer Save with nothing typed (see changed), and there is nothing of the person's to cancel then. */
+const edited=r=>Object.keys(choices[r.id]||{}).length>0&&Object.keys(changed(r)).length>0;
+const cancelBtn=r=>`<button class="btn sm quiet" id="cancel-${esc(r.id)}" type="button" data-act="cancelRow" data-id="${esc(r.id)}"${edited(r)?'':' hidden'}>Cancel changes</button>`;
 /* Before migration 0065 only a lead's campaign change can be saved (the old change-campaign intent). */
 function saveAllowed(r){
   if(!pre0065)return true;
@@ -530,7 +546,7 @@ function prospectCard(r,isParked){
     const parkBtn=isParked
       ?`<button class="btn sm" type="button" data-act="unpark" data-id="${esc(r.id)}">${ms('unarchive','sm')}Unpark</button>`
       :`<button class="btn sm" type="button" title="Keep for a later decision; the finders leave it alone" data-act="park" data-id="${esc(r.id)}">${ms('inventory_2','sm')}Park</button>`;
-    decide=`${saveBtn(r)}<button class="btn sm primary" type="button" data-act="accept" data-id="${esc(r.id)}"${pre0047?' disabled':''}>${ms('check','sm')}Accept</button>${parkBtn}`+
+    decide=`${saveBtn(r)}${cancelBtn(r)}<button class="btn sm primary" type="button" data-act="accept" data-id="${esc(r.id)}"${pre0047?' disabled':''}>${ms('check','sm')}Accept</button>${parkBtn}`+
       `<button class="btn sm" type="button" data-act="reject" data-id="${esc(r.id)}">${ms('close','sm')}Decline</button>`+
       `<button class="btn sm danger" type="button" title="Never propose or research this company again; only an admin can restore it" data-act="block" data-id="${esc(r.id)}">${ms('block','sm')}Kill</button>`;
   }
@@ -563,7 +579,7 @@ function leadCard(r){
     `<td class="act">${failedLine(q)}${queued?queuedLine(q):toggleBtn(r)}</td></tr>`;
   if(UI.open!==r.id)return out;
   const control=queued?queuedLine(q)
-    :`${saveBtn(r)}<button class="btn sm" type="button" data-act="returnLead" data-id="${esc(r.id)}">${ms('undo','sm')}Return to prospect</button>`;
+    :`${saveBtn(r)}${cancelBtn(r)}<button class="btn sm" type="button" data-act="returnLead" data-id="${esc(r.id)}">${ms('undo','sm')}Return to prospect</button>`;
   const ask=UI.ask==='return:'+r.id?askHtml('Return',r.id,'Return this lead to Prospects? It leaves its campaign; its folder is kept. Say why.','Required','Return it',false)
     :UI.ask==='move:'+r.id?moveAsk(r):'';
   out+=`<tr class="detail"><td colspan="6"><div class="detail-body">
@@ -662,8 +678,9 @@ function payloadFields(diff){
   return out;
 }
 function refreshSave(id){
-  const r=rowById(id),b=$('save-'+id);
+  const r=rowById(id),b=$('save-'+id),x=$('cancel-'+id);
   if(r&&b){b.hidden=!Object.keys(changed(r)).length;b.disabled=!saveAllowed(r);}
+  if(r&&x)x.hidden=!edited(r);
 }
 async function saveRow(id,moved){
   const r=rowById(id);if(!r)return;
@@ -704,6 +721,8 @@ const ACT={
   toggleAdd(){toggleAdd();},
   accept(el){accept(el.dataset.id);},
   saveRow(el){saveRow(el.dataset.id);},
+  cancelRow(el){delete choices[el.dataset.id];UI.ask=null;$('plist').innerHTML=listHtml();},
+  sortCompany(){UI.sort=UI.sort==='name'?'found':'name';try{localStorage.setItem('nx-prospects-sort',UI.sort);}catch(e){}$('plist').innerHTML=listHtml();},
   confirmMove(el){saveRow(el.dataset.id,true);},
   async park(el){const id=el.dataset.id;delete choices[id];if(await raise('watch-lead',{queue_row:Number(id)},'Parked','q'+id))render();},
   async unpark(el){const id=el.dataset.id;if(await raise('unpark-lead',{queue_row:Number(id)},'Unparked','q'+id))render();},
