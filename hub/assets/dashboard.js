@@ -171,7 +171,6 @@
       host_print: pick(site.host_print, org.host_print) || 'none',
       host_mill: pick(site.host_mill, org.host_mill) || 'none',
       sub_status: pick(site.sub_status, org.sub_status) || '',
-      founding: !!pick(site.founding, org.founding),
       hidden: site.hidden != null ? !!site.hidden : (org.sub_status === 'hidden'),
       verified: !!site.verified,
       /* Plan 069: the closed shape, when the holder closed the account. */
@@ -215,7 +214,6 @@
         badges.push('<span class="acct-badge is-applied">Host application in review · ' + esc(hubLabel(h)) + '</span>');
       }
     });
-    if (s.founding) badges.push('<span class="acct-badge is-founding">Founding partner</span>');
 
     var html =
       '<div class="acct-id">' +
