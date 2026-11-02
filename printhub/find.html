@@ -46,6 +46,19 @@
       location.replace((window.NP_APEX || '') + '/hub/?signin=1&return=' + encodeURIComponent(location.href));
   }, 20000);
 </script>
+<style>
+  .device-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .device-card{position:relative;display:block;background:var(--surface);border:1px solid var(--border-card);border-radius:var(--radius-xl);padding:12px 12px 14px;cursor:pointer;transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)}
+  .device-card:hover{border-color:var(--blue)}
+  .device-card.is-on{border-color:var(--blue);background:rgba(0,92,200,.10)}
+  .device-card input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+  .device-card input:focus-visible~.device-card__t{outline:2px solid var(--blue-bright);outline-offset:3px;border-radius:4px}
+  .device-card__pics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-bottom:8px}
+  .device-card img{display:block;width:100%;height:auto}
+  .device-card__t{display:block;font:600 14px/1.3 var(--font-body);letter-spacing:normal;text-transform:none;color:var(--on-surface)}
+  .device-card__s{display:block;font:400 13px/1.4 var(--font-body);letter-spacing:normal;text-transform:none;color:var(--on-surface-var);margin-top:2px}
+  @media (max-width:560px){.device-grid{grid-template-columns:minmax(0,1fr)}}
+</style>
 </head>
 <body data-hub="print" data-np-wall>
 <!--
@@ -96,7 +109,7 @@ named once the introduction terms are accepted, plan 067), and one pick (plan
       <!-- 01 - the ask -->
       <div class="flow-step">
         <h2>What do you need?</h2>
-        <p class="hint">The network describes capacity in one shared vocabulary, so the words you pick here are the words the sites listed themselves under. Nothing goes to any site until you pick one.</p>
+        <p class="hint">Choose what you need made. If you know the material or process you want, add it; if not, leave them blank and we will match you on the type. Nothing goes to any site until you pick one.</p>
         <div class="panel">
           <div id="findMount"><p class="body">Loading…</p></div>
         </div>
@@ -116,7 +129,7 @@ named once the introduction terms are accepted, plan 067), and one pick (plan
       <!-- 03 - the results -->
       <div class="flow-step" id="step2" hidden>
         <h2>The sites that fit</h2>
-        <p class="hint">Ranked by fit: material first, then capacity, location and lead time. The three that fit best are named. Pick one.</p>
+        <p class="hint">Ranked by fit: capacity, location and lead time, and the material if you named one. The three that fit best are named. Pick one.</p>
         <div id="matchIntro" style="display:none;margin-bottom:20px;font-size:14px;color:var(--on-surface)"></div>
         <div id="noMatch" hidden style="margin-bottom:20px"></div>
         <div class="np-map np-map--match" id="matchMap" hidden></div>
@@ -227,9 +240,9 @@ named once the introduction terms are accepted, plan 067), and one pick (plan
     var srcs = [
       '/assets/hub-account.js',
       '/hub/assets/portal.js',
-      '/hub/assets/vocab.js',
-      '/hub/assets/typeahead.js',
-      '/hub/assets/find.js?v=20261022'
+      '/hub/assets/vocab.js?v=20261102',
+      '/hub/assets/typeahead.js?v=20261102',
+      '/hub/assets/find.js?v=20261102'
     ];
     (function next(i) {
       if (i >= srcs.length) { done(); return; }

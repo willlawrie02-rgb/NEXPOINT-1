@@ -244,6 +244,8 @@
         return api;
       },
       clear: function () { chosen = []; input.value = ''; renderChips(); return api; },
+      /* Replace what is offered. Anything already chosen stays chosen. */
+      setOptions: function (list) { options = normalise(list); if (open) renderList(); return api; },
       input: input,
     };
     if (cfg.value) api.set(cfg.value);
