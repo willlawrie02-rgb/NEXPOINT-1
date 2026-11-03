@@ -4390,6 +4390,95 @@ async function walkMovedPages() {
   }
 }
 
+/* The Consultancy agreements page (plan 086): on the CRM's shell it makes,
+   revokes and reissues links through the worker, asking in place, never in a
+   pop-up, and writes to no table. Before the admin sync carries it, the old
+   page stands and the checks wait. */
+async function walkConsultancy() {
+  area = "The Consultancy agreements page (plan 086)";
+  if (!/href="crm\.css/.test(adminText("consultancy.html"))) {
+    notes.push("The Consultancy agreements page in this copy is still on the old design, so its checks were not run. " +
+      "They arrive with the admin sync; WALK_ADMIN_DIR=<engine>/app walks them now.");
+    return;
+  }
+  const link = (id, over) => Object.assign({ id, company_slug: `zz-walk-${id}`, client_name: `ZZ Walk ${id} Ltd`, client_address: "1 Walk Street", service: "sales and marketing consultancy",
+    fee_amount: 5000, currency: "GBP", signer_name: "Sam Walker", signer_email: "sam@example.com", created_by: ADMIN_EMAIL, created_at: "2026-11-01T09:00:00Z",
+    expires_at: "2099-12-01T09:00:00Z", is_test: false }, over);
+  const world = newWorld({ rows: { consultancy_links: [
+    link(1), link(2, { opened_at: "2026-11-02T09:00:00Z" }),
+    link(3, { signed_at: "2026-11-02T10:00:00Z", signed_name: "Sam Walker", signed_position: "Director", invoice_email: "ap@example.com" }),
+    link(4, { signed_at: "2026-11-02T10:00:00Z", invoiced_at: "2026-11-02T10:05:00Z", xero_invoice_number: "INV-9", xero_due_date: "2026-11-16" }),
+    link(5, { signed_at: "2026-11-02T10:00:00Z", invoiced_at: "2026-11-02T10:05:00Z", paid_at: "2026-11-03T08:00:00Z", xero_invoice_number: "INV-8" }),
+    link(6, { revoked_at: "2026-11-02T11:00:00Z" }),
+    link(7, { is_test: true }),
+  ] } });
+  const made = { ok: true, url: "https://nexpoint.co.uk/sign/#walk-link", expires_at: "2099-12-03T12:00:00Z" };
+  world.api["POST /consultancy/links"] = () => [200, made];
+  world.api["POST /consultancy/links/reissue"] = () => [200, made];
+  world.api["POST /consultancy/links/revoke"] = () => [200, { ok: true }];
+  const { context, page, errors } = await visit(world, { seedAdmin: true });
+  await page.goto(`${APEX}/admin/consultancy.html?slug=zz-walk-new&client=ZZ%20Walk%20New%20Ltd`);
+  await page.waitForSelector("#link-1");
+  await step("the rail marks Pipelines and the page says the way back", async () => {
+    eq(await page.getAttribute('.rail a[aria-current="page"]', "href"), "pipelines.html", "the current section");
+    eq(await page.locator(".rail .nav a").count(), 8, "the rail's sections");
+    eq(await page.getAttribute("#back", "href"), "pipelines.html?tab=consultancy", "Back");
+  });
+  await step("each state shows its word, paid and revoked folded away", async () => {
+    for (const [id, word] of [[1, "Sent"], [2, "Opened"], [3, "Signed"], [4, "Invoiced"]]) has(await page.textContent(`#links #link-${id} .st`), word, `link ${id}`);
+    eq(await page.isVisible("#links #link-5"), false, "the paid link in the working list");
+    has(await page.textContent("#finished-n"), "Finished (2)", "the archive");
+    await page.click("#finished-n");
+    has(await page.textContent("#finished-body #link-5 .st"), "Paid", "the paid link");
+    has(await page.textContent("#finished-body #link-6 .st"), "Revoked", "the revoked link");
+  });
+  await step("Show test links shows them", async () => {
+    eq(await page.isVisible("#link-7"), false, "before");
+    await page.check("#show-test");
+    await page.waitForSelector("#links #link-7");
+    await page.uncheck("#show-test");
+  });
+  await step("the company card's address fills in the form, and Create agreement link posts it", async () => {
+    eq(await page.inputValue("#f-slug"), "zz-walk-new", "the folder");
+    eq(await page.inputValue("#f-client"), "ZZ Walk New Ltd", "the client");
+    await page.fill("#f-address", "2 Walk Street"); await page.fill("#f-signer", "Sam Walker"); await page.fill("#f-email", "sam@example.com");
+    await page.click("#f-submit");
+    await until(() => apiCalls(world, "POST /consultancy/links").length === 1, "the create");
+    await page.waitForSelector("#given:not([hidden])");
+    const b = apiCalls(world, "POST /consultancy/links")[0].body;
+    eq([b.company_slug, b.client_name, b.fee_amount, b.currency], ["zz-walk-new", "ZZ Walk New Ltd", 5000, "GBP"], "the posted form");
+    has(await page.inputValue("#given-url"), "#walk-link", "the link, shown once");
+  });
+  await step("Revoke link asks in place, Cancel sends nothing, and the answer posts the id", async () => {
+    await page.click('#link-1 [data-act="askRevoke"]');
+    has(await page.textContent("#link-1 .inline-choice"), "Revoke this link?", "the question");
+    await page.click('#link-1 [data-act="closeAsk"]');
+    eq(apiCalls(world, "POST /consultancy/links/revoke").length, 0, "revokes after Cancel");
+    await page.click('#link-1 [data-act="askRevoke"]');
+    await page.click('#link-1 [data-act="revoke"]');
+    await until(() => apiCalls(world, "POST /consultancy/links/revoke").length === 1, "the revoke");
+    eq(apiCalls(world, "POST /consultancy/links/revoke")[0].body, { id: 1 }, "what it posts");
+  });
+  await step("Reissue link fills the form, asks in place, and posts the id", async () => {
+    await page.click('#link-2 [data-act="startReissue"]');
+    has(await page.textContent("#make-title"), "Reissue the link for ZZ Walk 2 Ltd", "the form's title");
+    eq(await page.inputValue("#f-slug"), "zz-walk-2", "the row's folder");
+    await page.click("#f-submit");
+    has(await page.textContent("#make-ask"), "The old link stops working at once", "the question");
+    eq(apiCalls(world, "POST /consultancy/links/reissue").length, 0, "reissues before the answer");
+    await page.click('[data-act="sendReissue"]');
+    await until(() => apiCalls(world, "POST /consultancy/links/reissue").length === 1, "the reissue");
+    eq(apiCalls(world, "POST /consultancy/links/reissue")[0].body.id, 2, "the id posted");
+    await page.waitForFunction(() => document.getElementById("given-title").textContent === "Link reissued");
+  });
+  await step("no pop-up asked anything and no table was written", async () => {
+    eq(world.dialogs || [], [], "dialogs");
+    eq(world.writes, [], "writes");
+  });
+  clean(world, errors, "the Consultancy agreements page");
+  await context.close();
+}
+
 /* System: the failed run first with Re-run now, which raises one rerun-job
    intent; each job's schedule line from the morning report. The Inbox: Add
    task raises one add-task intent. A page still drawing the shell's "Not
@@ -4705,6 +4794,8 @@ if (ONLY !== "boards") parts.splice(parts.indexOf(walkFindMap) + 1, 0, walkFindD
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountAnswers) + 1, 0, walkAccountDevice);
 /* The membership beside the terms and an edit as a change (plan 068) walk straight after the ship picker. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkOfferMap) + 1, 0, walkOfferCommit);
+/* The Consultancy agreements page (plan 086) walks straight after the Inbox and System. */
+if (ONLY !== "public") parts.splice(parts.indexOf(walkInboxAndSystem) + 1, 0, walkConsultancy);
 if (ONLY === "sign") parts.splice(0, parts.length, walkSign);
 try {
   for (const part of parts) {
