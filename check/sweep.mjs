@@ -2,9 +2,9 @@
 // paint fast. Each rule below is a thing that was wrong once; the check keeps
 // it from coming back. The admin boards are synced from another repo and are
 // out of scope here.
+import { runInNewContext } from "node:vm";
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
-import vm from "node:vm";
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const PUBLIC_DIRS = ["hub", "printhub", "millhub", "opportunities", "portal", "sign"];
@@ -455,6 +455,23 @@ for (const p of pages) {
   if (a && b && a !== b) fail("hub/assets/world-map.js: its LAND mask differs from hub/assets/portal.js's; the two copies must stay identical (plan 055)");
 }
 
+// ---------------------------------------------------------------- the logo banner (plan 088)
+// A name reaches the page only with the operator's confirmation on its line and
+// a logo the page can stand straight on the canvas. A JPEG cannot be see-through,
+// so it would arrive in the white box the brand forbids; the walk checks the
+// corners of whatever else is listed.
+{
+  const sandbox = { window: {}, document: { getElementById: () => null } };
+  runInNewContext(read("assets/logo-banner.js"), sandbox);
+  for (const c of sandbox.window.NP_LOGO_BANNER) {
+    const what = `assets/logo-banner.js "${c.name}"`;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(c.confirmed || "")) fail(`${what}: no date for the operator's confirmation`);
+    if (!/^assets\/img\/logos\/[\w.-]+\.(svg|png)$/.test(c.logo || "")) fail(`${what}: the logo must be a transparent SVG or PNG in assets/img/logos/`);
+    else if (!existsSync(join(ROOT, c.logo))) fail(`${what}: ${c.logo} is not in the repo`);
+  }
+  if (!/assets\/logo-banner\.js\?v=[\w.-]+/.test(read("index.html"))) fail("index.html: the logo banner's script is not asked for by version");
+}
+
 // ---------------------------------------------------------------- the door asks for its sheet and script by version
 // 13 October 2026: the hub door's hero was rebuilt (the globe gives way to the
 // film) and a browser that still held the four-hour-old stylesheet drew the
@@ -468,23 +485,6 @@ for (const p of pages) {
   if (!css) fail("hub/index.html: portal.css is not asked for by version (assets/portal.css?v=...)");
   if (!js) fail("hub/index.html: portal.js is not asked for by version (assets/portal.js?v=...)");
   if (css && js && css[1] !== js[1]) fail(`hub/index.html: portal.css is at version ${css[1]} and portal.js at ${js[1]}; they move together`);
-}
-
-// ---------------------------------------------------------------- the logo banner (plan 088)
-// A name reaches the page only with the operator's confirmation on its line and
-// a logo the page can stand straight on the canvas. A JPEG cannot be see-through,
-// so it would arrive in the white box the brand forbids; the walk checks the
-// corners of whatever else is listed.
-{
-  const sandbox = { window: {}, document: { getElementById: () => null } };
-  vm.runInNewContext(read("assets/logo-banner.js"), sandbox);
-  for (const c of sandbox.window.NP_LOGO_BANNER) {
-    const what = `assets/logo-banner.js "${c.name}"`;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(c.confirmed || "")) fail(`${what}: no date for the operator's confirmation`);
-    if (!/^assets\/img\/logos\/[\w.-]+\.(svg|png)$/.test(c.logo || "")) fail(`${what}: the logo must be a transparent SVG or PNG in assets/img/logos/`);
-    else if (!existsSync(join(ROOT, c.logo))) fail(`${what}: ${c.logo} is not in the repo`);
-  }
-  if (!/assets\/logo-banner\.js\?v=[\w.-]+/.test(read("index.html"))) fail("index.html: the logo banner's script is not asked for by version");
 }
 
 if (fails.length) {
