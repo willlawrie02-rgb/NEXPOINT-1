@@ -4812,7 +4812,6 @@ if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountAnswers) + 1, 0, wa
 /* The membership beside the terms and an edit as a change (plan 068) walk straight after the ship picker. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkOfferMap) + 1, 0, walkOfferCommit);
 if (ONLY === "sign") parts.splice(0, parts.length, walkSign);
-if (ONLY === "filmtags") parts.splice(0, parts.length, walkFilmTags);
 try {
   for (const part of parts) {
     try { await part(); } catch (e) {
