@@ -2,7 +2,7 @@
    yields, as the Inbox (inbox.html) and the company page's Needs you
    (company.html) show it and decide it.
 
-   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=087">:
+   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=088">:
    shared admin files are cached in browsers for up to four hours, so bump
    ?v= on every change (and on every page that links it).
 
@@ -427,7 +427,7 @@ function shipsToUnset(l){
 
 /* What a seeker chose on the find page (plan 080). The engine's desk.py, the
    worker's labels.js and the website's find.js and dashboard.js say the same words. */
-const DEVICE_WORDS={rigid:'Rigid shell',soft:'Soft insole'};
+const DEVICE_WORDS={rigid:'Rigid shell',soft:'Soft insole',both:'Rigid shell and soft insole'};
 /* What the seeker asked for, as the prototype's list (rows for kv()): Wants,
    Volume, Ships to, Lead time, then Needed by, Services and Notes. */
 function needLines(r){
