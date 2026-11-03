@@ -1608,6 +1608,13 @@ async function walkFindMap() {
     const m = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth,
       map: Math.round(document.getElementById("matchMap").getBoundingClientRect().right) }));
     if (m.map > m.inner) throw new Error(`the map ends at ${m.map}px in a ${m.inner}px window`);
+    /* Scrolled under the header: its pixels show the header, not the zoom buttons. */
+    const stack = await page.evaluate(() => {
+      const map = document.getElementById("matchMap");
+      window.scrollTo(0, map.getBoundingClientRect().top + window.scrollY - 20);
+      return { isolated: getComputedStyle(map).isolation, header: getComputedStyle(document.querySelector("header")).zIndex, mapTop: map.getBoundingClientRect().top };
+    });
+    eq([stack.isolated, stack.header], ["isolate", "50"], "the map keeps its layers to itself, below the header");
   });
   clean(world, errors, "the find map");
   await context.close();
@@ -1644,6 +1651,16 @@ async function searchAsked(page, world) {
   await until(() => apiCalls(world, "POST /listings/search").length > before, "the search");
   await page.waitForSelector("#step2:not([hidden])");
   return apiCalls(world, "POST /listings/search").pop().body;
+}
+
+/* In the window from top to bottom, and clear of the sticky header. */
+async function onScreen(page, selector, what) {
+  await page.waitForTimeout(900); /* portal.css scrolls smoothly: measure where the page lands. */
+  const m = await page.$eval(selector, (n) => {
+    const r = n.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom, head: document.querySelector("header").getBoundingClientRect().bottom, high: window.innerHeight };
+  });
+  if (m.top < m.head || m.bottom > m.high) throw new Error(`${what} is off screen: ${Math.round(m.top)}px to ${Math.round(m.bottom)}px, header to ${Math.round(m.head)}px, window ${m.high}px`);
 }
 
 async function walkFindDevice() {
@@ -1699,10 +1716,14 @@ async function walkFindDevice() {
       await page.waitForTimeout(150);
       const m = await page.evaluate(() => {
         const [a, b] = [...document.querySelectorAll(".device-card")].map((c) => c.getBoundingClientRect());
-        return { scroll: document.documentElement.scrollWidth, inner: window.innerWidth, beside: Math.round(a.top) === Math.round(b.top) && b.left >= a.right };
+        const small = [...document.querySelectorAll(".field input, .field select, .field textarea")]
+          .filter((f) => f.type !== "checkbox" && parseFloat(getComputedStyle(f).fontSize) < 16).map((f) => f.id);
+        return { scroll: document.documentElement.scrollWidth, inner: window.innerWidth, small, beside: Math.round(a.top) === Math.round(b.top) && b.left >= a.right };
       });
       await page.setViewportSize({ width: 1280, height: 900 });
       if (m.scroll > m.inner) throw new Error(`the page is ${m.scroll}px wide in a ${m.inner}px window`);
+      /* Under 16px an iPhone zooms in on the tap and the page stays cut off. */
+      eq(m.small, [], "fields too small for an iPhone not to zoom");
       return eq(m.beside, true, "the boxes side by side");
     });
     await step(`${hub}: Find with nothing chosen asks for it, with no terms gate and no search`, async () => {
@@ -1710,6 +1731,13 @@ async function walkFindDevice() {
       has(await page.textContent("#findErr"), "Choose what you need made.", "the message");
       eq(await page.locator("#stepTerms:not([hidden])").count(), 0, "the gate");
       eq(await activeId(), "fDevice-rigid", "the focus lands on the first box");
+      await onScreen(page, "#findErr", "the message on a desktop");
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.setViewportSize({ width: 375, height: 740 });
+      await page.click("#findSubmit");
+      await onScreen(page, "#findErr", "the message on a phone");
+      await onScreen(page, "#fDevice", "the boxes on a phone");
+      await page.setViewportSize({ width: 1280, height: 900 });
       return eq(apiCalls(world, "POST /listings/search").filter((c) => c.body.hub === key).length, 0, "searches");
     });
     await step(`${hub}: a box and no material opens the gate, and the search goes on the type alone`, async () => {

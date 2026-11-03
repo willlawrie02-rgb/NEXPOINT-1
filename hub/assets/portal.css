@@ -584,10 +584,13 @@ button.notice-warn:hover,a.notice-warn:hover{background:rgba(245,166,35,.22)}
 
 /* the site map on account creation (plan 046): a search row, the map, then
    the three fields it fills */
-.np-map{height:260px;border:1px solid var(--border-card);border-radius:var(--radius-lg);overflow:hidden;margin:0 0 14px;background:#e9edf2}
+/* isolation holds Leaflet's own z-indexes (200 to 1000) inside the map, so a map scrolls under the sticky header (z-index 50), not over it. */
+.np-map{height:260px;border:1px solid var(--border-card);border-radius:var(--radius-lg);overflow:hidden;margin:0 0 14px;background:#e9edf2;isolation:isolate}
 .np-map-search{display:flex;gap:8px;margin:0 0 10px}
 .np-map-search input{flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--on-surface);font-family:var(--font-body);font-size:14.5px;padding:12px 14px;outline:none}
 .np-map-search input:focus{border-color:var(--blue)}
+/* iPhone Safari zooms in on any field under 16px when it is tapped and stays zoomed, which cuts the logo and the form's right edge off the screen. */
+@media(max-width:600px),(pointer:coarse){.field input,.field select,.field textarea,.np-map-search input,.decl-table input,.decl-table select{font-size:16px}}
 .np-map-search[hidden]{display:none}
 @media(max-width:560px){.np-map{height:200px}}
 
