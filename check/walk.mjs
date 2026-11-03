@@ -1752,7 +1752,7 @@ async function walkFindDevice() {
     });
     await step(`${hub}: the landing card says what the find form now asks`, async () => {
       await page.goto(`${origin}/`);
-      return has(await page.textContent("body"), `Tell us what you need made, how many and how soon. We show you the ${site}s that fit and make the introduction.`, "the card");
+      return has(await page.textContent("body"), `Tell us what you need made, how many and how soon. We show you the ${site}s that fit best, up to three. Pick one and your request goes straight to it.`, "the card");
     });
   }
 
