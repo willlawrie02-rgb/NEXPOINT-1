@@ -199,27 +199,27 @@ const readRendered = (root) => ({
 const SIGN_TOKEN = "e".repeat(64);
 const SIGN_FILLER = Array.from({ length: 24 }, (_, i) =>
   `**9.${i + 1}** A stand-in clause, long enough that the agreement runs past the panel and has to be scrolled to be read to its end.`).join("\n\n");
-const SIGN_AGREEMENT_TEXT = "# Introduction Agreement\n\nVersion 2.1, October 2026\n\n## Parties\n\n" +
+const SIGN_AGREEMENT_TEXT = "# Introduction Agreement\n\nVersion 2.3, October 2026\n\n## Parties\n\n" +
   "Client: Midlands 3D Printing & Co <Ltd>\n\nAddress: 1 <img src=x onerror=\"window.__npPwned=1\"> Road, Stone\n\n" +
   "## 2. Fees\n\n### 2.1 Upfront Search and Engagement Fee\n\n**2.1.1** Amount: £5,000 (GBP)\n\n" +
-  "**2.2.3** The applicable fee rates are:\n\n| Year after the introduction | NexPoint fee as a percentage of Gross Revenue |\n|---|---|\n" +
+  "**2.2.3** The applicable fee rates are:\n\n| Year after first order | NexPoint fee as a percentage of Net Revenue |\n|---|---|\n" +
   "| Year 1 | 6% |\n| Year 2 | 5% |\n| After Year 5 | 0% |\n\n" +
-  "**2.3** **Alternative or Additional Fees** – If the client wishes to expand the scope of the project NexPoint can quote accordingly.\n\n" +
+  "**2.3** **Alternative or Additional Fees** - Not applicable.\n\n" +
   "**3.** **Reporting** - Within 14 days the Client must provide a statement showing:\n\n" +
-  "- (a) each sale or transaction involving the Introduced Party;\n- (b) the relevant invoice dates, per-unit sales price and Gross Revenues;\n" +
-  "**4.** **Invoicing for Recurring Fees**- NexPoint will issue quarterly invoices.\n\n" +
+  "- (a) each sale or transaction involving the Introduced Party;\n- (b) the relevant invoice dates, per-unit sales price and Net Revenue;\n" +
+  "**4.** **Invoicing** - NexPoint will issue quarterly invoices.\n\n" +
   "## Signature\n\nName: [completed when you sign]\n\nPosition: [completed when you sign]\n\nDate: [completed when you sign]\n\n" +
-  "# Master Terms of Business and Introduction Agreement\n\nVersion 2.1, October 2026\n\n## 1. Parties\n\n" +
+  "# Master Terms of Business and Introduction Agreement\n\nVersion 2.3, October 2026\n\n## 1. Parties\n\n" +
   "**1.1** A clause <script>window.__npPwned=2</script> with a script in it, and a lone * asterisk.\n\n" + SIGN_FILLER + "\n";
-const SIGN_AGREEMENT = { version: "2.1", text: SIGN_AGREEMENT_TEXT, hash: "a".repeat(64) };
+const SIGN_AGREEMENT = { version: "2.3", text: SIGN_AGREEMENT_TEXT, hash: "a".repeat(64) };
 /* What the panel must show for that text. */
 const SIGN_RENDERED = {
   h2: ["Introduction Agreement", "Master Terms of Business and Introduction Agreement"],
   h3: ["Parties", "2. Fees", "Signature", "1. Parties"],
   h4: ["2.1 Upfront Search and Engagement Fee"],
-  head: ["Year after the introduction", "NexPoint fee as a percentage of Gross Revenue"],
+  head: ["Year after first order", "NexPoint fee as a percentage of Net Revenue"],
   rows: [["Year 1", "6%"], ["Year 2", "5%"], ["After Year 5", "0%"]],
-  items: ["(a) each sale or transaction involving the Introduced Party;", "(b) the relevant invoice dates, per-unit sales price and Gross Revenues;"],
+  items: ["(a) each sale or transaction involving the Introduced Party;", "(b) the relevant invoice dates, per-unit sales price and Net Revenue;"],
   rules: 0,
   divided: [false, true],
   pending: 3,
@@ -3288,7 +3288,7 @@ async function walkSign() {
       const t = await page.textContent("#signBody");
       // The figure alone: "£5,000", never "£5,000 GBP" (final review, finding 8).
       if (t.includes("£5,000 GBP")) throw new Error("the summary repeats the currency after the figure");
-      for (const part of ["£5,000 for six months", "six months of sales and marketing work", "6% of the revenue in the first year",
+      for (const part of ["£5,000 for six months", "six months of sales and marketing work", "6% of Net Revenue", "as the agreement defines it", "places its first order with you", "due within 14 days",
         "falling to 2% in the fifth", "nothing after", "Introduction Agreement", "Master Terms of Business", "NexPoint Global Ltd",
         "Finding UK clinics for your insoles"]) has(t, part, "the summary");
       // No territory (Will, 20 October 2026): the summary is the service, the retainer and the recurring fee.
@@ -3314,7 +3314,7 @@ async function walkSign() {
       eq(await readAgreement(page), SIGN_RENDERED, "the rendered agreement"));
     await step("bold clause numbers are bold, and a stray asterisk stays an asterisk", async () => {
       const got = await page.evaluate(() => [...document.querySelectorAll("#agreementText strong")].map((e) => e.textContent));
-      for (const want of ["2.1.1", "2.3", "Alternative or Additional Fees", "4.", "Invoicing for Recurring Fees"])
+      for (const want of ["2.1.1", "2.3", "Alternative or Additional Fees", "4.", "Invoicing"])
         if (!got.includes(want)) throw new Error(`no bold "${want}" in ${JSON.stringify(got.slice(0, 8))}`);
       const t = await page.textContent("#agreementText");
       if (t.includes("**")) throw new Error("a pair of asterisks shows in the agreement");
@@ -3396,6 +3396,7 @@ async function walkSign() {
       eq(await page.locator("#bank dt").allTextContents(), ["Account name", "Sort code", "Account number"], "the bank details");
       return eq(await page.evaluate(() => !!(document.getElementById("payNow").compareDocumentPosition(document.getElementById("bank")) & Node.DOCUMENT_POSITION_FOLLOWING)),
         true, "the bank details sit below Pay now");
+      eq(await page.textContent("#payWays"), "Pay now opens the invoice, where you can pay by card or straight from a UK bank account.", "the ways to pay");
     });
     await step("the invoiced page fits a phone's width", async () => fitsPhone(page, "the invoiced page"));
     clean(world, errors, "the sign-up page, ready to invoiced");
@@ -3524,22 +3525,34 @@ async function walkSign() {
     const world = newWorld({ signup: { token: SIGN_TOKEN, state: usd } });
     const { context, page, errors } = await visit(world);
     await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
-    await step("a dollar invoice leads with the bank transfer, Copy bank details the main button", async () => {
-      await page.waitForSelector("#copyBank");
-      eq(await page.locator("#payNow").count(), 0, "Pay now buttons");
-      eq(await page.textContent("#copyBank"), "Copy bank details", "the main button");
+    await step("a dollar invoice leads with Pay now, by card, the transfer below it", async () => {
+      await page.waitForSelector("#payNow");
+      eq(await page.getAttribute("#payNow", "href"), "https://in.xero.com/walk-invoice", "where Pay now goes");
+      eq(await page.textContent("#payWays"), "Pay now opens the invoice, where you can pay by card.", "the ways to pay");
       has(await page.textContent("#signBody"), "US$5,000", "the amount");
       eq(await page.locator("#bank dt").allTextContents(), ["Account name", "IBAN", "BIC / SWIFT"], "the bank details");
-      eq(await page.evaluate(() => !!(document.getElementById("bank").compareDocumentPosition(document.getElementById("copyBank")) & Node.DOCUMENT_POSITION_FOLLOWING)),
-        true, "the details come before the button");
-      return eq([await page.textContent("#viewInvoice"), await page.getAttribute("#viewInvoice", "href")],
-        ["View the invoice", "https://in.xero.com/walk-invoice"], "the invoice link");
+      return eq(await page.evaluate(() => !!(document.getElementById("payNow").compareDocumentPosition(document.getElementById("bank")) & Node.DOCUMENT_POSITION_FOLLOWING)),
+        true, "the bank details sit below Pay now");
     });
     await step("Copy bank details says it copied them", async () => {
       await page.click("#copyBank");
       return page.waitForFunction(() => /copied/i.test(document.getElementById("copyMsg").textContent)).then(() => true);
     });
     clean(world, errors, "the sign-up page, a dollar invoice");
+    await context.close();
+  }
+  {
+    const noOnline = signupState("invoiced", { signed_at: "2026-10-19T10:00:00Z", invoice: signupInvoice({ pay_url: null }) });
+    const world = newWorld({ signup: { token: SIGN_TOKEN, state: noOnline } });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
+    await step("with no online invoice the transfer leads, and no word about cards", async () => {
+      await page.waitForSelector("#copyBank");
+      eq(await page.locator("#payNow").count(), 0, "Pay now buttons");
+      eq(await page.getAttribute("#copyBank", "class"), "yes", "the main button");
+      return eq(/by card/.test(await page.textContent("#signBody")), false, "a word about cards");
+    });
+    clean(world, errors, "the sign-up page, no online invoice");
     await context.close();
   }
   {
