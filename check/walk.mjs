@@ -1650,38 +1650,38 @@ async function walkFindDevice() {
   area = "Finding capacity: rigid or soft, in two picture boxes";
   const world = newWorld({ user: USER });
   const { context, page, errors } = await visit(world);
-  const SUB = "Three-quarter or full foot";
   const activeId = () => page.evaluate(() => document.activeElement && document.activeElement.id);
   const litBoxes = () => page.$$eval("#fDevice .device-card.is-on input", (els) => els.map((e) => e.value));
 
   for (const [hub, key, origin, site] of [["3D Print Hub", "print", PRINT, "site"], ["Mill Hub", "mill", MILL, "cell"]]) {
     await openFindForm(page, `${origin}/find.html`);
-    await step(`${hub}: the two boxes come first, nothing chosen, each with its two pictures`, async () => {
+    await step(`${hub}: the two boxes come first, nothing chosen, each with its one picture and its name`, async () => {
       await page.waitForFunction(() => [...document.querySelectorAll(".device-card img")].every((i) => i.complete));
       const boxes = await page.$$eval("#fDevice .device-card", (els) => els.map((c) => ({
-        value: c.querySelector('input[type="radio"]').value, checked: c.querySelector("input").checked,
-        title: c.querySelector(".device-card__t").textContent, sub: c.querySelector(".device-card__s").textContent,
+        value: c.querySelector('input[type="checkbox"]').value, checked: c.querySelector("input").checked,
+        title: c.querySelector(".device-card__t").textContent, words: c.textContent,
         pics: [...c.querySelectorAll("img")].map((i) => i.getAttribute("src")),
         widths: [...c.querySelectorAll("img")].map((i) => i.naturalWidth),
       })));
-      eq(boxes.map((b) => b.value), ["rigid", "soft"], "the radios");
+      eq(boxes.map((b) => b.value), ["rigid", "soft"], "the tick boxes");
       eq(boxes.map((b) => b.checked), [false, false], "nothing chosen to begin with");
       eq(boxes.map((b) => b.title), ["Rigid shell", "Soft insole"], "the names");
-      eq(boxes.map((b) => b.sub), [SUB, SUB], "the line under each");
-      eq(boxes[0].pics, ["assets/img/insole-rigid-three-quarter.webp", "assets/img/insole-rigid-full-foot.webp"], "the rigid pictures, left then right");
-      eq(boxes[1].pics, ["assets/img/insole-soft-three-quarter.webp", "assets/img/insole-soft-full-foot.webp"], "the soft pictures, left then right");
+      eq(boxes.map((b) => b.words), ["Rigid shell", "Soft insole"], "no other words in a box");
+      eq(boxes[0].pics, ["assets/img/insole-rigid-three-quarter.webp"], "the rigid picture");
+      eq(boxes[1].pics, ["assets/img/insole-soft-full-foot.webp"], "the soft picture");
       for (const b of boxes) if (!b.widths.every((w) => w > 0)) throw new Error(`a ${b.value} picture did not load: ${b.widths}`);
       has(await page.textContent("#fDeviceLabel"), "What do you need made?", "the question");
       eq(await page.$eval("#findForm .form-grid .field", (f) => !!f.querySelector("#fDevice")), true, "the boxes are the first field");
-      eq(await page.getAttribute("#fDevice", "role"), "radiogroup", "the group's role");
+      has(await page.$eval("#fDevice", (g) => g.closest(".field").querySelector(".np-hint").textContent), "Choose one or both.", "the hint");
+      eq(await page.getAttribute("#fDevice", "role"), "group", "the group's role");
       return eq(await page.getAttribute("#fDevice", "aria-labelledby"), "fDeviceLabel", "the group's name");
     });
     await step(`${hub}: a box's words keep their own case, not the label capitals`, async () => {
       /* textContent hides capitals, and portal.css capitalises any label in a .field. */
-      const styles = await page.$$eval(".device-card__t, .device-card__s", (els) => els.map((e) => {
+      const styles = await page.$$eval(".device-card__t", (els) => els.map((e) => {
         const s = getComputedStyle(e); return [s.textTransform, s.letterSpacing];
       }));
-      eq(styles.length, 4, "the words in the two boxes");
+      eq(styles.length, 2, "the words in the two boxes");
       for (const s of styles) eq(s, ["none", "normal"], "the computed text-transform and letter-spacing");
     });
     await step(`${hub}: the material is optional, in the hub's own words`, async () => {
@@ -1694,16 +1694,16 @@ async function walkFindDevice() {
       return has(await page.textContent("#step2 .hint"),
         "Ranked by fit: capacity, location and lead time, and the material if you named one. The three that fit best are named. Pick one.", "the results hint");
     });
-    await step(`${hub}: at phone width the boxes stack and nothing runs off the screen`, async () => {
+    await step(`${hub}: at phone width the boxes stay side by side and nothing runs off the screen`, async () => {
       await page.setViewportSize({ width: 375, height: 740 });
       await page.waitForTimeout(150);
       const m = await page.evaluate(() => {
         const [a, b] = [...document.querySelectorAll(".device-card")].map((c) => c.getBoundingClientRect());
-        return { scroll: document.documentElement.scrollWidth, inner: window.innerWidth, stacked: b.top >= a.bottom && Math.round(a.left) === Math.round(b.left) };
+        return { scroll: document.documentElement.scrollWidth, inner: window.innerWidth, beside: Math.round(a.top) === Math.round(b.top) && b.left >= a.right };
       });
       await page.setViewportSize({ width: 1280, height: 900 });
       if (m.scroll > m.inner) throw new Error(`the page is ${m.scroll}px wide in a ${m.inner}px window`);
-      return eq(m.stacked, true, "the boxes stack");
+      return eq(m.beside, true, "the boxes side by side");
     });
     await step(`${hub}: Find with nothing chosen asks for it, with no terms gate and no search`, async () => {
       await page.click("#findSubmit");
@@ -1738,6 +1738,34 @@ async function walkFindDevice() {
     const body = await searchAsked(page, world);
     return eq([body.device_type, body.material, body.materials], ["rigid", "tpu", ["tpu"]], "the search");
   });
+  await step("3D Print Hub: both boxes on is a search for both, and the list offers every material", async () => {
+    await openFindForm(page, `${PRINT}/find.html`);
+    await page.click(deviceBox("rigid"));
+    await page.click(deviceBox("soft"));
+    eq(await litBoxes(), ["rigid", "soft"], "both boxes lit");
+    eq((await offered(page)).length, 8, "every material offered");
+    const body = await searchAsked(page, world);
+    return eq([body.device_type, body.material, body.materials], ["both", null, []], "the search");
+  });
+  await step("3D Print Hub: a box turned off again narrows the list back, and the search follows", async () => {
+    await openFindForm(page, `${PRINT}/find.html`);
+    await page.click(deviceBox("rigid"));
+    await page.click(deviceBox("soft"));
+    await page.click(deviceBox("rigid"));
+    eq(await litBoxes(), ["soft"], "the box still lit");
+    eq(await offered(page), ["TPU", "Resin SLA"], "the soft list");
+    const body = await searchAsked(page, world);
+    return eq(body.device_type, "soft", "the search");
+  });
+  await step("3D Print Hub: both boxes turned off again asks for a choice, and offers every material", async () => {
+    await openFindForm(page, `${PRINT}/find.html`);
+    await page.click(deviceBox("rigid"));
+    await page.click(deviceBox("rigid"));
+    eq(await litBoxes(), [], "no box lit");
+    eq((await offered(page)).length, 8, "every material offered");
+    await page.click("#findSubmit");
+    return has(await page.textContent("#findErr"), "Choose what you need made.", "the message");
+  });
   await step("3D Print Hub: TPU typed and left in the field, with no Enter, still counts", async () => {
     await openFindForm(page, `${PRINT}/find.html`);
     await page.click(deviceBox("rigid"));
@@ -1766,25 +1794,27 @@ async function walkFindDevice() {
     const body = await searchAsked(page, world);
     return eq(body.materials, ["tpu", "nylon 12 blend"], "the materials");
   });
-  await step("3D Print Hub: Tab reaches the boxes and the arrow keys move the choice", async () => {
+  await step("3D Print Hub: Tab reaches each box and the space bar turns it on and off", async () => {
     await openFindForm(page, `${PRINT}/find.html`);
     await page.evaluate(() => { const f = document.getElementById("findForm"); f.tabIndex = -1; f.focus(); });
     await page.keyboard.press("Tab");
     eq(await activeId(), "fDevice-rigid", "Tab lands on the first box");
     eq(await litBoxes(), [], "Tab alone chooses nothing");
-    await page.keyboard.press("ArrowRight");
-    eq(await activeId(), "fDevice-soft", "the arrow moves to the second box");
-    eq(await page.isChecked("#fDevice-soft"), true, "the second box is chosen");
-    eq(await litBoxes(), ["soft"], "the second box lit");
-    await page.keyboard.press("ArrowLeft");
-    eq(await page.isChecked("#fDevice-rigid"), true, "the first box is chosen again");
-    return eq(await litBoxes(), ["rigid"], "the first box lit");
+    await page.keyboard.press("Space");
+    eq(await litBoxes(), ["rigid"], "the first box lit");
+    await page.keyboard.press("Tab");
+    eq(await activeId(), "fDevice-soft", "Tab moves to the second box");
+    await page.keyboard.press("Space");
+    eq(await litBoxes(), ["rigid", "soft"], "both boxes lit");
+    await page.keyboard.press("Space");
+    return eq(await litBoxes(), ["rigid"], "the second box off again");
   });
   await step("Mill Hub: the four corrected materials, Soft offers EVA and PU, and no list offers a metal", async () => {
     await openFindForm(page, `${MILL}/find.html`);
     eq(await offered(page), ["EVA", "PU", "PP", "Carbon fibre"], "the list before a box is chosen");
     await page.click(deviceBox("soft"));
     eq(await offered(page), ["EVA", "PU"], "the soft list");
+    await page.click(deviceBox("soft"));
     await page.click(deviceBox("rigid"));
     eq(await offered(page), ["PP", "Carbon fibre"], "the rigid list");
     for (const metal of ["aluminium", "titanium", "stainless"]) {
