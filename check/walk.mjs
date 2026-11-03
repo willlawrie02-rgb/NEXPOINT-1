@@ -805,6 +805,91 @@ async function walkClose() {
   }
 }
 
+// ================================================================ the logo banner (plan 088)
+/* Every logo on the list, as the list stands: its corners must be clear, because
+   a filled corner is the white box the brand forbids. */
+const logoCorners = (page) => page.evaluate(async () => {
+  const out = [];
+  for (const shown of document.querySelectorAll("#logoBannerRow img")) {
+    /* the page's own is lazy, so a copy of it, which loads wherever the walk has scrolled */
+    const img = new Image();
+    img.alt = shown.alt;
+    img.src = shown.src;
+    await img.decode();
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth || 300; c.height = img.naturalHeight || 150;
+    const x = c.getContext("2d");
+    x.drawImage(img, 0, 0, c.width, c.height);
+    const a = [[0, 0], [c.width - 1, 0], [0, c.height - 1], [c.width - 1, c.height - 1]].map(([px, py]) => x.getImageData(px, py, 1, 1).data[3]);
+    out.push({ name: img.alt, corners: a });
+  }
+  return out;
+});
+const logoBacking = (page) => page.evaluate(() => [...document.querySelectorAll("#logoBannerRow img")].flatMap((img) => {
+  const plain = [];
+  for (let e = img; e && !e.classList.contains("logos"); e = e.parentElement) {
+    const s = getComputedStyle(e);
+    plain.push({ tag: e.tagName, background: s.backgroundColor, border: s.borderTopWidth, shadow: s.boxShadow, filter: s.filter });
+  }
+  return plain.filter((p) => p.background !== "rgba(0, 0, 0, 0)" || p.border !== "0px" || p.shadow !== "none" || p.filter !== "none");
+}));
+async function walkLogoBanner() {
+  area = "The logo banner (plan 088)";
+  {
+    const world = newWorld();
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/`);
+    await settled(page);
+    await step("it shows only what is on the confirmed list, and nothing while the list is empty", async () => {
+      const list = await page.evaluate(() => window.NP_LOGO_BANNER);
+      const got = await page.evaluate(() => ({ hidden: document.getElementById("logoBanner").hidden, names: [...document.querySelectorAll("#logoBannerRow img")].map((i) => i.alt) }));
+      eq(got, { hidden: list.length === 0, names: list.map((c) => c.name) }, "the banner");
+      if (!list.length) eq(await page.locator("#logoBanner").isVisible(), false, "an empty banner on screen");
+    });
+    await step("every logo on the list stands clear on the canvas, with no box behind it", async () => {
+      for (const l of await logoCorners(page)) if (l.corners.some((a) => a !== 0)) throw new Error(`${l.name}: its corners are filled (${l.corners}), so it would arrive in a box; it needs a transparent file`);
+      eq(await logoBacking(page), [], "a backing behind a logo");
+    });
+    clean(world, errors, "the home page as it stands");
+    await context.close();
+  }
+  /* The same script with a list the walk supplies, so the banner is walked while the real list is empty. */
+  const EXAMPLE = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80"><circle cx="150" cy="40" r="30" fill="#005CC8"/></svg>');
+  const BOXED = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80"><rect width="300" height="80" fill="#fff"/></svg>');
+  const LIST = [
+    { name: "Walk Example One", logo: EXAMPLE, confirmed: "2026-11-03" },
+    { name: "Walk Example Two", logo: EXAMPLE, confirmed: "2026-11-03" },
+    { name: "Walk Not Confirmed", logo: EXAMPLE },
+    { name: "Walk Boxed", logo: BOXED, confirmed: "2026-11-03" },
+  ];
+  const world = newWorld();
+  const { context, page, errors } = await visit(world);
+  await page.route("**/assets/logo-banner.js*", (route) => route.fulfill({ contentType: "text/javascript",
+    body: readFileSync(join(ROOT, "assets/logo-banner.js"), "utf8").replace(/window\.NP_LOGO_BANNER = \[[\s\S]*?\];/, `window.NP_LOGO_BANNER = ${JSON.stringify(LIST)};`) }));
+  await page.goto(`${APEX}/`);
+  await settled(page);
+  await step("with names on the list, the confirmed ones show under the numbers and an unconfirmed one does not", async () => {
+    const got = await page.evaluate(() => [...document.querySelectorAll("#logoBannerRow img")].map((i) => i.alt));
+    eq(got, ["Walk Example One", "Walk Example Two", "Walk Boxed"], "the names");
+    eq(await page.evaluate(() => document.querySelector(".proof").nextElementSibling.id), "logoBanner", "where it sits");
+    eq(await page.locator("#logoBanner").isVisible(), true, "on screen");
+  });
+  await step("a logo in a box is caught, and nothing on the page draws a box behind any logo", async () => {
+    const corners = await logoCorners(page);
+    eq(corners.filter((l) => l.corners.some((a) => a !== 0)).map((l) => l.name), ["Walk Boxed"], "the logos caught");
+    eq(await logoBacking(page), [], "a backing behind a logo");
+  });
+  await step("on a phone the logos wrap without running wide", async () => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.waitForTimeout(150);
+    const got = await page.evaluate(() => ({ before: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      out: [...document.querySelectorAll("#logoBannerRow img")].filter((i) => { const r = i.getBoundingClientRect(); return r.left < 0 || r.right > 375; }).length }));
+    eq(got, { before: 0, out: 0 }, "overflow and logos off the screen");
+  });
+  clean(world, errors, "the home page with names on the list");
+  await context.close();
+}
+
 // ================================================================ the public pages
 async function walkDoor() {
   area = "The door (a stranger)";
@@ -4687,7 +4772,7 @@ const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
 const parts = []
-  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkJoin, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkLandings, walkSign] : [])
+  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkJoin, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkLogoBanner, walkLandings, walkSign] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkMovedPages, walkInboxAndSystem, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm, walkBoardAdmin] : []);
 /* The settings page's You and Users (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
@@ -4706,6 +4791,7 @@ if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountAnswers) + 1, 0, wa
 /* The membership beside the terms and an edit as a change (plan 068) walk straight after the ship picker. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkOfferMap) + 1, 0, walkOfferCommit);
 if (ONLY === "sign") parts.splice(0, parts.length, walkSign);
+if (ONLY === "logobanner") parts.splice(0, parts.length, walkLogoBanner);
 try {
   for (const part of parts) {
     try { await part(); } catch (e) {

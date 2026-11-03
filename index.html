@@ -690,6 +690,13 @@
   .hero__hint { font: 500 13.5px/1.5 var(--font-body); color: #5A6474; margin: 14px 0 0; }
 
   /* The four doors: the hub door's card idiom, ported here because this page keeps its own styles */
+  /* The logo banner (plan 088): each logo straight on the canvas, as its company drew it. No box, card, tile, border or filter, ever. */
+  .logos { border-bottom: 1px solid var(--border); }
+  .logos__inner { max-width: 1360px; margin: 0 auto; padding: clamp(24px, 3.5vh, 40px) clamp(20px, 4.5vw, 64px); }
+  .logos__label { margin: 0 0 clamp(16px, 2.2vh, 24px); font: 600 11px/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: #5A6474; text-align: center; }
+  .logos__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: clamp(20px, 3vh, 28px) clamp(28px, 4.5vw, 64px); margin: 0; padding: 0; list-style: none; }
+  .logos__row img { display: block; height: clamp(30px, 3.4vw, 44px); width: auto; max-width: min(40vw, 180px); object-fit: contain; }
+
   /* The next step before the doors: the portal door page and its film, as a band in NexPoint Blue (Will, 14 Oct) */
   .portal-step { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: clamp(18px, 3vw, 40px); margin: 0 0 clamp(28px, 4vh, 44px); padding: clamp(22px, 2.6vw, 30px) clamp(22px, 3vw, 36px); background: var(--np-blue); color: #fff; border-radius: 6px; text-decoration: none; box-shadow: 0 10px 30px rgba(0, 92, 200, 0.18); transition: background var(--duration) var(--ease), box-shadow var(--duration) var(--ease), transform var(--duration) var(--ease); }
   .portal-step:hover { background: var(--np-blue-hover); box-shadow: 0 16px 40px rgba(0, 92, 200, 0.26); transform: translateY(-2px); }
@@ -964,6 +971,14 @@
       <div class="proof__num">6</div>
       <div class="proof__label">Regions, locally known</div>
     </div>
+  </div>
+</section>
+
+<!-- ───── The logo banner (plan 088): drawn by assets/logo-banner.js from its confirmed list, and hidden while that list is empty ───── -->
+<section class="logos" id="logoBanner" aria-label="Companies working with NexPoint" hidden>
+  <div class="logos__inner">
+    <p class="logos__label">Working with NexPoint</p>
+    <ul class="logos__row" id="logoBannerRow"></ul>
   </div>
 </section>
 
@@ -1452,6 +1467,7 @@
      the hero, and a module the browser has to fetch or recheck would hold it back
      while the page painted unpinned (30 October 2026). -->
 <script>window.NP_ACCOUNT_LINKS = { signin: '/hub/?signin=1&return=' + encodeURIComponent(location.href), join: '/hub/?join=1' };</script>
+<script src="assets/logo-banner.js?v=1" defer></script>
 <script src="assets/hub-account.js" defer></script>
 <script src="hub/assets/world-map.js" defer></script>
 <script>
