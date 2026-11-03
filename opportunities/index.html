@@ -299,15 +299,17 @@
   .field textarea{min-height:96px;resize:vertical}
   .privacy{display:flex;gap:10px;align-items:flex-start;margin-top:18px;font-size:12.5px;color:var(--outline);line-height:19px}
   .privacy svg{flex-shrink:0;margin-top:2px}
-  /* Plan 070: one screen of the Opportunity Terms and its tick, the naming
-     choice on a post, a named card's owner and a discount code. */
+  /* A terms document and its tick (plan 078), the naming choice on a post, a
+     named card's owner and a discount code. */
   .terms-scroll{max-height:240px;overflow-y:auto;border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:14px 16px;margin:16px 0 12px;background:var(--bg-alt);font-size:13.5px;line-height:1.6;color:var(--on-surface-var)}
-  .terms-scroll h3,.terms-scroll h4{font:600 14.5px/1.3 var(--font-display);color:#fff;margin:12px 0 6px}
+  .terms-scroll h3,.terms-scroll h4,.terms-scroll h5{font:600 14.5px/1.3 var(--font-display);color:var(--on-surface);margin:12px 0 6px}
   .terms-scroll p{margin:0 0 10px}
   .terms-scroll ul{margin:0 0 10px 18px}
   .terms-scroll li{margin-bottom:5px}
   .terms-scroll hr{border:0;border-top:1px solid var(--border-card);margin:10px 0}
   .terms-scroll strong{color:var(--on-surface)}
+  .np-terms-links{margin:0 0 12px;font-size:13px}
+  .np-terms-dl,.np-terms-held a{color:var(--blue);font-weight:600}
   .np-terms-tick{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:1.4;color:var(--on-surface);cursor:pointer}
   .np-terms-tick input{margin-top:2px;accent-color:var(--blue)}
   .np-sign-error{font-size:12.5px;line-height:19px;color:#ff6b6b;margin-top:8px}
@@ -1003,7 +1005,7 @@
 <script>
   (function () {
     var apex = /(^|\.)nexpoint\.co\.uk$/.test(location.hostname) ? 'https://nexpoint.co.uk' : '';
-    var s = document.createElement('script'); s.src = apex + '/assets/hub-account.js?v=20261022-070';
+    var s = document.createElement('script'); s.src = apex + '/assets/hub-account.js?v=20261103-078';
     document.head.appendChild(s);
   })();
 </script>
@@ -1107,7 +1109,7 @@ function openBrief(id){
     <div class="body">${b.detail}</div>
     <div class="fit" style="margin-bottom:20px">${b.fit}</div>
     <div class="sig">${b.signals.map(s=>`<div><b>${s[0]}</b><span>${s[1]}</span></div>`).join('')}</div>
-    ${isCode(b)?`<p class="note" style="margin:0 0 20px">${shield}&nbsp; The code is shown once you accept the Opportunity Terms.</p>`:`<div class="locked">
+    ${isCode(b)?`<p class="note" style="margin:0 0 20px">${shield}&nbsp; Show the code when you are ready to use it. It is for your site's own purchases.</p>`:`<div class="locked">
       <span class="label">${lock} Shared in a personal introduction only</span>
       <ul>${b.locked.map(l=>`<li><span>${l[0]}</span><span class="blurval">${l[1]}</span></li>`).join('')}</ul>
       <p class="note">${shield}&nbsp; ${isNamed(b)
@@ -1150,13 +1152,17 @@ async function submitCapture(form){
       describe:profile.describe||'', source:'opportunities page' },
     company_url: fd.get('np_check')||'',                     // the trap field, under the worker's key
   };
-  /* Plan 070: a post names or keeps back its company, as chosen, and carries
-     the Opportunity Terms version its tick accepted (screen 1). */
+  /* A post names or keeps back its company, as chosen. It carries the version
+     its tick accepted, or none from an account already holding it (plan 078). */
   if(post){
     payload.payload.naming=fd.get('naming')==='named'?'named':'anonymised';
-    const tick=form.querySelector('[data-np-terms-tick]');
-    if(!postTerms||!tick||!tick.checked) return;
-    payload.terms_version_id=postTerms.id;
+    payload.payload.direction=fd.get('direction')||'';
+    if(!postTerms) return;
+    if(!postTerms.held){
+      const tick=form.querySelector('[data-np-terms-tick]');
+      if(!tick||!tick.checked) return;
+      payload.terms_version_id=postTerms.id;
+    }
   }
   // Honest capture (audit plan 009): the worker's answer decides what the visitor sees. Before
   // this, a failed or refused post still showed "Received" and the request was lost silently.
@@ -1164,18 +1170,25 @@ async function submitCapture(form){
   const err=form.querySelector('.form-err');
   if(btn) btn.disabled=true;
   if(err) err.style.display='none';
-  let ok=false,code='';
+  let ok=false,code='',refused='';
   if(CAPTURE_ENDPOINT){
     try{
       const r=await fetch(CAPTURE_ENDPOINT,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const d=await r.json().catch(()=>({}));
       ok=r.ok && d.ok!==false;
       code=d.error||'';
+      refused=d.layer||'';
     }catch(e){ ok=false; }
   }
-  if(ok){ showSuccess(post); return; }
+  if(ok){
+    if(post&&!postTerms.held) NPAccount.noteAccepted(postTerms.layer);
+    showSuccess(post);
+    return;
+  }
+  /* The worker decides which document applies, and says so in its refusal. */
   if(post&&(code==='stale_terms'||code==='terms_not_live')){
-    drawPostTerms(form,'The terms have moved on: read the new version and tick again.');
+    const layer=refused||postTerms.layer;
+    drawPostTerms(form,NPAccount.termsMoved(layer),layer,true);
     return;
   }
   if(btn) btn.disabled=false;
@@ -1184,12 +1197,10 @@ async function submitCapture(form){
     err.style.display='block';
   }
 }
-/* Plan 070: the Opportunity Terms' screens, read through the account module.
-   A copy of the module cached from before plan 070 has no terms block: the
-   page then asks for a refresh rather than sending what the worker refuses. */
-const termsReady=()=>window.NPAccount&&typeof NPAccount.termsBlock==='function';
-const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-const today=()=>{const d=new Date();return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;};
+/* The documents, read through the account module (plan 078). A copy of the
+   module cached from before plan 078 has no termsFor: the page then asks for
+   a refresh rather than sending what the worker refuses. */
+const termsReady=()=>window.NPAccount&&typeof NPAccount.termsFor==='function';
 function staleNotice(){
   document.getElementById('formContent').innerHTML=`
     <h2>Refresh the page</h2>
@@ -1198,24 +1209,36 @@ function staleNotice(){
   closeAll();document.getElementById('formOverlay').classList.add('open');document.body.style.overflow='hidden';
 }
 let postTerms=null;
-async function drawPostTerms(form,note){
+/* A post that seeks is a seeker's act and any other a host's (decision 5). The
+   post form asks, because nothing else on a signed-in board does: the old
+   questionnaire that once set profile.direction can no longer be reached. The
+   worker decides again; `layer` is what its refusal named. */
+let postDraw=0;
+async function drawPostTerms(form,note,layer,fresh){
   const btn=form.querySelector('button[type="submit"]');
   if(btn) btn.disabled=true;
   postTerms=null;
-  const t=await NPAccount.termsBlock(form.querySelector('[data-post-terms]'),'opportunity',1,{fill:{date:today()},note});
-  postTerms=t.ok?t:null;
+  const mine=++postDraw;
+  const direction=(form.querySelector('input[name="direction"]:checked')||{}).value||'';
+  const use=layer||(direction==='Seeking New Opportunities'?'seeker':'host');
+  const t=await NPAccount.termsBlock(form.querySelector('[data-post-terms]'),use,{note,fresh});
+  if(mine!==postDraw||!t.ok) return;
+  postTerms=Object.assign({layer:use},t);
   const tick=form.querySelector('[data-np-terms-tick]');
   if(tick) tick.addEventListener('change',()=>{ if(btn) btn.disabled=!tick.checked; });
+  else if(btn) btn.disabled=false;
 }
 function askIntro(id){
   const b=briefs.find(x=>x.id===id);if(!b)return;
-  openForm(b.title,briefRef(b));
+  openForm(b.title,briefRef(b),undefined,b.dir);
 }
-function openForm(subject, ref, mode){
+function openForm(subject, ref, mode, dir){
   if(mode!=='post' && window.NPAccount && typeof NPAccount.gate === 'function'){
     if(!termsReady()){ staleNotice(); return; }
-    /* A request against an opportunity accepts screen 2 of the Opportunity
-       Terms (plan 070); the gate waits for the tick and sends its version. */
+    /* Answering a company that seeks is a host's act; asking for what is on
+       offer is a seeker's, and a two-way card asks as a seeker until the desk
+       rules otherwise (decision 5, D3). The gate waits only when there is a
+       tick, and sends a version only then. */
     NPAccount.gate({ hub: 'opportunities', side: 'request_intro', brief_ref: ref,
       heading: 'Ask us to introduce you', button: 'Request the introduction',
       confirmLine: 'One click sends your request to NexPoint with your profile. We read it first; if it is a fit we ask the company behind the opportunity, showing it your note, town and country but not your name, and if it agrees we introduce you both by email.',
@@ -1223,7 +1246,7 @@ function openForm(subject, ref, mode){
       notesLabel: 'What makes this a fit for you? (optional) The company behind the opportunity reads this, with your town and country, before it knows who you are, so leave out your company\'s name and anything else that would identify you.',
       notesPlaceholder: 'Your volumes, your timing, or why this one',
       backLabel: 'Back to the board',
-      terms: { layer: 'opportunity', screen: 2, fill: { reference: ref, date: today() } },
+      terms: { layer: dir === 'SEEKING' ? 'host' : 'seeker' },
       payload: { brief: ref } });
     return;
   }
@@ -1234,7 +1257,7 @@ function openForm(subject, ref, mode){
   const leadLine = post
     ? 'Tell us what you offer or what you are looking for. We read every post and, if it fits the board, write it up, naming your company or keeping it anonymous, as you choose below.'
     : `Re: <em style="color:#fff;font-style:normal">${subject}</em>`;
-  const fieldLabel = post ? 'What do you have to place? (required)' : 'What makes this a fit for you? (required)';
+  const fieldLabel = post ? 'What are you offering or seeking? (required)' : 'What makes this a fit for you? (required)';
   const placeholder = post
     ? 'Capacity, a product, equipment, people, or a business. A sentence or two, with rough scale or timeline if useful…'
     : 'One or two sentences, your volumes, timeline, or why this one…';
@@ -1242,8 +1265,13 @@ function openForm(subject, ref, mode){
     ? 'Your company\'s name stays off the board unless you choose to have it named. Your own name never appears on it.'
     : 'Your identity is never shared with the other party until you explicitly agree to the introduction.';
   const submitLabel = post ? 'Post the opportunity' : 'Request introduction';
-  /* Plan 070: a post chooses its naming and accepts screen 1 of the
-     Opportunity Terms; the button waits for the tick. */
+  /* A post chooses its naming and needs its document held (plan 078); the
+     button waits only when there is a tick. */
+  const given = ['Seeking New Opportunities','Both'].includes(profile.direction) ? profile.direction : 'Offering New Opportunities';
+  const direction = post ? `<div class="naming" role="radiogroup" aria-label="What this post is">
+        ${[['Offering New Opportunities','We are offering something'],['Seeking New Opportunities','We are seeking something'],['Both','Both']]
+          .map(([v,l])=>`<label><input type="radio" name="direction" value="${v}"${v===given?' checked':''}> ${l}</label>`).join('')}
+      </div>` : '';
   const naming = post ? `<div class="naming" role="radiogroup" aria-label="Naming">
         <label><input type="radio" name="naming" value="anonymised" checked> Keep my company anonymous</label>
         <label><input type="radio" name="naming" value="named"> Name my company on the board</label>
@@ -1258,6 +1286,7 @@ function openForm(subject, ref, mode){
       <input type="hidden" name="brief_ref" value="${ref||''}">
       ${post?'<input type="hidden" name="enquiry_kind" value="post">':''}
       <input type="text" name="np_check" value="" tabindex="-1" autocomplete="one-time-code" aria-hidden="true" style="position:absolute;left:-9999px">
+      ${direction}
       ${naming}
       <div class="form-grid"><div class="field full"><label>${fieldLabel}</label><textarea name="fit" required placeholder="${placeholder}"></textarea></div></div>
       ${post?'<div data-post-terms></div>':''}
@@ -1266,7 +1295,11 @@ function openForm(subject, ref, mode){
       <div class="modal-actions"><button class="btn btn-primary" type="submit"${post?' disabled':''}>${submitLabel}</button></div>
     </form>`;
   closeAll();document.getElementById('formOverlay').classList.add('open');document.body.style.overflow='hidden';
-  if(post) drawPostTerms(document.querySelector('#formContent form'));
+  if(post){
+    const form=document.querySelector('#formContent form');
+    form.querySelectorAll('input[name="direction"]').forEach((r)=>r.addEventListener('change',()=>drawPostTerms(form)));
+    drawPostTerms(form);
+  }
 }
 
 function showSuccess(post){
@@ -1281,64 +1314,41 @@ function showSuccess(post){
     </div>`;
 }
 
-/* Plan 070 (P10): a discount code shows only once screen 3 of the
-   Opportunity Terms is accepted, and the worker has logged the reveal. */
+/* A discount code shows on the click, with no terms in front of it (plan 078).
+   The worker logs the reveal. */
 let codeSeq=0;
 async function openCode(id){
   const b=briefs.find(x=>x.id===id);if(!b)return;
-  if(!termsReady()){ staleNotice(); return; }
   const ref=briefRef(b);
   document.getElementById('formContent').innerHTML=`
     <span class="ref">${escHtml(ref)} · DISCOUNT CODE</span>
     <h2>${escHtml(b.title)}</h2>
     ${b.code_terms?`<p style="color:var(--on-surface);font-size:15px">${escHtml(b.code_terms)}</p>`:''}
-    <div id="codeTerms"></div>
     <p class="np-sign-error" id="codeErr" role="alert" style="display:none"></p>
-    <div class="modal-actions" id="codeActs"><button class="btn btn-primary" id="codeBtn" disabled>Show the code</button></div>`;
+    <div class="modal-actions" id="codeActs"><button class="btn btn-outline" onclick="closeAll()">Back to the board</button></div>`;
   closeAll();document.getElementById('formOverlay').classList.add('open');document.body.style.overflow='hidden';
   /* This call's own elements, taken before anything waits: a slower earlier
      call (closed and reopened on another card) stands down rather than
      drawing into, or answering for, this one. */
   const mine=++codeSeq;
-  const box=document.getElementById('codeTerms'),btn=document.getElementById('codeBtn');
   const acts=document.getElementById('codeActs'),err=document.getElementById('codeErr');
-  let terms=null;
-  const draw=async(note)=>{
-    btn.disabled=true;
-    const t=await NPAccount.termsBlock(box,'opportunity',3,{fill:{reference:ref,date:today()},note});
-    if(mine!==codeSeq) return;
-    terms=t.ok?t:null;
-    const tick=box.querySelector('[data-np-terms-tick]');
-    if(tick) tick.addEventListener('change',()=>{ btn.disabled=!tick.checked; });
-  };
-  btn.addEventListener('click',async()=>{
-    const tick=box.querySelector('[data-np-terms-tick]');
-    if(mine!==codeSeq||!terms||!tick||!tick.checked||btn.disabled) return;
-    btn.disabled=true;
-    err.style.display='none';
-    let r=null,d={};
-    try{
-      r=await fetch(HUB_API+'/opportunities/code',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:b.id,terms_version_id:terms.id})});
-      d=await r.json().catch(()=>({}));
-    }catch(x){ r=null; }
-    if(mine!==codeSeq) return;
-    if(r&&r.ok&&d.ok&&d.code){
-      box.innerHTML='';
-      acts.innerHTML=`<button class="btn btn-outline" onclick="closeAll()">Back to the board</button>`;
-      acts.insertAdjacentHTML('beforebegin',`
-        <div class="code" data-code>${escHtml(d.code)}</div>
-        ${d.code_terms?`<p class="code-terms">${escHtml(d.code_terms)}</p>`:''}
-        <p style="color:var(--outline);font-size:13px;text-align:center">Quote it when you order from the supplier, for your site's own purchases only. The supplier tells us each quarter what was sold with it.</p>`);
-      return;
-    }
-    if(d.error==='stale_terms'||d.error==='terms_not_live'){ await draw('The terms have moved on: read the new version and tick again.'); return; }
-    err.style.display='block';
-    err.textContent=r&&r.status===404
-      ?'This opportunity has come off the board, so there is no code to show now.'
-      :'That did not work. Check your connection and try again, or email hello@nexpoint.co.uk.';
-    btn.disabled=false;
-  });
-  await draw();
+  let r=null,d={};
+  try{
+    r=await fetch(HUB_API+'/opportunities/code',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:b.id})});
+    d=await r.json().catch(()=>({}));
+  }catch(x){ r=null; }
+  if(mine!==codeSeq) return;
+  if(r&&r.ok&&d.ok&&d.code){
+    acts.insertAdjacentHTML('beforebegin',`
+      <div class="code" data-code>${escHtml(d.code)}</div>
+      ${d.code_terms?`<p class="code-terms">${escHtml(d.code_terms)}</p>`:''}
+      <p style="color:var(--outline);font-size:13px;text-align:center">Quote it when you order from the supplier. It is for your site's own purchases.</p>`);
+    return;
+  }
+  err.style.display='block';
+  err.textContent=r&&r.status===404
+    ?'This opportunity has come off the board, so there is no code to show now.'
+    :'That did not work. Check your connection and try again, or email hello@nexpoint.co.uk.';
 }
 
 function closeAll(){

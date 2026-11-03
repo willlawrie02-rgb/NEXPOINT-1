@@ -600,9 +600,9 @@
 '<div class="lsec"><div class="lsec__h">Your site</div><div class="form-grid">' +
       /* Not an input, so not a `for`: the site name is read off the account
          and shown, and a label pointing at a paragraph labels nothing. The
-         hint is D7 (plan 068), in the Host Agreement's words. */
+         hint is in the Host Agreement's words (§2). */
       '<div class="field full"><label>Site name' +
-      '<span class="np-hint">Taken from your hub account, and shown to seekers who have accepted the introduction terms; ' +
+      '<span class="np-hint">Taken from your hub account, and shown to seekers who have accepted the Seeker Agreement; ' +
       'your contact details are released only when you accept an introduction.</span></label>' +
       '<p class="body" id="siteName" style="margin:0">' + esc(u.company || 'Your site') + '</p></div>' +
       '<div class="field full"><label for="siteAddress1">Business address</label>' +
@@ -753,7 +753,8 @@
       if (accepted) {
         termsRequired = false;
         settledRow(true);
-        el('hostTermsBlock').innerHTML = '<p class="body" style="margin:0">Your Host Agreement still applies.</p>';
+        el('hostTermsBlock').innerHTML = '<p class="body np-terms-held" style="margin:0">Your Host Agreement still applies. ' +
+          '<a href="' + TERMS_PAGE + '" target="_blank" rel="noopener">Read it</a></p>';
         return;
       }
       termsRequired = true;
@@ -766,16 +767,23 @@
     if (accepted && accepted === d.id) {
       termsRequired = false;
       settledRow(true);
-      el('hostTermsBlock').innerHTML = '<p class="body" style="margin:0">Your Host Agreement v' +
-        esc(d.version) + ' still applies.</p>';
+      el('hostTermsBlock').innerHTML = '<p class="body np-terms-held" style="margin:0">Your Host Agreement v' +
+        esc(d.version) + ' still applies. <a href="' + TERMS_PAGE + '" target="_blank" rel="noopener">Read it</a> · ' +
+        hostDownload(d.version) + '</p>';
       return;
     }
     termsRequired = true;
     settledRow(false);
     el('hostTermsBlock').innerHTML =
       '<div class="terms-scroll">' + NP.markdownLite(d.body_md) + '</div>' +
-      '<label class="np-terms-tick"><input type="checkbox" id="hostTick"> ' +
-      'I accept the Host Agreement, version ' + esc(d.version) + '</label>';
+      '<p class="np-terms-links">' + hostDownload(d.version) + '</p>' +
+      '<label class="np-terms-tick"><input type="checkbox" id="hostTick"> <span>' +
+      'I accept the Host Agreement, version ' + esc(d.version) + '</span></label>';
+  }
+  const TERMS_PAGE = 'https://nexpoint.co.uk/hub/terms/#host';
+  function hostDownload(version) {
+    const base = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
+    return '<a class="np-terms-dl" href="' + esc(base + '/terms/host/' + encodeURIComponent(version) + '.pdf') + '" download>Download a copy</a>';
   }
 
   /* ══════════════ validation and submit ══════════════ */
@@ -914,7 +922,7 @@
     if (termsRequired) {
       const tick = el('hostTick');
       if (!tick || !tick.checked) {
-        return { error: 'Tick to confirm you accept the Host Agreement.', focus: 'hostTick' };
+        return { error: 'Read the Host Agreement and tick to accept it.', focus: 'hostTick' };
       }
     }
 
@@ -972,9 +980,8 @@
     if (d.error === 'organisation required') {
       return 'Your account is not attached to a site yet. Email hello@nexpoint.co.uk and we will sort it out.';
     }
-    if (d.error === 'invalid terms_version_id' || d.error === 'terms_version_id required') {
-      return 'The Host Agreement moved on while you were filling this in. Refresh the page and accept the current version.';
-    }
+    if (d.error === 'stale_terms') return 'The Host Agreement has been updated. Read it again and tick to accept.';
+    if (d.error === 'terms_not_live') return 'We could not load the Host Agreement. Refresh and try again, or email hello@nexpoint.co.uk.';
     const sentence = String(d.error);
     const positioned = (d.position != null) ? ' (' + machineNoun() + ' ' + (Number(d.position) + 1) + ')' : '';
     return sentence.charAt(0).toUpperCase() + sentence.slice(1) + positioned + '.';
@@ -1010,6 +1017,7 @@
     const d = await submitPayload(payload);
     submitting = false;
     if (d && d.ok) {
+      if (payload.terms_version_id && window.NPAccount && NPAccount.noteAccepted) NPAccount.noteAccepted('host');
       /* An edit's answer carries what went live and what waits (plan 068);
          a first listing, or an older worker, gets the thank-you. */
       if (editingLive && (Array.isArray(d.live_now) || Array.isArray(d.waiting))) renderSaved(d);
@@ -1022,6 +1030,16 @@
        the reload the change had queued: the panel came back with nothing on
        it to say why the listing had not gone. */
     const message = submitErrorText(d);
+    /* Every save needs the current Host Agreement held (plan 078), so a new
+       version can land on an edit too: the block redraws with the tick, and
+       what was typed stays. */
+    if (d && d.error === 'stale_terms') {
+      if (mine) mine.host_terms_accepted_version_id = null;
+      termsRequired = true;
+      await renderTermsBlock();
+      showError(message, 'hostTick');
+      return;
+    }
     showError(message);
     if (loadDeferred) { loadDeferred = false; carryError(message); load(); }
   }
@@ -1091,8 +1109,9 @@
     }
     legacyTermsId = d.id;
     el('hostTermsBlock').innerHTML = '<div class="terms-scroll">' + NP.markdownLite(d.body_md) + '</div>' +
-      '<label class="np-terms-tick"><input type="checkbox" id="hostTick" required> I accept the Host Agreement, version ' +
-      esc(d.version) + '</label>';
+      '<p class="np-terms-links">' + hostDownload(d.version) + '</p>' +
+      '<label class="np-terms-tick"><input type="checkbox" id="hostTick" required> <span>I accept the Host Agreement, version ' +
+      esc(d.version) + '</span></label>';
     if (btn) btn.disabled = false;
   }
 

@@ -1,9 +1,10 @@
 /* NexPoint Global Portal - the seeker's find flow (spec 2026-09-03; plan
-   067, Terms 1.3, 21 October 2026). The find page's own module. Four steps:
+   067; Terms 2.0, plan 078). The find page's own module. Four steps:
 
      1  the ask       what you need, in the network's own vocabulary
-     2  the terms     the Introduction Acceptance terms, accepted for this
-                      search before any name shows (one acceptance per search)
+     2  the terms     the Seeker Agreement, before any name shows: accepted
+                      once by the account, so a returning seeker never sees
+                      this step and the numbers on screen close up
      3  the results   the three best fits by name, and a map of every ranked
                       site; pick one
      4  the request   one call that goes straight to the site picked
@@ -12,7 +13,7 @@
    and the volume asked for are hard filters, then a weighted score on every
    field the seeker filled in (capacity, location, lead time, and a material
    if one is named, which is scored and never filters; plan 080). The
-   worker records the search and the acceptance, ranks up to ten and names
+   worker records the search, and the acceptance on a first one, ranks up to ten and names
    the best three (`named`, with `company`). Those three are shown as cards,
    each tagged "Best fit for your request"; every ranked site is a pin on
    the map (match-map.js), numbered by rank, the best three filled and the
@@ -142,7 +143,8 @@
   let matchMap = null;         /* NPMatchMap handle while the results show one */
   let noMatch = false;         /* nothing met the hard filter, so this is the pool */
   let picks = [];              /* listing ids, at most MAX_PICKS, in tick order */
-  let searchTerms = null;      /* {id, version, body_md} for layer=introduction, shown at the gate */
+  let searchTerms = null;      /* {id, version, body_md} for layer=seeker, shown at the gate */
+  let gateShown = false;       /* this search goes with the tick: the gate is on screen */
   let searchId = null;         /* the search the worker recorded; the pick names it */
   let searching = false;
   let sending = false;
@@ -491,30 +493,46 @@
 
   /* ══════════════ the search, behind the terms ══════════════ */
 
-  /* A new ask opens the terms gate (P9: one acceptance per search, before
-     any name shows). The search itself runs only from the gate's button,
-     once the tick is in. */
+  /* A new ask runs at once for an account holding the Seeker Agreement. Any
+     other opens the gate, and the search then runs only from the gate's
+     button, once the tick is in. "Cannot tell" (an older account module, a
+     failed read) is the gate too: the worker writes no second row for a
+     version the account holds. */
   async function onSearch(e) {
     e.preventDefault();
     if (searching) return;
     clearFindError();
     const built = buildSpec();
     if (built.error) { showFindError(built.error, built.focus); return; }
-    /* A new ask is a new object: its own acceptance, its own search, and
-       its own client key for the request that follows. */
+    /* A new ask is a new object: its own search, and its own client key for
+       the request that follows. */
     spec = built.spec;
     searchId = null;
+    const seek = window.NPAccount && NPAccount.termsFor ? await NPAccount.termsFor('seeker') : null;
+    if (searching) return;
+    if (seek && seek.accepted) {
+      clearResults();
+      hide('stepTerms');
+      gateShown = false;
+      await runSearch(false);
+      return;
+    }
     await openTermsGate();
   }
 
-  /* Layer 3 of the three terms layers, read fresh every time the gate
-     opens, because the id ticked here is the id the worker checks against
-     the current one (stale_terms when it has moved on). */
-  async function openTermsGate() {
+  function clearResults() {
     hide('step2');
     hide('step3');
     resetStep3();
     if (matchMap) { matchMap.destroy(); matchMap = null; }
+  }
+
+  /* The Seeker Agreement, read fresh every time the gate opens, because the
+     id ticked here is the id the worker checks against the current one
+     (stale_terms when it has moved on). */
+  async function openTermsGate() {
+    clearResults();
+    gateShown = true;
     reveal('stepTerms');
     clearSearchTermsError();
     await renderSearchTerms();
@@ -524,21 +542,21 @@
   async function renderSearchTerms() {
     const box = el('searchTermsBlock');
     if (!box) return;
-    box.innerHTML = '<p class="body" style="margin:0">Loading the introduction terms…</p>';
-    const d = await api('/terms/current?layer=introduction');
+    box.innerHTML = '<p class="body" style="margin:0">Loading the Seeker Agreement…</p>';
+    const d = await api('/terms/current?layer=seeker');
     if (!el('searchTermsBlock')) return;
     if (!d || d.error || !d.id) {
       searchTerms = null;
       el('searchTermsBlock').innerHTML =
-        '<p class="np-sign-error" style="display:block">We could not load the introduction terms. ' +
-        'Refresh and try again, or email hello@nexpoint.co.uk.</p>';
+        '<p class="np-sign-error" style="display:block">' + esc(TERMS_NOT_LOADED) + '</p>';
       return;
     }
     searchTerms = d;
     el('searchTermsBlock').innerHTML =
       '<div class="terms-scroll">' + NP.markdownLite(d.body_md) + '</div>' +
-      '<label class="np-terms-tick"><input type="checkbox" id="searchTick"> ' +
-      'I accept the introduction terms, version ' + esc(d.version) + '</label>';
+      '<p class="np-terms-links"><a class="np-terms-dl" href="' + esc(API_BASE + '/terms/seeker/' + encodeURIComponent(d.version) + '.pdf') + '" download>Download a copy</a></p>' +
+      '<label class="np-terms-tick"><input type="checkbox" id="searchTick"> <span>' +
+      'I accept the Seeker Agreement, version ' + esc(d.version) + '</span></label>';
   }
 
   function showSearchTermsError(message, focusId) {
@@ -549,6 +567,12 @@
       if (node.scrollIntoView) node.scrollIntoView({ block: 'center' });
       if (typeof node.focus === 'function') node.focus();
     }
+  }
+  /* A search's error, where the seeker can see it: the gate when the gate is
+     open, the form when a returning seeker never met the gate. */
+  function showSearchError(message) {
+    if (gateShown) showSearchTermsError(message);
+    else showFindError(message);
   }
   function clearSearchTermsError() {
     const err = el('searchTermsErr');
@@ -573,45 +597,49 @@
     spec = built.spec;
     searchId = null;
     if (!searchTerms || !searchTerms.id) {
-      showSearchTermsError('We could not load the introduction terms. Refresh and try again.');
+      showSearchTermsError(TERMS_NOT_LOADED);
       return;
     }
     const tick = el('searchTick');
     if (!tick || !tick.checked) {
-      showSearchTermsError('Read the introduction terms and tick to accept them.', 'searchTick');
+      showSearchTermsError('Read the Seeker Agreement and tick to accept it.', 'searchTick');
       return;
     }
     await runSearch(false);
   }
 
   async function runSearch(retried) {
-    const btn = el('searchAccept');
+    /* The button on screen shows the wait: the gate's, or for a returning
+       seeker, who never sees the gate, the form's own. */
+    const btn = el(gateShown ? 'searchAccept' : 'findSubmit');
     const orig = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Looking…'; }
     searching = true;
-    const d = await postJson('/listings/search',
-      Object.assign(bodyFor(spec), { terms_version_id: searchTerms.id }));
+    const ticked = gateShown && searchTerms && searchTerms.id ? { terms_version_id: searchTerms.id } : {};
+    const d = await postJson('/listings/search', Object.assign(bodyFor(spec), ticked));
     searching = false;
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = orig; }
 
     if (d && (d.error === 'sign in required' || d.error === 'email_unconfirmed' || d.http_status === 401)) {
       /* The session lapsed mid-visit: sign in over the page, the ask and
          the tick stay as they are, then the same search runs again (Q5). */
-      if (retried || !window.NPAccount) { showSearchTermsError('Sign in and run the search again.'); return; }
+      if (retried || !window.NPAccount) { showSearchError('Sign in and run the search again.'); return; }
       NPAccount.requireConfirmed(() => runSearch(true));
       return;
     }
     if (d && d.error === 'stale_terms') {
-      /* The version ticked is no longer the current one: fetch the new
-         text and ask for the tick again rather than searching on a stale
-         consent. The ask stays as typed. */
+      /* The version ticked, or the one this page believed the account held,
+         is no longer current: fetch the new text and ask for the tick rather
+         than searching on a stale consent. The ask stays as typed. */
+      await openTermsGate();
       showSearchTermsError(TERMS_MOVED);
-      await renderSearchTerms();
       const tick = el('searchTick');
       if (tick && tick.scrollIntoView) tick.scrollIntoView({ block: 'center' });
       return;
     }
-    if (!d || d.error) { showSearchTermsError(searchErrorText(d)); return; }
+    if (!d || d.error) { showSearchError(searchErrorText(d)); return; }
+
+    if (ticked.terms_version_id && window.NPAccount && NPAccount.noteAccepted) NPAccount.noteAccepted('seeker');
 
     /* Chris, on being asked for his country a second time. The next hub
        page reads this back through NP.loadLoc(), which is where step 1's
@@ -641,8 +669,11 @@
     const e = d && d.error;
     if (e === 'network') return 'That did not go through. Check your connection and try again, or email hello@nexpoint.co.uk.';
     if (e === 'hub must be print or mill') return 'This page could not tell us which hub it belongs to. Refresh and try again.';
+    if (e === 'terms_not_live') return TERMS_NOT_LOADED;
     if (e === 'terms acceptance store failed' || e === 'search store failed' || e === 'search record failed') {
-      return 'We could not record your acceptance just now. Try again in a moment, or email hello@nexpoint.co.uk.';
+      /* Only the first search records an acceptance. */
+      return gateShown ? 'We could not record your acceptance just now. Try again in a moment, or email hello@nexpoint.co.uk.'
+        : 'We could not run that search just now. Try again, or email hello@nexpoint.co.uk.';
     }
     if (e === 'http_404' || e === 'not found' || e === 'POST only') {
       return 'Searching is not switched on here just yet. Tell the desk what you need and we will route it by hand.';
@@ -1128,7 +1159,8 @@
     scrollTo('step3');
   }
 
-  const TERMS_MOVED = 'The introduction terms have been updated. Read them again and tick to accept.';
+  const TERMS_MOVED = 'The Seeker Agreement has been updated. Read it again and tick to accept.';
+  const TERMS_NOT_LOADED = 'We could not load the Seeker Agreement. Refresh and try again.';
 
   /* ══════════════ steps, on and off ══════════════ */
 

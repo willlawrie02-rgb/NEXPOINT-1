@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Platform Terms · The NexPoint Global Portal</title>
-<meta name="description" content="The NexPoint Platform Terms: what every Global Portal account agrees to on registration, with the current version shown in full.">
+<title>Terms · The NexPoint Global Portal</title>
+<meta name="description" content="The NexPoint Global Portal's Platform Terms, Host Agreement and Seeker Agreement: the current version of each in full, and a copy of each to download.">
 <link rel="icon" href="../../assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,10 +13,19 @@
 <style>
   .terms-wrap{max-width:720px;margin:0 auto;padding:clamp(36px,5.5vh,64px) var(--side-pad) clamp(64px,9vh,112px)}
   .terms-wrap h1{font:700 clamp(26px,3.4vw,36px)/1.2 var(--font-display);letter-spacing:-.02em;color:#0E1626;margin:0 0 8px}
-  .terms-meta{font-size:13px;color:var(--on-surface-var);margin:0 0 32px}
+  .terms-lede{font-size:15px;line-height:1.6;color:var(--on-surface);margin:0 0 18px}
+  .terms-jump{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0 0 36px;padding:0;list-style:none;font-size:14px;font-weight:600}
+  .terms-jump a{color:var(--blue)}
+  .terms-doc{scroll-margin-top:24px;padding-top:32px;margin-top:40px;border-top:1px solid var(--border-card)}
+  .terms-doc:first-of-type{margin-top:0}
+  .terms-doc > h2{font:700 clamp(21px,2.6vw,26px)/1.25 var(--font-display);letter-spacing:-.015em;color:#0E1626;margin:0 0 6px}
+  .terms-meta{font-size:13px;color:var(--on-surface-var);margin:0 0 24px}
+  .terms-meta a{color:var(--blue);font-weight:600;white-space:nowrap}
+  .terms-body{overflow-wrap:anywhere}
   .terms-body h1,.terms-body h2,.terms-body h3,.terms-body h4{font-family:var(--font-display);color:#0E1626;margin:28px 0 10px}
   .terms-body h2{font-size:20px;font-weight:600}
   .terms-body h3{font-size:17px;font-weight:600}
+  .terms-body h4{font-size:15px;font-weight:600}
   .terms-body h1:first-child,.terms-body h2:first-child,.terms-body h3:first-child{margin-top:0}
   .terms-body p{font-size:15px;line-height:1.7;color:var(--on-surface);margin:0 0 14px}
   .terms-body ul{margin:0 0 14px 20px}
@@ -35,14 +44,34 @@
 
 <div class="terms-wrap">
   <a class="terms-back" href="https://nexpoint.co.uk/hub/">← The NexPoint Global Portal</a>
-  <h1>Platform Terms</h1>
-  <p class="terms-meta" id="termsMeta">Loading…</p>
-  <div id="termsBody"><div class="terms-loading">Loading the current Platform Terms…</div></div>
+  <h1>Terms</h1>
+  <p class="terms-lede">The Platform Terms apply to every account. The Host Agreement applies when you offer something on the portal, and the Seeker Agreement when you ask for something. You accept each one once, and again only if its words change.</p>
+  <ul class="terms-jump" aria-label="The three documents">
+    <li><a href="#platform">Platform Terms</a></li>
+    <li><a href="#host">Host Agreement</a></li>
+    <li><a href="#seeker">Seeker Agreement</a></li>
+  </ul>
+  <section class="terms-doc" id="platform">
+    <h2>Platform Terms</h2>
+    <p class="terms-meta" data-terms-meta>Loading…</p>
+    <div data-terms-body><div class="terms-loading">Loading the Platform Terms…</div></div>
+  </section>
+  <section class="terms-doc" id="host">
+    <h2>Host Agreement</h2>
+    <p class="terms-meta" data-terms-meta>Loading…</p>
+    <div data-terms-body><div class="terms-loading">Loading the Host Agreement…</div></div>
+  </section>
+  <section class="terms-doc" id="seeker">
+    <h2>Seeker Agreement</h2>
+    <p class="terms-meta" data-terms-meta>Loading…</p>
+    <div data-terms-body><div class="terms-loading">Loading the Seeker Agreement…</div></div>
+  </section>
 </div>
 
 <script>
-/* Public terms page (spec §6, layer 1). No sign-in, no fetch credentials needed —
-   /terms/current is a public read. Renders body_md with a small, safe markdown-lite
+/* Public terms page (plan 078): the three documents, each in full with a copy
+   to download. No sign-in, no fetch credentials needed; /terms/current and
+   /terms/<layer>/<version>.pdf are public reads. Renders body_md with a small, safe markdown-lite
    transform: escape everything first, then wrap a narrow whitelist of patterns
    (headings, lists, paragraphs, bold/italic) in tags. No external libraries. */
 const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
@@ -86,22 +115,33 @@ function renderMarkdownLite(md){
   return html;
 }
 
-async function load(){
+const NAMES = { platform: 'Platform Terms', host: 'Host Agreement', seeker: 'Seeker Agreement' };
+async function loadDoc(layer){
+  const box = document.getElementById(layer);
+  const meta = box.querySelector('[data-terms-meta]');
+  const body = box.querySelector('[data-terms-body]');
   let d;
-  try { d = await fetch(API + '/terms/current?layer=platform').then((r) => r.json()); }
+  try { d = await fetch(API + '/terms/current?layer=' + layer).then((r) => r.json()); }
   catch (e) { d = { error: 'network' }; }
   if (!d || d.error || !d.body_md) {
-    document.getElementById('termsMeta').textContent = '';
-    document.getElementById('termsBody').innerHTML = '<p style="color:var(--on-surface-var)">We could not load the current Platform Terms. Try again, or email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
+    meta.textContent = '';
+    body.innerHTML = '<p style="color:var(--on-surface-var)">We could not load the ' + NAMES[layer] + '. Try again, or email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
     return;
   }
-  const metaParts = [];
-  if (d.version) metaParts.push('Version ' + d.version);
-  if (d.effective_at) metaParts.push('effective ' + fmtDate(d.effective_at));
-  document.getElementById('termsMeta').textContent = metaParts.join(' · ');
-  const body = document.getElementById('termsBody');
+  const parts = [];
+  if (d.version) parts.push('Version ' + escapeHtml(d.version));
+  if (d.effective_at) parts.push('effective ' + escapeHtml(fmtDate(d.effective_at)));
+  if (d.version) parts.push('<a href="' + escapeHtml(API + '/terms/' + layer + '/' + encodeURIComponent(d.version) + '.pdf') + '" download>Download a copy</a>');
+  meta.innerHTML = parts.join(' · ');
   body.className = 'terms-body';
-  body.innerHTML = renderMarkdownLite(d.body_md);
+  /* The section's own heading stands in for the document's first line. */
+  body.innerHTML = renderMarkdownLite(String(d.body_md).replace(/^\s*#\s[^\n]*\n/, ''));
+}
+async function load(){
+  await Promise.all(Object.keys(NAMES).map(loadDoc));
+  /* The text arrived after the browser looked for the address's #host. */
+  const target = location.hash && document.getElementById(location.hash.slice(1));
+  if (target) target.scrollIntoView();
 }
 load();
 </script>

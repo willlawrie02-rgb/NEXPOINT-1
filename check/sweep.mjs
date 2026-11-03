@@ -79,7 +79,7 @@ for (const p of pages) {
   // edits as changes (D6), a mixed save waiting in full (P1).
   for (const want of ['hostMembership', 'lcommit', 'billing_period', "pickRadio('billing'", 'Yearly: £1,000 a year',
     'Monthly: £100 a month', 'invoiced in pounds',
-    'shown to seekers who have accepted the introduction terms', 'Save changes', 'goes live when you save it',
+    'shown to seekers who have accepted the Seeker Agreement', 'Save changes', 'goes live when you save it',
     'renderSaved', 'pending_changes', 'Nothing has changed since your listing was last saved']) {
     if (!lf.includes(want)) fail(`hub/assets/listing-form.js: missing "${want}" (plan 068)`);
   }

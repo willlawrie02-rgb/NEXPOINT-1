@@ -382,8 +382,7 @@
     'Fees already paid are not refunded, and an invoice already raised is still payable. Introductions already made keep ' +
     'their five fee years: the recurring fee on work for those customers and the monthly declaration carry on, and you can ' +
     'still sign in to declare and to see your statements. Everything else on the portal closes to you.';
-  var SEEKER_TEXT = 'Closing ends your use of the portal. Your open requests close. Introductions already made stay on ' +
-    'record, and you may still be asked once a quarter to confirm the order lines that name you, which you can do by signing in.';
+  var SEEKER_TEXT = 'Closing ends your use of the portal. Your open requests close. Introductions already made stay on record.';
   var BOTH_TEXT = 'We keep the account\'s records for six years after the last invoice raised for it, or for six years from ' +
     'today if there was none, and then delete them. You can reopen the account at any time before then.';
   function nameMatches(typed, name) {

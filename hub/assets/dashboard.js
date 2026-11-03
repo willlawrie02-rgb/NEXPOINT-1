@@ -157,7 +157,7 @@
 
   /* In page order. Waiting on you sits directly under the banner (plan 055,
      decision 10); the logo, You and Users moved to the settings page. */
-  var SECTIONS = ['profile', 'waiting', 'introductions', 'declarations', 'fees', 'education'];
+  var SECTIONS = ['profile', 'waiting', 'introductions', 'declarations', 'fees', 'yourTerms', 'education'];
 
   /* ── the account, as this page reads it ─────────────────────────── */
   function siteOf(d) {
@@ -179,7 +179,7 @@
   }
   function isHost(s) { return s.host_print === 'approved' || s.host_mill === 'approved'; }
   /* A closed host's declarations and statements carry on for the customers
-     it was introduced to (Host Agreement 1.3 section 10), so those two
+     it was introduced to (Host Agreement §14), so those two
      sections stay while anything is inside its fee years or on a statement. */
   function closedHost(d, s) {
     return !!(s.closed && s.closed.host_was &&
@@ -418,12 +418,13 @@
 
   /* Accept or decline in the account (plan 052 items 21, 22): the same
      choice the emailed link offers, through POST /introductions/accept and
-     /decline. Accept opens the introduction terms and the tick; Decline
-     opens an optional reason for the desk. Both panels start closed. */
+     /decline. Accept asks for no terms, unless the seller holds no current
+     Host Agreement (Host §2; plan 078, D7): its block then goes in the box
+     below. Decline opens an optional reason for the desk. Both panels start
+     closed. */
   function answerPanel(i) {
     var id = esc(i.id);
-    /* Plan 070: the owner of an opportunity accepts screen 1 of the
-       Opportunity Terms; the company that asked is told, not a seeker. */
+    /* On the board the company that asked is told, not a seeker. */
     var board = onBoard(i);
     return '<div class="acct-answer" id="introAnswer-' + id + '" hidden>' +
         '<p class="hint">' + (board
@@ -657,6 +658,7 @@
         '<thead><tr><th>Introduction</th><th>Units</th><th>Value</th><th>Currency</th><th>Nothing</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
       '</table></div>' +
+      '<div class="acct-answer__terms" id="declTerms"></div>' +
       '<p class="acct-msg" id="declMsg-' + esc(period) + '" hidden></p>' +
       '<div class="modal-actions">' +
         '<button class="btn btn-primary" type="button" id="declSubmit-' + esc(period) + '" data-act="decl-submit" ' +
@@ -689,70 +691,36 @@
       : 'Nothing due. Declarations open on the 1st for what you sell through accepted introductions.', 'task_alt');
 
     fill('declarations',
-      head('fact_check', 'Declarations', 'What came through each introduction. The other side confirms it, so both records agree.') +
+      head('fact_check', 'Declarations', 'What came through each introduction. Your declaration is the record.') +
       body + declHistory(dec));
+    /* A seller holding no current Host Agreement accepts it here, before its
+       first line (plan 078). A closed account is never asked: its last
+       accepted version continues. "Cannot tell" draws nothing, and a refusal
+       from the worker draws the block then. */
+    declTerms = null;
+    if (el('declTerms') && !s.closed && window.NPAccount && NPAccount.termsFor) {
+      NPAccount.termsFor('host').then(function (t) {
+        if (t && t.accepted === false && el('declTerms')) drawDeclTerms();
+      });
+    }
+  }
+  var declTerms = null;
+  function drawDeclTerms(layer, note, fresh) {
+    return NPAccount.termsBlock(el('declTerms'), layer || 'host', { note: note, fresh: fresh }).then(function (t) {
+      declTerms = t && t.ok && !t.held ? Object.assign({ layer: layer || 'host' }, t) : null;
+    });
   }
 
   /* ═══════════ 4. waiting on you ═══════════ */
   /* Every open action on the account, directly under the banner (plan 055,
      decision 10), the top one highlighted. It reads the same summary the
-     sections read and adds nothing of its own: declared orders are
-     confirmed or queried here, and the rest links down to the section that
-     holds the button, or out to the door. Never empty. */
-  function confirmRow(o) {
-    var id = o.id;
-    var facts = [];
-    if (o.units != null && o.units !== '') facts.push(o.units + ' units');
-    if (o.value != null && o.value !== '') facts.push(money(o.value, o.currency));
-    if (o.declared_at) facts.push('Declared ' + fmtDate(o.declared_at));
-    return '<div class="acct-row" id="line-' + esc(id) + '">' +
-      '<div class="acct-row__meta">' +
-        '<b>' + (o.ref ? '<span class="acct-ref">' + esc(o.ref) + '</span>' : '') +
-          (o.period ? '<span class="acct-hub">' + esc(fmtPeriod(o.period)) + '</span>' : (o.ref ? '' : 'Declared order')) + '</b>' +
-        '<span>' + esc(facts.join(' · ')) + '</span>' +
-      '</div>' +
-      '<div class="acct-row__actions">' +
-        '<button class="btn btn-primary acct-btn-sm" type="button" data-act="line-confirm" data-line="' + esc(id) + '" data-kind="' + esc(o.kind) + '">Confirm</button>' +
-        '<button class="btn btn-outline acct-btn-sm" type="button" data-act="line-query" data-line="' + esc(id) + '">Query</button>' +
-      '</div>' +
-      '<div class="acct-note" id="lineNote-' + esc(id) + '" hidden>' +
-        '<label class="np-hint" for="dispute-' + esc(id) + '">What does not match?</label>' +
-        '<textarea id="dispute-' + esc(id) + '" placeholder="What does not match?"></textarea>' +
-        '<button class="btn btn-outline acct-btn-sm" type="button" data-act="line-query-send" data-line="' + esc(id) + '" data-kind="' + esc(o.kind) + '">Send the query</button>' +
-      '</div>' +
-      '<p class="acct-msg" id="lineMsg-' + esc(id) + '" hidden></p>' +
-    '</div>';
-  }
-
-  /* The other side's declared lines waiting on this account. Older summaries
-     carried the same idea under orders_awaiting_confirm. */
-  function confirmLines(d) {
-    var dec = d.declarations;
-    if (dec && Array.isArray(dec.awaiting_my_confirmation)) {
-      return dec.awaiting_my_confirmation.map(function (l) {
-        return { kind: 'line', id: l.line_id, ref: l.ref, period: l.period, units: l.units, value: l.value, currency: l.currency, declared_at: l.declared_at };
-      });
-    }
-    if (Array.isArray(d.orders_awaiting_confirm)) {
-      return d.orders_awaiting_confirm.map(function (o) {
-        return { kind: 'order', id: o.id, ref: o.ref || hubLabel(o.hub), period: o.period, units: o.units, value: o.value, currency: o.currency, declared_at: o.logged_at };
-      });
-    }
-    return [];
-  }
-
+     sections read and adds nothing of its own: each action links down to the
+     section that holds the button, or out to the door. Never empty. */
   function renderWaiting(d, s) {
     var dec = d.declarations || null;
     var intros = Array.isArray(d.introductions) ? d.introductions : [];
-    var lines = confirmLines(d);
-    /* The closed mode (plan 069, D2): the lines to confirm are all that
-       waits on a closed account; nothing else here applies. */
-    if (s.closed) {
-      if (!lines.length) { hide('waiting'); return 0; }
-      fill('waiting', head('pending_actions', 'Declared orders to confirm', 'Confirm what matches your records, or query what does not.') +
-        lines.map(confirmRow).join(''));
-      return lines.length;
-    }
+    /* The closed mode (plan 069): nothing here applies to a closed account. */
+    if (s.closed) { hide('waiting'); return 0; }
     var asked = intros.filter(function (i) { return i.role === 'provider' && i.stage === 'awaiting_acceptance'; });
     var due = (isHost(s) || boardSeller(d)) && dec && ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
       Array.isArray(dec.items) && dec.items.length;
@@ -765,8 +733,6 @@
     var acts = [];
     if (asked.length) acts.push({ href: '#intro-' + asked[0].id, icon: 'handshake',
       text: asked.length === 1 ? 'Answer 1 introduction' : 'Answer ' + asked.length + ' introductions' });
-    if (lines.length) acts.push({ act: 'waiting-confirm', icon: 'pending_actions',
-      text: lines.length === 1 ? 'Confirm 1 declared order' : 'Confirm ' + lines.length + ' declared orders' });
     if (due) acts.push({ href: '#declarations', icon: 'fact_check',
       text: 'Send your declaration for ' + (fmtPeriod(dec.period_open) || 'this period') + (dec.due_state === 'overdue' ? ', now overdue' : '') });
     if (nothingYet) acts.push({ href: HUB_DOOR, icon: 'hub', leaves: true,
@@ -783,21 +749,19 @@
       body = '<div class="acct-actions">' + acts.map(function (a, n) {
         var cls = 'acct-action' + (n === 0 ? ' is-top' : '');
         var inner = icon(a.icon) + '<span>' + esc(a.text) + '</span>' + (a.leaves ? on : down);
-        return a.href
-          ? '<a class="' + cls + '" href="' + esc(a.href) + '">' + inner + '</a>'
-          : '<button class="' + cls + '" type="button" data-act="' + a.act + '">' + inner + '</button>';
-      }).join('') + '</div>' +
-      (lines.length
-        ? '<h3 class="acct-sub">Declared orders to confirm</h3>' +
-          '<p class="hint">Confirm what matches your records, or query what does not.</p>' +
-          lines.map(confirmRow).join('')
-        : '');
+        return '<a class="' + cls + '" href="' + esc(a.href) + '">' + inner + '</a>';
+      }).join('') + '</div>';
     }
     fill('waiting', head('pending_actions', 'Waiting on you', 'What needs your answer.') + body);
     return acts.length;
   }
 
   /* ═══════════ 5. fees and standing (host) ═══════════ */
+  function relationshipLine(r) {
+    var capacity = r.hub !== 'opportunities';
+    if (!r.first_order_at) return 'No order yet.' + (capacity ? ' The five fee years start with the first order.' : '');
+    return 'First order ' + fmtPeriod(String(r.first_order_at).slice(0, 7)) + '.' + (capacity ? ' The five fee years run from there.' : '');
+  }
   function renderFees(d, s) {
     if (!isHost(s) && !closedHost(d, s) && !boardSeller(d)) { hide('fees'); return; }
     var statements = Array.isArray(d.statements) ? d.statements : null;
@@ -843,9 +807,11 @@
         }).join(''))
       : empty('No open strikes.', 'verified');
 
-    /* Introduced customers (plan 055, decision 20): each relationship and the
-       day it began, which is the day the five fee years run from. Older
-       summaries carry no relationships; the provider rows say the same. */
+    /* Introduced customers (plan 055, decision 20): each introduction, and
+       the first order its five fee years run from (Host §7; plan 078). A board
+       fee runs for the period agreed in writing (Host §10), so a board row
+       states the order alone. Older summaries carry no relationships; the
+       provider rows say the same. */
     var rels = Array.isArray(d.relationships) ? d.relationships
       : (Array.isArray(d.introductions) ? d.introductions : []).filter(function (i) {
           return i.role === 'provider' && i.introduced_at;
@@ -855,7 +821,7 @@
         group(rels.map(function (r) {
           return '<div class="acct-row"><div class="acct-row__meta">' +
             '<b>' + refLine(r.ref, r.hub, 'Introduction') + '</b>' +
-            '<span>' + esc('Relationship since ' + fmtDate(r.since)) + '</span>' +
+            '<span>' + esc(relationshipLine(r)) + '</span>' +
           '</div></div>';
         }).join('')) +
         '<h3 class="acct-sub">Statements</h3>'
@@ -867,6 +833,36 @@
       feesBody +
       '<h3 class="acct-sub">Open strikes</h3>' +
       strikesBody);
+  }
+
+  /* ═══════════ your terms (plan 078) ═══════════ */
+  /* One row per document: the version this account accepted and when, with a
+     copy to keep. A closed account is asked nothing more (Platform §9), so its
+     rows never promise a next step. A worker with no `terms` hides the section. */
+  var TERMS_NAME = { platform: 'Platform Terms', host: 'Host Agreement', seeker: 'Seeker Agreement' };
+  function termsLine(t, closed) {
+    if (!t.accepted_version) return closed ? 'Not accepted.' : 'Not accepted yet. You are asked the first time it applies.';
+    if (t.stale) {
+      return 'You accepted version ' + t.accepted_version + '.' +
+        (closed ? '' : ' You will be asked to accept version ' + t.current_version + ' the next time it applies.');
+    }
+    return 'Version ' + t.accepted_version + (t.accepted_at ? ', accepted ' + fmtDate(t.accepted_at) : '') + '.';
+  }
+  function renderYourTerms(d, s) {
+    var rows = Array.isArray(d.terms) ? d.terms : [];
+    if (!rows.length || !window.NPAccount) { hide('yourTerms'); return; }
+    fill('yourTerms',
+      head('gavel', 'Your terms', 'What your account has accepted, with a copy of each to keep.') +
+      group(rows.map(function (t) {
+        var path = String(t.pdf_path || '');
+        return '<div class="acct-row" data-terms-layer="' + esc(t.layer) + '"><div class="acct-row__meta">' +
+          '<b>' + esc(TERMS_NAME[t.layer] || t.title || t.layer) + '</b>' +
+          '<span>' + esc(termsLine(t, !!s.closed)) + '</span></div>' +
+          (/^\/terms\//.test(path)
+            ? '<div class="acct-row__actions"><a class="acct-terms-dl" href="' + esc(NPAccount.api + path) + '" download>Download a copy</a></div>'
+            : '') +
+        '</div>';
+      }).join('')));
   }
 
   /* ═══════════ 6. education ═══════════ */
@@ -883,7 +879,7 @@
   }
 
   /* ═══════════ where things are ═══════════ */
-  var NAV_LABEL = { profile: 'Your site', waiting: 'Waiting on you', introductions: 'Introductions',
+  var NAV_LABEL = { profile: 'Your site', waiting: 'Waiting on you', introductions: 'Introductions', yourTerms: 'Your terms',
     declarations: 'Declarations', fees: 'Fees and standing', education: 'Education' };
 
   /* The rail: one link per section on the page, a dot on any that has
@@ -965,7 +961,7 @@
       '<p>' + who + esc(fmtDate(c.at)) + '.</p>',
       c.host_was
         ? '<p>Your listing is off the hubs and your Host Agreement has ended; the declarations and statements below carry on for the customers we introduced.</p>'
-        : '<p>Your requests are closed; any order lines that name you still appear below for you to confirm.</p>',
+        : '<p>Your requests are closed.</p>',
       /* retention_until is stamped by the engine's 06:15 run, so on the
          closing day it is empty: then the page states the rule itself. */
       c.retention_until
@@ -1030,6 +1026,7 @@
     if (s.closed) hide('introductions'); else renderIntroductions(d);
     renderDeclarations(d, s, byId);
     renderFees(d, s);
+    renderYourTerms(d, s);
     renderEducation();
     renderNav({ waiting: open > 0 });
   }
@@ -1150,32 +1147,36 @@
       if (blocked.input) blocked.input.focus();
       return;
     }
+    var body = { hub: hub, period: period, nothing_this_month: lines.length === 0, lines: lines };
+    var tick = document.querySelector('#declTerms [data-np-terms-tick]');
+    if (tick) {
+      if (!tick.checked) {
+        say(msg, 'Read the Host Agreement and tick to accept it.', true);
+        tick.focus();
+        return;
+      }
+      if (declTerms) body.terms_version_id = declTerms.id;
+    }
     var done = busy(btn, 'Sending…');
-    post('/declarations', { hub: hub, period: period, nothing_this_month: lines.length === 0, lines: lines })
+    post('/declarations', body)
       .then(function (d) {
-        if (d && d.ok) { say(msg, 'Sent. Thank you.'); reload(); return; }
+        if (d && d.ok) {
+          if (body.terms_version_id) NPAccount.noteAccepted(declTerms.layer);
+          say(msg, 'Sent. Thank you.');
+          reload();
+          return;
+        }
         done();
         if (isNotBuilt(d)) { say(msg, 'Declarations open soon.'); return; }
+        if (d && (d.error === 'stale_terms' || d.error === 'terms_not_live')) {
+          if (!window.NPAccount || !NPAccount.termsBlock) { say(msg, 'This page has been updated since it loaded. Refresh it, then declare.', true); return; }
+          var layer = d.layer || 'host';
+          if (msg) msg.hidden = true;
+          drawDeclTerms(layer, NPAccount.termsMoved(layer), true);
+          return;
+        }
         say(msg, declError(d && d.error), true);
       });
-  }
-
-  function answerLine(btn, action) {
-    var id = btn.getAttribute('data-line');
-    var kind = btn.getAttribute('data-kind');
-    var msg = el('lineMsg-' + id);
-    var noteEl = el('dispute-' + id);
-    var note = noteEl ? noteEl.value.trim() : '';
-    var done = busy(btn, action === 'confirm' ? 'Confirming…' : 'Sending…');
-    var p = kind === 'order'
-      ? post('/orders/' + (action === 'confirm' ? 'confirm' : 'dispute'), { order_id: Number(id), note: note })
-      : post('/declarations/lines/' + encodeURIComponent(id) + '/' + action, { note: note });
-    p.then(function (d) {
-      if (d && d.ok) { say(msg, action === 'confirm' ? 'Confirmed. Thank you.' : 'Query sent. We will look at it.'); reload(); return; }
-      done();
-      if (isNotBuilt(d)) { say(msg, 'Declarations open soon.'); return; }
-      say(msg, 'That did not go through. Try again, or email hello@nexpoint.co.uk.', true);
-    });
   }
 
   function resendIntro(btn) {
@@ -1200,55 +1201,26 @@
     });
   }
 
-  /* The introduction terms, read once per page and on demand: only a
-     provider with an open offer ever opens them. The id ticked here is the
-     id the worker checks against the current version. */
-  var introTerms = null;
-  function loadIntroTerms(force) {
-    if (introTerms && !force) return Promise.resolve(introTerms);
-    return api('/terms/current?layer=introduction').then(function (d) {
-      introTerms = (d && !d.error && d.id) ? d : null;
-      return introTerms;
-    });
-  }
-  /* Plan 070: the owner of an opportunity accepts screen 1 of the
-     Opportunity Terms (read through the account module, which knows the
-     screens), once per introduction it opens. */
-  var boardTerms = {};
-  function isBoardIntro(id) {
-    var i = (lastSummary && Array.isArray(lastSummary.introductions) ? lastSummary.introductions : [])
+  function introOf(id) {
+    return (lastSummary && Array.isArray(lastSummary.introductions) ? lastSummary.introductions : [])
       .filter(function (x) { return String(x.id) === String(id); })[0];
+  }
+  function isBoardIntro(id) {
+    var i = introOf(id);
     return onBoard(i) ? i : null;
   }
-  function loadBoardTerms(id, force) {
-    var i = isBoardIntro(id);
-    var box = el('introTerms-' + id);
-    /* A redraw of the page empties the box; the terms are drawn again then. */
-    if (boardTerms[id] && !force && box && box.querySelector('[data-np-terms-tick]')) return Promise.resolve(boardTerms[id]);
-    if (!window.NPAccount || typeof NPAccount.termsBlock !== 'function') {
-      if (box) box.innerHTML = '<p class="hint">This page has been updated since it loaded. Refresh it, then answer.</p>';
-      return Promise.resolve(null);
-    }
-    return NPAccount.termsBlock(box, 'opportunity', 1, {
-      fill: { reference: i && i.opportunity ? i.opportunity.ref || '' : '', date: fmtDate(new Date().toISOString()) },
-      note: force ? 'The Opportunity Terms have been updated. Read them again and tick to accept them.' : '',
-    }).then(function (t) {
-      boardTerms[id] = t && t.ok ? t : null;
-      return boardTerms[id];
-    });
+  /* The side that sells is the one the Host Agreement binds (the worker's
+     `seller`). A board owner answering a company that sells is not asked. */
+  function sellerOf(id) {
+    var i = introOf(id);
+    return !!(i && i.seller);
   }
-  function renderIntroTerms(id) {
-    var box = el('introTerms-' + id);
-    if (!box) return;
-    if (!introTerms) {
-      box.innerHTML = '<p class="hint">We could not load the introduction terms, so there is nothing to accept yet. ' +
-        'Refresh and try again, or email hello@nexpoint.co.uk.</p>';
-      return;
-    }
-    var md = (window.NP && NP.markdownLite) ? NP.markdownLite(introTerms.body_md || '') : '<p>' + esc(introTerms.body_md || '') + '</p>';
-    box.innerHTML = '<div class="terms-scroll">' + md + '</div>' +
-      '<label class="np-terms-tick"><input type="checkbox" id="introTick-' + esc(id) + '"> ' +
-      esc('I accept the introduction terms, version ' + introTerms.version) + '</label>';
+  var answerTerms = {};
+  function drawAnswerTerms(id, layer, note, fresh) {
+    var use = layer || 'host';
+    return NPAccount.termsBlock(el('introTerms-' + id), use, { note: note, fresh: fresh }).then(function (t) {
+      answerTerms[id] = t && t.ok && !t.held ? Object.assign({ layer: use }, t) : null;
+    });
   }
 
   function openAnswer(btn, which) {
@@ -1268,10 +1240,14 @@
     if (!accept) return;
     accept.hidden = false;
     if (review) review.hidden = true;
-    var box = el('introTerms-' + id);
-    if (isBoardIntro(id)) { if (box && !box.innerHTML) loadBoardTerms(id); return; }
-    if (box && !box.innerHTML) box.innerHTML = '<p class="hint">Loading the introduction terms…</p>';
-    loadIntroTerms().then(function () { renderIntroTerms(id); });
+    /* Only a seller holding no current Host Agreement has anything to accept.
+       "Cannot tell" draws nothing, and a refusal from the worker draws the
+       block then, so nobody holding the version is asked. */
+    if (!sellerOf(id) || !window.NPAccount || !NPAccount.termsFor) return;
+    if (document.querySelector('#introTerms-' + CSS.escape(id) + ' [data-np-terms-tick]')) return;
+    NPAccount.termsFor('host').then(function (t) {
+      if (t && t.accepted === false) drawAnswerTerms(id);
+    });
   }
 
   /* The worker's refusals for an answer, in the provider's words. A closed
@@ -1290,30 +1266,14 @@
     var msg = el('introMsg-' + id);
     var body = { introduction_id: /^\d+$/.test(id) ? Number(id) : id };
     var board = isBoardIntro(id);
-    if (action === 'accept' && board) {
-      var btick = document.querySelector('#introTerms-' + CSS.escape(id) + ' [data-np-terms-tick]');
-      if (!boardTerms[id] || !boardTerms[id].id) {
-        say(msg, 'We could not load the Opportunity Terms, so we cannot record an acceptance yet. Refresh and try again, or email hello@nexpoint.co.uk.', true);
+    if (action === 'accept') {
+      var tick = document.querySelector('#introTerms-' + CSS.escape(id) + ' [data-np-terms-tick]');
+      if (tick && !tick.checked) {
+        say(msg, 'Read the Host Agreement and tick to accept it.', true);
+        tick.focus();
         return;
       }
-      if (!btick || !btick.checked) {
-        say(msg, 'Read the Opportunity Terms and tick to accept them.', true);
-        if (btick) btick.focus();
-        return;
-      }
-      body.terms_version_id = boardTerms[id].id;
-    } else if (action === 'accept') {
-      var tick = el('introTick-' + id);
-      if (!introTerms || !introTerms.id) {
-        say(msg, 'We could not load the introduction terms, so we cannot record an acceptance yet. Refresh and try again, or email hello@nexpoint.co.uk.', true);
-        return;
-      }
-      if (!tick || !tick.checked) {
-        say(msg, 'Read the introduction terms and tick to accept them.', true);
-        if (tick) tick.focus();
-        return;
-      }
-      body.terms_version_id = introTerms.id;
+      if (tick && answerTerms[id]) body.terms_version_id = answerTerms[id].id;
     } else {
       var reason = el('introReason-' + id);
       var text = reason ? reason.value.trim() : '';
@@ -1322,6 +1282,7 @@
     var done = busy(btn, 'Sending…');
     post('/introductions/' + action, body).then(function (d) {
       if (d && d.ok) {
+        if (body.terms_version_id) NPAccount.noteAccepted(answerTerms[id].layer);
         say(msg, action === 'accept'
           ? 'Accepted. The introduction is on its way to your inbox.'
           : board ? 'Declined. The other company is told only that you said no.'
@@ -1332,17 +1293,12 @@
       done();
       var code = d && d.error;
       if (ANSWER_CLOSED[code]) { say(msg, ANSWER_CLOSED[code]); reload(); return; }
-      if (code === 'invalid terms_version_id' && board) {
-        loadBoardTerms(id, true);
-        return;
-      }
-      if (code === 'invalid terms_version_id') {
-        /* The terms rolled over while the box was open: the tick was for a
-           version that is no longer current, so the new text goes up unticked. */
-        loadIntroTerms(true).then(function () {
-          renderIntroTerms(id);
-          say(msg, 'The introduction terms have been updated. Read them again and tick to accept them.', true);
-        });
+      if (code === 'stale_terms' || code === 'terms_not_live') {
+        /* This seller holds no current version, or it rolled over while the
+           box was open: the current text goes up unticked. */
+        if (!window.NPAccount || !NPAccount.termsBlock) { say(msg, 'This page has been updated since it loaded. Refresh it, then answer.', true); return; }
+        var layer = d.layer || 'host';
+        drawAnswerTerms(id, layer, NPAccount.termsMoved(layer), true);
         return;
       }
       if (isNotBuilt(d)) { say(msg, 'For now, answer from the email we sent you.', true); return; }
@@ -1358,29 +1314,12 @@
     if (act === 'join') { if (window.NPAccount) NPAccount.openQuestionnaire({}); return; }
     if (act === 'education') { if (window.openEducationList) openEducationList(); return; }
     if (act === 'reopen') { reopenAccount(); return; }
-    if (act === 'line-query') {
-      var box = el('lineNote-' + btn.getAttribute('data-line'));
-      if (box) box.hidden = !box.hidden;
-      return;
-    }
     if (act === 'decl-submit') { gate(function () { submitDeclaration(btn); }); return; }
-    if (act === 'line-confirm') { gate(function () { answerLine(btn, 'confirm'); }); return; }
-    if (act === 'line-query-send') { gate(function () { answerLine(btn, 'dispute'); }); return; }
     if (act === 'intro-resend') { gate(function () { resendIntro(btn); }); return; }
     if (act === 'intro-accept-open') { openAnswer(btn, 'accept'); return; }
     if (act === 'intro-decline-open') { openAnswer(btn, 'decline'); return; }
     if (act === 'intro-accept-send') { gate(function () { sendAnswer(btn, 'accept'); }); return; }
     if (act === 'intro-decline-send') { gate(function () { sendAnswer(btn, 'decline'); }); return; }
-    if (act === 'waiting-confirm') {
-      /* The lines are right under the buttons: go to the first one. */
-      var first = document.querySelector('#waiting [data-act="line-confirm"]');
-      if (first) {
-        var row = first.closest('.acct-row');
-        try { (row || first).scrollIntoView({ block: 'center' }); } catch (e2) { /* an old browser */ }
-        first.focus();
-      }
-      return;
-    }
   }
 
   /* ═══════════ boot ═══════════ */
