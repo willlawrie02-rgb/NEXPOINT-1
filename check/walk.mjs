@@ -2818,15 +2818,15 @@ async function walkBoard() {
     await page.waitForFunction(() => /If it agrees, we introduce you both by email/.test(document.body.textContent));
     has(await page.textContent("[data-np-done]"), "Back to the board", "the way back");
   });
-  await step("Post an opportunity asks what it is and how to be named, and an offer draws the Host Agreement; the button waits for the tick", async () => {
+  await step("Post an opportunity asks what it is and how to be named; an offer draws the Host Agreement, and the button waits for the tick", async () => {
     world.terms = TERMS_STATE();
     await open(page);
     await page.click('#post button.btn-primary');
+    await page.check('#formContent input[name="direction"][value="Offering New Opportunities"]');
     await page.waitForSelector("#formContent [data-post-terms] .terms-scroll");
     const text = await page.textContent("#formContent");
     has(text, DOC_WORDS.host, "the Host Agreement");
     has(text, "I accept the Host Agreement, version 2.0", "the tick's label");
-    eq(await page.isChecked('#formContent input[name="direction"][value="Offering New Opportunities"]'), true, "offering by default");
     eq(await page.isChecked('#formContent input[name="naming"][value="anonymised"]'), true, "anonymous by default");
     eq(await page.isDisabled('#formContent button[type="submit"]'), true, "the button before the tick");
     eq((await page.textContent('#formContent button[type="submit"]')).trim(), "Post the opportunity", "the button");
@@ -2851,6 +2851,7 @@ async function walkBoard() {
   await step("a post whose trap field a bot filled is dropped on the page: the success card, and nothing sent", async () => {
     await open(page);
     await page.click('#post button.btn-primary');
+    await page.check('#formContent input[name="direction"][value="Offering New Opportunities"]');
     await page.waitForSelector("#formContent [data-post-terms] .terms-scroll");
     await page.locator('#formContent form [name="np_check"]').evaluate((n) => { n.value = "https://spam.example"; });
     await page.fill('#formContent textarea[name="fit"]', "Spare MJF capacity, 400 parts a month.");
@@ -2917,6 +2918,7 @@ async function walkBoard() {
       eq(await page.isDisabled("[data-np-send]"), true, "the button");
       await open(page);
       await page.click('#post button.btn-primary');
+      await page.check('#formContent input[name="direction"][value="Both"]');
       await page.waitForFunction(() => /We could not load the Host Agreement/.test(document.getElementById("formContent").textContent));
       eq(await page.isDisabled('#formContent button[type="submit"]'), true, "the post button");
       eq(apiCalls(world, "POST /requests").length, 0, "requests sent");
@@ -3179,6 +3181,14 @@ async function walkTerms() {
       eq((await page.textContent("#findSubmit")).trim(), "Find the sites that fit", "the button, back to itself");
       eq(await page.isDisabled("#findSubmit"), false, "the button, free again");
     });
+    await step("a failed terms read at the worker reads as a failed search, and asks for no tick", async () => {
+      world.api["POST /listings/search"] = () => [502, { error: "terms read failed", layer: "seeker" }];
+      await openFind(page);
+      await page.click("#findSubmit");
+      await page.waitForSelector("#findErr:visible");
+      has(await page.textContent("#findErr"), "We could not run that search just now", "the message");
+      eq(await page.locator("#stepTerms:not([hidden])").count(), 0, "the gate");
+    });
     await step("44 stale_terms on a search opens the gate with the moved-on line, and the tick then searches", async () => {
       world.api["POST /listings/search"] = () => [422, { error: "stale_terms", layer: "seeker" }];
       await openFind(page);
@@ -3296,10 +3306,12 @@ async function walkTerms() {
     });
     await step("46 accepting posts the version, closes the gate, and the next page does not ask", async () => {
       await page.check("[data-np-gate-tick]");
+      const summaries = apiCalls(world, "GET /account/summary").length;
       await page.click("[data-np-gate-go]");
       await until(() => apiCalls(world, "POST /terms/platform/accept").length === 2, "the accept");
       eq(apiCalls(world, "POST /terms/platform/accept")[1].body, { terms_version_id: TERMS_ID.platform }, "the body");
       await page.waitForFunction(() => !document.getElementById("npTermsGate"));
+      await until(() => apiCalls(world, "GET /account/summary").length > summaries, "the account page drawing again");
       await page.reload();
       await page.waitForSelector("body[data-np-open]");
       await settled(page);
@@ -3429,24 +3441,33 @@ async function walkTerms() {
     await page.click("#post button.btn-primary");
     await page.waitForSelector('#formContent input[name="direction"]');
   };
+  const chooseDirection = async (page, value, words) => {
+    await page.check(`input[name="direction"][value="${value}"]`);
+    await page.waitForFunction((w) => document.querySelector("[data-post-terms]").textContent.includes(w), words);
+  };
   {
     const world = boardWorld();
     const { context, page, errors } = await visit(world);
-    await step("48 what a post says it is draws its document: seeking the Seeker Agreement, offering and both the Host Agreement", async () => {
+    await step("48 a post asks what it is before any document: nothing chosen shows none, and the button waits", async () => {
       await openPost(page);
-      await page.waitForSelector("[data-post-terms] .terms-scroll");
-      has(await page.textContent("[data-post-terms]"), DOC_WORDS.host, "offering, the default");
-      await page.check('input[name="direction"][value="Seeking New Opportunities"]');
-      await page.waitForFunction((w) => document.querySelector("[data-post-terms]").textContent.includes(w), DOC_WORDS.seeker);
+      await page.waitForFunction(() => /Choose what this post is/.test(document.querySelector("[data-post-terms]").textContent));
+      await settled(page);
+      eq(await page.locator('input[name="direction"]:checked').count(), 0, "a choice made for them");
+      eq(await page.locator("#formContent .terms-scroll, #formContent [data-np-terms-tick]").count(), 0, "a document before the choice");
+      eq(await page.isDisabled('#formContent button[type="submit"]'), true, "the button");
+      eq(apiCalls(world, "GET /terms/current").length, 0, "documents read");
+      await shot(page, "post-choose", "#formContent");
+    });
+    await step("48 what a post says it is draws its document: seeking the Seeker Agreement, offering and both the Host Agreement", async () => {
+      await chooseDirection(page, "Offering New Opportunities", DOC_WORDS.host);
+      await chooseDirection(page, "Seeking New Opportunities", DOC_WORDS.seeker);
       eq((await page.textContent("[data-post-terms]")).includes(DOC_WORDS.host), false, "the Host Agreement on a seeking post");
       eq(await page.isDisabled('#formContent button[type="submit"]'), true, "the button before the tick");
       await shot(page, "post-seeking", "#formContent");
-      await page.check('input[name="direction"][value="Both"]');
-      await page.waitForFunction((w) => document.querySelector("[data-post-terms]").textContent.includes(w), DOC_WORDS.host);
+      await chooseDirection(page, "Both", DOC_WORDS.host);
     });
     await step("48 a seeking post sends the Seeker Agreement's version and says what it is", async () => {
-      await page.check('input[name="direction"][value="Seeking New Opportunities"]');
-      await page.waitForFunction((w) => document.querySelector("[data-post-terms]").textContent.includes(w), DOC_WORDS.seeker);
+      await chooseDirection(page, "Seeking New Opportunities", DOC_WORDS.seeker);
       await page.fill('#formContent textarea[name="fit"]', "Looking for a lab in Bath.");
       await page.check("#formContent [data-np-terms-tick]");
       await page.click('#formContent button[type="submit"]');
@@ -3454,13 +3475,6 @@ async function walkTerms() {
       const b = apiCalls(world, "POST /requests")[0].body;
       eq([b.payload.direction, b.terms_version_id], ["Seeking New Opportunities", TERMS_ID.seeker], "the post");
       await page.waitForSelector("#formContent .success");
-    });
-    await step("48 a questionnaire's seeking profile starts the form on seeking", async () => {
-      await openBoard(page);
-      await page.evaluate(() => { profile.direction = "Seeking New Opportunities"; });
-      await page.click("#post button.btn-primary");
-      await page.waitForFunction((w) => { const n = document.querySelector("[data-post-terms]"); return n && n.textContent.includes(w); }, DOC_WORDS.seeker);
-      eq(await page.isChecked('input[name="direction"][value="Seeking New Opportunities"]'), true, "the choice");
     });
     await step("49 a request on a SEEKING card draws the Host Agreement, and on a two-way card the Seeker Agreement", async () => {
       await openBoard(page);
@@ -3483,6 +3497,7 @@ async function walkTerms() {
     const { context, page, errors } = await visit(world);
     await step("48 a post by an account holding the agreement shows the held line, no tick, and sends no version", async () => {
       await openPost(page);
+      await page.check('input[name="direction"][value="Offering New Opportunities"]');
       await page.waitForFunction(() => /still applies/.test(document.querySelector("[data-post-terms]").textContent));
       has(await page.textContent("[data-post-terms]"), "Your Host Agreement v2.0 still applies. Read it · Download a copy", "the held line");
       await shot(page, "post-held", "[data-post-terms]");
@@ -3529,6 +3544,41 @@ async function walkTerms() {
       eq(await page.locator("[data-np-terms] [data-np-terms-tick]").count(), 0, "a second tick");
     });
     clean(world, errors, "two requests on one page");
+    await context.close();
+  }
+  {
+    const world = boardWorld({ closed: { at: "2026-10-22T09:00:00Z" }, terms: null });
+    const { context, page, errors } = await visit(world);
+    await step("a closed account on the board is shown no document and no tick, and told where Reopen lives", async () => {
+      await openBoard(page);
+      await page.click(card(2620));
+      await page.click('#briefContent [data-id="nx-2620"]');
+      await page.waitForFunction(() => /This account is closed/.test(document.querySelector("[data-np-terms]").textContent));
+      eq(await page.locator("[data-np-terms] .terms-scroll, [data-np-terms] [data-np-terms-tick]").count(), 0, "a document");
+      eq(await page.isDisabled("[data-np-send]"), true, "the button");
+      eq(apiCalls(world, "GET /terms/current").length, 0, "documents read");
+    });
+    clean(world, errors, "a closed account on the board");
+    await context.close();
+  }
+  {
+    const world = boardWorld();
+    let fail = true;
+    world.api["POST /opportunities/code"] = () => {
+      if (fail) { fail = false; return [500, { error: "http_500" }]; }
+      return [200, { ok: true, code: "WALK10", code_terms: "10% off the first order" }];
+    };
+    const { context, page, errors } = await visit(world);
+    await step("a code that fails to show says so and offers the button again, and the second click shows it", async () => {
+      await openBoard(page);
+      await page.click(card(2622));
+      await page.click('#briefContent [data-id="nx-2622"]');
+      await page.waitForFunction(() => /That did not work/.test(document.getElementById("codeErr").textContent));
+      await page.click('#codeActs [data-id="nx-2622"]');
+      await page.waitForSelector("#formContent [data-code]");
+      eq(await page.locator("#codeWait").count(), 0, "the waiting line");
+    });
+    clean(world, errors, "a code that fails once");
     await context.close();
   }
 
@@ -3698,6 +3748,13 @@ async function walkTerms() {
       eq(await page.$$eval(".terms-jump a", (els) => els.map((e) => e.getAttribute("href"))), ["#platform", "#host", "#seeker"], "the jump links");
       await page.evaluate(() => window.scrollTo(0, 0));
       await shot(page, "terms-page");
+    });
+    await step("the terms page lands an address's #seeker with its heading clear of the header", async () => {
+      await page.evaluate(() => document.getElementById("seeker").scrollIntoView());
+      await page.waitForTimeout(100);
+      const m = await page.evaluate(() => ({ top: document.querySelector("#seeker h2").getBoundingClientRect().top,
+        head: document.querySelector("header").getBoundingClientRect().bottom }));
+      eq(m.top >= m.head, true, "the heading below the header");
     });
     await step("57 at 375 pixels wide the terms page has no sideways scroll", async () => {
       await phone(page);

@@ -982,6 +982,7 @@
     }
     if (d.error === 'stale_terms') return 'The Host Agreement has been updated. Read it again and tick to accept.';
     if (d.error === 'terms_not_live') return 'We could not load the Host Agreement. Refresh and try again, or email hello@nexpoint.co.uk.';
+    if (d.error === 'terms read failed') return 'That did not save. Try again, or email hello@nexpoint.co.uk.';
     const sentence = String(d.error);
     const positioned = (d.position != null) ? ' (' + machineNoun() + ' ' + (Number(d.position) + 1) + ')' : '';
     return sentence.charAt(0).toUpperCase() + sentence.slice(1) + positioned + '.';

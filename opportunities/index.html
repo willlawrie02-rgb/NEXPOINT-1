@@ -309,6 +309,7 @@
   .terms-scroll hr{border:0;border-top:1px solid var(--border-card);margin:10px 0}
   .terms-scroll strong{color:var(--on-surface)}
   .np-terms-links{margin:0 0 12px;font-size:13px}
+  .note-choose{margin:16px 0 0;font-size:13.5px;color:var(--on-surface-var)}
   .np-terms-dl,.np-terms-held a{color:var(--blue);font-weight:600}
   .np-terms-tick{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:1.4;color:var(--on-surface);cursor:pointer}
   .np-terms-tick input{margin-top:2px;accent-color:var(--blue)}
@@ -1168,6 +1169,9 @@ async function submitCapture(form){
   // this, a failed or refused post still showed "Received" and the request was lost silently.
   const btn=form.querySelector('button[type="submit"]');
   const err=form.querySelector('.form-err');
+  const sentTerms=postTerms;
+  const choices=form.querySelectorAll('input[name="direction"]');
+  choices.forEach((r)=>{r.disabled=true;});
   if(btn) btn.disabled=true;
   if(err) err.style.display='none';
   let ok=false,code='',refused='';
@@ -1181,13 +1185,14 @@ async function submitCapture(form){
     }catch(e){ ok=false; }
   }
   if(ok){
-    if(post&&!postTerms.held) NPAccount.noteAccepted(postTerms.layer);
+    if(post&&!sentTerms.held) NPAccount.noteAccepted(sentTerms.layer);
     showSuccess(post);
     return;
   }
+  choices.forEach((r)=>{r.disabled=false;});
   /* The worker decides which document applies, and says so in its refusal. */
   if(post&&(code==='stale_terms'||code==='terms_not_live')){
-    const layer=refused||postTerms.layer;
+    const layer=refused||sentTerms.layer;
     drawPostTerms(form,NPAccount.termsMoved(layer),layer,true);
     return;
   }
@@ -1211,8 +1216,10 @@ function staleNotice(){
 let postTerms=null;
 /* A post that seeks is a seeker's act and any other a host's (decision 5). The
    post form asks, because nothing else on a signed-in board does: the old
-   questionnaire that once set profile.direction can no longer be reached. The
-   worker decides again; `layer` is what its refusal named. */
+   questionnaire that once set profile.direction can no longer be reached. No
+   document shows until it is answered, so a seeker never meets the Host
+   Agreement on the way. The worker decides again; `layer` is what its refusal
+   named. */
 let postDraw=0;
 async function drawPostTerms(form,note,layer,fresh){
   const btn=form.querySelector('button[type="submit"]');
@@ -1220,6 +1227,10 @@ async function drawPostTerms(form,note,layer,fresh){
   postTerms=null;
   const mine=++postDraw;
   const direction=(form.querySelector('input[name="direction"]:checked')||{}).value||'';
+  if(!layer&&!direction){
+    form.querySelector('[data-post-terms]').innerHTML='<p class="note-choose">Choose what this post is, and we show you the terms that go with it.</p>';
+    return;
+  }
   const use=layer||(direction==='Seeking New Opportunities'?'seeker':'host');
   const t=await NPAccount.termsBlock(form.querySelector('[data-post-terms]'),use,{note,fresh});
   if(mine!==postDraw||!t.ok) return;
@@ -1267,10 +1278,9 @@ function openForm(subject, ref, mode, dir){
   const submitLabel = post ? 'Post the opportunity' : 'Request introduction';
   /* A post chooses its naming and needs its document held (plan 078); the
      button waits only when there is a tick. */
-  const given = ['Seeking New Opportunities','Both'].includes(profile.direction) ? profile.direction : 'Offering New Opportunities';
   const direction = post ? `<div class="naming" role="radiogroup" aria-label="What this post is">
         ${[['Offering New Opportunities','We are offering something'],['Seeking New Opportunities','We are seeking something'],['Both','Both']]
-          .map(([v,l])=>`<label><input type="radio" name="direction" value="${v}"${v===given?' checked':''}> ${l}</label>`).join('')}
+          .map(([v,l])=>`<label><input type="radio" name="direction" value="${v}"> ${l}</label>`).join('')}
       </div>` : '';
   const naming = post ? `<div class="naming" role="radiogroup" aria-label="Naming">
         <label><input type="radio" name="naming" value="anonymised" checked> Keep my company anonymous</label>
@@ -1324,6 +1334,7 @@ async function openCode(id){
     <span class="ref">${escHtml(ref)} · DISCOUNT CODE</span>
     <h2>${escHtml(b.title)}</h2>
     ${b.code_terms?`<p style="color:var(--on-surface);font-size:15px">${escHtml(b.code_terms)}</p>`:''}
+    <p style="color:var(--on-surface-var);font-size:14.5px" id="codeWait">Getting your code…</p>
     <p class="np-sign-error" id="codeErr" role="alert" style="display:none"></p>
     <div class="modal-actions" id="codeActs"><button class="btn btn-outline" onclick="closeAll()">Back to the board</button></div>`;
   closeAll();document.getElementById('formOverlay').classList.add('open');document.body.style.overflow='hidden';
@@ -1331,13 +1342,14 @@ async function openCode(id){
      call (closed and reopened on another card) stands down rather than
      drawing into, or answering for, this one. */
   const mine=++codeSeq;
-  const acts=document.getElementById('codeActs'),err=document.getElementById('codeErr');
+  const acts=document.getElementById('codeActs'),err=document.getElementById('codeErr'),wait=document.getElementById('codeWait');
   let r=null,d={};
   try{
     r=await fetch(HUB_API+'/opportunities/code',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:b.id})});
     d=await r.json().catch(()=>({}));
   }catch(x){ r=null; }
   if(mine!==codeSeq) return;
+  wait.remove();
   if(r&&r.ok&&d.ok&&d.code){
     acts.insertAdjacentHTML('beforebegin',`
       <div class="code" data-code>${escHtml(d.code)}</div>
@@ -1349,6 +1361,7 @@ async function openCode(id){
   err.textContent=r&&r.status===404
     ?'This opportunity has come off the board, so there is no code to show now.'
     :'That did not work. Check your connection and try again, or email hello@nexpoint.co.uk.';
+  if(!(r&&r.status===404)) acts.insertAdjacentHTML('afterbegin',`<button class="btn btn-primary" data-id="${escHtml(b.id)}" onclick="openCode(this.dataset.id)">Show the code</button>`);
 }
 
 function closeAll(){

@@ -775,6 +775,12 @@
     const o = opts && typeof opts === 'object' ? opts : {};
     const name = LAYER_NAME[layer] || 'terms';
     if (!target) return { ok: false };
+    /* A closed account is asked nothing (Platform §9), and the worker would refuse what it sent. */
+    if (A.closed) {
+      target.innerHTML = '<p class="np-sign-error" style="display:block">This account is closed. ' +
+        '<a href="' + ACCOUNT_URL + '">Reopen it from your account page</a> to carry on.</p>';
+      return { ok: false, error: 'account_closed' };
+    }
     target.innerHTML = '<p class="body" style="margin:0">Loading the ' + esc(name) + '…</p>';
     const mine = o.fresh ? null : await A.termsFor(layer);
     if (mine && mine.accepted) {
@@ -885,6 +891,7 @@
       if (r && r.ok) {
         A.noteAccepted('platform');
         closePlatformGate();
+        document.dispatchEvent(new CustomEvent('npterms:accepted'));
         return;
       }
       const e = r && r.error;

@@ -670,6 +670,7 @@
     if (e === 'network') return 'That did not go through. Check your connection and try again, or email hello@nexpoint.co.uk.';
     if (e === 'hub must be print or mill') return 'This page could not tell us which hub it belongs to. Refresh and try again.';
     if (e === 'terms_not_live') return TERMS_NOT_LOADED;
+    if (e === 'terms read failed') return 'We could not run that search just now. Try again, or email hello@nexpoint.co.uk.';
     if (e === 'terms acceptance store failed' || e === 'search store failed' || e === 'search record failed') {
       /* Only the first search records an acceptance. */
       return gateShown ? 'We could not record your acceptance just now. Try again in a moment, or email hello@nexpoint.co.uk.'

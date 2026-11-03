@@ -1155,13 +1155,13 @@
         tick.focus();
         return;
       }
-      if (declTerms) body.terms_version_id = declTerms.id;
+      if (declTerms) { body.terms_version_id = declTerms.id; var sentLayer = declTerms.layer; }
     }
     var done = busy(btn, 'Sending…');
     post('/declarations', body)
       .then(function (d) {
         if (d && d.ok) {
-          if (body.terms_version_id) NPAccount.noteAccepted(declTerms.layer);
+          if (body.terms_version_id) NPAccount.noteAccepted(sentLayer);
           say(msg, 'Sent. Thank you.');
           reload();
           return;
@@ -1273,7 +1273,7 @@
         tick.focus();
         return;
       }
-      if (tick && answerTerms[id]) body.terms_version_id = answerTerms[id].id;
+      if (tick && answerTerms[id]) { body.terms_version_id = answerTerms[id].id; var sentLayer = answerTerms[id].layer; }
     } else {
       var reason = el('introReason-' + id);
       var text = reason ? reason.value.trim() : '';
@@ -1282,7 +1282,7 @@
     var done = busy(btn, 'Sending…');
     post('/introductions/' + action, body).then(function (d) {
       if (d && d.ok) {
-        if (body.terms_version_id) NPAccount.noteAccepted(answerTerms[id].layer);
+        if (body.terms_version_id) NPAccount.noteAccepted(sentLayer);
         say(msg, action === 'accept'
           ? 'Accepted. The introduction is on its way to your inbox.'
           : board ? 'Declined. The other company is told only that you said no.'
@@ -1329,6 +1329,7 @@
     window.addEventListener('hashchange', attend);
     if (!window.NPAccount) { showSignedOut(); return; }
     document.addEventListener('npaccount:change', load);
+    document.addEventListener('npterms:accepted', load);
     NPAccount.ready.then(load);
   }
 
