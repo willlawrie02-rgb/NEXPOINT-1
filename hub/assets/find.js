@@ -370,9 +370,14 @@
     let node = focusId ? el(focusId) : null;
     if (node && typeof node.focus !== 'function') node = node.querySelector('input, button, select, textarea');
     if (node && node.tagName === 'DIV') node = node.querySelector('input, button, select, textarea') || node;
+    /* The message sits beside the field it is about, so the scroll to that
+       field brings the words on screen too; with no field it stays by the button. */
+    const field = node && node.closest ? node.closest('.field') : null;
+    if (err) { if (field) field.appendChild(err); else el('findGateHint').before(err); }
     if (node) {
-      if (node.scrollIntoView) node.scrollIntoView({ block: 'center' });
-      node.focus();
+      const target = field || node;
+      if (target.scrollIntoView) target.scrollIntoView({ block: 'center' });
+      node.focus({ preventScroll: true });
     }
   }
   function clearFindError() {
