@@ -805,6 +805,112 @@ async function walkClose() {
   }
 }
 
+// ================================================================ the film tags (plan 088)
+/* The films are not played: the walk sets the film's clock and tells the page
+   the time moved, which is all the tags listen to. */
+const filmAt = (page, t) => page.evaluate((t) => {
+  const v = document.querySelector("video[data-film-tags]");
+  Object.defineProperty(v, "currentTime", { configurable: true, get: () => t, set() {} });
+  v.dispatchEvent(new Event("timeupdate"));
+}, t);
+const filmTagsNow = (page) => page.evaluate(() => {
+  /* where a tag settles, not where its short rise has got to */
+  document.getAnimations().forEach((a) => { if (a.animationName === "np-film-tag-in") a.finish(); });
+  const f = document.querySelector("video[data-film-tags]").closest(".film__frame").getBoundingClientRect();
+  return { frame: { top: f.top, bottom: f.bottom, left: f.left, right: f.right },
+    strip: (() => { const b = document.querySelector(".film-tags"); return b ? b.getBoundingClientRect().height : 0; })(),
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    tags: [...document.querySelectorAll(".film-tag")].map((a) => {
+      const r = a.getBoundingClientRect(), s = getComputedStyle(a);
+      return { label: a.firstChild.textContent, href: a.getAttribute("href"), over: !!a.closest(".film__frame"), top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height, animation: s.animationName };
+    }) };
+});
+async function walkFilmTags() {
+  area = "The film tags (plan 088)";
+  const FILMS = [["home", `${APEX}/`], ["portal", `${APEX}/hub/`], ["print", `${PRINT}/`], ["mill", `${MILL}/`], ["opportunities", `${OPPS}/`]];
+  for (const [key, url] of FILMS) {
+    /* The hub pages are behind the wall; the home page and the door are not. */
+    const world = newWorld(/^(home|portal)$/.test(key) ? {} : { user: USER });
+    const { context, page, errors } = await visit(world);
+    await page.goto(url);
+    await settled(page);
+    const film = await page.evaluate((key) => window.NP_FILM_TAGS[key], key);
+    await step(`${key}, on a computer: no tag before its moment, then the right one, above the controls and inside the picture`, async () => {
+      await filmAt(page, 0);
+      eq((await filmTagsNow(page)).tags.length, 0, "tags at the start");
+      for (const t of film.tags) {
+        await filmAt(page, t.from + 0.05);
+        const now = await filmTagsNow(page);
+        const it = now.tags.find((x) => x.label === t.label);
+        if (!it) throw new Error(`"${t.label}" is not up at ${t.from}: ${JSON.stringify(now.tags.map((x) => x.label))}`);
+        eq(it.href, t.href, "the link");
+        eq(it.over, true, "in the picture");
+        if (!(it.bottom <= now.frame.bottom - 60 && it.right <= now.frame.right && it.top >= now.frame.top)) throw new Error(`"${t.label}" sits at ${JSON.stringify(it)} in ${JSON.stringify(now.frame)}`);
+        if (t.to !== undefined) { await filmAt(page, t.to + 0.01); if ((await filmTagsNow(page)).tags.some((x) => x.label === t.label && x.href === t.href && !film.tags.some((o) => o !== t && o.label === t.label && t.to >= o.from && (o.to === undefined || t.to < o.to)))) throw new Error(`"${t.label}" is still up after ${t.to}`); }
+      }
+      await filmAt(page, film.length);
+      eq((await filmTagsNow(page)).tags.length > 0, true, "the last tag holds to the end");
+      await filmAt(page, 0);
+      eq((await filmTagsNow(page)).tags.length, 0, "scrubbed back, the tag is gone");
+    });
+    await step(`${key}, on a phone: the tags sit in a strip under the film, at thumb size, and the page does not jump or run wide`, async () => {
+      await page.setViewportSize({ width: 375, height: 812 });
+      /* the hub pages' films rise into place as they come on screen */
+      await page.evaluate(() => document.querySelector("video[data-film-tags]").scrollIntoView({ block: "center" }));
+      await page.waitForTimeout(900);
+      await filmAt(page, 0);
+      const quiet = await filmTagsNow(page);
+      for (const t of film.tags) {
+        await filmAt(page, t.from + 0.05);
+        const now = await filmTagsNow(page);
+        const it = now.tags.find((x) => x.label === t.label);
+        if (!it) throw new Error(`"${t.label}" is not up at ${t.from}`);
+        eq(it.over, false, "in the picture");
+        if (it.top < now.frame.bottom) throw new Error(`"${t.label}" overlaps the film: ${it.top} against ${now.frame.bottom}`);
+        if (it.height < 44 || it.left < 0 || it.right > 375) throw new Error(`"${t.label}" is ${it.height} tall from ${it.left} to ${it.right}`);
+        eq(now.overflow, quiet.overflow, "sideways overflow a tag adds");
+        eq(Math.round(now.strip), Math.round(quiet.strip), "the strip's height with a tag and without");
+        eq(Math.round(now.frame.bottom), Math.round(quiet.frame.bottom), "the film does not move");
+      }
+      await filmAt(page, film.length);
+    });
+    clean(world, errors, key);
+    await context.close();
+  }
+
+  {
+    const world = newWorld({ user: USER });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/`);
+    await page.waitForSelector(".np-chip");
+    await step("an account already signed in is not asked to create one", async () => {
+      const t = (await page.evaluate(() => window.NP_FILM_TAGS.portal.tags)).filter((x) => x.label === "Create your account");
+      eq(t.length > 0, true, "the film has the tag");
+      for (const x of t) { await filmAt(page, x.from + 0.05); eq((await filmTagsNow(page)).tags.length, 0, `tags at ${x.from}`); }
+    });
+    clean(world, errors, "signed in");
+    await context.close();
+  }
+
+  const world = newWorld();
+  const { context, page, errors } = await visit(world);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`${APEX}/`);
+  await settled(page);
+  await step("with reduced motion the tag simply appears, and pressing it pauses the film before it leaves", async () => {
+    const t = (await page.evaluate(() => window.NP_FILM_TAGS.home.tags))[0];
+    await filmAt(page, t.from + 0.05);
+    const now = await filmTagsNow(page);
+    eq(now.tags.map((x) => [x.label, x.animation]), [[t.label, "none"]], "the tag and its animation");
+    await page.evaluate(() => { window.__paused = 0; document.querySelector("video[data-film-tags]").pause = () => { window.__paused++; }; });
+    await page.click(".film-tag");
+    eq(await page.evaluate(() => window.__paused), 1, "pauses");
+    eq(new URL(page.url()).hash, t.href, "where it went");
+  });
+  clean(world, errors, "reduced motion");
+  await context.close();
+}
+
 // ================================================================ the public pages
 async function walkDoor() {
   area = "The door (a stranger)";
@@ -4687,7 +4793,7 @@ const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
 const parts = []
-  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkJoin, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkLandings, walkSign] : [])
+  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkJoin, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkFilmTags, walkLandings, walkSign] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkMovedPages, walkInboxAndSystem, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm, walkBoardAdmin] : []);
 /* The settings page's You and Users (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
@@ -4706,6 +4812,7 @@ if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountAnswers) + 1, 0, wa
 /* The membership beside the terms and an edit as a change (plan 068) walk straight after the ship picker. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkOfferMap) + 1, 0, walkOfferCommit);
 if (ONLY === "sign") parts.splice(0, parts.length, walkSign);
+if (ONLY === "filmtags") parts.splice(0, parts.length, walkFilmTags);
 try {
   for (const part of parts) {
     try { await part(); } catch (e) {

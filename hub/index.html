@@ -19,6 +19,7 @@
      markup and those files change in the same PR (check/sweep.mjs holds the
      two in step). -->
 <link rel="stylesheet" href="assets/portal.css?v=20261014.2">
+<link rel="stylesheet" href="../assets/film-tags.css?v=1">
 <link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="assets/explainer.css">
 <!-- The globe-to-film reveal is switched on here, before the hero paints, so the
@@ -260,7 +261,7 @@ away to the left and brings the doors in from the right in its place.
            nothing below moves. Reduced motion, or no script: the film alone. -->
       <div class="hero-reveal">
         <figure class="film__frame hero-film">
-          <video class="film__video" id="heroFilm" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film-poster.jpg?v=2" aria-label="The NexPoint Global Portal in ninety seconds: its four areas, the account you need to enter them and your account page, with captions">
+          <video class="film__video" id="heroFilm" data-film-tags="portal" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film-poster.jpg?v=2" aria-label="The NexPoint Global Portal in ninety seconds: its four areas, the account you need to enter them and your account page, with captions">
             <source src="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film.mp4?v=2" type="video/mp4">
             Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film.mp4?v=2">Download it instead</a>.
           </video>
@@ -636,6 +637,7 @@ away to the left and brings the doors in from the right in its place.
 <!-- The shared modules come after the stage swap (30 October 2026): the swap must be set
      before the first paint, and a module the browser has to fetch or recheck would hold
      it back while the page painted the stacked layout, the doors showing under the hero. -->
+<script src="../assets/film-tags.js?v=1" defer></script>
 <script src="../assets/hub-account.js"></script>
 <script src="assets/vendor/leaflet/leaflet.js" defer></script>
 <script src="assets/site-map.js" defer></script>
