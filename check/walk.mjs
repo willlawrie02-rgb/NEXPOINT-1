@@ -1948,7 +1948,7 @@ async function walkOfferCommit() {
       eq(await page.locator('#hostMembership input[name="billing"]').count(), 2, "the two choices");
       eq(await page.locator('#hostMembership input[name="billing"]:checked').count(), 0, "nothing ticked yet");
       const panel = await page.textContent("#hostMembership");
-      has(panel, "1,000 a year", "the yearly price"); has(panel, "100 a month", "the monthly price");
+      has(panel, "£1,000 a year", "the yearly price"); has(panel, "£100 a month", "the monthly price");
       has(panel, "invoiced in pounds", "the currency");
       return has(panel, "covers hosting on both the 3D Print Hub and the Mill Hub", "one fee, both hubs");
     });
@@ -1982,7 +1982,7 @@ async function walkOfferCommit() {
       await page.waitForSelector("#hostMembership");
       const panel = await page.textContent("#hostMembership");
       has(panel, "covers both", "one fee"); has(panel, "nothing more to choose", "nothing to choose");
-      has(panel, "100 a month", "the membership it has");
+      has(panel, "£100 a month", "the membership it has");
       return eq(await page.locator('#hostMembership input[name="billing"]').count(), 0, "no radios");
     });
     await step("its submission carries no billing_period", async () => {
@@ -2003,7 +2003,7 @@ async function walkOfferCommit() {
       has(await page.textContent("#hostAppBody"), "goes live when you save it", "the intro line");
       eq((await page.textContent("#listingSubmit")).trim(), "Save changes", "the button");
       const panel = await page.textContent("#hostMembership");
-      has(panel, "Your membership", "the heading"); has(panel, "yearly, 1,000 a year", "the membership on record");
+      has(panel, "Your membership", "the heading"); has(panel, "yearly, £1,000 a year", "the membership on record");
       has(panel, "To change how you pay", "the route to change it");
       eq(await page.locator('#hostMembership input[name="billing"]').count(), 0, "no radios on an edit");
       return has(await page.textContent("#hostTermsBlock"), "still applies", "the accepted agreement");

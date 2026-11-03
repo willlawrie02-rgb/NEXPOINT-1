@@ -431,7 +431,7 @@
      prefilled from a declined revision's choice when there is one. */
   function membershipHtml(d, editing) {
     const m = (d && d.membership) || (mine && mine.membership) || null;
-    const words = (p) => (p === 'monthly' ? 'monthly, 100 a month' : p === 'annual' ? 'yearly, 1,000 a year' : '');
+    const words = (p) => (p === 'monthly' ? 'monthly, £100 a month' : p === 'annual' ? 'yearly, £1,000 a year' : '');
     if (editing) {
       const period = words(m && m.period);
       return '<div class="lsec__h">Your membership</div>' +
@@ -440,19 +440,19 @@
         '<a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
     }
     if (m && m.billed) {
-      const has = m.period === 'monthly' ? 'a monthly membership, 100 a month'
-        : m.period === 'annual' ? 'a yearly membership, 1,000 a year' : 'its membership';
+      const has = m.period === 'monthly' ? 'a monthly membership, £100 a month'
+        : m.period === 'annual' ? 'a yearly membership, £1,000 a year' : 'its membership';
       return '<div class="lsec__h">Your membership</div>' +
         '<p class="body">Your site already has ' + esc(has) + '. One membership covers both the ' +
         '3D Print Hub and the Mill Hub, so there is nothing more to choose.</p>';
     }
     const chosen = (d && d.prefill && d.prefill.billing_period) || '';
     return '<div class="lsec__h">Hosting membership</div>' +
-      '<p class="body"><strong>1,000 a year, or 100 a month</strong>, invoiced in pounds whatever your country. ' +
+      '<p class="body"><strong>£1,000 a year, or £100 a month</strong>, invoiced in pounds whatever your country. ' +
       'One membership covers hosting on both the 3D Print Hub and the Mill Hub.</p>' +
       '<div class="lgroup" role="radiogroup" aria-label="Billing period">' +
-      pickRadio('billing', 'annual', 'Yearly: 1,000 a year', chosen === 'annual') +
-      pickRadio('billing', 'monthly', 'Monthly: 100 a month', chosen === 'monthly') +
+      pickRadio('billing', 'annual', 'Yearly: £1,000 a year', chosen === 'annual') +
+      pickRadio('billing', 'monthly', 'Monthly: £100 a month', chosen === 'monthly') +
       '</div><span class="np-hint">Choose one. Nothing is charged until we approve your listing.</span>';
   }
   /* The base service is fixed (Will, 6 Oct): every host prints or mills, so

@@ -77,8 +77,8 @@ for (const p of pages) {
   // Agreement and the host chooses; invoiced in pounds whatever the host's
   // country (the register's amendment of 21 Oct 2026); the name line (D7);
   // edits as changes (D6), a mixed save waiting in full (P1).
-  for (const want of ['hostMembership', 'lcommit', 'billing_period', "pickRadio('billing'", 'Yearly: 1,000 a year',
-    'Monthly: 100 a month', 'invoiced in pounds',
+  for (const want of ['hostMembership', 'lcommit', 'billing_period', "pickRadio('billing'", 'Yearly: £1,000 a year',
+    'Monthly: £100 a month', 'invoiced in pounds',
     'shown to seekers who have accepted the introduction terms', 'Save changes', 'goes live when you save it',
     'renderSaved', 'pending_changes', 'Nothing has changed since your listing was last saved']) {
     if (!lf.includes(want)) fail(`hub/assets/listing-form.js: missing "${want}" (plan 068)`);
@@ -99,8 +99,13 @@ for (const p of pages) {
   if (vocab.includes("dye_colours")) fail("hub/assets/vocab.js: Dye colours is retired (plan 045)");
   // Will's bug of 5 Oct: after a material was picked the list stayed shut.
   if (!read("hub/assets/typeahead.js").includes("reopenAfterPick")) fail("typeahead: the list must come back after a pick (plan 045)");
-  // Will's Q7 (6 Oct): the founding pricing line is off the offer page.
+  // Will's Q7 (6 Oct): the preferential pricing line is off the offer page.
   if (/Preferential pricing/.test(read("printhub/offer.html"))) fail("printhub/offer.html: still promises preferential pricing (plan 045)");
+  // Will, 2 Nov 2026: no founding member offer, so no founding wording on any page a visitor or member sees.
+  for (const p of ["hub/index.html", "hub/account/index.html", "hub/assets/portal.js", "hub/assets/dashboard.js",
+    "printhub/index.html", "printhub/offer.html", "millhub/index.html", "millhub/offer.html", "index.html"]) {
+    if (/founding/i.test(read(p))) fail(`${p}: still says "founding" (Will, 2 Nov 2026)`);
+  }
   // Plan 050: the site promises no fixed price per pair while that is an open point (nexpoint.md).
   for (const p of ["hub/index.html", "printhub/index.html", "printhub/offer.html", "millhub/index.html", "millhub/offer.html"]) {
     if (/standard network price/i.test(read(p))) fail(`${p}: promises a "standard network price" nobody has set (plan 050)`);

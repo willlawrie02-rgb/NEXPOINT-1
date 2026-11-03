@@ -30,7 +30,7 @@ const HUB_CONFIG = {
     machineNoun: 'printer',
     siteNoun: 'site',
     emptyState: {
-      heading: 'Founding print nodes are joining the network now.',
+      heading: 'Print nodes are joining the network now.',
       body: 'No node is certified in {region} yet. Every node is verified first-hand before it appears here. Tell the desk what you need and you will be matched the moment capacity comes online.',
       cta: 'Tell the desk what you need',
     },
@@ -41,7 +41,7 @@ const HUB_CONFIG = {
     machineNoun: 'milling cell',
     siteNoun: 'cell',
     emptyState: {
-      heading: 'Founding milling cells are joining the network now.',
+      heading: 'Milling cells are joining the network now.',
       body: 'No cell is certified in {region} yet. Every cell is verified first-hand before it appears here. Tell the desk what you need and you will be matched the moment capacity comes online.',
       cta: 'Tell the desk what you need',
     },
