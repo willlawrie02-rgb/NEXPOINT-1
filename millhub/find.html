@@ -53,11 +53,8 @@
   .device-card.is-on{border-color:var(--blue);background:rgba(0,92,200,.10)}
   .device-card input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
   .device-card input:focus-visible~.device-card__t{outline:2px solid var(--blue-bright);outline-offset:3px;border-radius:4px}
-  .device-card__pics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-bottom:8px}
-  .device-card img{display:block;width:100%;height:auto}
+  .device-card img{display:block;width:100%;height:auto;margin-bottom:8px}
   .device-card__t{display:block;font:600 14px/1.3 var(--font-body);letter-spacing:normal;text-transform:none;color:var(--on-surface)}
-  .device-card__s{display:block;font:400 13px/1.4 var(--font-body);letter-spacing:normal;text-transform:none;color:var(--on-surface-var);margin-top:2px}
-  @media (max-width:560px){.device-grid{grid-template-columns:minmax(0,1fr)}}
 </style>
 </head>
 <body data-hub="mill" data-np-wall>
@@ -242,7 +239,7 @@ hub/assets/find.js owns all four steps, in the Mill Hub's own words.
       '/hub/assets/portal.js',
       '/hub/assets/vocab.js?v=20261102',
       '/hub/assets/typeahead.js?v=20261102',
-      '/hub/assets/find.js?v=20261102'
+      '/hub/assets/find.js?v=20261103'
     ];
     (function next(i) {
       if (i >= srcs.length) { done(); return; }

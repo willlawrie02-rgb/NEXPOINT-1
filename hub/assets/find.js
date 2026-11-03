@@ -8,7 +8,7 @@
                       site; pick one
      4  the request   one call that goes straight to the site picked
 
-   The ranking is the worker's (POST /listings/search): rigid or soft, region
+   The ranking is the worker's (POST /listings/search): rigid, soft or both, region
    and the volume asked for are hard filters, then a weighted score on every
    field the seeker filled in (capacity, location, lead time, and a material
    if one is named, which is scored and never filters; plan 080). The
@@ -87,13 +87,12 @@
     return (c && c.deskRef) || (HUB === 'mill' ? 'MILL HUB' : '3D PRINT HUB');
   }
 
-  /* The two boxes (plan 080): the first thing a seeker chooses, on both hubs.
-     The same words as labels.js, desk.py and app/jobs.js in their runtimes. */
+  /* The two boxes (plan 080): the first thing a seeker chooses, on both hubs,
+     one or both (Will, 3 November 2026). Each shows the version people see
+     most. The same words as labels.js, desk.py and app/jobs.js in their runtimes. */
   const DEVICES = [
-    { type: 'rigid', title: 'Rigid shell', sub: 'Three-quarter or full foot',
-      imgs: ['insole-rigid-three-quarter', 'insole-rigid-full-foot'] },
-    { type: 'soft', title: 'Soft insole', sub: 'Three-quarter or full foot',
-      imgs: ['insole-soft-three-quarter', 'insole-soft-full-foot'] },
+    { type: 'rigid', title: 'Rigid shell', img: 'insole-rigid-three-quarter' },
+    { type: 'soft', title: 'Soft insole', img: 'insole-soft-full-foot' },
   ];
 
   /* ── countries ────────────────────────────────────────────────────────
@@ -177,17 +176,14 @@
       '<span>' + esc(label) + '</span></label>';
   }
 
-  /* One click on a box is the whole choice; the two pictures only show what
-     the type covers (plan 080, P1a). alt is empty because the title is the
-     box's name, and a screen reader would otherwise say it three times. */
+  /* One click turns a box on or off; length is not asked (plan 080, P1a). alt
+     is empty because the title is the box's name, and a screen reader would
+     otherwise say it twice. */
   function deviceCard(d) {
     return '<label class="device-card">' +
-      '<input type="radio" name="fDevice" id="fDevice-' + esc(d.type) + '" value="' + esc(d.type) + '">' +
-      '<span class="device-card__pics">' +
-      d.imgs.map((img) => '<img src="assets/img/' + esc(img) + '.webp" alt="" width="720" height="432">').join('') +
-      '</span>' +
+      '<input type="checkbox" name="fDevice" id="fDevice-' + esc(d.type) + '" value="' + esc(d.type) + '">' +
+      '<img src="assets/img/' + esc(d.img) + '.webp" alt="" width="720" height="432">' +
       '<span class="device-card__t">' + esc(d.title) + '</span>' +
-      '<span class="device-card__s">' + esc(d.sub) + '</span>' +
       '</label>';
   }
 
@@ -216,9 +212,10 @@
       '<div class="form-grid">' +
 
         '<div class="field full"><label id="fDeviceLabel">What do you need made?</label>' +
-        '<div class="device-grid" id="fDevice" role="radiogroup" aria-labelledby="fDeviceLabel">' +
+        '<div class="device-grid" id="fDevice" role="group" aria-labelledby="fDeviceLabel">' +
         DEVICES.map(deviceCard).join('') +
-        '</div></div>' +
+        '</div>' +
+        '<span class="np-hint">Choose one or both.</span></div>' +
 
         '<div class="field full"><label for="fMaterial">Material (optional)</label>' +
         '<input id="fMaterial" placeholder="Select from the list or type your own">' +
@@ -303,15 +300,19 @@
     el('findForm').addEventListener('submit', onSearch);
   }
 
-  function materialsFor(type) {
+  function materialsFor(types) {
     const all = (vocab && vocab.materials) || [];
-    const some = all.filter((m) => m.device_type === type);
-    return some.length ? some : all;   /* a stale vocab.js has no types: offer everything */
+    const some = all.filter((m) => types.includes(m.device_type));
+    return some.length ? some : all;   /* no box on, or a stale vocab.js with no types: offer everything */
   }
 
-  /* The two boxes' sibling of wireGroup, which matches `.pick` only. A box also
-     narrows the material list to its type (plan 080, P5); typing still reaches
-     everything, and what is already chosen stays chosen. */
+  function devicesOn() {
+    return [...document.querySelectorAll('#fDevice input:checked')].map((box) => box.value);
+  }
+
+  /* The two boxes' sibling of wireGroup, which matches `.pick` only. The boxes on
+     also narrow the material list to their types (plan 080, P5); typing still
+     reaches everything, and what is already chosen stays chosen. */
   function wireDevice() {
     const group = el('fDevice');
     if (!group) return;
@@ -320,8 +321,7 @@
         const card = box.closest('.device-card');
         if (card) card.classList.toggle('is-on', box.checked);
       });
-      const on = group.querySelector('input:checked');
-      if (on && TA.fMaterial && TA.fMaterial.setOptions) TA.fMaterial.setOptions(materialsFor(on.value));
+      if (TA.fMaterial && TA.fMaterial.setOptions) TA.fMaterial.setOptions(materialsFor(devicesOn()));
     });
   }
 
@@ -409,8 +409,8 @@
      sentence still spells the volume and the other materials out for the
      desk, which reads the request's notes. */
   function buildSpec() {
-    const on = document.querySelector('#fDevice input:checked');
-    if (!on) return { error: 'Choose what you need made.', focus: 'fDevice-rigid' };
+    const on = devicesOn();
+    if (!on.length) return { error: 'Choose what you need made.', focus: 'fDevice-rigid' };
     /* Words typed but not yet a chip still count: the hint says "type it in",
        and value() returns chips only. Without this a seeker who types TPU and
        clicks Find is searched with no material, and nothing tells them. */
@@ -454,7 +454,7 @@
 
     return { spec: {
       hub: HUB,
-      device_type: on.value,
+      device_type: on.length > 1 ? 'both' : on[0],
       material: materials[0] || null,
       materials: materials,
       process: process || null,

@@ -355,9 +355,9 @@
     '</div>';
   }
 
-  /* Rigid or soft, in words (plan 080): the same words as find.js, labels.js,
+  /* Rigid, soft or both, in words (plan 080): the same words as find.js, labels.js,
      desk.py and app/jobs.js. An unknown value has no words, so nothing prints. */
-  var DEVICE_WORDS = { rigid: 'Rigid shell', soft: 'Soft insole' };
+  var DEVICE_WORDS = { rigid: 'Rigid shell', soft: 'Soft insole', both: 'Rigid shell and soft insole' };
   function deviceWords(r) {
     return (r && Object.prototype.hasOwnProperty.call(DEVICE_WORDS, r.device_type)) ? DEVICE_WORDS[r.device_type] : '';
   }
