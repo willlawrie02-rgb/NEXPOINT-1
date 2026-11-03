@@ -184,7 +184,7 @@
         '<dl class="terms">' +
           (s.service ? '<dt>Purpose</dt><dd>' + esc(s.service) + '</dd>' : '') +
           '<dt>Retainer</dt><dd><strong>' + esc(fee.display) + '</strong> for six months of sales and marketing work, ' +
-            'invoiced when you sign and due within 14 days.</dd>' +
+            'non-refundable, invoiced when you sign and due within 14 days.</dd>' +
           '<dt>Recurring fee</dt><dd>On the business that results: <strong>6% of Net Revenue</strong>, as the agreement defines it, ' +
             'in the first year after each company we introduce places its first order with you, falling to 2% in the fifth, and nothing after.</dd>' +
         '</dl>' +

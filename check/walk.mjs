@@ -3288,7 +3288,7 @@ async function walkSign() {
       const t = await page.textContent("#signBody");
       // The figure alone: "£5,000", never "£5,000 GBP" (final review, finding 8).
       if (t.includes("£5,000 GBP")) throw new Error("the summary repeats the currency after the figure");
-      for (const part of ["£5,000 for six months", "six months of sales and marketing work", "6% of Net Revenue", "as the agreement defines it", "places its first order with you", "due within 14 days",
+      for (const part of ["£5,000 for six months", "six months of sales and marketing work", "non-refundable", "6% of Net Revenue", "as the agreement defines it", "places its first order with you", "due within 14 days",
         "falling to 2% in the fifth", "nothing after", "Introduction Agreement", "Master Terms of Business", "NexPoint Global Ltd",
         "Finding UK clinics for your insoles"]) has(t, part, "the summary");
       // No territory (Will, 20 October 2026): the summary is the service, the retainer and the recurring fee.
