@@ -4390,7 +4390,7 @@ async function walkMovedPages() {
   }
 }
 
-/* The Consultancy agreements page (plan 086): on the CRM's shell it makes,
+/* The Consultancy agreements page (plan 086): the rail's ninth item, it makes,
    revokes and reissues links through the worker, asking in place, never in a
    pop-up, and writes to no table. Before the admin sync carries it, the old
    page stands and the checks wait. */
@@ -4419,10 +4419,10 @@ async function walkConsultancy() {
   const { context, page, errors } = await visit(world, { seedAdmin: true });
   await page.goto(`${APEX}/admin/consultancy.html?slug=zz-walk-new&client=ZZ%20Walk%20New%20Ltd`);
   await page.waitForSelector("#link-1");
-  await step("the rail marks Pipelines and the page says the way back", async () => {
-    eq(await page.getAttribute('.rail a[aria-current="page"]', "href"), "pipelines.html", "the current section");
-    eq(await page.locator(".rail .nav a").count(), 8, "the rail's sections");
-    eq(await page.getAttribute("#back", "href"), "pipelines.html?tab=consultancy", "Back");
+  await step("the rail lights Consultancy, its ninth item, and a page opened directly has no Back", async () => {
+    eq(await page.getAttribute('.rail a[aria-current="page"]', "href"), "consultancy.html", "the current section");
+    eq(await page.locator(".rail > .nav a").count(), 9, "the rail's sections");
+    eq(await page.isVisible("#back"), false, "Back");
   });
   await step("each state shows its word, paid and revoked folded away", async () => {
     for (const [id, word] of [[1, "Sent"], [2, "Opened"], [3, "Signed"], [4, "Invoiced"]]) has(await page.textContent(`#links #link-${id} .st`), word, `link ${id}`);
@@ -4477,6 +4477,24 @@ async function walkConsultancy() {
   });
   clean(world, errors, "the Consultancy agreements page");
   await context.close();
+  /* The three ways in, each with its Back, all saying agreement link. */
+  const links = newWorld({ rows: { consultancy_links: [link(1)] } });
+  const way = await visit(links, { seedAdmin: true });
+  await way.page.goto(`${APEX}/admin/pipelines.html?tab=consultancy`);
+  await step("Pipelines' Consultancy tab says Make an agreement link, and Back returns there", async () => {
+    await way.page.click('a[href="consultancy.html"]:has-text("Make an agreement link")');
+    await way.page.waitForSelector("#link-1");
+    has(await way.page.textContent("#back"), "Back to Pipelines", "Back");
+    eq(await way.page.getAttribute("#back", "href"), "pipelines.html?tab=consultancy", "where it goes");
+  });
+  await way.page.goto(`${APEX}/admin/money.html?tab=fees`);
+  await step("Money's Consultancy fees links to the page, and Back returns there", async () => {
+    await way.page.click('a[href="consultancy.html"]:has-text("Open consultancy agreements")');
+    await way.page.waitForSelector("#link-1");
+    has(await way.page.textContent("#back"), "Back to Money", "Back");
+  });
+  clean(links, way.errors, "the ways in to the Consultancy agreements page");
+  await way.context.close();
 }
 
 /* System: the failed run first with Re-run now, which raises one rerun-job
