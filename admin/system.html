@@ -19,6 +19,17 @@
   .tbl td.nowrap { white-space: nowrap; }
   .tbl td small { margin-top: 4px; overflow-wrap: anywhere; }
   .stat-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* Plan 087: a likely cause, its evidence folded away. */
+  .cause { display: block; padding: 12px 0; border-top: 1px solid var(--border-faint); font-size: 13.5px; color: var(--fg-1); }
+  .cause:first-of-type { border-top: 0; }
+  .cause p { margin: 4px 0 0; }
+  .cause .flagged { font-weight: 600; overflow-wrap: anywhere; }
+  .cause .sure { margin-left: 6px; }
+  .cause details { margin-top: 6px; }
+  .cause summary { cursor: pointer; color: var(--fg-2); }
+  .cause dt { margin-top: 6px; font-weight: 600; }
+  .cause dd { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg-2); }
+  .cause .actions { display: block; margin-top: 8px; }
   @media (max-width: 560px) { .stat-row.three { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 </head>
@@ -48,7 +59,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=3"></script>
+<script src="crm-shell.js?v=4"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -84,7 +95,9 @@ function showAdmin(u){$('login').style.display='none';$('admin').style.display='
    with what it does, when it runs (the report's schedule line), its last run,
    how long that took and its result, and the month's three tiles with the
    numbers and limits Health had. The page writes engine_intents and nothing
-   else; a read that fails says so in one line and the rest still draws. */
+   else; a read that fails says so in one line and the rest still draws. Plan 087's
+   likely causes are read only, and until migration 0094 is applied there are none
+   to read, and the page looks as it did. */
 const esc=NXShell.esc, ms=NXShell.ms;
 const fmt=n=>Number(n).toLocaleString('en-GB');
 const plural=(n,w)=>`${fmt(n)} ${w}${n===1?'':'s'}`;
@@ -127,6 +140,9 @@ const RUN_RESULT={succeeded:OK,'succeeded-with-warnings':WARNINGS,failed:FAILED}
 const REPORT_RED={failed:d=>tidy(d),missed:d=>'Did not run on time'+(d?`: ${tidyText(d)}`:''),'never-ran':()=>'Has never run'};
 const FAILING_STEP={failed:'failed','timed-out':'timed out'};
 const LOCKED_OUT={'skipped-because-locked':true};
+/* Plan 087: how sure the checker is, in words. */
+const SURE_WORDS={sure:res('Sure','ok','check_circle'),likely:res('Fairly sure','info','help'),'not sure':res('Not sure','','help')};
+const GITHUB_PR=/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+$/;
 
 let D=null, banners=[], rerunOf={}, asked={}, poll=null;
 
@@ -183,23 +199,26 @@ async function load(){
   banners=[];
   const monthStart=new Date();monthStart.setUTCDate(1);monthStart.setUTCHours(0,0,0,0);
   const since=monthStart.toISOString();
-  const [rq,mq,hq,fq,iq]=await Promise.all([
+  const [rq,mq,hq,fq,iq,cq]=await Promise.all([
     sb.from('engine_runs').select('id,job,status,started_at,ended_at').order('started_at',{ascending:false}).limit(300),
     sb.from('engine_steps').select('run_id,name,detail,recorded_at').gte('recorded_at',since).in('name',['research','search-candidates']),
     sb.from('engine_health').select('*').eq('id',1).maybeSingle(),
     sb.from('inbox').select('*').eq('kind','failed_run'),
     sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at,requested_by')
       .in('status',['pending','claimed','failed','done']).in('type',SYSTEM_INTENTS)
-      .order('id',{ascending:false}).limit(1000)
+      .order('id',{ascending:false}).limit(1000),
+    sb.from('engine_health_causes').select('*').eq('status','open').order('last_seen_at',{ascending:false}).limit(50)
   ]);
   // The two counts Health added to its findings, read on their own (count only).
-  const pq=await sb.from('engine_intents').select('id',{count:'exact',head:true}).eq('status','pending');
+  const pq=await sb.from('engine_intents').select('id',{count:'exact',head:true}).eq('status','pending').neq('type','wake-engine');
   const uq=await sb.from('engine_lead_queue').select('id',{count:'exact',head:true}).eq('status','pending').eq('judged',false);
   if(rq.error)banners.push(stop(`Could not read the engine’s runs: ${rq.error.message}`));
   if(mq.error)banners.push(stop(`Could not read the engine’s steps, so Tavily calls are not counted: ${mq.error.message}`));
   if(hq.error)banners.push(stop(`Could not read the morning report: ${hq.error.message}`));
   if(fq.error)banners.push(stop(`Could not read the Inbox’s failed-run cards: ${fq.error.message}`));
   if(iq.error)banners.push(stop(`Could not read the re-runs asked for: ${iq.error.message}`));
+  // No table yet (0094 not applied) is not a fault: the checker is simply not on.
+  if(cq.error&&!/engine_health_causes|PGRST205|42P01/.test(cq.error.message))banners.push(stop(`Could not read the likely causes: ${cq.error.message}`));
   if((iq.data||[]).length===1000)banners.push('Only the newest 1,000 re-run requests were read; older ones are left out.');
   const runs=rq.error?null:(rq.data||[]);
   // A job's newest run that did work: one skipped because another held the
@@ -226,6 +245,7 @@ async function load(){
   }
   watch(iq.data||[]);
   D={runs,latest,failed,stepsOf,stepsErr,since,report:hq.error?null:(hq.data||null),reportErr:!!hq.error,
+     causes:cq.error?[]:(cq.data||[]),
      tavily:mq.error?null:countTavily(mq.data||[]),pending:pq.error?0:(pq.count||0),unjudged:uq.error?0:(uq.count||0)};
   render();
   // While a re-run waits, look again each minute, so "did not start" shows by itself.
@@ -336,6 +356,41 @@ function failedHtml(){
   }).join('');
 }
 
+/* Plan 087: what the checker made of each flagged item. The fixer drafts a change
+   for every cause a code change would cure (who = code), with no press, three new
+   drafts a day at most (health_fixer.DRAFTS_PER_DAY). */
+function fixHtml(c){
+  if(c.fix_pr_url)return GITHUB_PR.test(c.fix_pr_url)
+    ?`<span class="actions"><a class="btn sm" href="${esc(c.fix_pr_url)}" target="_blank" rel="noopener">${ms('open_in_new','sm')}Review the draft fix</a> <span class="muted-t">It stays a draft until someone merges it. Nothing goes live on its own.</span></span>`
+    :`<span class="status-line">${esc(c.fix_pr_url)}</span>`;
+  if(c.fix_note)return `<span class="status-line fail">${esc(stop(`No fix drafted: ${c.fix_note}`))}</span>`;
+  if(c.who==='code')return '<span class="status-line">A draft fix follows on the fixer’s next morning run, three a day at most. Nothing goes live on its own.</span>';
+  if(c.who==='person'||c.who==='wait')return '<span class="muted-t">No draft fix: a code change would not cure this.</span>';
+  return '';
+}
+function causeHtml(c){
+  const sure=SURE_WORDS[c.sure]||SURE_WORDS['not sure'], evidence=Array.isArray(c.evidence)?c.evidence:[];
+  const proof=evidence.length?`<details><summary>The evidence (${fmt(evidence.length)})</summary><dl>`+
+    evidence.map(e=>`<dt>${esc(e.what)}</dt><dd>${esc(e.said)}</dd>`).join('')+'</dl></details>':'';
+  return `<div class="cause" data-cause="${esc(c.id)}"><p class="flagged">${esc(tidy(c.flagged_line))}</p>`+
+    `<p>Likely cause: ${esc(c.cause)}<span class="sure">${pill(sure)}</span></p>`+
+    // Once the fixer has answered, its line below says what happens next.
+    (c.fix_pr_url||c.fix_note?'':`<p>What to do: ${esc(c.next_step)}</p>`)+`${proof}${fixHtml(c)}</div>`;
+}
+function causesHtml(){
+  const all=D.causes||[];
+  if(!all.length)return '';
+  const rank={'failed-run':0,problem:1,missed:2,'never-ran':3};
+  const apart=c=>c.kind==='warning'||c.kind==='wrote-nothing';
+  const red=all.filter(c=>!apart(c)).sort((x,y)=>(rank[x.kind]??4)-(rank[y.kind]??4));
+  const warned=all.filter(c=>c.kind==='warning'), still=all.filter(c=>c.kind==='wrote-nothing');
+  return `<section class="panel"><h2>Likely causes <span class="n num">${fmt(all.length)}</span></h2>`+
+    `<p class="muted-t">The checker’s best reading of what was flagged. It changes nothing itself.</p>`+
+    red.map(causeHtml).join('')+
+    (warned.length?`<h3>Warnings</h3>${warned.map(causeHtml).join('')}`:'')+
+    (still.length?`<h3>Finished green, but wrote nothing</h3>${still.map(causeHtml).join('')}`:'')+'</section>';
+}
+
 function findingsHtml(){
   const f=findingsOf(), rep=D.report;
   const sub=rep?`<p class="muted-t">Written ${esc(at(rep.generated_at))}; ${plural((rep.jobs||[]).length,'job')} assessed.</p>`:'';
@@ -376,7 +431,7 @@ function render(){
     actions:`<button type="button" class="btn sm" data-act="refresh">${ms('refresh','sm')}Check again</button>`});
   if(!D){$('page').innerHTML=head+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the engine’s runs.</span></div></section>`;return;}
   const bn=banners.map(b=>`<div class="banner">${ms('info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
-  $('page').innerHTML=head+bn+failedHtml()+findingsHtml()+jobsHtml()+monthHtml();
+  $('page').innerHTML=head+bn+failedHtml()+causesHtml()+findingsHtml()+jobsHtml()+monthHtml();
 }
 
 async function raise(type,payload,done){

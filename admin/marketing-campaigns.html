@@ -67,9 +67,9 @@ and never presses these buttons: that split is the design.
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=3"></script>
+<script src="crm-shell.js?v=4"></script>
 <script src="crm.js?v=071"></script>
-<script src="pipelines.js?v=073"></script>
+<script src="pipelines.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -452,6 +452,7 @@ function offWhy(m){
   else if((x=r.match(/^moved by (\S+)$/i))){who=NXShell.personOf(x[1]);lead='Moved to another campaign';why='';}
   else if((x=r.match(/^returned to prospect by (\S+)$/i))){who=NXShell.personOf(x[1]);lead='Returned to prospect';why='';}
   else if((x=r.match(/^status (.+?) set by (\S+?)(?:: no campaign)?$/i))){who=NXShell.personOf(x[2]);lead=`Status set to ${x[1]}`;why='';}
+  else if(/^finished its emails/i.test(r)){lead='Finished its emails';why='';}
   why=why.replace(ADDRESS,a=>NXShell.personOf(a));
   if(m.status==='remove'){
     const said=why||(lead==='Removed'?'':lead.charAt(0).toLowerCase()+lead.slice(1));
@@ -505,7 +506,7 @@ function offersHtml(){
         people.map(p=>`<option value="${esc(p.id)}"${String(p.id)===chosen?' selected':''}>${esc(p.name)}, ${esc((C.emails[p.id]||[])[0])}</option>`).join('')+'</select>'
       :`<span class="muted-t">${esc(people[0].name)}, ${esc((C.emails[people[0].id]||[])[0])}</span>`;
     return `<div class="mini offer"><span><span class="strong">${esc(c.name)}</span><span class="muted-t">${esc(NXCRM.kindLabel(c))}</span>`+
-      (other?`<span class="muted-t">On ${esc(oc?oc.name:'another campaign')} now: adding it moves it to this one.</span>`:'')+
+      (other?`<span class="muted-t">On ${esc(oc?oc.name:'another campaign')} now: this one's emails wait until that has finished.</span>`:'')+
       `</span><span class="actions">${isQueued(pendingAdds[UI.campaign+':'+f.slug])?'<span class="status-line">Add queued</span>'
         :`${personPick}<button type="button" class="btn sm primary" data-act="addMember" data-company="${esc(f.slug)}">${ms('person_add','sm')}Add to this list</button>`}</span></div>`;
   }).join('');

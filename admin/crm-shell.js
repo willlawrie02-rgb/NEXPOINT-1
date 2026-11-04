@@ -6,8 +6,9 @@
    Every CRM page loads this after supabase-js and admin-auth.js, keeps its
    own sign-in door and both second-factor gates (the board rules), and once
    the operator is in calls NXShell.mount(sb,user,'<section>') to draw the
-   rail. The rail lists the eight sections in the register's order; the
-   company page counts as Contacts. "Working as" is whoever signed in: notes,
+   rail. The rail lists the register's eight sections in its order, with
+   Consultancy agreements added under Pipelines (Will, 3 November 2026, a
+   knowing reversal of the design's eight); the company page counts as Contacts. "Working as" is whoever signed in: notes,
    tasks and moves are signed with that name.
 
    Reads only, never a write: the counts read the inbox view (its failed-run
@@ -21,6 +22,7 @@
     { id: 'inbox', label: 'Inbox', icon: 'inbox', href: 'inbox.html' },
     { id: 'desk', label: 'Desk', icon: 'forum', href: 'desk.html' },
     { id: 'pipelines', label: 'Pipelines', icon: 'view_kanban', href: 'pipelines.html' },
+    { id: 'consultancy', label: 'Consultancy', icon: 'handshake', href: 'consultancy.html' },
     { id: 'contacts', label: 'Contacts', icon: 'contacts', href: 'contacts.html' },
     { id: 'listings', label: 'Live Listings', icon: 'storefront', href: 'listings.html' },
     { id: 'money', label: 'Money', icon: 'payments', href: 'money.html' },

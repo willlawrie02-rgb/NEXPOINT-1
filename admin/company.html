@@ -68,10 +68,11 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=3"></script>
+<script src="crm-shell.js?v=4"></script>
 <script src="crm.js?v=071"></script>
+<script src="save.js?v=079"></script>
 <script src="jobs.js?v=088"></script>
-<script src="pipelines.js?v=073"></script>
+<script src="pipelines.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -190,6 +191,7 @@ async function load(){
   const key={id:q.get('id'),slug:q.get('slug'),org:q.get('org'),person:q.get('person')};
   UI.job=q.get('job');UI.card=q.get('card');
   const st=await sb.from('crm_settings').select('key,value');
+  NXSAVE.use(st.data);
   const missing=!!st.error&&/crm_/.test(st.error.message||'');
   if(st.error&&!missing){state='error';problem=st.error.message;render();return;}
   const imported=!st.error&&(st.data||[]).some(r=>r.key==='imported_at');
@@ -198,7 +200,7 @@ async function load(){
     .order('id',{ascending:false}).limit(1000);
   if(iq.error)banners.push(`Could not read the queued changes: ${iq.error.message}.`);
   if((iq.data||[]).length===1000)banners.push('Showing the newest 1,000 intent rows; older ones are not on this page.');
-  readIntents=iq.data||[];sending=[];
+  readIntents=NXSAVE.live(iq.data);sending=[];
   watch(readIntents);
   checkBack.watch(iq.data);
   let cid=null;
@@ -273,7 +275,7 @@ async function loadCompany(cid){
   const slugs=[...new Set(folders.map(f=>f.slug))];
   const [eq,qq,prq]=await Promise.all([
     ids.length?sb.from('crm_person_emails').select('id,person_id,email,is_primary,retired_at').in('person_id',ids):none,
-    slugs.length?sb.from('engine_lead_queue').select('id,company,status,prospect_type,sector,company_type,proposed_at,decided_at,decided_by,source').in('company',slugs):none,
+    slugs.length?sb.from('engine_lead_queue').select('id,company,status,prospect_type,sector,company_type,sectors,company_types,proposed_at,decided_at,decided_by,source').in('company',slugs):none,
     slugs.length?sb.from('prospect_notes').select('id,company,body,by,at').in('company',slugs):none,
   ]);
   for(const [what,e] of [['addresses',eq.error],['Prospects history',qq.error],['Prospects notes',prq.error]])if(e)banners.push(`Could not read the ${what}: ${e.message}.`);
@@ -306,7 +308,7 @@ async function loadPipes(cid){
     orgIds.length?sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,updated_at').in('org_a',orgIds):none,
     orgIds.length?sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,updated_at').in('org_b',orgIds):none,
   ]);
-  for(const [what,e] of [['card moves',mq.error],['signing links',lq.error],['membership invoices',iq.error],['linked cards',kq.error],['introductions',aq.error||bq.error]])
+  for(const [what,e] of [['card moves',mq.error],['agreement links',lq.error],['membership invoices',iq.error],['linked cards',kq.error],['introductions',aq.error||bq.error]])
     if(e&&!isMissing(e))banners.push(`Could not read the ${what}: ${e.message}.`);
   (mq.data||[]).forEach(m=>{(PL.moves[m.card_id]=PL.moves[m.card_id]||[]).push(m);});
   (lq.data||[]).forEach(l=>{PL.links[l.id]=l;});
@@ -517,11 +519,12 @@ function usersBlock(o){
     return `<span class="mini user-row"><span><span class="strong" title="${esc(u.email)}">${esc(u.name||u.email)}</span>${u.email_confirmed_at?'':'<span class="item-sub">Not confirmed</span>'}</span>${del}</span>`+
       (UI.open==='deluser:'+u.user_id?deleteUserChoice(u,users.length):'');}).join('')}</span>`;
 }
+const CONTACTS_RULE='If they came only from the portal they also leave Contacts, with their addresses and activity. If they were already a contact they stay, and only their portal activity goes. The company and its filed emails stay.';
 function deleteUserChoice(u,count){
   const o=orgById(u.org_id)||{}, who=u.name||u.email, acct=o.name||'their account';
   const text=count<=1
-    ?`Delete ${esc(who)} (${esc(u.email)})? They are the only user of ${esc(acct)}, so the account is deleted too. Its introductions, declarations, statements and agreements stay, anonymised, because fees and invoice records outlive the account. This cannot be undone.`
-    :`Delete ${esc(who)} (${esc(u.email)})? Their sign-in is removed and the rest of ${esc(acct)}'s users stay. This cannot be undone.`;
+    ?`Delete ${esc(who)} (${esc(u.email)})? They are the only user of ${esc(acct)}, so the account is deleted too. Its introductions, declarations, statements and agreements stay, anonymised, because fees and invoice records outlive the account. ${CONTACTS_RULE} This cannot be undone.`
+    :`Delete ${esc(who)} (${esc(u.email)})? Their sign-in is removed and the rest of ${esc(acct)}'s users stay. ${CONTACTS_RULE} This cannot be undone.`;
   return choice(text,btn('confirmDeleteUser','Delete user','',{user:u.user_id},'danger')+cancel());
 }
 function strikesBlock(o){
@@ -585,7 +588,7 @@ function orgChoice(o){
   if(UI.open==='remove:'+id)return choice(`Why is ${name} being removed from the hub? Its people can still sign in to read, and can no longer act; the record is kept and you can restore it.`,input('rm-why','Reason, kept on the account')+btn('confirmRemove','Remove from the hub','',{'org-id':id},'danger')+cancel());
   if(UI.open==='restore:'+id)return choice(`Restore ${name} to the hub? A pause recorded before the removal stands until you resume it.`,btn('confirmRestore','Restore to the hub','',{'org-id':id},'primary')+cancel());
   if(UI.open==='audit:'+id)return choice(`Why is an audit strike being opened against ${name}? Kept on the strike.`,input('au-why','Reason, kept on the strike')+btn('confirmAudit','Open audit strike','',{'org-id':id},'danger')+cancel());
-  if(UI.open==='del:'+id)return typed('Deleting removes every user and cannot be undone. Fees and invoices are kept. Type the name to confirm.',
+  if(UI.open==='del:'+id)return typed('Deleting removes every user and cannot be undone. Fees and invoices are kept. A user who came only from the portal also leaves Contacts; anyone already a contact stays. The company and its filed emails stay. Type the name to confirm.',
     input('delName',o.name||''),`<button type="button" class="btn sm danger" id="delGo" disabled data-act="confirmDelete" data-org-id="${esc(id)}">Delete account</button>`+cancel());
   if(UI.open==='erase:'+id){
     const before=!retentionDue(o);
@@ -604,6 +607,8 @@ const placeOf=()=>{const s=C.sites.find(x=>x.town||x.country);return s?[s.town,s
 const hostOf=w=>String(w||'').replace(/^https?:\/\//i,'').replace(/\/$/,'');
 const lastMail=()=>C.mail.reduce((m,e)=>e.sent_at&&(!m||e.sent_at>m)?e.sent_at:m,null);
 const queueRow=()=>C.queue[0]||null;
+/* Several sectors and company types (plan 083); a row read before 0092 holds one. */
+const heldOf=(q,list,one)=>!q?[]:Array.isArray(q[list])&&q[list].length?q[list]:(q[one]?[q[one]]:[]);
 
 function backLink(){
   let href='contacts.html', label='Contacts';
@@ -618,7 +623,7 @@ function backLink(){
 function headerCard(){
   const c=C.company, kind=NXCRM.kindLabel(c), q=queueRow(), last=lastMail();
   const facts=[placeOf()?`<span>${ms('location_on')}${esc(placeOf())}</span>`:'',
-    q&&q.company_type?`<span>${ms('category')}${esc(q.company_type)}</span>`:'',
+    heldOf(q,'company_types','company_type').length?`<span>${ms('category')}${esc(heldOf(q,'company_types','company_type').join(', '))}</span>`:'',
     /^https?:\/\//i.test(c.website||'')?`<a href="${esc(c.website)}" target="_blank" rel="noopener noreferrer">${ms('language')}${esc(hostOf(c.website))}</a>`:(C.domains[0]?`<span>${ms('language')}${esc(C.domains[0].domain)}</span>`:''),
     `<span>${ms('schedule')}${last?'Last email '+esc(fmt(last)):'No email filed yet'}</span>`].filter(Boolean).join('');
   const pills=A.orgs.map(NXCRM.accountPill).join('')+
@@ -648,7 +653,7 @@ function tagRow(){
   if(q&&q.prospect_type)h+=`<div class="tg"><span class="tg-label">How we know them</span><span class="tg-vals"><span class="tag">${esc(q.prospect_type)}</span></span></div>`;
   h+=`<div class="tg"><span class="tg-label">Fit</span><span class="tg-vals">${fit.map(t=>NXCRM.fitTag(t.label)).join('')}<button type="button" class="tag empty" data-act="openUi" data-ui="fit">${fit.length?'Change':'Add'}</button></span></div>`;
   h+=`<div class="tg"><span class="tg-label">Topics</span><span class="tg-vals">${topics.map(t=>`<span class="tag">${esc(t.label)}<button type="button" class="x" data-act="untag" data-tag="${esc(t.id)}" aria-label="Take off ${esc(t.label)}">${ms('close')}</button></span>`).join('')}<button type="button" class="tag empty" data-act="openUi" data-ui="topic">Add</button></span></div>`;
-  const ro=[q&&q.sector,q&&q.company_type].filter(Boolean);
+  const ro=[...heldOf(q,'sectors','sector'),...heldOf(q,'company_types','company_type')];
   h+=`<div class="tg"><span class="tg-label">Sector and type</span><span class="tg-vals">${ro.length?ro.map(x=>`<span class="tag ro" title="Set on the Prospects page">${esc(x)}</span>`).join(''):'<span class="tag ro">Not set</span>'}</span></div></div>`;
   if(UI.open==='fit'){
     const fits=C.tagList.filter(t=>t.grp==='fit'&&t.active!==false).sort((a,b)=>a.position-b.position), on=new Set(fit.map(t=>t.id));
@@ -835,7 +840,7 @@ const clockFor=k=>{if(k.board!=='hub'||k.stage!=='invoiced')return null;const in
 const linkedName=k=>k.linked_card_id&&PL.linked[k.linked_card_id]?(PL.companies[PL.linked[k.linked_card_id]]||{}).name||'':'';
 function pipeFail(q){return q&&q.status==='failed'?`<div class="fail-line"><span>Failed: ${esc(NXJOBS.sentence(q.result_note))}</span></div>`:'';}
 /* The stepper: the stages as one segmented control, Mark as dead beside it, the shared
-   next step, the one line on what moves the card, the clock or the signing state, and
+   next step, the one line on what moves the card, the clock or the agreement link's state, and
    Invite to the portal at Agreed. */
 function stepperHtml(k){
   const stg=PIPE.STAGES[k.board], i=stg.indexOf(k.stage), q=pendingByCard[k.id], last=lastMail();
@@ -855,7 +860,7 @@ function stepperHtml(k){
   if(k.board==='hub'&&k.stage==='agreed'&&!cardOrg(k))h+=UI.open==='invite:'+k.id?inviteChoice(k):`<div>${btn('openUi','Invite to the portal','person_add',{ui:'invite:'+k.id})}</div>`;
   if(k.board==='consultancy'&&k.stage==='conversation'){
     const slug=(C.primary||{}).slug||'';
-    h+=`<div><a class="btn sm" href="consultancy.html?slug=${encodeURIComponent(slug)}&amp;client=${encodeURIComponent(C.company.name)}">${ms('draw','sm')}Make the signing link</a></div>`;
+    h+=`<div><a class="btn sm" href="consultancy.html?slug=${encodeURIComponent(slug)}&amp;client=${encodeURIComponent(C.company.name)}">${ms('draw','sm')}Make the agreement link</a></div>`;
   }
   h+=pipeFail(q)+(q&&q.status!=='failed'?'<span class="status-line">Queued, moments away.</span>':'');
   if(UI.open==='dead:'+k.id)h+=PIPE.deadPicker(k,UI.reason);
@@ -921,6 +926,7 @@ function offWhy(m){
   else if((x=r.match(/^moved by (\S+)$/i))){who=NXShell.personOf(x[1]);lead='Moved to another campaign';why='';}
   else if((x=r.match(/^returned to prospect by (\S+)$/i))){who=NXShell.personOf(x[1]);lead='Returned to prospect';why='';}
   else if((x=r.match(/^status (.+?) set by (\S+?)(?:: no campaign)?$/i))){who=NXShell.personOf(x[2]);lead=`Status set to ${x[1]}`;why='';}
+  else if(/^finished its emails/i.test(r)){lead='Finished its emails';why='';}
   why=why.replace(ADDRESS,a=>NXShell.personOf(a));
   if(m.status==='remove'){
     const said=why||(lead==='Removed'?'':lead.charAt(0).toLowerCase()+lead.slice(1));
@@ -929,11 +935,13 @@ function offWhy(m){
   }
   return `${lead}${who?' by '+who:''}${when?', '+when:''}${why?': '+why:''}`;
 }
-/* The live memberships, newest first, then the removed ones in the panel's archive. */
+/* The live memberships, the one on its turn first and then in the order they
+   will go (plan 083), then the removed ones in the panel's archive. A campaign
+   picked on a Prospects row is not on a list, so it is not here until Accept. */
 function campaignsPanel(){
   if(CM.missing)return '<section class="panel"><h2>Campaigns</h2><p class="fact muted">The campaign lists are not there yet: migration 0047 has not been applied.</p></section>';
   if(CM.error)return `<section class="panel"><h2>Campaigns</h2><p class="fact muted">Could not read the campaign lists: ${esc(CM.error)}</p></section>`;
-  const live=CM.rows.filter(m=>!CAMPAIGN_OFF.includes(m.status)), off=CM.rows.filter(m=>CAMPAIGN_OFF.includes(m.status));
+  const live=CM.rows.filter(m=>!CAMPAIGN_OFF.includes(m.status)).sort((a,b)=>(a.status==='waiting')-(b.status==='waiting')||a.id-b.id), off=CM.rows.filter(m=>CAMPAIGN_OFF.includes(m.status));
   const nameOf=m=>(CM.names[m.campaign_id]||{}).name||`Campaign ${m.campaign_id}`;
   const row=m=>{
     const why=(m.status==='waiting'||m.status==='error')&&m.reason?`<span class="item-sub wrap">${esc(m.reason)}</span>`:'';
@@ -944,7 +952,7 @@ function campaignsPanel(){
   };
   const arch=off.length?`<details class="archive inpanel"><summary>Removed from campaigns (${off.length})</summary><div class="arch-body">${off.map(m=>
     `<div class="arch-row"><span style="font-weight:600;color:var(--fg)">${esc(nameOf(m))}</span><span class="arch-note">${esc(offWhy(m))}</span></div>`).join('')}</div></details>`:'';
-  return `<section class="panel"><h2>Campaigns <span class="n num">${live.length}</span></h2><div>${live.length?live.map(row).join(''):'<p class="fact muted">Not on any campaign.</p>'}</div>${arch}`+
+  return `<section class="panel"><h2>Campaigns <span class="n num">${live.length}</span></h2><div>${live.length?live.map(row).join(''):'<p class="fact muted">Not on any campaign. One picked on the Prospects page joins at Accept.</p>'}</div>${arch}`+
     `<div class="panel-actions"><a class="btn sm" href="marketing-campaigns.html">${ms('campaign','sm')}Open Campaigns</a></div></section>`;
 }
 /* The company's introductions, as either party, with their board stage and the other company. */
@@ -1007,6 +1015,7 @@ function timelineItems(){
     else if(e.kind==='site-edited')title=`Site changed: ${siteName(d.site_id)||'a site'}`;
     else if(e.kind==='profile-written')title='Profile written from Contacts';
     else if(e.kind==='hand-edit-kept')title='A hand edit kept as a note';
+    else if(e.kind==='login-deleted'){title='A portal login was deleted';body={removed:'They came only from the portal, so they left Contacts with their addresses and activity.',kept:`${personName(e.person_id)} was already a contact, so they stay and only their portal activity went.`,'no-person':'They were not in Contacts.'}[d.outcome]||'';}
     else title=e.kind;
     out.push({when:e.at,cat:'change',icon:e.kind==='tagged'||e.kind==='untagged'?'sell':e.kind.startsWith('person')?'person':'edit_note',cls:'chg',kind:'Change',title,body:(body+by(e.by)).trim()});
   });
@@ -1084,6 +1093,10 @@ function render(){
    same watch()), closes its choice, and refuses a second press of a job
    or a task while the first is on its way (plan 072). */
 async function raise(type,payload,verb,toastText){
+  if(NXSAVE.direct(type)){
+    const saved=await NXSAVE.press(sb,type,payload,()=>{UI.open=null;UI.edit=null;render();return load();});
+    if(saved!==null)return saved;
+  }
   const temp={id:1e15+(++sendSeq),type,payload_json:payload,status:'pending',requested_at:new Date().toISOString(),requested_by:me.email};
   const k=NXJOBS.TYPES.includes(type)||NXJOBS.TASK_TYPES.includes(type)?NXJOBS.intentKey(temp):null;
   if(k!=null&&jobPending[k]&&jobPending[k].status!=='failed')return false;
