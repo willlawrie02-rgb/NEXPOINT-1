@@ -412,7 +412,7 @@ async function answerDb(world, route, request, url) {
   // --- the tables
   const table = (p.match(/^\/rest\/v1\/([^/]+)$/) || [])[1];
   const rpc = (p.match(/^\/rest\/v1\/rpc\/([^/]+)$/) || [])[1];
-  if (rpc) { world.reads.push({ table: "rpc:" + rpc }); return send(200, []); }
+  if (rpc) { world.reads.push({ table: "rpc:" + rpc, body }); return send(200, []); }
   if (table) {
     if (method === "GET" || method === "HEAD") {
       world.reads.push({ table });
@@ -4717,6 +4717,109 @@ async function walkInboxAndSystem() {
 
 // ================================================================ the people (plan 052, wave 3)
 const INVITE_TOKEN = "a".repeat(64);
+/* Plan 079, Phases 3 and 4: with crm_settings.direct_writes on, a note and a
+   prospect's changes save at once through a function, with no intent; with it
+   off, the page takes the intent route it always has. */
+async function walkSavesFirst() {
+  area = "A note and a prospect saved at once (plan 079)";
+  const saveJs = join(ADMIN_DIR, "save.js");
+  if (!existsSync(saveJs) || !/crm_add_prospect_note/.test(readFileSync(saveJs, "utf8"))) {
+    notes.push("The saves-first checks were skipped: this admin copy is from before plan 079's Phases 3 and 4 (set WALK_ADMIN_DIR to the engine's app/)");
+    return;
+  }
+  const switched = (world, value) => {
+    world.rows.crm_settings = [{ key: "imported_at", value: "2026-10-23", set_by: "walk" }, { key: "direct_writes", value, set_by: "walk" }];
+  };
+  const company = async (value, seed, go) => {
+    const world = newWorld();
+    switched(world, value);
+    world.rows.crm_companies = [{ id: 1, name: "ZZ Walk Test Ltd", slug: "zz-walk-test", area: "leads", website: null, source: "folder", archived_at: null }];
+    world.rows.crm_company_folders = [{ id: 1, company_id: 1, area: "leads", slug: "zz-walk-test", is_primary: true, gone_at: null }];
+    if (seed) seed(world);
+    const { context, page, errors } = await visit(world, { seedAdmin: true });
+    await page.goto(`${APEX}/admin/company.html?id=1`);
+    await page.waitForSelector("#admin", { state: "visible" });
+    await go(page, world);
+    clean(world, errors, "the company page");
+    await context.close();
+  };
+  const addNote = async (page) => {
+    await page.waitForSelector("#cp-note");
+    await page.fill("#cp-note", "Rang ZZ Walk about pricing");
+    await page.click('[data-act="noteAdd"]');
+  };
+  const rpcs = (world, name) => world.reads.filter((r) => r.table === "rpc:" + name);
+  const saidSaved = (page) => page.waitForFunction(() => (document.getElementById("toast") || {}).textContent === "Saved");
+  await company("on", null, async (page, world) => {
+    await step("switched on, a note saves at once with no intent", async () => {
+      await addNote(page);
+      await until(() => rpcs(world, "crm_add_note").length > 0, "the note's call");
+      eq(rpcs(world, "crm_add_note")[0].body, { p: { company_id: 1, body: "Rang ZZ Walk about pricing" } }, "what it sent");
+      eq(world.writes, [], "writes");
+      await saidSaved(page);
+    });
+  });
+  await company("off", null, async (page, world) => {
+    await step("switched off, a note raises one add-note as it always has", async () => {
+      await addNote(page);
+      await until(() => world.writes.length > 0, "the intent write");
+      eq(oneRow(world.writes[0]).type, "add-note", "the intent");
+      eq(rpcs(world, "crm_add_note").length, 0, "calls");
+    });
+  });
+  const waiting = { id: 7, company_id: 1, body: "Rang ZZ Walk about pricing", by: ADMIN_EMAIL, at: ago(1), file_error: null };
+  await company("on", (w) => { w.rows.crm_new_notes = [waiting]; }, async (page) => {
+    await step("a note not filed yet is on the timeline, and says so", async () => {
+      await page.waitForSelector(".ev-body");
+      has(await page.innerText("#page"), "Rang ZZ Walk about pricing", "the note");
+      has(await page.innerText("#page"), "Filing to the folder.", "what it says");
+    });
+  });
+  await company("on", (w) => { w.rows.crm_new_notes = [{ ...waiting, file_error: "could not commit" }]; }, async (page, world) => {
+    await step("a note that could not be filed offers Try again", async () => {
+      await page.waitForSelector(".ev-body");
+      has(await page.innerText("#page"), "Could not file it: could not commit", "what it says");
+      await page.click('[data-act="retryNote"][data-note="7"]');
+      await until(() => rpcs(world, "crm_retry_note").length > 0, "the retry's call");
+      eq(rpcs(world, "crm_retry_note")[0].body, { p: { note_id: 7 } }, "what it sent");
+      eq(world.writes, [], "writes");
+    });
+  });
+  const prospects = async (name, act, fn, check_) => {
+    const world = newWorld();
+    switched(world, "on");
+    world.rows.engine_lead_queue = [{ id: 601, company: "zz-walk-601", display_name: "ZZ Walk 601 Ltd", category: "Cold", matched_json: [], reasoning: "walk",
+      judge_reason: "walk", website: "https://example.com", quality: null, judged: true, judge_confidence: "medium", proposed_at: ago(24), decided_at: null,
+      decided_by: null, decision_note: null, status: "pending", prospect_type: "Cold", recommended_campaign_id: null, campaign_id: null, source: "finder",
+      list_overlap: null, sector: null, company_type: null }];
+    world.rows.prospect_options = [{ field: "sector", value: "Insoles", position: 10, active: true }];
+    world.rows.prospect_notes = [];
+    const { context, page, errors } = await visit(world, { seedAdmin: true });
+    await page.goto(`${APEX}/admin/${PROSPECTS_PAGE}`);
+    await page.waitForSelector("#admin", { state: "visible" });
+    await page.waitForSelector("#plist tbody tr");
+    await step(name, async () => {
+      await page.click('[data-act="openRow"][data-id="601"]');
+      await act(page);
+      await until(() => rpcs(world, fn).length > 0, "the function's call");
+      check_(rpcs(world, fn)[0].body.p);
+      eq(world.writes, [], "writes");
+      await saidSaved(page);
+    });
+    clean(world, errors, "the Prospects page");
+    await context.close();
+  };
+  await prospects("switched on, a Save on Prospects goes straight to the record", async (page) => {
+    await page.click('#plist [data-act="toggleMany"][data-id="601"][data-f="sectors"][data-v="Insoles"]');
+    await page.click("#save-601");
+  }, "crm_edit_prospect", (p) => eq([p.queue_row, p.fields], [601, { sectors: ["Insoles"] }], "what it sent"));
+  await prospects("switched on, a note on Prospects goes straight to the record", async (page) => {
+    await page.locator("#plist summary", { hasText: "Notes (" }).click();
+    await page.fill("#note-601", "Met at the fair.");
+    await page.click('[data-act="addNote"][data-id="601"]');
+  }, "crm_add_prospect_note", (p) => eq([p.company, p.body], ["zz-walk-601", "Met at the fair."], "what it sent"));
+}
+
 async function walkPeople() {
   area = "The account page: You and Users (plan 052, wave 3)";
   {
@@ -4910,7 +5013,7 @@ const started = Date.now();
    failed check with the reason, and the parts after it still run. */
 const parts = []
   .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkJoin, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkFilmTags, walkLandings, walkSign] : [])
-  .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkMovedPages, walkInboxAndSystem, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm, walkBoardAdmin] : []);
+  .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkMovedPages, walkInboxAndSystem, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm, walkBoardAdmin, walkSavesFirst] : []);
 /* The settings page's You and Users (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
 /* The Opportunities Board (plan 070) walks straight after the signed-in pages, and its
