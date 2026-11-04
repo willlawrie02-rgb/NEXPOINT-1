@@ -58,7 +58,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=3"></script>
+<script src="crm-shell.js?v=4"></script>
 <script src="crm.js?v=071"></script>
 <script src="jobs.js?v=088"></script>
 <script>
@@ -96,7 +96,7 @@ function showAdmin(u){$('login').style.display='none';$('admin').style.display='
    invoices through fee-invoice-sync), the lines edited in place before they
    are invoiced (D5), Void (D6), and the discount-code reports (D7); Xero
    invoices is every invoice of every kind with its Xero state; Consultancy
-   fees are the signing links' invoices. Every write is a literal raise of
+   fees are the agreement links' invoices. Every write is a literal raise of
    one intent; the browser writes engine_intents and nothing else. */
 const esc=NXCRM.esc, ms=NXShell.ms;
 const MONEY_INTENTS=['raise-fee-invoice','void-statement','edit-declaration-line','void-fee-invoice','record-fee-paid',
@@ -470,10 +470,11 @@ function invoicesTab(){
 /* ---------- consultancy fees ---------- */
 function feesTab(){
   const rows=D.links.filter(l=>!l.is_test).sort((a,b)=>b.id-a.id);
-  if(!rows.length)return '<section class="panel"><div class="empty-state">'+ms('handshake')+'<h3>No consultancy fees yet</h3><p>A signed engagement shows here with its invoice.</p></div></section>';
+  const agreements=link('consultancy.html','Open consultancy agreements','draw');
+  if(!rows.length)return '<section class="panel"><div class="empty-state">'+ms('handshake')+'<h3>No consultancy fees yet</h3><p>A signed engagement shows here with its invoice.</p><div class="until">'+agreements+'</div></div></section>';
   const st=l=>l.paid_at?`<span class="st ok">Paid ${esc(fmt(l.paid_at))}</span>`:l.invoiced_at?(l.xero_due_date&&String(l.xero_due_date)<todayIso()?'<span class="st err">Overdue</span>':'<span class="st info">Awaiting payment</span>')
     :l.signed_at?(l.last_error?`<span class="st err">Not raised: ${esc(l.last_error)}</span>`:'<span class="st">Signed, invoice being raised</span>'):'<span class="st">Not signed yet</span>';
-  return `<section class="panel"><h2>Consultancy fees <span class="n num">${rows.length}</span></h2><div class="tscroll"><table class="tbl"><thead><tr><th>Client</th><th>For</th><th>Invoice</th><th class="num">Amount</th><th>Xero status</th><th>Due</th></tr></thead><tbody>`+
+  return `<section class="panel"><div class="panel-head"><h2>Consultancy fees <span class="n num">${rows.length}</span></h2>${agreements}</div><div class="tscroll"><table class="tbl"><thead><tr><th>Client</th><th>For</th><th>Invoice</th><th class="num">Amount</th><th>Xero status</th><th>Due</th></tr></thead><tbody>`+
     rows.map(l=>`<tr><td><a class="linkish" href="company.html?slug=${esc(encodeURIComponent(l.company_slug||''))}">${esc(l.client_name||l.company_slug||'')}</a></td><td>${esc(l.service||'')}</td><td>${esc(l.xero_invoice_number||'')}</td><td class="num">${esc(pounds(l.fee_amount))}</td><td>${st(l)}</td><td>${esc(fmt(l.xero_due_date))}</td></tr>`).join('')+'</tbody></table></div></section>';
 }
 

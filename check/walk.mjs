@@ -4102,10 +4102,10 @@ async function walkProspectsMarketing() {
   };
   await one("Save raises one edit-prospect with only the changed fields", async (page) => {
     await open(page, 601);
-    await page.selectOption("#sector-601", "Insoles");
-    await page.selectOption("#ctype-601", "Lab");
+    await page.click('#plist [data-act="toggleMany"][data-id="601"][data-f="sectors"][data-v="Insoles"]');
+    await page.click('#plist [data-act="toggleMany"][data-id="601"][data-f="company_types"][data-v="Lab"]');
     await page.click("#save-601");
-  }, { type: "edit-prospect", check: (p) => eq([p.queue_row, p.fields], [601, { sector: "Insoles", company_type: "Lab" }], "payload") });
+  }, { type: "edit-prospect", check: (p) => eq([p.queue_row, p.fields], [601, { sectors: ["Insoles"], company_types: ["Lab"] }], "payload") });
   await one("Park raises one watch-lead", async (page) => {
     await open(page, 601);
     await page.click('#act-601 [data-act="park"]');
@@ -4150,7 +4150,9 @@ async function walkProspectsMarketing() {
       await open(page, 601);
       has(await page.textContent("#plist"), "Met at the fair.", "the note");
       await page.selectOption("#type-601", "Known contact");
-      eq(await page.isDisabled("#camp-601"), true, "campaign disabled");
+      const campaigns = page.locator('#plist [data-f="campaigns"][data-id="601"]');
+      for (let i = 0; i < await campaigns.count(); i++) eq(await campaigns.nth(i).isDisabled(), true, "campaign disabled");
+      has(await page.textContent("#plist"), "None: Chris contacts personally", "the campaign's note");
       await tab(page, "parked");
       await open(page, 602);
       eq(await page.isDisabled("#quality-602"), true, "parked quality disabled");

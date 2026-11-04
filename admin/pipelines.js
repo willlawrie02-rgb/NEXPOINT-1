@@ -1,7 +1,7 @@
 /* The three pipelines' shared parts (plan 073): what the Pipelines page
    (pipelines.html) and the company page's steppers (company.html) both draw.
 
-   Loaded after crm-shell.js and crm.js as <script src="pipelines.js?v=073">:
+   Loaded after crm-shell.js and crm.js as <script src="pipelines.js?v=086">:
    shared admin files are cached in browsers for up to four hours, so bump
    ?v= on every change (and on every page that links it).
 
@@ -32,7 +32,7 @@
   const EVIDENCE = {
     hub: { lead: 'an accepted prospect or a fit', contacted: 'the first email',
       account: 'the portal invite or a matching sign-up', applied: 'the listing', invoiced: 'Xero', paid: 'Xero' },
-    consultancy: { lead: 'an accepted prospect or a fit', contacted: 'the first email', agreed: 'the signing link',
+    consultancy: { lead: 'an accepted prospect or a fit', contacted: 'the first email', agreed: 'the agreement link',
       invoiced: 'Xero', paid: 'Xero' },
   };
   const BOARD_NAME = { hub: 'Hub Providers', consultancy: 'Consultancy' };
@@ -40,18 +40,18 @@
   /* Each column's line: what moves a card into it. */
   const WHEN = {
     hub: { lead: 'An accepted prospect or a 3D Print Hub or Mill Hub fit tag', contacted: 'Outlook: we send the first email',
-      conversation: 'By hand: a real conversation is under way', agreed: 'By hand: they agree to list',
+      conversation: 'A meeting note or transcript is filed, or by hand: we have met them', agreed: 'By hand: they agree to list',
       account: 'Portal: the invited account is confirmed, or a sign-up matches',
       applied: 'Portal: they submit their first listing', invoiced: 'Xero: we approve, it goes live and the invoice is raised',
       paid: 'Paid hosts move to Live Listings' },
     consultancy: { lead: 'A Consultancy fit tag', contacted: 'Outlook: we send the first email',
-      conversation: 'By hand: a real conversation is under way', agreed: 'Signing link: we make the link for them',
+      conversation: 'A meeting note or transcript is filed, or by hand: we have met them', agreed: 'Agreement link: we make the link for them',
       invoiced: 'Xero: they sign, and the invoice is raised', paid: 'Paid cards move to Active clients' },
   };
   /* The stepper's one line on what moves the card. */
   const AUTO_NOTE = {
-    hub: 'Moves on its own from the evidence: the first email, the portal and Xero. In conversation and Agreed move by hand, and any card can be moved back by hand.',
-    consultancy: 'Moves on its own from the first email, the signing link and Xero. In conversation moves by hand, and any card can be moved back by hand.',
+    hub: 'Moves on its own from the evidence: the first email, a filed meeting note or transcript, the portal and Xero. In conversation and Agreed also move by hand, and any card can be moved back by hand; a card moved back stays a deal.',
+    consultancy: 'Moves on its own from the first email, a filed meeting note or transcript, the agreement link and Xero. In conversation also moves by hand, and any card can be moved back by hand; a card moved back stays a deal.',
   };
   const AUTO = { hub: { lead: 1, contacted: 1, account: 1, applied: 1, invoiced: 1, paid: 1 },
     consultancy: { lead: 1, contacted: 1, agreed: 1, invoiced: 1, paid: 1 } };
@@ -122,16 +122,16 @@
   }
   const KIND_WORD = { search: 'Search', acquisition_jv: 'Acquisition / JV' };
 
-  /* A signing link's state in one line (D16): made, opened, signed, invoiced, paid. */
+  /* An agreement link's state in one line (D16): made, opened, signed, invoiced, paid. */
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const dm = (v) => { const t = ts(v); if (t == null) return ''; const d = new Date(t); return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()]; };
   function signLine(link) {
     if (!link) return '';
-    if (link.revoked_at) return `Signing link withdrawn ${dm(link.revoked_at)}`;
+    if (link.revoked_at) return `Agreement link withdrawn ${dm(link.revoked_at)}`;
     if (link.paid_at) return `Signed ${dm(link.signed_at)}, paid ${dm(link.paid_at)}`;
     if (link.invoiced_at) return `Signed ${dm(link.signed_at)}, invoiced ${dm(link.invoiced_at)}, not paid`;
     if (link.signed_at) return `Signed ${dm(link.signed_at)}`;
-    return `Signing link made ${dm(link.created_at)}` + (link.opened_at ? `, opened ${dm(link.opened_at)}, not signed` : ', not opened');
+    return `Agreement link made ${dm(link.created_at)}` + (link.opened_at ? `, opened ${dm(link.opened_at)}, not signed` : ', not opened');
   }
 
   /* Mark as dead, in place: the six reasons, a note, the action and Cancel. */
@@ -151,7 +151,8 @@
     const what = m.how === 'created' ? `Added at ${to}` : m.how === 'dead' ? 'Marked as dead' : m.how === 'revived' ? `Revived at ${to}`
       : m.how === 'ended' ? 'Term over: moved to Ended' : m.how === 'won' ? (board === 'hub' ? 'Paid: moved to Live Listings' : 'Paid: moved to Active clients')
         : `Moved to ${to} ${HOW_WORD[m.how] || ''}`.trim();
-    return what + who + (m.evidence ? ` (${m.evidence})` : '');
+    /* Moves recorded before 3 November 2026 keep the old name in the record; the page says agreement link. */
+    return what + who + (m.evidence ? ` (${String(m.evidence).replace(/^signing\slink/, 'agreement link')})` : '');
   }
 
   window.NXPIPE = { STAGES, NAMES, HAND, EVIDENCE, BOARD_NAME, DEAD_REASONS, WHEN, AUTO_NOTE, AUTO, INTRO_STAGE, INTRO_NAMES, KIND_WORD,
