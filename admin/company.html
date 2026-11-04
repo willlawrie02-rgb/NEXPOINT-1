@@ -70,7 +70,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=4"></script>
 <script src="crm.js?v=071"></script>
-<script src="save.js?v=079"></script>
+<script src="save.js?v=0793"></script>
 <script src="jobs.js?v=088"></script>
 <script src="pipelines.js?v=086"></script>
 <script>
@@ -278,6 +278,11 @@ async function loadCompany(cid){
     slugs.length?sb.from('engine_lead_queue').select('id,company,status,prospect_type,sector,company_type,sectors,company_types,proposed_at,decided_at,decided_by,source').in('company',slugs):none,
     slugs.length?sb.from('prospect_notes').select('id,company,body,by,at').in('company',slugs):none,
   ]);
+  /* Plan 079: notes saved and not filed yet. Before 0095 there is no table, and that is no trouble unless the switch is on. */
+  const unfiled=await sb.from('crm_new_notes').select('id,body,by,at,file_error').eq('company_id',cid).is('filed_at',null).order('id',{ascending:false});
+  if(unfiled.error&&NXSAVE.direct('add-note'))banners.push(`Could not read the notes waiting to be filed: ${unfiled.error.message}.`);
+  /* crm-sync may index a file before its stamp lands: the file's name carries the row's id. */
+  const onTimeline=new Set((nq.data||[]).map(n=>(/_note-(\d+)\.md$/.exec(n.path||'')||[])[1]));
   for(const [what,e] of [['addresses',eq.error],['Prospects history',qq.error],['Prospects notes',prq.error]])if(e)banners.push(`Could not read the ${what}: ${e.message}.`);
   const tags={};(tq.data||[]).forEach(t=>{tags[t.id]=t;});
   const emails={};(eq.data||[]).filter(e=>!e.retired_at).sort((a,b)=>(b.is_primary?1:0)-(a.is_primary?1:0)).forEach(e=>{(emails[e.person_id]=emails[e.person_id]||[]).push(e.email);});
@@ -286,7 +291,8 @@ async function loadCompany(cid){
      links:(lq.data||[]).filter(l=>!l.retired_at).sort((a,b)=>a.position-b.position),
      events:evq.data||[],mail:(mq.data||[]).filter(m=>!m.gone_at),notes:(nq.data||[]).filter(n=>!n.gone_at),
      capped:[[mq,'filed emails'],[evq,'changes'],[nq,'notes']].filter(([q])=>(q.data||[]).length===500).map(([,w])=>w),
-     queue:(qq.data||[]).slice().sort((a,b)=>String(b.proposed_at).localeCompare(String(a.proposed_at))),pnotes:prq.data||[]};
+     queue:(qq.data||[]).slice().sort((a,b)=>String(b.proposed_at).localeCompare(String(a.proposed_at))),pnotes:prq.data||[],
+     newNotes:(unfiled.data||[]).filter(n=>!onTimeline.has(String(n.id)))};
   await loadAccounts(C.sites.map(s=>s.org_id).filter(Boolean));
   await loadPipes(cid);
   await loadCampaigns();
@@ -727,9 +733,15 @@ function needsYouHtml(){
 /* Plan 054 (D1): the composer is Note or Task, the design's one second-level control. A note is a
    file in the company's folder (add-note), indexed onto the timeline by the next crm-sync; @claude
    in it is answered in the same file. The Task half is plan 072's. A company with no live folder
-   has nowhere for a note to go and is told so here, before anything is queued. */
+   has nowhere for a note to go and is told so here, before anything is queued. Plan 079: with the
+   switch on the note is saved at once and is on the timeline straight away, the file following in
+   minutes, so a live company with no folder can hold one until it has a folder. */
 const NO_FOLDER_NOTE='No workspace folder: accept the company on Prospects, or add it with a folder.';
 const noteFolder=()=>C&&!C.company.archived_at?C.folders.find(f=>f.area==='deals'||f.area==='leads'):null;
+const noteMayWait=()=>C&&!C.company.archived_at&&NXSAVE.direct('add-note');
+const noteHelp=()=>!NXSAVE.direct('add-note')?'Shows on the timeline after the next sync; @claude in it is answered there.'
+  :noteFolder()?'Shows on the timeline at once; @claude in it is answered there.'
+  :'Shows on the timeline at once. This company has no workspace folder yet, so it is filed when it has one.';
 function composerHtml(){
   if(!C||T.missing||T.error)return '';
   const task=UI.composer==='task';
@@ -741,7 +753,7 @@ function composerHtml(){
     half=`${input('cp-title','For example: send the hub pricing')}`+
       `<div class="composer-row"><span class="left"><label class="sr" for="cp-due">Due</label><input class="input" type="date" id="cp-due"><span class="picker-note">Shows under Open tasks here and in the Inbox.</span></span>`+
       `${btn('taskAdd','Add task','',{form:'cp',company:C.id},'primary')}</div>`;
-  }else if(!noteFolder()){
+  }else if(!noteFolder()&&!noteMayWait()){
     half=`<p class="picker-note">${NO_FOLDER_NOTE}</p>`;
   }else{
     const np=noteByCompany[C.id];
@@ -749,7 +761,7 @@ function composerHtml(){
       ?`<div class="fail-line"><span>Failed: ${esc(NXJOBS.sentence(np.result_note))}</span>${btn('retry','Try again','',{intent:np.id},'quiet')}</div>`
       :'<p class="picker-note"><span class="status-line">Note queued.</span> It shows on the timeline after the next sync.</p>';
     half=noteState+`<label class="sr" for="cp-note">The note</label><textarea class="input" id="cp-note" rows="4" placeholder="What happened, or a question for Claude starting @claude"></textarea>`+
-      `<div class="composer-row"><span class="picker-note">Shows on the timeline after the next sync; @claude in it is answered there.</span>`+
+      `<div class="composer-row"><span class="picker-note">${noteHelp()}</span>`+
       `${btn('noteAdd','Add note','',{company:C.id},'primary')}</div>`;
   }
   return `<section class="panel"><div class="composer-row"><h2>Add a note or a task</h2>${seg}</div><div class="composer">${half}</div></section>`;
@@ -997,6 +1009,9 @@ function timelineItems(){
   C.notes.forEach(n=>out.push({when:n.dated,cat:'note',icon:'sticky_note_2',cls:'',kind:'Note',title:n.title||n.path.split('/').pop(),
     extra:n.body?`<details class="more"><summary>Read the note</summary><p class="ev-body">${esc(n.body)}</p></details>`:''}));
   C.pnotes.forEach(n=>out.push({when:n.at,cat:'note',icon:'sticky_note_2',cls:'',kind:'Prospects note',title:`Note from ${NXShell.personOf(n.by)}`,body:n.body}));
+  C.newNotes.forEach(n=>out.push({when:n.at,cat:'note',icon:'sticky_note_2',cls:'',kind:'Note',title:`Note from ${NXShell.personOf(n.by)}`,body:n.body,
+    extra:n.file_error?`<div class="fail-line"><span>Could not file it: ${esc(n.file_error)}</span>${btn('retryNote','Try again','',{note:n.id},'quiet')}</div>`
+      :`<span class="picker-note">${noteFolder()?'Filing to the folder.':'Waiting for a workspace folder.'}</span>`}));
   C.events.forEach(e=>{
     const d=e.detail||{};let title='',body='';
     if(e.kind==='imported'||e.kind==='adopted'){title=e.person_id?`${personName(e.person_id)} added`:'Added to Contacts';body=SOURCE_WORD[d.source]?`From ${SOURCE_WORD[d.source]}.`:'';}
@@ -1131,10 +1146,14 @@ const ACT={
   /* plan 054: the composer's Note */
   composerPick(el){UI.composer=el.dataset.pick==='task'?'task':'note';render();},
   async noteAdd(){
-    if(!noteFolder())return need('cp-note',NO_FOLDER_NOTE);
+    if(!noteFolder()&&!noteMayWait())return need('cp-note',NO_FOLDER_NOTE);
     const body=val('cp-note');
     if(!body)return need('cp-note','Type the note first.');
     return raise('add-note',{company_id:C.id,body},'Note added','Note added. It shows on the timeline after the next sync.');
+  },
+  async retryNote(el){
+    const saved=await NXSAVE.press(sb,'retry-note',{note_id:Number(el.dataset.note)},load);
+    if(saved===null)NXShell.toast('Not saved: reload the page and try again.');
   },
   tlFilter(el){UI.tl=el.dataset.f;UI.tlMax=50;render();},
   moreTl(){UI.tlMax+=200;render();},
