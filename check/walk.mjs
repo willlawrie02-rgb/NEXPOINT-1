@@ -3922,18 +3922,13 @@ const SAME_NAME = /function sameName\(/.test(readFileSync(join(ADMIN_DIR, "organ
 const ago = (hours) => new Date(Date.now() - hours * 36e5).toISOString();
 
 
-/* Plan 070: the Opportunities list (index.html) reads board_opportunities.
-   Its one direct write is the status; Set live then raises one publish, a
-   refused live is said in words, and End raises one intent with its reason.
-   Like the reviewed boards, this waits for an admin copy that has it. */
-const BOARD_070 = /board_opportunities/.test(readFileSync(join(ADMIN_DIR, "index.html"), "utf8"));
+/* Plan 070, moved by plan 075 to Live Listings' Opportunities tab (listings.html)
+   and read there from board_opportunities. Its one direct write is the status;
+   Publish then raises one publish, a refused live is said in words, and End
+   raises one intent with its reason. */
 async function walkBoardAdmin() {
-  area = "The Opportunities list (plan 070)";
-  if (!BOARD_070) {
-    notes.push("the Opportunities list's plan 070 checks were skipped: this admin copy is from before plan 070 (set WALK_ADMIN_DIR to the engine's app/)");
-    return;
-  }
-  const world = newWorld({ dialogAnswer: "the scripted walk" });
+  area = "The Opportunities list (plan 070, on Live Listings)";
+  const world = newWorld();
   world.rows.board_opportunities = [
     { id: "nx-2620", ref: "NX-2620", status: "draft", owner_company_id: 7, owner_org_id: null, naming: "named",
       kind: "introduction", dir: "OFFERING", public: { title: "ZZ Walk opportunity" }, sort: 1 },
@@ -3944,18 +3939,25 @@ async function walkBoardAdmin() {
   ];
   world.rows.crm_companies = [{ id: 7, name: "ZZ Walk Owner Ltd" }];
   const { context, page, errors } = await visit(world, { seedAdmin: true });
-  await page.goto(`${APEX}/admin/index.html`);
+  await page.goto(`${APEX}/admin/listings.html?tab=opportunities`);
   const writesTo = (table) => world.writes.filter((w) => w.table === table);
   const intentRow = (w) => (Array.isArray(w.body) ? w.body[0] : w.body);
-  await step("each opportunity shows its owner; a posted one has no Set live", async () => {
+  const publish = async (id) => {
+    await page.click(`#opp-${id} button:has-text("Review and publish")`);
+    await page.click(`#opp-${id} button:has-text("Publish"):not(:has-text("Review"))`);
+  };
+  await step("each opportunity shows its owner; a posted one has nothing to publish", async () => {
     await page.waitForSelector("#opp-nx-2620");
-    has(await page.textContent("#opp-nx-2620"), "Owner: ZZ Walk Owner Ltd (no portal account set)", "the owner");
-    has(await page.textContent("#opp-nx-2622"), "Owner: No owner", "no owner");
-    eq(await page.locator('#opp-nx-2621 button:has-text("Set live")').count(), 0, "Set live on a posted row");
-    eq(await page.locator('#opp-nx-2620 button:has-text("Set live")').count(), 1, "Set live on a draft");
+    const owner = await page.textContent("#opp-nx-2620 .opp-facts");
+    has(owner, "ZZ Walk Owner Ltd", "the owner");
+    has(owner, "no portal account set", "the owner's account");
+    has(await page.textContent("#opp-nx-2622 .opp-facts"), "No owner", "no owner");
+    has(await page.textContent("#opp-nx-2621"), "The brief-writer is drafting it", "the posted row's words");
+    eq(await page.locator('#opp-nx-2621 button:has-text("Review and publish")').count(), 0, "Review and publish on a posted row");
+    eq(await page.locator('#opp-nx-2620 button:has-text("Review and publish")').count(), 1, "Review and publish on a draft");
   });
-  await step("Set live writes the status and its time alone, then raises one publish", async () => {
-    await page.click('#opp-nx-2620 button:has-text("Set live")');
+  await step("Publish writes the status and its time alone, then raises one publish", async () => {
+    await publish("nx-2620");
     await until(() => writesTo("engine_intents").length === 1, "the publish");
     const status = writesTo("board_opportunities");
     eq(status.length, 1, "status writes");
@@ -3971,18 +3973,23 @@ async function walkBoardAdmin() {
         message: 'new row for relation "board_opportunities" violates check constraint "board_opportunities_live_needs_owner"' }) });
     });
     const before = writesTo("engine_intents").length;
-    await page.click('#opp-nx-2622 button:has-text("Set live")');
-    await page.waitForFunction(() => /goes live only with an owner company/.test(document.getElementById("err-nx-2622").textContent));
-    has(await page.textContent("#err-nx-2622"), "An opportunity goes live only with an owner company: set it on the board", "the words");
+    await publish("nx-2622");
+    await page.waitForFunction(() => /goes live only with an owner company/.test(document.getElementById("toast").textContent));
+    has(await page.textContent("#toast"), "An opportunity goes live only with an owner company: set it on the card first", "the words");
     eq(writesTo("engine_intents").length, before, "intents raised");
     await context.unroute("**/rest/v1/board_opportunities*");
   });
   await step("End asks why, then raises one end-board-opportunity with the reason", async () => {
     const before = writesTo("engine_intents").length;
-    await page.click('#opp-nx-2620 button:has-text("End")');
+    await page.click('#opp-nx-2622 button:has-text("End")');
+    await page.click('#opp-nx-2622 button:has-text("End the opportunity")');
+    await page.waitForFunction(() => /Give a reason/.test(document.getElementById("toast").textContent));
+    eq(writesTo("engine_intents").length, before, "intents raised with no reason");
+    await page.fill("#en-why-nx-2622", "the scripted walk");
+    await page.click('#opp-nx-2622 button:has-text("End the opportunity")');
     await until(() => writesTo("engine_intents").length === before + 1, "the end intent");
     const row = intentRow(writesTo("engine_intents").at(-1));
-    eq([row.type, row.payload_json], ["end-board-opportunity", { id: "nx-2620", reason: "the scripted walk" }], "the intent");
+    eq([row.type, row.payload_json], ["end-board-opportunity", { id: "nx-2622", reason: "the scripted walk" }], "the intent");
   });
   clean(world, errors, "the Opportunities list");
   await context.close();
