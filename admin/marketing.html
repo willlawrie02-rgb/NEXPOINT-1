@@ -73,7 +73,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=4"></script>
 <script src="crm.js?v=071"></script>
-<script src="save.js?v=0793"></script>
+<script src="save.js?v=0794"></script>
 <script src="jobs.js?v=088"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -329,7 +329,8 @@ async function load(){
   if(pre92)banners.push('Migration 0092 has not been applied: Sector, Company type and Campaign hold one value each until it is.');
   if(pre)banners.push('Migration 0047 has not been applied: prospects show without their Campaign, and Accept is paused until it is.');
   const o=await readAll('prospect_options','field,value,position,active','position');
-  const n=await readAll('prospect_notes','id,company,body,by,at','id');
+  /* All columns: file_error is plan 079's (0096), and this page still stands before that is applied. */
+  const n=await readAll('prospect_notes','*','id');
   const optErr=o.error||n.error;
   const queuePre65=pre65;
   if(optErr)pre65=true;
@@ -526,7 +527,7 @@ function fields(r,isParked){
 function notesBlock(r){
   const list=notes[r.company]||[],q=pendingFor['n'+r.company];
   return `<details class="archive inpanel"${list.length?' open':''}><summary>Notes (${list.length})</summary><div class="arch-body notes">
-    ${list.map(n=>`<p class="note-item"><span class="muted-t">${esc(NXShell.personOf(n.by))}, ${esc(NXCRM.fmtDate(n.at))}</span><br>${esc(n.body)}</p>`).join('')}
+    ${list.map(n=>`<p class="note-item"><span class="muted-t">${esc(NXShell.personOf(n.by))}, ${esc(NXCRM.fmtDate(n.at))}</span><br>${esc(n.body)}${n.file_error?`<br><span class="status-line fail">Not in its folder yet: ${esc(n.file_error)}. The engine tries again on its next run.</span>`:''}</p>`).join('')}
     ${q&&q.status!=='failed'?'<span class="status-line">A note is queued for the engine.</span>':''}
     ${q&&q.status==='failed'?`<span class="status-line fail">The engine could not save a note: ${esc(q.result_note||'')}</span>`:''}
     <label class="sr" for="note-${esc(r.id)}">New note</label><textarea class="input" id="note-${esc(r.id)}" data-id="${esc(r.id)}" data-draft="1" placeholder="What should the next person know about this company?"${pre0065?' disabled':''}>${esc(drafts[r.id]||'')}</textarea>
