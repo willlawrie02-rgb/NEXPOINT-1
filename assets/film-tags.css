@@ -1,0 +1,23 @@
+/* The film tags (plan 088): a link that appears at a set moment in a film. The
+   times, words and links are in assets/film-tags.js. On a frame wide enough the
+   tag sits in the film's lower right, above the browser's control bar and clear
+   of the burned-in captions, which are centred below it. On a narrow frame (a
+   phone) it sits in a strip under the film, so it covers nothing at all. */
+.film__frame{position:relative}
+.film-tags{display:flex;gap:8px}
+.film-tags--over{position:absolute;right:14px;bottom:64px;z-index:1;flex-direction:column;align-items:flex-end}
+.film-tags--under{min-height:52px;padding-top:8px;justify-content:center;width:100%;max-width:520px;margin:0 auto}
+.hero-reveal + .film-tags--under{margin-top:-24px}
+.film-tags[hidden]{display:none}
+.film-tag{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:8px 14px;border-radius:9999px;
+  background:#005CC8;color:#fff;font:600 14px/1.15 Inter,system-ui,sans-serif;text-decoration:none;text-align:center;
+  box-shadow:0 12px 30px rgba(14,22,38,.18);animation:np-film-tag-in .2s cubic-bezier(.2,.8,.2,1) both;
+  transition:background .15s cubic-bezier(.2,.8,.2,1),transform .15s cubic-bezier(.2,.8,.2,1)}
+.film-tag:hover{background:#0066DC;color:#fff}
+.film-tag:active{background:#004FAA;transform:scale(.97)}
+.film-tag:focus-visible{outline:3px solid #0E1626;outline-offset:2px}
+.film-tag .material-symbols-outlined{font-size:18px;line-height:1}
+.film-tags--under .film-tag{flex:1 1 0;min-width:0;max-width:300px;min-height:44px;padding:6px 12px;font-size:13px;box-shadow:none}
+.film-tags--under .film-tag .material-symbols-outlined{display:none}
+@keyframes np-film-tag-in{from{opacity:0;transform:translate3d(0,8px,0)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.film-tag{animation:none;transition:none}}
