@@ -3,7 +3,7 @@
    records. One switch, crm_settings.direct_writes, returns every page to the
    intent route; off is the default, and a page that cannot read it stays off.
 
-   Loaded after crm-shell.js as <script src="save.js?v=0793">: shared admin files
+   Loaded after crm-shell.js as <script src="save.js?v=0794">: shared admin files
    are cached in browsers for up to four hours, so bump ?v= on every later change.
 
    One global, NXSAVE. A page's raise asks direct(type), and then press(): true
@@ -36,6 +36,10 @@
     'edit-task': 'crm_edit_task',
     'done-task': 'crm_done_task',
     'add-prospect-option': 'crm_add_prospect_option',
+    /* Plan 079, Phase 4. */
+    'add-prospect-note': 'crm_add_prospect_note',
+    'edit-prospect': 'crm_edit_prospect',
+    'change-campaign': 'crm_change_campaign',
   };
   /* The function is not there: 0091 has not been applied, or the cache has not caught up. */
   const MISSING = ['PGRST202', '42883'];
