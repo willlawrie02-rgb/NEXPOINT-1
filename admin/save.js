@@ -3,7 +3,7 @@
    records. One switch, crm_settings.direct_writes, returns every page to the
    intent route; off is the default, and a page that cannot read it stays off.
 
-   Loaded after crm-shell.js as <script src="save.js?v=079">: shared admin files
+   Loaded after crm-shell.js as <script src="save.js?v=0793">: shared admin files
    are cached in browsers for up to four hours, so bump ?v= on every later change.
 
    One global, NXSAVE. A page's raise asks direct(type), and then press(): true
@@ -21,6 +21,10 @@
     'edit-person': 'crm_edit_person',
     'add-site': 'crm_add_site',
     'edit-site': 'crm_edit_site',
+    /* Plan 079, Phase 3. retry-note is the one key that is no intent type: Try
+       again on a note that could not be filed. */
+    'add-note': 'crm_add_note',
+    'retry-note': 'crm_retry_note',
     'add-card': 'crm_add_card',
     'edit-card': 'crm_edit_card',
     'move-card': 'crm_move_card',
