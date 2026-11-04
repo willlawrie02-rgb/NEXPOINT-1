@@ -212,6 +212,40 @@ for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.htm
   }
 }
 
+// ---------------------------------------------------------------- what the portal says it does
+// 3 November 2026, before the first launch email: the pages said what the terms
+// no longer do. A host's site name is shown to seekers who have accepted the
+// terms and contact details are released when the host accepts (Host Agreement
+// §2); a hub pick goes straight to the site, with no approval by us; there is no
+// founding offer, no routing and no guaranteed volume; the portal is two hubs, a
+// board and Education. Visible copy, titles and descriptions. The board is left
+// out of the one rule that is true of it: a person does read a board request.
+{
+  const CLAIMS = [
+    [/(?:names|identities)[^.]{0,60}never (?:appear|published)|identit(?:y|ies)[^.]{0,40}held back/i, "names are shown to seekers who have accepted the terms (Host Agreement §2)"],
+    [/\bfirst (?:labs|facilities) to join\b|\bcohort\b/i, "no founding or early-adopter offer (Will, 2 Nov 2026)"],
+    [/routed to (?:you|them) first|contracted volume|contracted book of work/i, "no routing and no revenue guarantee (Host Agreement)"],
+    [/\bFour hubs\b/i, "two hubs, a board and Education"],
+    [/(?<!3D )\bprint capacity\b/i, "say 3D print capacity (Will, 14 Oct 2026)"],
+    [/\bEducation Hub\b/i, "the part is called Education (Will, 14 Oct 2026)"],
+  ];
+  const DESK = /weighs? the fit/i;
+  for (const p of pages) {
+    const raw = read(p);
+    const text = raw
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]*>/g, " ");
+    const attrs = (raw.match(/(?:<title>[^<]*<\/title>|\b(?:content|aria-label|alt|placeholder)="[^"]*")/g) || []).join(" ");
+    for (const [re, why] of CLAIMS) {
+      const m = text.match(re) || attrs.match(re);
+      if (m) fail(`${p}: says "${m[0]}" (${why})`);
+    }
+    if (p !== "opportunities/index.html" && DESK.test(text)) fail(`${p}: says a person weighs the fit (a hub pick goes straight to the site)`);
+  }
+}
+
 // ---------------------------------------------------------------- plan 046: the account page
 // The account page sends a new account to the Global Portal as its one next
 // step and cross-sells nothing (record B1, B2).
