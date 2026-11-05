@@ -44,6 +44,18 @@ launch gate and after any change to a hub script or a board.
 engine's source, before an admin sync. A page that calls an API path the
 walk has no stub for fails it: add the stub beside the others.
 
+`npm run fulltest` is the full test: unlike the walk it drives the **live**
+site, API and database, as the ZZ test accounts, and writes a report outside
+this repo. It acts only on records named ZZ, then a space or a hyphen, and
+`check/fulltest/browser.mjs` holds the locks on what each window may send
+(never a first-listing approval or a consultancy signature, which raise Xero
+invoices; never a campaign, which goes into Smartlead). `npm run fulltest --
+--dry` lists every step and opens nothing. Settings (accounts, passwords,
+keys) live in `~/.nexpoint/full-test.json`; this repo is public and holds
+only the empty template, `check/fulltest.example.json`. `check:fulltest`
+(in `npm run check`) tests the ZZ rule and the locks with no browser. A
+session runs it only when Will asks; `--dry` is always safe.
+
 ## Layout
 
 - `index.html` — apex marketing page (standalone; own inline styles by design)
