@@ -380,7 +380,7 @@
   var closed = function () { return !!(state.account && state.account.closed); };
   var HOST_TEXT = 'Closing ends your Host Agreement now and takes your listing off the 3D Print Hub and the Mill Hub. ' +
     'Fees already paid are not refunded, and an invoice already raised is still payable. Introductions already made keep ' +
-    'their five fee years: the recurring fee on work for those customers and the monthly declaration carry on, and you can ' +
+    'their five fee years, counted from the first order under each: the recurring fee on work for those customers and the monthly declaration carry on, and you can ' +
     'still sign in to declare and to see your statements. Everything else on the portal closes to you.';
   var SEEKER_TEXT = 'Closing ends your use of the portal. Your open requests close. Introductions already made stay on record.';
   var BOTH_TEXT = 'We keep the account\'s records for six years after the last invoice raised for it, or for six years from ' +
