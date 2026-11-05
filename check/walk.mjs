@@ -205,27 +205,27 @@ const readRendered = (root) => ({
 const SIGN_TOKEN = "e".repeat(64);
 const SIGN_FILLER = Array.from({ length: 24 }, (_, i) =>
   `**9.${i + 1}** A stand-in clause, long enough that the agreement runs past the panel and has to be scrolled to be read to its end.`).join("\n\n");
-const SIGN_AGREEMENT_TEXT = "# Introduction Agreement\n\nVersion 2.1, October 2026\n\n## Parties\n\n" +
+const SIGN_AGREEMENT_TEXT = "# Introduction Agreement\n\nVersion 2.3, October 2026\n\n## Parties\n\n" +
   "Client: Midlands 3D Printing & Co <Ltd>\n\nAddress: 1 <img src=x onerror=\"window.__npPwned=1\"> Road, Stone\n\n" +
   "## 2. Fees\n\n### 2.1 Upfront Search and Engagement Fee\n\n**2.1.1** Amount: £5,000 (GBP)\n\n" +
-  "**2.2.3** The applicable fee rates are:\n\n| Year after the introduction | NexPoint fee as a percentage of Gross Revenue |\n|---|---|\n" +
+  "**2.2.3** The applicable fee rates are:\n\n| Year after first order | NexPoint fee as a percentage of Net Revenue |\n|---|---|\n" +
   "| Year 1 | 6% |\n| Year 2 | 5% |\n| After Year 5 | 0% |\n\n" +
-  "**2.3** **Alternative or Additional Fees** – If the client wishes to expand the scope of the project NexPoint can quote accordingly.\n\n" +
+  "**2.3** **Alternative or Additional Fees** - Not applicable.\n\n" +
   "**3.** **Reporting** - Within 14 days the Client must provide a statement showing:\n\n" +
-  "- (a) each sale or transaction involving the Introduced Party;\n- (b) the relevant invoice dates, per-unit sales price and Gross Revenues;\n" +
-  "**4.** **Invoicing for Recurring Fees**- NexPoint will issue quarterly invoices.\n\n" +
+  "- (a) each sale or transaction involving the Introduced Party;\n- (b) the relevant invoice dates, per-unit sales price and Net Revenue;\n" +
+  "**4.** **Invoicing** - NexPoint will issue quarterly invoices.\n\n" +
   "## Signature\n\nName: [completed when you sign]\n\nPosition: [completed when you sign]\n\nDate: [completed when you sign]\n\n" +
-  "# Master Terms of Business and Introduction Agreement\n\nVersion 2.1, October 2026\n\n## 1. Parties\n\n" +
+  "# Master Terms of Business and Introduction Agreement\n\nVersion 2.3, October 2026\n\n## 1. Parties\n\n" +
   "**1.1** A clause <script>window.__npPwned=2</script> with a script in it, and a lone * asterisk.\n\n" + SIGN_FILLER + "\n";
-const SIGN_AGREEMENT = { version: "2.1", text: SIGN_AGREEMENT_TEXT, hash: "a".repeat(64) };
+const SIGN_AGREEMENT = { version: "2.3", text: SIGN_AGREEMENT_TEXT, hash: "a".repeat(64) };
 /* What the panel must show for that text. */
 const SIGN_RENDERED = {
   h2: ["Introduction Agreement", "Master Terms of Business and Introduction Agreement"],
   h3: ["Parties", "2. Fees", "Signature", "1. Parties"],
   h4: ["2.1 Upfront Search and Engagement Fee"],
-  head: ["Year after the introduction", "NexPoint fee as a percentage of Gross Revenue"],
+  head: ["Year after first order", "NexPoint fee as a percentage of Net Revenue"],
   rows: [["Year 1", "6%"], ["Year 2", "5%"], ["After Year 5", "0%"]],
-  items: ["(a) each sale or transaction involving the Introduced Party;", "(b) the relevant invoice dates, per-unit sales price and Gross Revenues;"],
+  items: ["(a) each sale or transaction involving the Introduced Party;", "(b) the relevant invoice dates, per-unit sales price and Net Revenue;"],
   rules: 0,
   divided: [false, true],
   pending: 3,
@@ -423,7 +423,7 @@ async function answerDb(world, route, request, url) {
   // --- the tables
   const table = (p.match(/^\/rest\/v1\/([^/]+)$/) || [])[1];
   const rpc = (p.match(/^\/rest\/v1\/rpc\/([^/]+)$/) || [])[1];
-  if (rpc) { world.reads.push({ table: "rpc:" + rpc }); return send(200, []); }
+  if (rpc) { world.reads.push({ table: "rpc:" + rpc, body }); return send(200, []); }
   if (table) {
     if (method === "GET" || method === "HEAD") {
       world.reads.push({ table });
@@ -815,6 +815,112 @@ async function walkClose() {
     clean(world, errors, "the settings page before the worker deploys");
     await context.close();
   }
+}
+
+// ================================================================ the film tags (plan 088)
+/* The films are not played: the walk sets the film's clock and tells the page
+   the time moved, which is all the tags listen to. */
+const filmAt = (page, t) => page.evaluate((t) => {
+  const v = document.querySelector("video[data-film-tags]");
+  Object.defineProperty(v, "currentTime", { configurable: true, get: () => t, set() {} });
+  v.dispatchEvent(new Event("timeupdate"));
+}, t);
+const filmTagsNow = (page) => page.evaluate(() => {
+  /* where a tag settles, not where its short rise has got to */
+  document.getAnimations().forEach((a) => { if (a.animationName === "np-film-tag-in") a.finish(); });
+  const f = document.querySelector("video[data-film-tags]").closest(".film__frame").getBoundingClientRect();
+  return { frame: { top: f.top, bottom: f.bottom, left: f.left, right: f.right },
+    strip: (() => { const b = document.querySelector(".film-tags"); return b ? b.getBoundingClientRect().height : 0; })(),
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    tags: [...document.querySelectorAll(".film-tag")].map((a) => {
+      const r = a.getBoundingClientRect(), s = getComputedStyle(a);
+      return { label: a.firstChild.textContent, href: a.getAttribute("href"), over: !!a.closest(".film__frame"), top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height, animation: s.animationName };
+    }) };
+});
+async function walkFilmTags() {
+  area = "The film tags (plan 088)";
+  const FILMS = [["home", `${APEX}/`], ["portal", `${APEX}/hub/`], ["print", `${PRINT}/`], ["mill", `${MILL}/`], ["opportunities", `${OPPS}/`]];
+  for (const [key, url] of FILMS) {
+    /* The hub pages are behind the wall; the home page and the door are not. */
+    const world = newWorld(/^(home|portal)$/.test(key) ? {} : { user: USER });
+    const { context, page, errors } = await visit(world);
+    await page.goto(url);
+    await settled(page);
+    const film = await page.evaluate((key) => window.NP_FILM_TAGS[key], key);
+    await step(`${key}, on a computer: no tag before its moment, then the right one, above the controls and inside the picture`, async () => {
+      await filmAt(page, 0);
+      eq((await filmTagsNow(page)).tags.length, 0, "tags at the start");
+      for (const t of film.tags) {
+        await filmAt(page, t.from + 0.05);
+        const now = await filmTagsNow(page);
+        const it = now.tags.find((x) => x.label === t.label);
+        if (!it) throw new Error(`"${t.label}" is not up at ${t.from}: ${JSON.stringify(now.tags.map((x) => x.label))}`);
+        eq(it.href, t.href, "the link");
+        eq(it.over, true, "in the picture");
+        if (!(it.bottom <= now.frame.bottom - 60 && it.right <= now.frame.right && it.top >= now.frame.top)) throw new Error(`"${t.label}" sits at ${JSON.stringify(it)} in ${JSON.stringify(now.frame)}`);
+        if (t.to !== undefined) { await filmAt(page, t.to + 0.01); if ((await filmTagsNow(page)).tags.some((x) => x.label === t.label && x.href === t.href && !film.tags.some((o) => o !== t && o.label === t.label && t.to >= o.from && (o.to === undefined || t.to < o.to)))) throw new Error(`"${t.label}" is still up after ${t.to}`); }
+      }
+      await filmAt(page, film.length);
+      eq((await filmTagsNow(page)).tags.length > 0, true, "the last tag holds to the end");
+      await filmAt(page, 0);
+      eq((await filmTagsNow(page)).tags.length, 0, "scrubbed back, the tag is gone");
+    });
+    await step(`${key}, on a phone: the tags sit in a strip under the film, at thumb size, and the page does not jump or run wide`, async () => {
+      await page.setViewportSize({ width: 375, height: 812 });
+      /* the hub pages' films rise into place as they come on screen */
+      await page.evaluate(() => document.querySelector("video[data-film-tags]").scrollIntoView({ block: "center" }));
+      await page.waitForTimeout(900);
+      await filmAt(page, 0);
+      const quiet = await filmTagsNow(page);
+      for (const t of film.tags) {
+        await filmAt(page, t.from + 0.05);
+        const now = await filmTagsNow(page);
+        const it = now.tags.find((x) => x.label === t.label);
+        if (!it) throw new Error(`"${t.label}" is not up at ${t.from}`);
+        eq(it.over, false, "in the picture");
+        if (it.top < now.frame.bottom) throw new Error(`"${t.label}" overlaps the film: ${it.top} against ${now.frame.bottom}`);
+        if (it.height < 44 || it.left < 0 || it.right > 375) throw new Error(`"${t.label}" is ${it.height} tall from ${it.left} to ${it.right}`);
+        eq(now.overflow, quiet.overflow, "sideways overflow a tag adds");
+        eq(Math.round(now.strip), Math.round(quiet.strip), "the strip's height with a tag and without");
+        eq(Math.round(now.frame.bottom), Math.round(quiet.frame.bottom), "the film does not move");
+      }
+      await filmAt(page, film.length);
+    });
+    clean(world, errors, key);
+    await context.close();
+  }
+
+  {
+    const world = newWorld({ user: USER });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/`);
+    await page.waitForSelector(".np-chip");
+    await step("an account already signed in is not asked to create one", async () => {
+      const t = (await page.evaluate(() => window.NP_FILM_TAGS.portal.tags)).filter((x) => x.label === "Create your account");
+      eq(t.length > 0, true, "the film has the tag");
+      for (const x of t) { await filmAt(page, x.from + 0.05); eq((await filmTagsNow(page)).tags.length, 0, `tags at ${x.from}`); }
+    });
+    clean(world, errors, "signed in");
+    await context.close();
+  }
+
+  const world = newWorld();
+  const { context, page, errors } = await visit(world);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`${APEX}/`);
+  await settled(page);
+  await step("with reduced motion the tag simply appears, and pressing it pauses the film before it leaves", async () => {
+    const t = (await page.evaluate(() => window.NP_FILM_TAGS.home.tags))[0];
+    await filmAt(page, t.from + 0.05);
+    const now = await filmTagsNow(page);
+    eq(now.tags.map((x) => [x.label, x.animation]), [[t.label, "none"]], "the tag and its animation");
+    await page.evaluate(() => { window.__paused = 0; document.querySelector("video[data-film-tags]").pause = () => { window.__paused++; }; });
+    await page.click(".film-tag");
+    eq(await page.evaluate(() => window.__paused), 1, "pauses");
+    eq(new URL(page.url()).hash, t.href, "where it went");
+  });
+  clean(world, errors, "reduced motion");
+  await context.close();
 }
 
 // ================================================================ the public pages
@@ -1767,7 +1873,7 @@ async function walkFindDevice() {
     });
     await step(`${hub}: the landing card says what the find form now asks`, async () => {
       await page.goto(`${origin}/`);
-      return has(await page.textContent("body"), `Tell us what you need made, how many and how soon. We show you the ${site}s that fit and make the introduction.`, "the card");
+      return has(await page.textContent("body"), `Tell us what you need made, how many and how soon. We show you the ${site}s that fit best, up to three. Pick one and your request goes straight to it.`, "the card");
     });
   }
 
@@ -4025,7 +4131,7 @@ async function walkSign() {
       const t = await page.textContent("#signBody");
       // The figure alone: "£5,000", never "£5,000 GBP" (final review, finding 8).
       if (t.includes("£5,000 GBP")) throw new Error("the summary repeats the currency after the figure");
-      for (const part of ["£5,000 for six months", "six months of sales and marketing work", "6% of the revenue in the first year",
+      for (const part of ["£5,000 for six months", "six months of sales and marketing work", "non-refundable", "6% of Net Revenue", "as the agreement defines it", "places its first order with you", "due within 14 days",
         "falling to 2% in the fifth", "nothing after", "Introduction Agreement", "Master Terms of Business", "NexPoint Global Ltd",
         "Finding UK clinics for your insoles"]) has(t, part, "the summary");
       // No territory (Will, 20 October 2026): the summary is the service, the retainer and the recurring fee.
@@ -4051,7 +4157,7 @@ async function walkSign() {
       eq(await readAgreement(page), SIGN_RENDERED, "the rendered agreement"));
     await step("bold clause numbers are bold, and a stray asterisk stays an asterisk", async () => {
       const got = await page.evaluate(() => [...document.querySelectorAll("#agreementText strong")].map((e) => e.textContent));
-      for (const want of ["2.1.1", "2.3", "Alternative or Additional Fees", "4.", "Invoicing for Recurring Fees"])
+      for (const want of ["2.1.1", "2.3", "Alternative or Additional Fees", "4.", "Invoicing"])
         if (!got.includes(want)) throw new Error(`no bold "${want}" in ${JSON.stringify(got.slice(0, 8))}`);
       const t = await page.textContent("#agreementText");
       if (t.includes("**")) throw new Error("a pair of asterisks shows in the agreement");
@@ -4133,6 +4239,7 @@ async function walkSign() {
       eq(await page.locator("#bank dt").allTextContents(), ["Account name", "Sort code", "Account number"], "the bank details");
       return eq(await page.evaluate(() => !!(document.getElementById("payNow").compareDocumentPosition(document.getElementById("bank")) & Node.DOCUMENT_POSITION_FOLLOWING)),
         true, "the bank details sit below Pay now");
+      eq(await page.textContent("#payWays"), "Pay now opens the invoice, where you can pay by card or straight from a UK bank account.", "the ways to pay");
     });
     await step("the invoiced page fits a phone's width", async () => fitsPhone(page, "the invoiced page"));
     clean(world, errors, "the sign-up page, ready to invoiced");
@@ -4261,22 +4368,34 @@ async function walkSign() {
     const world = newWorld({ signup: { token: SIGN_TOKEN, state: usd } });
     const { context, page, errors } = await visit(world);
     await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
-    await step("a dollar invoice leads with the bank transfer, Copy bank details the main button", async () => {
-      await page.waitForSelector("#copyBank");
-      eq(await page.locator("#payNow").count(), 0, "Pay now buttons");
-      eq(await page.textContent("#copyBank"), "Copy bank details", "the main button");
+    await step("a dollar invoice leads with Pay now, by card, the transfer below it", async () => {
+      await page.waitForSelector("#payNow");
+      eq(await page.getAttribute("#payNow", "href"), "https://in.xero.com/walk-invoice", "where Pay now goes");
+      eq(await page.textContent("#payWays"), "Pay now opens the invoice, where you can pay by card.", "the ways to pay");
       has(await page.textContent("#signBody"), "US$5,000", "the amount");
       eq(await page.locator("#bank dt").allTextContents(), ["Account name", "IBAN", "BIC / SWIFT"], "the bank details");
-      eq(await page.evaluate(() => !!(document.getElementById("bank").compareDocumentPosition(document.getElementById("copyBank")) & Node.DOCUMENT_POSITION_FOLLOWING)),
-        true, "the details come before the button");
-      return eq([await page.textContent("#viewInvoice"), await page.getAttribute("#viewInvoice", "href")],
-        ["View the invoice", "https://in.xero.com/walk-invoice"], "the invoice link");
+      return eq(await page.evaluate(() => !!(document.getElementById("payNow").compareDocumentPosition(document.getElementById("bank")) & Node.DOCUMENT_POSITION_FOLLOWING)),
+        true, "the bank details sit below Pay now");
     });
     await step("Copy bank details says it copied them", async () => {
       await page.click("#copyBank");
       return page.waitForFunction(() => /copied/i.test(document.getElementById("copyMsg").textContent)).then(() => true);
     });
     clean(world, errors, "the sign-up page, a dollar invoice");
+    await context.close();
+  }
+  {
+    const noOnline = signupState("invoiced", { signed_at: "2026-10-19T10:00:00Z", invoice: signupInvoice({ pay_url: null }) });
+    const world = newWorld({ signup: { token: SIGN_TOKEN, state: noOnline } });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/sign/?t=${SIGN_TOKEN}`);
+    await step("with no online invoice the transfer leads, and no word about cards", async () => {
+      await page.waitForSelector("#copyBank");
+      eq(await page.locator("#payNow").count(), 0, "Pay now buttons");
+      eq(await page.getAttribute("#copyBank", "class"), "yes", "the main button");
+      return eq(/by card/.test(await page.textContent("#signBody")), false, "a word about cards");
+    });
+    clean(world, errors, "the sign-up page, no online invoice");
     await context.close();
   }
   {
@@ -4540,18 +4659,13 @@ const SAME_NAME = /function sameName\(/.test(readFileSync(join(ADMIN_DIR, "organ
 const ago = (hours) => new Date(Date.now() - hours * 36e5).toISOString();
 
 
-/* Plan 070: the Opportunities list (index.html) reads board_opportunities.
-   Its one direct write is the status; Set live then raises one publish, a
-   refused live is said in words, and End raises one intent with its reason.
-   Like the reviewed boards, this waits for an admin copy that has it. */
-const BOARD_070 = /board_opportunities/.test(readFileSync(join(ADMIN_DIR, "index.html"), "utf8"));
+/* Plan 070, moved by plan 075 to Live Listings' Opportunities tab (listings.html)
+   and read there from board_opportunities. Its one direct write is the status;
+   Publish then raises one publish, a refused live is said in words, and End
+   raises one intent with its reason. */
 async function walkBoardAdmin() {
-  area = "The Opportunities list (plan 070)";
-  if (!BOARD_070) {
-    notes.push("the Opportunities list's plan 070 checks were skipped: this admin copy is from before plan 070 (set WALK_ADMIN_DIR to the engine's app/)");
-    return;
-  }
-  const world = newWorld({ dialogAnswer: "the scripted walk" });
+  area = "The Opportunities list (plan 070, on Live Listings)";
+  const world = newWorld();
   world.rows.board_opportunities = [
     { id: "nx-2620", ref: "NX-2620", status: "draft", owner_company_id: 7, owner_org_id: null, naming: "named",
       kind: "introduction", dir: "OFFERING", public: { title: "ZZ Walk opportunity" }, sort: 1 },
@@ -4562,18 +4676,25 @@ async function walkBoardAdmin() {
   ];
   world.rows.crm_companies = [{ id: 7, name: "ZZ Walk Owner Ltd" }];
   const { context, page, errors } = await visit(world, { seedAdmin: true });
-  await page.goto(`${APEX}/admin/index.html`);
+  await page.goto(`${APEX}/admin/listings.html?tab=opportunities`);
   const writesTo = (table) => world.writes.filter((w) => w.table === table);
   const intentRow = (w) => (Array.isArray(w.body) ? w.body[0] : w.body);
-  await step("each opportunity shows its owner; a posted one has no Set live", async () => {
+  const publish = async (id) => {
+    await page.click(`#opp-${id} button:has-text("Review and publish")`);
+    await page.click(`#opp-${id} button:has-text("Publish"):not(:has-text("Review"))`);
+  };
+  await step("each opportunity shows its owner; a posted one has nothing to publish", async () => {
     await page.waitForSelector("#opp-nx-2620");
-    has(await page.textContent("#opp-nx-2620"), "Owner: ZZ Walk Owner Ltd (no portal account set)", "the owner");
-    has(await page.textContent("#opp-nx-2622"), "Owner: No owner", "no owner");
-    eq(await page.locator('#opp-nx-2621 button:has-text("Set live")').count(), 0, "Set live on a posted row");
-    eq(await page.locator('#opp-nx-2620 button:has-text("Set live")').count(), 1, "Set live on a draft");
+    const owner = await page.textContent("#opp-nx-2620 .opp-facts");
+    has(owner, "ZZ Walk Owner Ltd", "the owner");
+    has(owner, "no portal account set", "the owner's account");
+    has(await page.textContent("#opp-nx-2622 .opp-facts"), "No owner", "no owner");
+    has(await page.textContent("#opp-nx-2621"), "The brief-writer is drafting it", "the posted row's words");
+    eq(await page.locator('#opp-nx-2621 button:has-text("Review and publish")').count(), 0, "Review and publish on a posted row");
+    eq(await page.locator('#opp-nx-2620 button:has-text("Review and publish")').count(), 1, "Review and publish on a draft");
   });
-  await step("Set live writes the status and its time alone, then raises one publish", async () => {
-    await page.click('#opp-nx-2620 button:has-text("Set live")');
+  await step("Publish writes the status and its time alone, then raises one publish", async () => {
+    await publish("nx-2620");
     await until(() => writesTo("engine_intents").length === 1, "the publish");
     const status = writesTo("board_opportunities");
     eq(status.length, 1, "status writes");
@@ -4589,18 +4710,23 @@ async function walkBoardAdmin() {
         message: 'new row for relation "board_opportunities" violates check constraint "board_opportunities_live_needs_owner"' }) });
     });
     const before = writesTo("engine_intents").length;
-    await page.click('#opp-nx-2622 button:has-text("Set live")');
-    await page.waitForFunction(() => /goes live only with an owner company/.test(document.getElementById("err-nx-2622").textContent));
-    has(await page.textContent("#err-nx-2622"), "An opportunity goes live only with an owner company: set it on the board", "the words");
+    await publish("nx-2622");
+    await page.waitForFunction(() => /goes live only with an owner company/.test(document.getElementById("toast").textContent));
+    has(await page.textContent("#toast"), "An opportunity goes live only with an owner company: set it on the card first", "the words");
     eq(writesTo("engine_intents").length, before, "intents raised");
     await context.unroute("**/rest/v1/board_opportunities*");
   });
   await step("End asks why, then raises one end-board-opportunity with the reason", async () => {
     const before = writesTo("engine_intents").length;
-    await page.click('#opp-nx-2620 button:has-text("End")');
+    await page.click('#opp-nx-2622 button:has-text("End")');
+    await page.click('#opp-nx-2622 button:has-text("End the opportunity")');
+    await page.waitForFunction(() => /Give a reason/.test(document.getElementById("toast").textContent));
+    eq(writesTo("engine_intents").length, before, "intents raised with no reason");
+    await page.fill("#en-why-nx-2622", "the scripted walk");
+    await page.click('#opp-nx-2622 button:has-text("End the opportunity")');
     await until(() => writesTo("engine_intents").length === before + 1, "the end intent");
     const row = intentRow(writesTo("engine_intents").at(-1));
-    eq([row.type, row.payload_json], ["end-board-opportunity", { id: "nx-2620", reason: "the scripted walk" }], "the intent");
+    eq([row.type, row.payload_json], ["end-board-opportunity", { id: "nx-2622", reason: "the scripted walk" }], "the intent");
   });
   clean(world, errors, "the Opportunities list");
   await context.close();
@@ -4826,10 +4952,10 @@ async function walkProspectsMarketing() {
   };
   await one("Save raises one edit-prospect with only the changed fields", async (page) => {
     await open(page, 601);
-    await page.selectOption("#sector-601", "Insoles");
-    await page.selectOption("#ctype-601", "Lab");
+    await page.click('#plist [data-act="toggleMany"][data-id="601"][data-f="sectors"][data-v="Insoles"]');
+    await page.click('#plist [data-act="toggleMany"][data-id="601"][data-f="company_types"][data-v="Lab"]');
     await page.click("#save-601");
-  }, { type: "edit-prospect", check: (p) => eq([p.queue_row, p.fields], [601, { sector: "Insoles", company_type: "Lab" }], "payload") });
+  }, { type: "edit-prospect", check: (p) => eq([p.queue_row, p.fields], [601, { sectors: ["Insoles"], company_types: ["Lab"] }], "payload") });
   await one("Park raises one watch-lead", async (page) => {
     await open(page, 601);
     await page.click('#act-601 [data-act="park"]');
@@ -4874,7 +5000,9 @@ async function walkProspectsMarketing() {
       await open(page, 601);
       has(await page.textContent("#plist"), "Met at the fair.", "the note");
       await page.selectOption("#type-601", "Known contact");
-      eq(await page.isDisabled("#camp-601"), true, "campaign disabled");
+      const campaigns = page.locator('#plist [data-f="campaigns"][data-id="601"]');
+      for (let i = 0; i < await campaigns.count(); i++) eq(await campaigns.nth(i).isDisabled(), true, "campaign disabled");
+      has(await page.textContent("#plist"), "None: Chris contacts personally", "the campaign's note");
       await tab(page, "parked");
       await open(page, 602);
       eq(await page.isDisabled("#quality-602"), true, "parked quality disabled");
@@ -5114,6 +5242,113 @@ async function walkMovedPages() {
   }
 }
 
+/* The Consultancy agreements page (plan 086): the rail's ninth item, it makes,
+   revokes and reissues links through the worker, asking in place, never in a
+   pop-up, and writes to no table. Before the admin sync carries it, the old
+   page stands and the checks wait. */
+async function walkConsultancy() {
+  area = "The Consultancy agreements page (plan 086)";
+  if (!/href="crm\.css/.test(adminText("consultancy.html"))) {
+    notes.push("The Consultancy agreements page in this copy is still on the old design, so its checks were not run. " +
+      "They arrive with the admin sync; WALK_ADMIN_DIR=<engine>/app walks them now.");
+    return;
+  }
+  const link = (id, over) => Object.assign({ id, company_slug: `zz-walk-${id}`, client_name: `ZZ Walk ${id} Ltd`, client_address: "1 Walk Street", service: "sales and marketing consultancy",
+    fee_amount: 5000, currency: "GBP", signer_name: "Sam Walker", signer_email: "sam@example.com", created_by: ADMIN_EMAIL, created_at: "2026-11-01T09:00:00Z",
+    expires_at: "2099-12-01T09:00:00Z", is_test: false }, over);
+  const world = newWorld({ rows: { consultancy_links: [
+    link(1), link(2, { opened_at: "2026-11-02T09:00:00Z" }),
+    link(3, { signed_at: "2026-11-02T10:00:00Z", signed_name: "Sam Walker", signed_position: "Director", invoice_email: "ap@example.com" }),
+    link(4, { signed_at: "2026-11-02T10:00:00Z", invoiced_at: "2026-11-02T10:05:00Z", xero_invoice_number: "INV-9", xero_due_date: "2026-11-16" }),
+    link(5, { signed_at: "2026-11-02T10:00:00Z", invoiced_at: "2026-11-02T10:05:00Z", paid_at: "2026-11-03T08:00:00Z", xero_invoice_number: "INV-8" }),
+    link(6, { revoked_at: "2026-11-02T11:00:00Z" }),
+    link(7, { is_test: true }),
+  ] } });
+  const made = { ok: true, url: "https://nexpoint.co.uk/sign/#walk-link", expires_at: "2099-12-03T12:00:00Z" };
+  world.api["POST /consultancy/links"] = () => [200, made];
+  world.api["POST /consultancy/links/reissue"] = () => [200, made];
+  world.api["POST /consultancy/links/revoke"] = () => [200, { ok: true }];
+  const { context, page, errors } = await visit(world, { seedAdmin: true });
+  await page.goto(`${APEX}/admin/consultancy.html?slug=zz-walk-new&client=ZZ%20Walk%20New%20Ltd`);
+  await page.waitForSelector("#link-1");
+  await step("the rail lights Consultancy, its ninth item, and a page opened directly has no Back", async () => {
+    eq(await page.getAttribute('.rail a[aria-current="page"]', "href"), "consultancy.html", "the current section");
+    eq(await page.locator(".rail > .nav a").count(), 9, "the rail's sections");
+    eq(await page.isVisible("#back"), false, "Back");
+  });
+  await step("each state shows its word, paid and revoked folded away", async () => {
+    for (const [id, word] of [[1, "Sent"], [2, "Opened"], [3, "Signed"], [4, "Invoiced"]]) has(await page.textContent(`#links #link-${id} .st`), word, `link ${id}`);
+    eq(await page.isVisible("#links #link-5"), false, "the paid link in the working list");
+    has(await page.textContent("#finished-n"), "Finished (2)", "the archive");
+    await page.click("#finished-n");
+    has(await page.textContent("#finished-body #link-5 .st"), "Paid", "the paid link");
+    has(await page.textContent("#finished-body #link-6 .st"), "Revoked", "the revoked link");
+  });
+  await step("Show test links shows them", async () => {
+    eq(await page.isVisible("#link-7"), false, "before");
+    await page.check("#show-test");
+    await page.waitForSelector("#links #link-7");
+    await page.uncheck("#show-test");
+  });
+  await step("the company card's address fills in the form, and Create agreement link posts it", async () => {
+    eq(await page.inputValue("#f-slug"), "zz-walk-new", "the folder");
+    eq(await page.inputValue("#f-client"), "ZZ Walk New Ltd", "the client");
+    await page.fill("#f-address", "2 Walk Street"); await page.fill("#f-signer", "Sam Walker"); await page.fill("#f-email", "sam@example.com");
+    await page.click("#f-submit");
+    await until(() => apiCalls(world, "POST /consultancy/links").length === 1, "the create");
+    await page.waitForSelector("#given:not([hidden])");
+    const b = apiCalls(world, "POST /consultancy/links")[0].body;
+    eq([b.company_slug, b.client_name, b.fee_amount, b.currency], ["zz-walk-new", "ZZ Walk New Ltd", 5000, "GBP"], "the posted form");
+    has(await page.inputValue("#given-url"), "#walk-link", "the link, shown once");
+  });
+  await step("Revoke link asks in place, Cancel sends nothing, and the answer posts the id", async () => {
+    await page.click('#link-1 [data-act="askRevoke"]');
+    has(await page.textContent("#link-1 .inline-choice"), "Revoke this link?", "the question");
+    await page.click('#link-1 [data-act="closeAsk"]');
+    eq(apiCalls(world, "POST /consultancy/links/revoke").length, 0, "revokes after Cancel");
+    await page.click('#link-1 [data-act="askRevoke"]');
+    await page.click('#link-1 [data-act="revoke"]');
+    await until(() => apiCalls(world, "POST /consultancy/links/revoke").length === 1, "the revoke");
+    eq(apiCalls(world, "POST /consultancy/links/revoke")[0].body, { id: 1 }, "what it posts");
+  });
+  await step("Reissue link fills the form, asks in place, and posts the id", async () => {
+    await page.click('#link-2 [data-act="startReissue"]');
+    has(await page.textContent("#make-title"), "Reissue the link for ZZ Walk 2 Ltd", "the form's title");
+    eq(await page.inputValue("#f-slug"), "zz-walk-2", "the row's folder");
+    await page.click("#f-submit");
+    has(await page.textContent("#make-ask"), "The old link stops working at once", "the question");
+    eq(apiCalls(world, "POST /consultancy/links/reissue").length, 0, "reissues before the answer");
+    await page.click('[data-act="sendReissue"]');
+    await until(() => apiCalls(world, "POST /consultancy/links/reissue").length === 1, "the reissue");
+    eq(apiCalls(world, "POST /consultancy/links/reissue")[0].body.id, 2, "the id posted");
+    await page.waitForFunction(() => document.getElementById("given-title").textContent === "Link reissued");
+  });
+  await step("no pop-up asked anything and no table was written", async () => {
+    eq(world.dialogs || [], [], "dialogs");
+    eq(world.writes, [], "writes");
+  });
+  clean(world, errors, "the Consultancy agreements page");
+  await context.close();
+  /* The three ways in, each with its Back, all saying agreement link. */
+  const links = newWorld({ rows: { consultancy_links: [link(1)] } });
+  const way = await visit(links, { seedAdmin: true });
+  await way.page.goto(`${APEX}/admin/pipelines.html?tab=consultancy`);
+  await step("Pipelines' Consultancy tab says Make an agreement link, and Back returns there", async () => {
+    await way.page.click('a[href="consultancy.html"]:has-text("Make an agreement link")');
+    await way.page.waitForSelector("#link-1");
+    has(await way.page.textContent("#back"), "Back to Pipelines", "Back");
+    eq(await way.page.getAttribute("#back", "href"), "pipelines.html?tab=consultancy", "where it goes");
+  });
+  await way.page.goto(`${APEX}/admin/money.html?tab=fees`);
+  await step("Money's Consultancy fees links to the page, and Back returns there", async () => {
+    await way.page.click('a[href="consultancy.html"]:has-text("Open consultancy agreements")');
+    await way.page.waitForSelector("#link-1");
+    has(await way.page.textContent("#back"), "Back to Money", "Back");
+  });
+  clean(links, way.errors, "the ways in to the Consultancy agreements page");
+  await way.context.close();
+}
+
 /* System: the failed run first with Re-run now, which raises one rerun-job
    intent; each job's schedule line from the morning report. The Inbox: Add
    task raises one add-task intent. A page still drawing the shell's "Not
@@ -5219,6 +5454,109 @@ async function walkInboxAndSystem() {
 
 // ================================================================ the people (plan 052, wave 3)
 const INVITE_TOKEN = "a".repeat(64);
+/* Plan 079, Phases 3 and 4: with crm_settings.direct_writes on, a note and a
+   prospect's changes save at once through a function, with no intent; with it
+   off, the page takes the intent route it always has. */
+async function walkSavesFirst() {
+  area = "A note and a prospect saved at once (plan 079)";
+  const saveJs = join(ADMIN_DIR, "save.js");
+  if (!existsSync(saveJs) || !/crm_add_prospect_note/.test(readFileSync(saveJs, "utf8"))) {
+    notes.push("The saves-first checks were skipped: this admin copy is from before plan 079's Phases 3 and 4 (set WALK_ADMIN_DIR to the engine's app/)");
+    return;
+  }
+  const switched = (world, value) => {
+    world.rows.crm_settings = [{ key: "imported_at", value: "2026-10-23", set_by: "walk" }, { key: "direct_writes", value, set_by: "walk" }];
+  };
+  const company = async (value, seed, go) => {
+    const world = newWorld();
+    switched(world, value);
+    world.rows.crm_companies = [{ id: 1, name: "ZZ Walk Test Ltd", slug: "zz-walk-test", area: "leads", website: null, source: "folder", archived_at: null }];
+    world.rows.crm_company_folders = [{ id: 1, company_id: 1, area: "leads", slug: "zz-walk-test", is_primary: true, gone_at: null }];
+    if (seed) seed(world);
+    const { context, page, errors } = await visit(world, { seedAdmin: true });
+    await page.goto(`${APEX}/admin/company.html?id=1`);
+    await page.waitForSelector("#admin", { state: "visible" });
+    await go(page, world);
+    clean(world, errors, "the company page");
+    await context.close();
+  };
+  const addNote = async (page) => {
+    await page.waitForSelector("#cp-note");
+    await page.fill("#cp-note", "Rang ZZ Walk about pricing");
+    await page.click('[data-act="noteAdd"]');
+  };
+  const rpcs = (world, name) => world.reads.filter((r) => r.table === "rpc:" + name);
+  const saidSaved = (page) => page.waitForFunction(() => (document.getElementById("toast") || {}).textContent === "Saved");
+  await company("on", null, async (page, world) => {
+    await step("switched on, a note saves at once with no intent", async () => {
+      await addNote(page);
+      await until(() => rpcs(world, "crm_add_note").length > 0, "the note's call");
+      eq(rpcs(world, "crm_add_note")[0].body, { p: { company_id: 1, body: "Rang ZZ Walk about pricing" } }, "what it sent");
+      eq(world.writes, [], "writes");
+      await saidSaved(page);
+    });
+  });
+  await company("off", null, async (page, world) => {
+    await step("switched off, a note raises one add-note as it always has", async () => {
+      await addNote(page);
+      await until(() => world.writes.length > 0, "the intent write");
+      eq(oneRow(world.writes[0]).type, "add-note", "the intent");
+      eq(rpcs(world, "crm_add_note").length, 0, "calls");
+    });
+  });
+  const waiting = { id: 7, company_id: 1, body: "Rang ZZ Walk about pricing", by: ADMIN_EMAIL, at: ago(1), file_error: null };
+  await company("on", (w) => { w.rows.crm_new_notes = [waiting]; }, async (page) => {
+    await step("a note not filed yet is on the timeline, and says so", async () => {
+      await page.waitForSelector(".ev-body");
+      has(await page.innerText("#page"), "Rang ZZ Walk about pricing", "the note");
+      has(await page.innerText("#page"), "Filing to the folder.", "what it says");
+    });
+  });
+  await company("on", (w) => { w.rows.crm_new_notes = [{ ...waiting, file_error: "could not commit" }]; }, async (page, world) => {
+    await step("a note that could not be filed offers Try again", async () => {
+      await page.waitForSelector(".ev-body");
+      has(await page.innerText("#page"), "Could not file it: could not commit", "what it says");
+      await page.click('[data-act="retryNote"][data-note="7"]');
+      await until(() => rpcs(world, "crm_retry_note").length > 0, "the retry's call");
+      eq(rpcs(world, "crm_retry_note")[0].body, { p: { note_id: 7 } }, "what it sent");
+      eq(world.writes, [], "writes");
+    });
+  });
+  const prospects = async (name, act, fn, check_) => {
+    const world = newWorld();
+    switched(world, "on");
+    world.rows.engine_lead_queue = [{ id: 601, company: "zz-walk-601", display_name: "ZZ Walk 601 Ltd", category: "Cold", matched_json: [], reasoning: "walk",
+      judge_reason: "walk", website: "https://example.com", quality: null, judged: true, judge_confidence: "medium", proposed_at: ago(24), decided_at: null,
+      decided_by: null, decision_note: null, status: "pending", prospect_type: "Cold", recommended_campaign_id: null, campaign_id: null, source: "finder",
+      list_overlap: null, sector: null, company_type: null }];
+    world.rows.prospect_options = [{ field: "sector", value: "Insoles", position: 10, active: true }];
+    world.rows.prospect_notes = [];
+    const { context, page, errors } = await visit(world, { seedAdmin: true });
+    await page.goto(`${APEX}/admin/${PROSPECTS_PAGE}`);
+    await page.waitForSelector("#admin", { state: "visible" });
+    await page.waitForSelector("#plist tbody tr");
+    await step(name, async () => {
+      await page.click('[data-act="openRow"][data-id="601"]');
+      await act(page);
+      await until(() => rpcs(world, fn).length > 0, "the function's call");
+      check_(rpcs(world, fn)[0].body.p);
+      eq(world.writes, [], "writes");
+      await saidSaved(page);
+    });
+    clean(world, errors, "the Prospects page");
+    await context.close();
+  };
+  await prospects("switched on, a Save on Prospects goes straight to the record", async (page) => {
+    await page.click('#plist [data-act="toggleMany"][data-id="601"][data-f="sectors"][data-v="Insoles"]');
+    await page.click("#save-601");
+  }, "crm_edit_prospect", (p) => eq([p.queue_row, p.fields], [601, { sectors: ["Insoles"] }], "what it sent"));
+  await prospects("switched on, a note on Prospects goes straight to the record", async (page) => {
+    await page.locator("#plist summary", { hasText: "Notes (" }).click();
+    await page.fill("#note-601", "Met at the fair.");
+    await page.click('[data-act="addNote"][data-id="601"]');
+  }, "crm_add_prospect_note", (p) => eq([p.company, p.body], ["zz-walk-601", "Met at the fair."], "what it sent"));
+}
+
 async function walkPeople() {
   area = "The account page: You and Users (plan 052, wave 3)";
   {
@@ -5413,8 +5751,8 @@ const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
 const parts = []
-  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkJoin, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkLandings, walkSign] : [])
-  .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkMovedPages, walkInboxAndSystem, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm, walkBoardAdmin] : []);
+  .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkJoin, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkFilmTags, walkLandings, walkSign] : [])
+  .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkMovedPages, walkInboxAndSystem, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm, walkBoardAdmin, walkSavesFirst] : []);
 /* The settings page's You and Users (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
 /* The Opportunities Board (plan 070) walks straight after the signed-in pages, and its
@@ -5432,6 +5770,8 @@ if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountAnswers) + 1, 0, wa
 /* The membership beside the terms and an edit as a change (plan 068) walk straight after the ship picker. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkOfferMap) + 1, 0, walkOfferCommit);
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountBoard) + 1, 0, walkTerms);
+/* The Consultancy agreements page (plan 086) walks straight after the Inbox and System. */
+if (ONLY !== "public") parts.splice(parts.indexOf(walkInboxAndSystem) + 1, 0, walkConsultancy);
 if (ONLY === "sign") parts.splice(0, parts.length, walkSign);
 if (ONLY === "terms") parts.splice(0, parts.length, walkTerms);
 try {

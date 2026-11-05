@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex">
 <title>The NexPoint Global Portal</title>
-<meta name="description" content="The NexPoint Global Portal: print capacity, milled production and opportunities in orthotics and prosthetics, by trusted introduction. Education to follow.">
+<meta name="description" content="The NexPoint Global Portal: 3D print capacity, milled production and opportunities in orthotics and prosthetics, by trusted introduction. Education to follow.">
 <link rel="icon" href="../assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,6 +19,8 @@
      markup and those files change in the same PR (check/sweep.mjs holds the
      two in step). -->
 <link rel="stylesheet" href="assets/portal.css?v=20261014.2">
+<link rel="stylesheet" href="../assets/film-tags.css?v=1">
+<script src="../assets/film-tags.js?v=1" defer></script>
 <link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="assets/explainer.css">
 <!-- The globe-to-film reveal is switched on here, before the hero paints, so the
@@ -241,8 +243,8 @@ away to the left and brings the doors in from the right in its place.
     <div class="grid">
       <div class="hero-copy">
         <span class="eyebrow">The NexPoint Global Portal</span>
-        <h1>One trusted network.<br><em>Four hubs.</em></h1>
-        <p class="lede">Print capacity, milled production, products and know-how, connected across the global O&amp;P industry. Every introduction is made person to person, by people who know both sides.</p>
+        <h1>One trusted network.<br><em>Four areas.</em></h1>
+        <p class="lede">3D print capacity, milled production, products and know-how, connected across the global O&amp;P industry. Every introduction starts with a request, and contact details are exchanged only when the other side accepts.</p>
         <div class="np-stranger hero-join">
           <button class="btn btn-primary btn-lg" type="button" onclick="window.NPAccount&&NPAccount.openQuestionnaire({})">Create your hub account</button>
           <span class="np-hint">Two minutes, free.</span>
@@ -260,7 +262,7 @@ away to the left and brings the doors in from the right in its place.
            nothing below moves. Reduced motion, or no script: the film alone. -->
       <div class="hero-reveal">
         <figure class="film__frame hero-film">
-          <video class="film__video" id="heroFilm" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film-poster.jpg?v=2" aria-label="The NexPoint Global Portal in ninety seconds: its four areas, the account you need to enter them and your account page, with captions">
+          <video class="film__video" id="heroFilm" data-film-tags="portal" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film-poster.jpg?v=2" aria-label="The NexPoint Global Portal in ninety seconds: its four areas, the account you need to enter them and your account page, with captions">
             <source src="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film.mp4?v=2" type="video/mp4">
             Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-global-hub-film.mp4?v=2">Download it instead</a>.
           </video>
@@ -283,9 +285,9 @@ away to the left and brings the doors in from the right in its place.
 <section class="section" style="padding-top:0">
   <div class="container">
     <div class="doors-head">
-      <span class="eyebrow">Four hubs</span>
+      <span class="eyebrow">Four areas</span>
       <h2>Where do you want to go?</h2>
-      <p class="sub">Each hub is a door into a different part of the network. Three are open today; the fourth is being built now.</p>
+      <p class="sub">Each one is a door into a different part of the network. Three are open today; Education is being built now.</p>
     </div>
     <!-- Two live doors lead, in the main site's alternating svc-row idiom: media one side,
          body the other, flipping between them. Education is a waiting list, not a door, so
@@ -321,7 +323,7 @@ away to the left and brings the doors in from the right in its place.
         </div>
         <div class="door__body">
           <h3>Opportunities Board</h3>
-          <p>Products, materials, technologies, consultancy, and companies looking to buy or sell, posted as verified, anonymised opportunities. Read the board and request an introduction; nothing is bought or sold on the page.</p>
+          <p>Products, materials, technologies, consultancy, and companies looking to buy or sell, posted as vetted opportunities, named or anonymised as each owner chooses. Read the board and request an introduction; nothing is bought or sold on the page.</p>
           <span class="go">Browse the board <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
         </div>
       </a>
@@ -331,7 +333,7 @@ away to the left and brings the doors in from the right in its place.
           <span class="status soon">Coming soon</span>
         </div>
         <div class="door__body">
-          <h3>Education Hub</h3>
+          <h3>Education</h3>
           <p>Training and digital-workflow education for teams adopting scanning, CAD/CAM and additive manufacturing for the first time. It is being built with the most experienced people in the network.</p>
           <button class="btn btn-primary" onclick="openEducationList()">Put me on the list</button>
         </div>
@@ -357,26 +359,26 @@ away to the left and brings the doors in from the right in its place.
       <div class="xp-board">
         <div class="xp-panel"><span class="n">01</span><h3>The need</h3><p>You have the work, a scan ready to make, but not the machine.</p></div>
         <div class="xp-panel"><span class="n">02</span><h3>The unseen supply</h3><p>Somewhere in the network, a certified lab has exactly that capacity. You've never met.</p></div>
-        <div class="xp-panel"><span class="n">03</span><h3>A person weighs the fit</h3><p>You introduce yourself once, and someone at the NexPoint desk reads it and weighs the fit.</p></div>
-        <div class="xp-panel"><span class="n">04</span><h3>A personal introduction</h3><p>When it fits, we introduce you directly, and the customer stays yours.</p></div>
+        <div class="xp-panel"><span class="n">03</span><h3>You see who fits</h3><p>Say what you need and accept the terms, and we show you the sites that fit best, up to three, by name.</p></div>
+        <div class="xp-panel"><span class="n">04</span><h3>The introduction</h3><p>Pick one and your request goes straight to it. When it accepts, you each get the other's contact details, and the customer stays yours.</p></div>
       </div>
     </div>
 
     <div class="rows" style="margin-top:clamp(40px,5vh,64px)">
       <div class="row enter enter--up" style="--d:0ms">
         <span class="material-symbols-outlined" aria-hidden="true">visibility_off</span>
-        <span class="lead">Discretion as standard</span>
-        <p>Every hub describes the deal, not the party. Names, prices and references never appear on the Global Portal; they are shared only inside a personal introduction.</p>
+        <span class="lead">What is shown, and when</span>
+        <p>Seekers who have accepted the terms see a host's site name in their results. Contact details are released only when the host accepts an introduction. On the Opportunities Board, each owner chooses whether to be named.</p>
       </div>
       <div class="row enter enter--up" style="--d:70ms">
         <span class="material-symbols-outlined" aria-hidden="true">verified</span>
-        <span class="lead">Verified, not listed</span>
-        <p>This is not a marketplace. Every node, capacity figure and opportunity is held by NexPoint on behalf of a partner we know personally, whose capacity we've seen or whose products we've handled.</p>
+        <span class="lead">Reviewed before it appears</span>
+        <p>This is not an open marketplace. We review every listing and vet every opportunity before it appears on the Global Portal.</p>
       </div>
       <div class="row enter enter--up" style="--d:140ms">
         <span class="material-symbols-outlined" aria-hidden="true">handshake</span>
         <span class="lead">Introduced, not sold</span>
-        <p>Nothing is bought here. When something fits your operation, we make a personal introduction under the network's simple terms, so both sides know where they stand, and then step back.</p>
+        <p>Nothing is bought here. Every introduction runs under the network's simple terms, so both sides know where they stand. Orders, files and payments then move directly between the two companies.</p>
       </div>
     </div>
   </div>
@@ -403,7 +405,7 @@ away to the left and brings the doors in from the right in its place.
       <ul>
         <li><a href="https://printhub.nexpoint.co.uk/">3D Print Hub</a></li>
         <li><a href="https://millhub.nexpoint.co.uk/">Mill Hub</a></li>
-        <li><a href="https://opportunities.nexpoint.co.uk/">The opportunity board</a></li>
+        <li><a href="https://opportunities.nexpoint.co.uk/">The Opportunities Board</a></li>
         <li><a href="#how">How it works</a></li>
       </ul>
     </div>
@@ -427,7 +429,7 @@ away to the left and brings the doors in from the right in its place.
     </div>
   </div>
   <div class="footer__bar">
-    <span>&copy; 2026 NexPoint Global Ltd. All rights reserved. Capacity figures are illustrative summaries held in confidence; identities, pricing and locations are never published.</span>
+    <span>&copy; 2026 NexPoint Global Ltd. All rights reserved.</span>
     <div class="footer__bar-links">
       <a href="https://nexpoint.co.uk/hub/privacy.html">Privacy</a>
       <a href="../index.html">Main site</a>

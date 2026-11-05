@@ -416,7 +416,7 @@ function introSubmit(e){
 function openEducationList(){
   const c = document.getElementById('introContent');
   c.innerHTML = `
-    <h2>Put me on the Education Hub list</h2>
+    <h2>Put me on the Education list</h2>
     <p class="body">Name and email, nothing else. We'll write when the first courses open.</p>
     <form onsubmit="return eduSubmit(event)">
       ${TRAP_FIELD}

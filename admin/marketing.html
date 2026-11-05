@@ -38,6 +38,11 @@
   a.st:hover { text-decoration: underline; text-underline-offset: 2px; }
   /* The section's four tabs stay one row on a phone, scrolling inside themselves. */
   @media (max-width: 560px) { .views[aria-label="Marketing"] { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .views[aria-label="Marketing"] a { padding-inline: 9px; flex: none; } }
+  .form-grid { align-items: start; }
+  .opt[disabled] { opacity: .55; cursor: not-allowed; }
+  .opt.add { border-style: dashed; color: var(--fg-2); }
+  .many-note { flex-basis: 100%; }
+  .camp-line + .camp-line { margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -66,8 +71,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=3"></script>
+<script src="crm-shell.js?v=4"></script>
 <script src="crm.js?v=071"></script>
+<script src="save.js?v=0794"></script>
 <script src="jobs.js?v=088"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -115,7 +121,7 @@ const MARKETING_TABS=[['marketing.html','Prospects'],['marketing-campaigns.html'
 const sectionTabs=cur=>`<div class="views" role="tablist" aria-label="Marketing">`+MARKETING_TABS.map(([href,label])=>`<a role="tab" href="${href}" aria-selected="${href===cur}">${label}</a>`).join('')+'</div>';
 
 // PLAN065 (Chris's CRM categorisation, Will 2026-10-14): five fields, Park and Kill, notes, edits, add.
-let prospects=[],parked=[],leads=[],rejected=[],campaigns=[],members={},pendingFor={},tab='prospects',pre0047=false,pre0065=false;
+let prospects=[],parked=[],leads=[],rejected=[],campaigns=[],members={},pendingFor={},tab='prospects',pre0047=false,pre0065=false,pre0092=false;
 let opts={sector:[],company_type:[]},notes={},opportunities=[],kindOf={},C=null,banners=[],loaded=false;
 // Review fix: a dropdown changed but not yet saved survives every re-render.
 const choices={},drafts={},asks={};
@@ -134,6 +140,8 @@ const SOURCES={finder:'Weekend finder','fit360-list':'Fit360 campaign list','exi
 const VERSION_WORDS={current:'Current customer',former:'Former customer',enquired:'Enquired',enquired_new:'Enquired (new contact)',cold:'Cold'};
 const MEMBER_WORDS={waiting:'Waiting',ready:'Ready to go into Smartlead',in_smartlead:'In Smartlead',
   remove:'Being taken out of Smartlead',removed:'Removed',replied:'Replied',error:'Smartlead refused it'};
+/* The field in prospect_options, and what the row and the engine call its several values. */
+const MANY={sector:'sectors',company_type:'company_types'};
 const FILTERS=['f-search','f-type','f-sector','f-ctype','f-quality','f-campaign','f-source','f-finder'];
 const F={};FILTERS.forEach(k=>{F[k]='';});
 const typeLabel=t=>TYPE_LABEL[t]||t;
@@ -159,6 +167,11 @@ function siteLabel(w){
 }
 const nameOf=r=>r.display_name||r.company;
 const typeOf=r=>r.prospect_type||r.category;
+/* Sector, Company type and Campaign hold several values (plan 083). A row read
+   before migration 0092 has only the single column, which means a list of one. */
+const many=(r,list,one)=>Array.isArray(r[list])&&r[list].length?r[list]:(r[one]!=null&&r[one]!==''?[r[one]]:[]);
+const sectorsOf=r=>many(r,'sectors','sector');
+const ctypesOf=r=>many(r,'company_types','company_type');
 const campaignName=id=>{const c=campaigns.find(c=>String(c.id)===String(id));return c?c.name:null;};
 /* The finder search that surfaced a row: its matched opportunities (Will,
    2026-10-20), apart from the Campaign. Only rows the finders proposed
@@ -235,6 +248,7 @@ function contactsCell(r){
 const BASE='id,company,category,matched_json,reasoning,judge_reason,website,quality,judged,judge_confidence,proposed_at,decided_at,decided_by,decision_note,status';
 const PLAN043=',prospect_type,recommended_campaign_id,campaign_id,source,display_name,list_overlap';
 const PLAN065=',sector,company_type';
+const PLAN083=',sectors,company_types,recommended_campaign_ids';
 
 /* Any table read in pages of 1,000 (PostgREST's cap). */
 async function readAll(table,cols,order){
@@ -301,8 +315,9 @@ async function readContacts(){
 
 async function load(){
   banners=[];
-  let pre=false,pre65=false;
-  let {data,error}=await readQueue(BASE+PLAN043+PLAN065);
+  let pre=false,pre65=false,pre92=false;
+  let {data,error}=await readQueue(BASE+PLAN043+PLAN065+PLAN083);
+  if(error&&/sectors|company_types|recommended_campaign_ids/.test(error.message||'')){pre92=true;({data,error}=await readQueue(BASE+PLAN043+PLAN065));}
   if(error&&/sector|company_type/.test(error.message||'')){pre65=true;({data,error}=await readQueue(BASE+PLAN043));}
   if(error&&/prospect_type|recommended_campaign_id|campaign_id|source|display_name|list_overlap/.test(error.message||'')){
     pre=true;pre65=true;
@@ -310,9 +325,12 @@ async function load(){
   }
   if(error){banners.push(['err',`Could not read the prospects: ${error.message}.`]);loaded=true;prospects=parked=leads=rejected=[];render();return;}
   pre0047=pre;
+  pre0092=pre92||pre65||pre;
+  if(pre92)banners.push('Migration 0092 has not been applied: Sector, Company type and Campaign hold one value each until it is.');
   if(pre)banners.push('Migration 0047 has not been applied: prospects show without their Campaign, and Accept is paused until it is.');
   const o=await readAll('prospect_options','field,value,position,active','position');
-  const n=await readAll('prospect_notes','id,company,body,by,at','id');
+  /* All columns: file_error is plan 079's (0096), and this page still stands before that is applied. */
+  const n=await readAll('prospect_notes','*','id');
   const optErr=o.error||n.error;
   const queuePre65=pre65;
   if(optErr)pre65=true;
@@ -337,10 +355,11 @@ async function load(){
   const {data:opps}=await sb.from('opportunities').select('id,title').order('title',{ascending:true});
   opportunities=opps||[];
   /* Found for reads each opportunity's kind (see FIT_FROM_KIND). */
+  NXSAVE.use((await sb.from('crm_settings').select('key,value').eq('key','direct_writes')).data);
   const {data:kinds}=await sb.from('opportunities').select('id,kind');
   kindOf={};(kinds||[]).forEach(k=>{kindOf[k.id]=k.kind;});
   const mem=await readMembers('id,company,campaign_id,version,status,reason,contact_email,updated_at');
-  members={};mem.forEach(m=>{members[m.company]=m;});
+  members={};mem.forEach(m=>{(members[m.company]=members[m.company]||[]).push(m);});
   C=await readContacts();
 
   const {data:intents}=await sb.from('engine_intents')
@@ -352,7 +371,7 @@ async function load(){
     .order('id',{ascending:false}).limit(1000);
   checkBack.watch(intents);
   pendingFor={};
-  (intents||[]).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
+  NXSAVE.live(intents).slice().sort((a,b)=>a.id-b.id).forEach(i=>{
     const p=i.payload_json||{};
     const key=i.type==='add-prospect-note'?(p.company?'n'+p.company:null)
       :i.type==='add-prospect'?(p.display_name?'a'+String(p.display_name).trim().toLowerCase():null)
@@ -366,28 +385,32 @@ async function load(){
   render();
 }
 
-function matchField(filter,value){if(!filter)return true;if(filter==='__unset')return !value;return value===filter;}
-function passes(r,campaignId){
+function matchField(filter,values){if(!filter)return true;if(filter==='__unset')return !values.length;return values.includes(filter);}
+function passes(r,campaignIds){
   const s=F['f-search'].trim().toLowerCase();
   if(s&&!`${nameOf(r)} ${r.company} ${r.website||''}`.toLowerCase().includes(s))return false;
   const t=F['f-type'],q=F['f-quality'],c=F['f-campaign'],src=F['f-source'];
   if(t&&typeOf(r)!==t)return false;
-  if(!matchField(F['f-sector'],r.sector))return false;
-  if(!matchField(F['f-ctype'],r.company_type))return false;
+  if(!matchField(F['f-sector'],sectorsOf(r)))return false;
+  if(!matchField(F['f-ctype'],ctypesOf(r)))return false;
   if(q&&gradeOf(r)!==q)return false;
   if(src&&(r.source||'finder')!==src)return false;
   const fd=F['f-finder'];
   if(fd==='__none'&&finderIds(r).some(isOpportunity))return false;
   if(fd&&fd!=='__none'&&!finderIds(r).includes(fd))return false;
-  if(c==='none'&&campaignId!=null)return false;
-  if(c&&c!=='none'&&String(campaignId)!==c)return false;
+  if(c==='none'&&campaignIds.length)return false;
+  if(c&&c!=='none'&&!campaignIds.map(String).includes(c))return false;
   return true;
 }
 const gradeOf=r=>(r.quality&&r.quality!=='watch')?r.quality:(r.judge_confidence||'medium');
-const campOf=r=>r.status==='approved'?(members[r.company]?members[r.company].campaign_id:null):r.recommended_campaign_id;
-/* The campaign the row offers: its own, while that campaign is switched on
-   (the dropdown lists only those), else None. Accept sends exactly this. */
-const campChoice=r=>{const c=campOf(r);return c!=null&&campaigns.some(x=>String(x.id)===String(c))?c:null;};
+/* A lead's campaigns are the lists it is on, in the order it joined them; a prospect's are the ones picked on its row. */
+const ON_LIST=['waiting','ready','in_smartlead','error'];
+const campsOf=r=>r.status==='approved'?(members[r.company]||[]).filter(m=>ON_LIST.includes(m.status)).map(m=>m.campaign_id)
+  :many(r,'recommended_campaign_ids','recommended_campaign_id');
+const switchedOn=c=>campaigns.some(x=>String(x.id)===String(c));
+/* The campaigns the row offers: its own, while switched on (the buttons list
+   only those), as strings. Accept sends exactly these, the first goes first. */
+const campChoices=r=>campsOf(r).filter(switchedOn).map(String);
 
 /* ---------- the page ---------- */
 function render(){
@@ -433,12 +456,12 @@ const companyHead=()=>`<button type="button" class="th-sort" data-act="sortCompa
 function listHtml(){
   let rows,head,body;
   if(tab==='leads'){
-    rows=sorted(leads.filter(r=>passes(r,campOf(r))));
+    rows=sorted(leads.filter(r=>passes(r,campsOf(r))));
     head=`<th>${companyHead()}</th><th>Found for</th><th>Status</th><th>Campaign</th><th>In Contacts</th><th></th>`;
     body=rows.map(leadCard).join('');
   }else{
     const list=tab==='parked'?parked:prospects;
-    rows=sorted(list.filter(r=>passes(r,r.recommended_campaign_id)));
+    rows=sorted(list.filter(r=>passes(r,campsOf(r))));
     head=`<th>${companyHead()}</th><th>Found for</th><th>Status</th><th>Campaign</th><th>Why it fits</th><th>In Contacts</th><th></th>`;
     body=rows.map(r=>prospectCard(r,tab==='parked')).join('');
   }
@@ -464,18 +487,26 @@ function options(list,selected,labelFn){
   return list.map(v=>`<option value="${esc(v)}"${String(v)===String(selected)?' selected':''}>${esc(labelFn?labelFn(v):v)}</option>`).join('');
 }
 function pick(r,field,fallback){const c=choices[r.id];return c&&field in c?c[field]:fallback;}
-function campaignSelect(id,selected,dataAttr,disabled){
-  return `<select class="input" id="${esc(id)}" ${dataAttr||''}${disabled?' disabled title="This status has no campaign: Chris contacts personally"':''}>
-    <option value=""${selected==null||selected===''?' selected':''}>None: Chris contacts personally</option>
-    ${campaigns.map(c=>`<option value="${esc(c.id)}"${String(c.id)===String(selected)?' selected':''}>${esc(c.name)}</option>`).join('')}
-  </select>`;
+/* A several-value field: one button per value, pressed when held (the design's
+   picker, as the company page's Fit). id is the row's, or 'add' for Add a company. */
+function manyField(label,id,field,buttons,selected,disabled,title,after){
+  const lab=`lab-${field}-${id}`;
+  const on=selected.map(String);
+  return `<div class="field"><span class="flabel" id="${esc(lab)}">${label}</span><div class="picker-opts" role="group" aria-labelledby="${esc(lab)}">`+
+    buttons.map(([v,t],i)=>`<button type="button" class="opt" id="many-${esc(field)}-${esc(id)}-${i}" data-act="toggleMany" data-id="${esc(id)}" data-f="${esc(field)}" data-v="${esc(v)}" aria-pressed="${on.includes(String(v))}"${disabled?` disabled${title?` title="${esc(title)}"`:''}`:''}>${esc(t)}</button>`).join('')+
+    `${after||''}</div></div>`;
 }
-function optionSelect(field,id,selected,attrs){
-  const vals=opts[field].slice();if(selected&&!vals.includes(selected))vals.push(selected);
-  return `<select class="input" id="${esc(id)}" ${attrs}${pre0065?' disabled':''}>
-    <option value=""${!selected?' selected':''}>Not set</option>
-    ${vals.map(v=>`<option value="${esc(v)}"${v===selected?' selected':''}>${esc(v)}</option>`).join('')}
-    <option value="__add">Add an option</option></select>`;
+const campaignWords=ids=>ids.length?ids.map(c=>campaignName(c)||'A switched-off campaign').join(', then '):'None: Chris contacts personally';
+function campaignField(id,selected,disabled){
+  const note=disabled?'None: Chris contacts personally'
+    :selected.length>1?`One at a time: ${campaignWords(selected)}.`:selected.length?'':'None: Chris contacts personally';
+  return manyField('Campaign',id,'campaigns',campaigns.map(c=>[String(c.id),c.name]),selected,disabled,'This status has no campaign: Chris contacts personally',
+    note?`<span class="muted-t many-note">${esc(note)}</span>`:'');
+}
+function optionField(label,field,id,selected){
+  const vals=opts[field].slice();selected.forEach(v=>{if(!vals.includes(v))vals.push(v);});
+  return manyField(label,id,MANY[field],vals.map(v=>[v,v]),selected,pre0065,'',
+    id==='add'?'':`<button type="button" class="opt add" data-act="askOption" data-id="${esc(id)}" data-f="${esc(field)}"${pre0065?' disabled':''}>Add an option</button>`);
 }
 /* The five fields and the website, shared by the prospect, parked and lead rows. */
 function fields(r,isParked){
@@ -485,10 +516,10 @@ function fields(r,isParked){
   const ask=UI.ask&&UI.ask.startsWith('addopt:')&&UI.ask.endsWith(':'+id)?UI.ask.split(':')[1]:null;
   return `<div class="form-grid">
     ${field('Status','type-'+id,`<select class="input" id="type-${esc(id)}" ${attr('type')}>${options(TYPES,t,typeLabel)}</select>`)}
-    ${field('Sector','sector-'+id,optionSelect('sector','sector-'+id,pick(r,'sector',r.sector||''),attr('sector')))}
-    ${field('Company type','ctype-'+id,optionSelect('company_type','ctype-'+id,pick(r,'company_type',r.company_type||''),attr('company_type')))}
+    ${optionField('Sector','sector',id,pick(r,'sectors',sectorsOf(r)))}
+    ${optionField('Company type','company_type',id,pick(r,'company_types',ctypesOf(r)))}
     ${field('Lead quality','quality-'+id,`<select class="input" id="quality-${esc(id)}" ${attr('quality')}${isParked?' disabled title="Unpark to grade"':''}>${options(QUALITIES,pick(r,'quality',gradeOf(r)),cap)}</select>`)}
-    ${field('Campaign','camp-'+id,campaignSelect('camp-'+id,noCamp?'':pick(r,'campaign',campChoice(r)==null?'':campChoice(r)),attr('campaign'),noCamp))}
+    ${campaignField(id,noCamp?[]:pick(r,'campaigns',campChoices(r)),noCamp)}
     ${field('Website','web-'+id,`<input class="input" id="web-${esc(id)}" value="${esc(pick(r,'website',r.website||''))}" ${attr('website')}${pre0065?' disabled':''}>`)}
   </div>`+(ask?`<div class="inline-choice"><span>New ${ask==='sector'?'Sector':'Company type'} option, added for everyone:</span><label class="sr" for="opt-new">New option</label><input class="input" id="opt-new" autocomplete="off">`+
     `<button type="button" class="btn sm primary" data-act="confirmOption" data-id="${esc(id)}" data-f="${ask}">Add the option</button><button type="button" class="btn sm quiet" data-act="closeAsk">Cancel</button></div>`:'');
@@ -496,7 +527,7 @@ function fields(r,isParked){
 function notesBlock(r){
   const list=notes[r.company]||[],q=pendingFor['n'+r.company];
   return `<details class="archive inpanel"${list.length?' open':''}><summary>Notes (${list.length})</summary><div class="arch-body notes">
-    ${list.map(n=>`<p class="note-item"><span class="muted-t">${esc(NXShell.personOf(n.by))}, ${esc(NXCRM.fmtDate(n.at))}</span><br>${esc(n.body)}</p>`).join('')}
+    ${list.map(n=>`<p class="note-item"><span class="muted-t">${esc(NXShell.personOf(n.by))}, ${esc(NXCRM.fmtDate(n.at))}</span><br>${esc(n.body)}${n.file_error?`<br><span class="status-line fail">Not in its folder yet: ${esc(n.file_error)}. The engine tries again on its next run.</span>`:''}</p>`).join('')}
     ${q&&q.status!=='failed'?'<span class="status-line">A note is queued for the engine.</span>':''}
     ${q&&q.status==='failed'?`<span class="status-line fail">The engine could not save a note: ${esc(q.result_note||'')}</span>`:''}
     <label class="sr" for="note-${esc(r.id)}">New note</label><textarea class="input" id="note-${esc(r.id)}" data-id="${esc(r.id)}" data-draft="1" placeholder="What should the next person know about this company?"${pre0065?' disabled':''}>${esc(drafts[r.id]||'')}</textarea>
@@ -512,7 +543,7 @@ const cancelBtn=r=>`<button class="btn sm quiet" id="cancel-${esc(r.id)}" type="
 function saveAllowed(r){
   if(!pre0065)return true;
   const k=Object.keys(changed(r));
-  return r.status==='approved'&&k.length===1&&k[0]==='campaign';
+  return r.status==='approved'&&k.length===1&&k[0]==='campaigns';
 }
 const queuedWords={'accept-prospect':'Accept','reject-lead':'Decline','block-lead':'Kill','watch-lead':'Park','unpark-lead':'Unpark',
   'edit-prospect':'Save','return-to-prospect':'Return to prospect','change-campaign':'Campaign change','unblock-lead':'Restore'};
@@ -526,9 +557,8 @@ function askHtml(kind,id,label,placeholder,verb,danger){
 
 /* What Accept on the row would use: the type's no-campaign rule, then the row's choice. */
 function acceptCampaign(r){
-  if(NO_CAMPAIGN.includes(pick(r,'type',typeOf(r))))return 'None: Chris contacts personally';
-  const c=pick(r,'campaign',campChoice(r)==null?'':campChoice(r));
-  return c===''||c==null?'None: Chris contacts personally':(campaignName(c)||'None: Chris contacts personally');
+  if(NO_CAMPAIGN.includes(pick(r,'type',typeOf(r))))return campaignWords([]);
+  return campaignWords(pick(r,'campaigns',campChoices(r)));
 }
 function prospectCard(r,isParked){
   const q=pendingFor['q'+r.id],queued=q&&q.status!=='failed';
@@ -564,12 +594,14 @@ function prospectCard(r,isParked){
 }
 
 function memberLine(r){
-  const m=members[r.company];
-  if(!m)return '<span class="muted-t">No campaign: Chris contacts personally</span>';
-  const word=MEMBER_WORDS[m.status]||m.status;
-  const why=(m.status==='waiting'||m.status==='error')&&m.reason?`: ${m.reason}`:'';
-  const cls=m.status==='error'?' err':(m.status==='in_smartlead'||m.status==='replied'?' ok':'');
-  return `${esc(campaignName(m.campaign_id)||'A switched-off campaign')}<small><span class="st${cls}">${esc(word)}</span> ${esc(VERSION_WORDS[m.version]||m.version)} version${esc(why)}</small>`;
+  const rows=members[r.company]||[];
+  if(!rows.length)return '<span class="muted-t">No campaign: Chris contacts personally</span>';
+  return rows.map(m=>{
+    const word=MEMBER_WORDS[m.status]||m.status;
+    const why=(m.status==='waiting'||m.status==='error')&&m.reason?`: ${m.reason}`:'';
+    const cls=m.status==='error'?' err':(m.status==='in_smartlead'||m.status==='replied'?' ok':'');
+    return `<div class="camp-line">${esc(campaignName(m.campaign_id)||'A switched-off campaign')}<small><span class="st${cls}">${esc(word)}</span> ${esc(VERSION_WORDS[m.version]||m.version)} version${esc(why)}</small></div>`;
+  }).join('');
 }
 function leadCard(r){
   const q=pendingFor['q'+r.id]||pendingFor['c'+r.company],queued=q&&q.status!=='failed';
@@ -581,7 +613,7 @@ function leadCard(r){
   const control=queued?queuedLine(q)
     :`${saveBtn(r)}${cancelBtn(r)}<button class="btn sm" type="button" data-act="returnLead" data-id="${esc(r.id)}">${ms('undo','sm')}Return to prospect</button>`;
   const ask=UI.ask==='return:'+r.id?askHtml('Return',r.id,'Return this lead to Prospects? It leaves its campaign; its folder is kept. Say why.','Required','Return it',false)
-    :UI.ask==='move:'+r.id?moveAsk(r):'';
+    :UI.ask==='move:'+r.id&&'campaigns' in changed(r)?moveAsk(r):'';
   out+=`<tr class="detail"><td colspan="6"><div class="detail-body">
     ${finderTags(r)}
     ${fields(r,false)}
@@ -592,17 +624,24 @@ function leadCard(r){
   return out;
 }
 function moveAsk(r){
-  const diff=changed(r),off=diff.campaign==='';
-  const question=off?`Take ${esc(nameOf(r))} off its campaign? If it is already in Smartlead, it is taken out there too.`
-    :`Move ${esc(nameOf(r))} to ${esc(campaignName(diff.campaign)||'the new campaign')}? If it is already in Smartlead it is taken out of its current campaign.`;
+  const was=campChoices(r),next=changed(r).campaigns.map(String);
+  const leaving=was.filter(c=>!next.includes(c)),joining=next.filter(c=>!was.includes(c));
+  const names=l=>esc(l.map(c=>campaignName(c)||'the new campaign').join(' and '));
+  const who=esc(nameOf(r));
+  let question,verb;
+  if(!next.length){question=`Take ${who} off ${was.length>1?'its campaigns':'its campaign'}? If it is already in Smartlead, it is taken out there too.`;verb='Take it off';}
+  else if(leaving.length===1&&joining.length===1&&was.length===1){question=`Move ${who} to ${names(joining)}? If it is already in Smartlead it is taken out of its current campaign.`;verb='Move it';}
+  else if(!leaving.length){question=`Add ${who} to ${names(joining)}? It stays on what it is on, and these emails wait until that has finished.`;verb='Add it';}
+  else if(!joining.length){question=`Take ${who} off ${names(leaving)}? If it is already in Smartlead, it is taken out there too.`;verb='Take it off';}
+  else{question=`Take ${who} off ${names(leaving)} and add it to ${names(joining)}? If it is already in Smartlead, it is taken out there too.`;verb='Change them';}
   return `<div class="inline-choice"><span>${question}</span>`+
-    `<button type="button" class="btn sm primary" data-act="confirmMove" data-id="${esc(r.id)}">${off?'Take it off':'Move it'}</button><button type="button" class="btn sm quiet" data-act="closeAsk">Cancel</button></div>`;
+    `<button type="button" class="btn sm primary" data-act="confirmMove" data-id="${esc(r.id)}">${verb}</button><button type="button" class="btn sm quiet" data-act="closeAsk">Cancel</button></div>`;
 }
 
 /* The Declined archive (the design's; the Rejected tab until plan 077):
    declined and killed companies, newest first, with Restore for a killed one. */
 function declinedHtml(){
-  const rows=rejected.filter(r=>passes(r,null));
+  const rows=rejected.filter(r=>passes(r,[]));
   return `<details class="archive"${UI.declinedOpen?' open':''} id="declined"><summary>Declined (${rows.length})</summary><div class="arch-body">`+
     (rows.length?rows.map(rejectedCard).join(''):'<div class="arch-row"><span class="arch-note">Nothing declined or killed.</span></div>')+'</div></details>';
 }
@@ -630,10 +669,10 @@ function addFormHtml(){
     <div class="field"><label for="add-name">Company name</label><input class="input" id="add-name" autocomplete="off" value="${esc(v.name||'')}"></div>
     <div class="field"><label for="add-web">Website</label><input class="input" id="add-web" placeholder="example.com" autocomplete="off" value="${esc(v.web||'')}"></div>
     <div class="field"><label for="add-type">Status</label><select class="input" id="add-type">${options(TYPES,v.type||'Cold',typeLabel)}</select></div>
-    <div class="field"><label for="add-sector">Sector</label><select class="input" id="add-sector"><option value="">Not set</option>${opts.sector.map(x=>`<option${x===v.sector?' selected':''}>${esc(x)}</option>`).join('')}</select></div>
-    <div class="field"><label for="add-ctype">Company type</label><select class="input" id="add-ctype"><option value="">Not set</option>${opts.company_type.map(x=>`<option${x===v.ctype?' selected':''}>${esc(x)}</option>`).join('')}</select></div>
+    ${optionField('Sector','sector','add',v.sectors||[])}
+    ${optionField('Company type','company_type','add',v.company_types||[])}
     <div class="field"><label for="add-quality">Lead quality</label><select class="input" id="add-quality">${options(QUALITIES,v.quality||'medium',cap)}</select></div>
-    <div class="field"><label for="add-camp">Campaign</label>${campaignSelect('add-camp',v.camp||'')}</div>
+    ${campaignField('add',v.campaigns||[],NO_CAMPAIGN.includes(v.type||'Cold'))}
   </div><div class="field"><label for="add-note">First note</label><textarea class="input" id="add-note" rows="2">${esc(v.note||'')}</textarea></div>
   <div class="actions"><button class="btn primary" id="add-go" type="button" data-act="addCompany">${ms('add','sm')}Add to Prospects</button><button type="button" class="btn quiet" data-act="toggleAdd">Cancel</button></div></section>`;
 }
@@ -651,6 +690,10 @@ function toggleAdd(){UI.add=!UI.add;render();if(UI.add){const f=$('add-name');if
 
 /* ---------- writing: engine_intents only ---------- */
 async function raise(type,payload,verb,key,toastText){
+  if(NXSAVE.direct(type)){
+    const saved=await NXSAVE.press(sb,type,payload,load);
+    if(saved!==null)return saved;
+  }
   const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
   if(error){NXShell.toast(`Could not queue it: ${error.message}`);return false;}
   if(key)pendingFor[key]={type,status:'pending',payload_json:payload};
@@ -659,20 +702,30 @@ async function raise(type,payload,verb,key,toastText){
   setTimeout(load,1200);
   return true;
 }
+/* Two lists hold the same values; the order counts only for a prospect's campaigns, the order they will go in. */
+const sameList=(a,b,ordered)=>{const k=l=>{const x=(l||[]).map(String);return (ordered?x:x.sort()).join('\u0001');};return k(a)===k(b);};
 function changed(r){
   const c=choices[r.id]||{},out={};
-  const cur={type:typeOf(r),sector:r.sector||'',company_type:r.company_type||'',quality:gradeOf(r),
-             campaign:campChoice(r)==null?'':String(campChoice(r)),website:r.website||''};
-  for(const k in c)if(String(c[k]??'')!==String(cur[k]??''))out[k]=c[k];
-  if(NO_CAMPAIGN.includes(c.type||cur.type)){delete out.campaign;if(cur.campaign!=='')out.campaign='';}
+  const cur={type:typeOf(r),sectors:sectorsOf(r),company_types:ctypesOf(r),quality:gradeOf(r),
+             campaigns:campChoices(r),website:r.website||''};
+  for(const k in c){
+    if(Array.isArray(cur[k])){if(!sameList(c[k],cur[k],k==='campaigns'&&r.status!=='approved'))out[k]=c[k];}
+    else if(String(c[k]??'')!==String(cur[k]??''))out[k]=c[k];
+  }
+  if(NO_CAMPAIGN.includes(c.type||cur.type)){delete out.campaigns;if(cur.campaigns.length)out.campaigns=[];}
   if(r.quality==='watch')delete out.quality;
   return out;
 }
 const rowById=id=>[...prospects,...parked,...leads,...rejected].find(r=>String(r.id)===String(id));
-function payloadFields(diff){
+/* A switched-off campaign a lead is on has no button: saving keeps it, first, as it joined first. */
+function payloadFields(r,diff){
   const out={};
   for(const k in diff){
-    if(k==='campaign')out.campaign_id=diff[k]===''?null:Number(diff[k]);
+    if(k==='campaigns'){
+      const off=r.status==='approved'&&!NO_CAMPAIGN.includes(pick(r,'type',typeOf(r)))?campsOf(r).filter(c=>!switchedOn(c)):[];
+      out.campaign_ids=off.concat(diff[k]).map(Number);
+    }
+    else if(Array.isArray(diff[k]))out[k]=diff[k];
     else out[k]=diff[k]===''?null:diff[k];
   }
   return out;
@@ -685,29 +738,30 @@ function refreshSave(id){
 async function saveRow(id,moved){
   const r=rowById(id);if(!r)return;
   const diff=changed(r);if(!Object.keys(diff).length)return;
-  if(r.status==='approved'&&'campaign' in diff&&!moved){UI.ask='move:'+id;$('plist').innerHTML=listHtml();return;}
+  if(r.status==='approved'&&'campaigns' in diff&&!moved){UI.ask='move:'+id;$('plist').innerHTML=listHtml();return;}
   let ok;
   if(pre0065){
-    const target=diff.campaign===''?null:Number(diff.campaign);
+    const target=diff.campaigns.length?Number(diff.campaigns[0]):null;
     ok=await raise('change-campaign',{company:r.company,campaign_id:target,display_name:nameOf(r)},target==null?'Taken off its campaign':'Moved to '+(campaignName(target)||'the new campaign'),'c'+r.company);
-  }else ok=await raise('edit-prospect',{queue_row:Number(id),fields:payloadFields(diff)},'Saved','q'+id);
+  }else ok=await raise('edit-prospect',{queue_row:Number(id),fields:payloadFields(r,diff)},'Saved','q'+id);
   if(ok){delete choices[id];UI.ask=null;render();}
 }
 async function accept(id){
   const r=rowById(id);if(!r)return;
-  const t=pick(r,'type',typeOf(r)),camp=String(pick(r,'campaign',campChoice(r)==null?'':campChoice(r)));
-  const payload={queue_row:Number(id),type:t,quality:pick(r,'quality',gradeOf(r)),
-                 campaign_id:(NO_CAMPAIGN.includes(t)||camp==='')?null:Number(camp)};
+  const t=pick(r,'type',typeOf(r));
+  const ids=NO_CAMPAIGN.includes(t)?[]:pick(r,'campaigns',campChoices(r)).map(Number);
+  const payload={queue_row:Number(id),type:t,quality:pick(r,'quality',gradeOf(r)),campaign_ids:ids};
   if(!pre0065){
     const d=changed(r);
-    for(const k of ['sector','company_type','website'])if(k in d)payload[k]=d[k]===''?null:d[k];
+    for(const k of ['sectors','company_types'])if(k in d)payload[k]=d[k];
+    if('website' in d)payload.website=d.website===''?null:d.website;
   }
   const known=inContacts(Object.assign({},r,'website' in payload?{website:payload.website}:{}));
   /* D5: one already in Contacts with no campaign is tagged, nothing more. */
-  const tagOnly=known&&payload.campaign_id==null;
+  const tagOnly=known&&!ids.length;
   const toastText=!tagOnly?null:fitsOf(r).length?`Accepted ${nameOf(r)}, queued: it is in Contacts already, so only its fit is tagged.`
     :`Accepted ${nameOf(r)}, queued: it is in Contacts already and fits neither pipeline, so nothing is tagged.`;
-  const verb='Accepted as '+(payload.campaign_id==null?'a lead with no campaign':'a lead on '+(campaignName(payload.campaign_id)||'its campaign'));
+  const verb='Accepted as '+(!ids.length?'a lead with no campaign':ids.length>1?`a lead on ${ids.length} campaigns, one at a time`:'a lead on '+(campaignName(ids[0])||'its campaign'));
   if(await raise('accept-prospect',payload,verb,'q'+id,toastText)){delete choices[id];UI.open=null;render();}
 }
 
@@ -719,6 +773,18 @@ const ACT={
   openRow(el){const id=Number(el.dataset.id);UI.open=UI.open===id?null:id;UI.ask=null;$('plist').innerHTML=listHtml();},
   closeAsk(){UI.ask=null;for(const k in asks)delete asks[k];$('plist').innerHTML=listHtml();},
   toggleAdd(){toggleAdd();},
+  /* One press turns a value on or off. Before migration 0092 a field holds one value, so a press replaces it. */
+  toggleMany(el){
+    const {id,f,v}=el.dataset,isAdd=id==='add',r=isAdd?null:rowById(id);
+    const held=isAdd?((UI.addValues||{})[f]||[]):pick(r,f,f==='sectors'?sectorsOf(r):f==='company_types'?ctypesOf(r):campChoices(r));
+    const on=held.map(String).includes(v);
+    const next=on?held.filter(x=>String(x)!==v):pre0092?[v]:held.concat([v]);
+    if(UI.ask==='move:'+id)UI.ask=null;
+    if(isAdd){UI.addValues=Object.assign(UI.addValues||{},{[f]:next});render();}
+    else{choose(id,f,next);$('plist').innerHTML=listHtml();}
+    focusOn(el.id);
+  },
+  askOption(el){UI.ask=`addopt:${el.dataset.f}:${el.dataset.id}`;$('plist').innerHTML=listHtml();focusOn('opt-new');},
   accept(el){accept(el.dataset.id);},
   saveRow(el){saveRow(el.dataset.id);},
   cancelRow(el){delete choices[el.dataset.id];UI.ask=null;$('plist').innerHTML=listHtml();},
@@ -750,15 +816,16 @@ const ACT={
     if(!value){focusOn('opt-new');return NXShell.toast('Type the new option first.');}
     if(!(await raise('add-prospect-option',{field,value},'Option added','o'+field+':'+value)))return;
     if(!opts[field].includes(value))opts[field].push(value);
-    choose(id,field,value);UI.ask=null;$('plist').innerHTML=listHtml();
+    const r=rowById(id),f=MANY[field],held=pick(r,f,field==='sector'?sectorsOf(r):ctypesOf(r));
+    choose(id,f,held.includes(value)?held:held.concat([value]));UI.ask=null;$('plist').innerHTML=listHtml();
   },
   async addCompany(){
     const name=val('add-name');
     if(!name){focusOn('add-name');return NXShell.toast('A company needs a name.');}
-    const t=val('add-type'),camp=val('add-camp');
+    const t=val('add-type'),v=UI.addValues||{};
     const ok=await raise('add-prospect',{display_name:name,website:val('add-web')||null,type:t,
-      sector:val('add-sector')||null,company_type:val('add-ctype')||null,quality:val('add-quality'),
-      campaign_id:(NO_CAMPAIGN.includes(t)||camp==='')?null:Number(camp),note:val('add-note')||null},
+      sectors:v.sectors||[],company_types:v.company_types||[],quality:val('add-quality'),
+      campaign_ids:NO_CAMPAIGN.includes(t)?[]:(v.campaigns||[]).map(Number),note:val('add-note')||null},
       `Added ${name} to Prospects`,'a'+name.toLowerCase());
     if(ok){UI.add=false;UI.addValues=null;render();}
   },
@@ -781,10 +848,9 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const t=e.target;
   if(FILTERS.includes(t.id)){F[t.id]=t.value;saveFilters();$('plist').innerHTML=listHtml();return;}
-  if(t.id&&t.id.startsWith('add-')){UI.addValues=Object.assign(UI.addValues||{},{[t.id.slice(4)]:t.value});return;}
+  if(t.id&&t.id.startsWith('add-')){UI.addValues=Object.assign(UI.addValues||{},{[t.id.slice(4)]:t.value});if(t.id==='add-type')render();return;}
   if(!(t.dataset&&t.dataset.edit))return;
   const id=t.dataset.id,f=t.dataset.f;
-  if(t.value==='__add'){UI.ask=`addopt:${f}:${id}`;$('plist').innerHTML=listHtml();focusOn('opt-new');return;}
   choose(id,f,f==='website'?t.value.trim():t.value);
   if(f==='type'){$('plist').innerHTML=listHtml();return;}
   refreshSave(id);

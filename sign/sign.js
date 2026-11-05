@@ -184,9 +184,9 @@
         '<dl class="terms">' +
           (s.service ? '<dt>Purpose</dt><dd>' + esc(s.service) + '</dd>' : '') +
           '<dt>Retainer</dt><dd><strong>' + esc(fee.display) + '</strong> for six months of sales and marketing work, ' +
-            'invoiced when you sign and due within 30 days.</dd>' +
-          '<dt>Recurring fee</dt><dd>On the business that results: <strong>6% of the revenue in the first year</strong>, ' +
-            'falling to 2% in the fifth, and nothing after.</dd>' +
+            'non-refundable, invoiced when you sign and due within 14 days.</dd>' +
+          '<dt>Recurring fee</dt><dd>On the business that results: <strong>6% of Net Revenue</strong>, as the agreement defines it, ' +
+            'in the first year after each company we introduce places its first order with you, falling to 2% in the fifth, and nothing after.</dd>' +
         '</dl>' +
         '<p class="note">The agreement is with NexPoint Global Ltd and has two parts: the Introduction Agreement, made out for ' +
           esc(s.company) + ', and the Master Terms of Business. You sign both at once.</p>' +
@@ -344,31 +344,33 @@
       .concat(['Reference: ' + inv.number, 'Amount: ' + inv.amount_display]).join('\n');
   }
 
-  /* Pay by bank covers UK payers in GBP only (spec section 7): there Pay now
-     leads, with the transfer details below it. In dollars or euros the
-     transfer leads, and the online invoice is the quieter way. */
+  /* Pay now opens Xero's online invoice, which takes a card
+     and, on a pound invoice, pay by bank from a UK account (Stripe and
+     GoCardless on the Standard theme, 3 November 2026). The transfer details
+     sit below it, and lead only when there is no online invoice to open. */
   function renderInvoiced(s) {
     var inv = s.invoice || {};
     var pay = safeHttps(inv.pay_url);
     var bank = inv.bank && typeof inv.bank === 'object' && Object.keys(inv.bank).length ? inv.bank : null;
     var ref = '<p class="note">Use <strong>' + esc(inv.number) + '</strong> as the payment reference.</p>';
+    function bankPanel(title, button) {
+      return '<div class="panel"><h2>' + title + '</h2>' + bankRows(bank) + ref +
+        '<div class="actions"><button class="' + button + '" type="button" id="copyBank">Copy bank details</button></div>' +
+        '<p class="msg" id="copyMsg" role="status"></p></div>';
+    }
     var html = '<h1>Agreement signed.</h1>' +
       '<p>Thank you. Here is the invoice for your retainer. A copy of the signed agreement and the invoice are on their way to your inbox.</p>' +
       signedBy(s) + invoiceTo(s) +
       '<div class="panel"><p class="eyebrow">Your invoice</p>' + invoiceRows(s, inv);
-    if (inv.pay_by_bank && pay) {
+    if (pay) {
       html += '<div class="actions"><a class="btn yes" id="payNow" href="' + esc(pay) + '" target="_blank" rel="noopener">Pay now</a></div>' +
-        '<p class="note">Pay now opens the invoice, where you can pay straight from your bank account.</p></div>' +
-        (bank ? '<div class="panel"><h2>Or pay by bank transfer</h2>' + bankRows(bank) + ref + '</div>' : '');
+        '<p class="note" id="payWays">Pay now opens the invoice, where you can pay by card' +
+        (inv.pay_by_bank ? ' or straight from a UK bank account' : '') + '.</p></div>' +
+        (bank ? bankPanel('Or pay by bank transfer', 'quiet') : '');
     } else if (bank) {
-      html += '</div><div class="panel"><h2>Pay by bank transfer</h2>' + bankRows(bank) + ref +
-        '<div class="actions"><button class="yes" type="button" id="copyBank">Copy bank details</button>' +
-        (pay ? '<a class="btn quiet" id="viewInvoice" href="' + esc(pay) + '" target="_blank" rel="noopener">View the invoice</a>' : '') +
-        '</div><p class="msg" id="copyMsg" role="status"></p></div>';
-    } else if (pay) {
-      html += '<div class="actions"><a class="btn yes" id="viewInvoice" href="' + esc(pay) + '" target="_blank" rel="noopener">View the invoice</a></div></div>';
+      html += '</div>' + bankPanel('Pay by bank transfer', 'yes');
     } else {
-      html += '<p class="note">The invoice is in your inbox, with the ways to pay it.</p></div>';
+      html += '<p class="note">The invoice is in your inbox. Email ' + helpLink + ' for the ways to pay it.</p></div>';
     }
     render(html);
     if ($('copyBank')) $('copyBank').addEventListener('click', function () { copyBank(bankText(bank, inv)); });

@@ -56,8 +56,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=3"></script>
+<script src="crm-shell.js?v=4"></script>
 <script src="crm.js?v=071"></script>
+<script src="save.js?v=0794"></script>
 <script src="jobs.js?v=088"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -109,6 +110,7 @@ function startUi(){
 async function load(){
   banners=[];
   const st=await sb.from('crm_settings').select('key,value');
+  NXSAVE.use(st.data);
   if(st.error){state=/crm_/.test(st.error.message||'')?'missing':'error';problem=st.error.message;render();return;}
   if(!(st.data||[]).some(r=>r.key==='imported_at')){state='empty';render();return;}
   const [cq,fq,dq,tq,lq,sq,pq,eq,mq,oq,iq,uq]=await Promise.all([
@@ -136,7 +138,7 @@ async function load(){
   if((iq.data||[]).length===1000)banners.push('Showing the newest 1,000 intent rows; older ones are not on this page.');
   index(cq.data,fq.data,dq.data,tq.data||[],lq.data,sq.data,pq.data,eq.data,mq.data||[],oq.data||[]);
   D.profileOf={};(uq.data||[]).forEach(u=>{D.profileOf[u.user_id]=u;});
-  watch(iq.data||[]);
+  watch(NXSAVE.live(iq.data));
   checkBack.watch(iq.data);
   state='ready';render();
 }
@@ -230,7 +232,7 @@ function personRow(p){
     `<span class="cell">${company}</span><span class="cell">${esc(p.role||'')}</span><span class="cell">${esc(emails.join(', '))}</span>`+
     `<span class="cell muted num">${esc((p.phones||[]).join(', '))}</span><span class="cell-act">${act}</span>`+
     `<span class="row-meta">${esc([companyName(p.company_id),p.role,emails[0]].filter(Boolean).join(', '))}</span></div>`+
-    (UI.open==='deluser:'+p.user_id?`<div class="lrow-edit"><div class="inline-choice"><span>Delete ${esc(p.name)}’s sign-in? They have no account, so they have no account to lose. This cannot be undone.</span>`+
+    (UI.open==='deluser:'+p.user_id?`<div class="lrow-edit"><div class="inline-choice"><span>Delete ${esc(p.name)}’s sign-in? They have no account, so they have no account to lose. If they came only from the portal they also leave Contacts, with their addresses and activity. If they were already a contact they stay, and only their portal activity goes. This cannot be undone.</span>`+
       `<button type="button" class="btn sm danger" data-act="confirmDeleteUser" data-user="${esc(p.user_id)}">Delete user</button><button type="button" class="btn sm quiet" data-act="closeUi">Cancel</button></div></div>`:'');
 }
 /* A portal user with no account has no company page to be deleted from (the
@@ -294,6 +296,10 @@ function render(){
 }
 
 async function raise(type,payload,verb){
+  if(NXSAVE.direct(type)){
+    const saved=await NXSAVE.press(sb,type,payload,()=>{UI.open=null;UI.edit=null;render();return load();});
+    if(saved!==null)return saved;
+  }
   const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});
   if(error){NXShell.toast(`Could not queue it: ${error.message}`);return false;}
   NXShell.toast(`${verb}, queued. This page updates by itself.`);

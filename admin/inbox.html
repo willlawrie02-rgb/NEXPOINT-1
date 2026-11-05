@@ -37,8 +37,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=3"></script>
+<script src="crm-shell.js?v=4"></script>
 <script src="crm.js?v=071"></script>
+<script src="save.js?v=0794"></script>
 <script src="jobs.js?v=088"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -80,7 +81,7 @@ function showAdmin(u){$('login').style.display='none';$('admin').style.display='
 const esc=NXCRM.esc, ms=NXShell.ms;
 const LEDE='Every job that needs us, in one queue. Each line opens the page where it is decided.';
 /* Done today: the decisions jobs.js raises, a workspace tick, a task done or put back, and a re-run asked for on System. */
-const DONE_TYPES=[...NXJOBS.TYPES,'tick-task','done-task','rerun-job'];
+const DONE_TYPES=[...NXJOBS.TYPES,'tick-task','rerun-job'];
 const CAP=500;
 const UI={filter:'all',open:null,rows:new Set()};
 const checkBack=NXJOBS.poll(sb,load,()=>!!UI.open);
@@ -95,6 +96,7 @@ const isMissing=e=>!!e&&/does not exist|schema cache|Could not find/i.test(e.mes
 
 async function load(){
   banners=[];
+  NXSAVE.use((await sb.from('crm_settings').select('key,value').eq('key','direct_writes')).data);
   const day=864e5, since14=new Date(Date.now()-14*day).toISOString(), since30=new Date(Date.now()-30*day).toISOString();
   const [iq,oq,dq,eq,cq,mq,vq,nq,sq]=await Promise.all([
     sb.from('inbox').select('*').order('created_at',{ascending:true}).limit(CAP),
@@ -140,7 +142,7 @@ async function load(){
   if(nq.error)banners.push(['info',`Could not read the decisions already on their way: ${nq.error.message}. A job may still show buttons for a decision already made.`]);
   if((nq.data||[]).length===1000)banners.push(['info','Showing the newest 1,000 decisions; older ones are not on this page.']);
   sending=[];
-  watch(nq.data||[]);
+  watch(NXSAVE.live(nq.data));
   checkBack.watch(nq.data);
 
   /* The jobs decided in place read what their panels need, once. */
@@ -223,9 +225,12 @@ function queueHtml(){
 function doneTodayHtml(){
   const today=NXJOBS.todayIn();
   const done=intents.filter(i=>i.status==='done'&&DONE_TYPES.includes(i.type)&&(NXJOBS.london(i.requested_at)||{}).iso===today).sort((a,b)=>b.id-a.id);
-  if(!done.length)return '';
+  /* Plan 079: a task's own row says when it was done, by whichever route; one put back is not done. */
+  const ticked=T.done.filter(t=>t.done_at&&(NXJOBS.london(t.done_at)||{}).iso===today).sort((a,b)=>String(b.done_at).localeCompare(String(a.done_at)));
+  if(!done.length&&!ticked.length)return '';
   const titles={};T.open.concat(T.done).forEach(t=>{titles[t.id]=t.title;});
-  return `<details class="archive"><summary>Done today (${done.length})</summary><div class="arch-body">${done.map(i=>{
+  const tickedRows=ticked.map(t=>`<div class="arch-row"><span class="gdot"></span><span class="arch-note" style="color:var(--fg-1)">${esc(NXJOBS.doneWords({type:'done-task',payload_json:{task_id:t.id,done:true}},{taskTitle:()=>t.title}).label)}</span><span class="item-date">${esc(NXShell.personOf(t.done_by))}, ${esc((NXJOBS.london(t.done_at)||{}).hm||'')}</span></div>`).join('');
+  return `<details class="archive"><summary>Done today (${done.length+ticked.length})</summary><div class="arch-body">${tickedRows}${done.map(i=>{
     const w=NXJOBS.doneWords(i,{taskTitle:id=>titles[id]}), at=(NXJOBS.london(i.requested_at)||{}).hm||'';
     let put='';
     if(w.notNow){
@@ -352,6 +357,10 @@ function render(){
 /* A press marks its job queued at once (a provisional intent under the
    job's key) and refuses a second press while the first is on its way. */
 async function raise(type,payload,spot,verb,toastText){
+  if(NXSAVE.direct(type)){
+    const saved=await NXSAVE.press(sb,type,payload,()=>{UI.open=null;render();return load();});
+    if(saved!==null)return saved;
+  }
   const temp={id:1e15+(++sendSeq),type,payload_json:payload,status:'pending',requested_at:new Date().toISOString(),requested_by:me.email};
   const k=NXJOBS.intentKey(temp);
   if(k!=null&&pending[k]&&pending[k].status!=='failed')return false;
