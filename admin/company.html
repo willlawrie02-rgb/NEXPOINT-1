@@ -151,7 +151,7 @@ const HUB={print:['3D Print Hub','listings.html?tab=print'],mill:['Mill Hub','li
    = 80, statements.SCORE_BAND_AMBER = 60). The middle band is neutral: the
    brand has no amber. */
 const SCORE_BAND_GREEN=80, SCORE_BAND_AMBER=60;
-const TERMS_LAYERS=[['platform','Platform'],['host','Host'],['introduction','Introduction']];
+const TERMS_LAYERS=[['platform','Platform'],['host','Host'],['seeker','Seeker']];
 const QUEUE_WORD={approved:'Accepted from Prospects',rejected:'Rejected on Prospects',withdrawn:'Withdrawn from Prospects',blocked:'Blocked on Prospects'};
 const BACK={'contacts.html':'Contacts','organisations.html':'Accounts','leads.html':'Prospects','inbox.html':'Inbox',
   'print-hub.html':'3D Print Hub','mill-hub.html':'Mill Hub','listings.html':'Live Listings','money.html':'Money','dashboard.html':'Dashboard','introductions.html':'Introductions','orders.html':'Orders',
@@ -498,7 +498,7 @@ function feesLine(orgId){
   }).join(', ');
 }
 /* One line per acceptance: layers accepted together (one version, one day, one signer) share it. */
-const TERMS_WORD={platform:'Platform terms',host:'Host Agreement',introduction:'Introduction terms'};
+const TERMS_WORD={platform:'Platform terms',host:'Host Agreement',seeker:'Seeker Agreement'};
 function termsLines(orgId){
   const by=A.terms[orgId]||{}, groups=[];
   TERMS_LAYERS.filter(([k])=>by[k]).forEach(([k])=>{
@@ -1060,7 +1060,8 @@ function accountItems(){
   });
   (A.accepts||[]).forEach(a=>{
     const v=A.versions[a.terms_version_id];if(!v)return;
-    const layer=(TERMS_LAYERS.find(([k])=>k===v.layer)||[v.layer,v.layer])[1];
+    /* The layers 2.0 retired stay here as history (plan 078). */
+    const layer=(TERMS_LAYERS.concat([['introduction','Introduction'],['opportunity','Opportunity']]).find(([k])=>k===v.layer)||[v.layer,v.layer])[1];
     out.push({when:a.accepted_at,cat:'account',icon:'gavel',cls:'portal',kind:'Terms',title:`${layer} terms ${v.version} accepted`,body:userName(a.user_id)?`By ${userName(a.user_id)}.`:''});
   });
   doneOrg.forEach(i=>{
