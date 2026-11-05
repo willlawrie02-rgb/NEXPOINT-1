@@ -378,10 +378,12 @@
      the routes leaves it hidden (plan 052's 404 convention). Once closed, the
      section becomes This account is closed, with Reopen; Logo and Users hide. */
   var closed = function () { return !!(state.account && state.account.closed); };
-  var HOST_TEXT = 'Closing ends your Host Agreement now and takes your listing off the 3D Print Hub and the Mill Hub. ' +
-    'Fees already paid are not refunded, and an invoice already raised is still payable. Introductions already made keep ' +
-    'their five fee years, counted from the first order under each: the recurring fee on work for those customers and the monthly declaration carry on, and you can ' +
-    'still sign in to declare and to see your statements. Everything else on the portal closes to you.';
+  var HOST_TEXT = 'Closing ends your Host Agreement now, takes your listing off the 3D Print Hub and the Mill Hub and takes ' +
+    'your opportunities off the Opportunities Board. Fees already paid are not refunded, and an invoice already raised is ' +
+    'still payable. The fee on work for customers already introduced carries on until its period ends: five years from the ' +
+    'first order for an introduction on a hub, or the period we agreed in writing for one on the board. Your monthly ' +
+    'declaration carries on with it, and you can still sign in to declare and to see your statements. Everything else on ' +
+    'the portal closes to you.';
   var SEEKER_TEXT = 'Closing ends your use of the portal. Your open requests close. Introductions already made stay on record.';
   var BOTH_TEXT = 'We keep the account\'s records for six years after the last invoice raised for it, or for six years from ' +
     'today if there was none, and then delete them. You can reopen the account at any time before then.';
