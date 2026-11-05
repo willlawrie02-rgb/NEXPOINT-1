@@ -12,12 +12,12 @@ const API = "https://api.nexpoint.co.uk", DB = "https://synywukadvjpjjxjylwk.sup
 // The ZZ rule: ZZ, then a space or a hyphen, then something.
 for (const yes of ["ZZ Walk Test", "ZZ-Owner", " ZZ Asker Test "]) ok(`isZZ ${yes}`, isZZ(yes));
 for (const no of ["", "ZZ", "ZZ ", "ZZTop Ltd", "zz walk test", "Provider 3", "A ZZ Company", "ZZ_Test", null, undefined]) ok(`not isZZ ${no}`, !isZZ(no));
-ok("slug", isZZSlug("zz-owner-test") && !isZZSlug("zzz") && !isZZSlug("midlands-3d") && !isZZSlug("ZZ-owner"));
+ok("slug", isZZSlug("zz-owner-test") && !isZZSlug("zzz") && !isZZSlug("acme-orthotics") && !isZZSlug("ZZ-owner"));
 
 // The settings: a real company name stops the run before anything opens.
 const filled = (company) => { const s = emptySettings(); s.accounts.host = { company, email: "a@example.com", password: "x" }; return s; };
 ok("a ZZ host passes", checkSettings(filled("ZZ Host Test")).problems.length === 0 && checkSettings(filled("ZZ Host Test")).have.host);
-ok("a real host is refused", checkSettings(filled("Midlands 3D")).problems.length === 1);
+ok("a real host is refused", checkSettings(filled("Acme Orthotics")).problems.length === 1);
 ok("a half-filled account is refused", checkSettings({ accounts: { seeker: { company: "ZZ Seeker", email: "", password: "x" } } }).problems.length === 1);
 ok("an address without {stamp} is refused", checkSettings({ new_account: { company: "ZZ New {stamp}", name: "ZZ New", email: "a@example.com", password: "x" } }).problems.length === 1);
 ok("the template has no values", checkSettings(emptySettings()).problems.length === 0 && !Object.values(checkSettings(emptySettings()).have).some(Boolean));
@@ -48,8 +48,23 @@ ok("declining a request is stopped", v("admin", "POST", `${DB}/engine_intents`, 
 ok("one bad row stops the lot", v("admin", "POST", `${DB}/engine_intents`, [intent("add-note", {}), intent("approve-listing", {})]) !== "");
 ok("a body that cannot be read is stopped", v("admin", "POST", `${DB}/engine_intents`, null) !== "");
 ok("a fast save passes", v("admin", "POST", `${DB}/rpc/crm_add_note`, { p: {} }) === "");
+ok("a campaign change is stopped by the fast route too", v("admin", "POST", `${DB}/rpc/crm_change_campaign`, { p: {} }) !== ""
+  && v("admin", "POST", `${DB}/rpc/crm_edit_person`, { p: {} }) !== "");
+ok("a prospect edit passes; one that names a campaign does not", v("admin", "POST", `${DB}/rpc/crm_edit_prospect`, { p: { fields: { sectors: ["a"] } } }) === ""
+  && v("admin", "POST", `${DB}/rpc/crm_edit_prospect`, { p: { fields: { campaign_ids: [2] } } }) !== ""
+  && v("admin", "POST", `${DB}/rpc/crm_edit_prospect`, { p: {} }) !== ""
+  && v("admin", "POST", `${DB}/engine_intents`, intent("edit-prospect", { fields: { campaign_ids: [2] } })) !== ""
+  && v("admin", "POST", `${DB}/engine_intents`, intent("edit-prospect", { fields: { sectors: [] } })) === "");
+ok("approving a request with a payload that cannot be read is stopped", v("admin", "POST", `${DB}/engine_intents`, intent("review-web-request", "{")) !== "");
+ok("other hosts take reads only, bar the human check", v("account", "POST", "https://api.web3forms.com/submit") !== ""
+  && v("account", "GET", "https://fonts.googleapis.com/css2") === "" && v("account", "POST", "https://challenges.cloudflare.com/cdn-cgi/x") === "");
+ok("the sign-in service: sign-in and the second factor only", v("admin", "PUT", "https://synywukadvjpjjxjylwk.supabase.co/auth/v1/user", {}) !== ""
+  && v("admin", "POST", "https://synywukadvjpjjxjylwk.supabase.co/auth/v1/factors/abc/verify", {}) === ""
+  && v("account", "POST", "https://synywukadvjpjjxjylwk.supabase.co/auth/v1/token", {}) !== "");
 ok("another function is stopped", v("admin", "POST", `${DB}/rpc/hub_close_account`, {}) !== "");
-ok("publishing passes, other table writes do not", v("admin", "PATCH", `${DB}/board_opportunities?id=eq.1`, {}) === ""
+ok("publishing passes, other table writes do not", v("admin", "PATCH", `${DB}/board_opportunities?id=eq.1`, { status: "live", updated_at: "x" }) === ""
+  && v("admin", "PATCH", `${DB}/board_opportunities?id=eq.1`, { status: "withheld", updated_at: "x" }) !== ""
+  && v("admin", "PATCH", `${DB}/board_opportunities?status=eq.draft`, { status: "live", updated_at: "x" }) !== ""
   && v("admin", "PATCH", `${DB}/organisations?id=eq.1`, {}) !== "" && v("admin", "DELETE", `${DB}/board_opportunities?id=eq.1`) !== ""
   && v("admin", "POST", `${DB}/crm_settings`, {}) !== "");
 ok("the admin's own sign-in passes", v("admin", "POST", "https://synywukadvjpjjxjylwk.supabase.co/auth/v1/token?grant_type=password", {}) === "");

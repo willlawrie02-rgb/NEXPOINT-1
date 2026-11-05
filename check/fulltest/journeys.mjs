@@ -14,7 +14,7 @@ const acct = (ctx, role) => ctx.settings.accounts[role];
 const today = () => new Date().toISOString().slice(0, 10);
 const MARK = "ZZ full test";
 /* A run's own stamp, kept with the journey so a later run uses the same names. */
-const stampOf = (ctx) => { const m = made(ctx); m.stamp = m.stamp || ctx.stamp; return m.stamp; };
+const stampOf = (ctx) => { const m = made(ctx); m.stamp = m.stamp || ctx.stamp; m.since = m.since || new Date().toISOString(); return m.stamp; };
 function newcomer(ctx, key = "email") {
   const n = ctx.settings.new_account, stamp = stampOf(ctx);
   const company = String(n.company || "ZZ Full Test {stamp}").replace("{stamp}", stamp);
@@ -38,7 +38,8 @@ async function emailLink(ctx, { to, subject, part, what }) {
   let link = "";
   const box = ctx.mail.on ? ctx.mail.boxFor(to) : "";
   if (box) {
-    const m = await ctx.mail.waitFor(box, { to, subject });
+    /* Looked for from when this journey began, which may be an earlier run. */
+    const m = await ctx.mail.waitFor(box, { to, subject, since: made(ctx).since });
     if (!m) differs(`${what}, sent to ${to}`, "no such email in the mailbox after 90 seconds", subject);
     link = await ctx.mail.linkIn(box, m.id, part);
     if (!link) differs(`the link in ${what}`, "no link to that page in the email", part);
@@ -179,7 +180,9 @@ const waysIn = [{
           if (!(await askEnter("The \"are you human\" check has not cleared. Complete it in the Chrome window."))) skip("the human check was left");
           await w.page.locator(ready).waitFor({ state: "visible", timeout: 5 * 60 * 1000 });
         }
+        const sent = w.page.waitForResponse((r) => r.url() === `${API}/auth/register`, { timeout: 30000 });
         await w.page.click(ready);
+        if ((await sent).ok()) ctx.did();
         await see(w.page, "#npAccountContent .success", "Check your inbox", "after registering", 30000);
         const me = await whoAmI(w.page);
         if (me && me.signed_in) differs("before confirming", "signed in already", "nobody signed in");
@@ -190,7 +193,8 @@ const waysIn = [{
       shows: "\"You're confirmed.\"; the account-ready email and the desk's \"Account created\" notice",
       run: async (ctx) => {
         const n = newcomer(ctx), w = ctx.lastWindow = await windowFor(ctx, "newcomer");
-        const link = made(ctx).link = await emailLink(ctx, { to: n.email, subject: "Confirm your email", part: "/hub/confirm.html", what: "the confirmation email" });
+        /* Kept for the next step in this run only: a link is never written to the state file. */
+        const link = ctx.cache.confirmLink = await emailLink(ctx, { to: n.email, subject: "Confirm your email", part: "/hub/confirm.html", what: "the confirmation email" });
         await go(w.page, link);
         await see(w.page, "#confirmBody", /You.re confirmed/, "the confirmation page", 30000);
         ctx.mail.expect("Your account is ready", n.email, "Your NexPoint hub account is ready");
@@ -198,9 +202,9 @@ const waysIn = [{
       } },
     { id: "twice", does: "Opens the same link again in a clean window", shows: "\"This link has been used or has expired.\"",
       run: async (ctx) => {
-        if (!made(ctx).link) skip("the link was not kept from the step before");
+        if (!ctx.cache.confirmLink) skip("the link was opened on an earlier run and is not kept between runs");
         const w = ctx.lastWindow = await windowFor(ctx, "stranger", { fresh: true });
-        await go(w.page, made(ctx).link);
+        await go(w.page, ctx.cache.confirmLink);
         await see(w.page, "#confirmBody", "used or has expired", "the link, opened twice", 30000);
       } },
     { id: "signed-in", does: "Signs in as the new account", shows: "The chip; the ZZ company",
@@ -215,7 +219,9 @@ const waysIn = [{
         if (!n.email) skip("new_account.invite_email is not filled in");
         await go(w.page, `${APEX}/hub/account/settings/`);
         await w.page.fill("#inviteEmail", n.email);
+        const sent = w.page.waitForResponse((r) => r.url() === `${API}/account/invites` && r.request().method() === "POST", { timeout: 30000 });
         await w.page.click("#inviteSend");
+        if ((await sent).ok()) ctx.did();
         await see(w.page, "#inviteMsg", "Invitation sent to", "after inviting");
         ctx.mail.expect("Invitation to join", n.email, "has invited you to");
       } },
@@ -230,7 +236,9 @@ const waysIn = [{
         await w.page.locator("#invPass").pressSequentially(n.password);
         await w.page.locator("#invTick").waitFor({ state: "visible" });
         await w.page.check("#invTick");
+        const sent = w.page.waitForResponse((r) => r.url() === `${API}/auth/register-invited`, { timeout: 30000 });
         await w.page.click("#joinBtn:not([disabled])");
+        if ((await sent).ok()) ctx.did();
         await see(w.page, "h1", "Check your inbox", "after joining", 30000);
       } },
     { id: "join-confirm", once: true, does: "Confirms the invited user's address", shows: "\"You're confirmed.\"",
@@ -260,6 +268,8 @@ const waysIn = [{
         const a = acct(ctx, "host");
         if (!isZZSlug(a.folder)) skip("accounts.host.folder is not filled in (the company's zz- folder name)");
         const w = await adminGo(ctx, "consultancy.html");
+        const ids = () => w.page.locator('[id^="link-"]').evaluateAll((els) => els.map((e) => e.id));
+        const before = await ids();
         await w.page.fill("#f-slug", a.folder);
         await w.page.fill("#f-client", a.company);
         await w.page.fill("#f-address", "ZZ test address: not a real agreement");
@@ -267,37 +277,53 @@ const waysIn = [{
         await w.page.fill("#f-email", ctx.settings.admin.email);
         await w.page.click("#f-submit");
         await see(w.page, "#given-title", "Link ready", "after making the link", 30000);
-        const url = (await w.page.inputValue("#given-url").catch(() => "")) || await text(w.page, "#given-url");
+        ctx.did();
+        /* The new link's row is the one that was not there before. Its number is
+           kept; its address opens a real agreement, so it stays in memory only. */
+        const mine = (await ids()).filter((id) => !before.includes(id));
+        if (mine.length === 1) made(ctx).link = mine[0];
+        ctx.left.push(`a consultancy link for ${a.company} (the runner revokes it)`);
+        const url = await w.page.inputValue("#given-url");
         if (!/^https:\/\/nexpoint\.co\.uk\/sign\/\?t=[0-9a-f]{64}$/.test(url)) differs("the link", url.replace(/[0-9a-f]{56}$/, "…"), `${APEX}/sign/?t=…`);
-        made(ctx).url = url;
+        if (mine.length !== 1) differs("the new link's row", `${mine.length} new rows`, "one");
+        ctx.cache.signUrl = url;
       } },
     { id: "read", does: "Opens the link", shows: "\"Welcome, <ZZ company>.\"; the retainer line; Sign is greyed out. Never signed",
       run: async (ctx) => {
-        if (!made(ctx).url) skip("no link was kept from the step before");
+        if (!ctx.cache.signUrl) skip("the link was made on an earlier run and its address is not kept between runs");
         const w = ctx.lastWindow = await windowFor(ctx, "stranger");
-        await go(w.page, made(ctx).url);
-        const head = await see(w.page, "#signBody h1", "Welcome,", "the agreement page", 30000);
-        mustBeZZ(head.replace(/^Welcome,\s*/, ""), "the company on the agreement page");
-        await see(w.page, "#signBody", "Retainer", "the summary");
-        if (!(await w.page.locator("#signBtn").isDisabled())) differs("the Sign button before anything is typed", "can be pressed", "greyed out");
+        /* Whatever this page shows, the link is still revoked in the next step. */
+        try {
+          await go(w.page, ctx.cache.signUrl);
+          const head = await see(w.page, "#signBody h1", "Welcome,", "the agreement page", 30000);
+          mustBeZZ(head.replace(/^Welcome,\s*/, "").replace(/\.$/, ""), "the company on the agreement page");
+          await see(w.page, "#signBody", "Retainer", "the summary");
+          if (!(await w.page.locator("#signBtn").isDisabled())) differs("the Sign button before anything is typed", "can be pressed", "greyed out");
+        } catch (e) { throw new Soft(String(e.message || e).split("\n")[0]); }
       } },
     { id: "revoke", once: true, does: "Admin: revokes the link", shows: "The question under the link, with no pop-up; then the link reads revoked",
       run: async (ctx) => {
-        const a = acct(ctx, "host"), w = await adminGo(ctx, "consultancy.html");
-        const row = w.page.locator('[id^="link-"]', { hasText: a.company }).first();
-        await row.waitFor({ state: "visible" }).catch(() => differs("the link on the Consultancy page", "not listed", a.company));
+        const a = acct(ctx, "host"), id = made(ctx).link;
+        if (!id) skip("the runner does not know which link it made, so it revokes none. Revoke it by hand on the Consultancy page");
+        const w = await adminGo(ctx, "consultancy.html");
+        const row = w.page.locator(`#${id}`);
+        await row.waitFor({ state: "visible" }).catch(() => differs("the link on the Consultancy page", "not among the open links", id));
+        if (!(await row.textContent()).includes(a.company)) throw new Refused("refused: that link is not the ZZ host's");
         mustBeZZ(a.company, "the link to revoke");
         await row.locator('[data-act="askRevoke"]').click();
-        await see(w.page, '[id^="link-"] .inline-choice', "Revoke this link?", "the question under the link");
+        await see(w.page, `#${id} .inline-choice`, "Revoke this link?", "the question under the link");
+        const sent = w.page.waitForResponse((r) => r.url() === `${API}/consultancy/links/revoke`, { timeout: 30000 });
         await row.locator('[data-act="revoke"]').click();
-        await w.page.locator('[id^="link-"]', { hasText: a.company }).first().locator(".st", { hasText: /revoked/i }).waitFor({ state: "visible" })
-          .catch(() => differs("the link after revoking", "does not read revoked", "Revoked"));
+        if ((await sent).ok()) ctx.did(); else differs("revoking", "the API refused", "revoked");
+        /* A revoked link moves under Finished, which is folded. */
+        await w.page.waitForFunction((i) => !!document.querySelector(`#finished #${i}`), id, { timeout: 20000 })
+          .catch(() => differs("the link after revoking", "not under Finished", "under Finished, revoked"));
       } },
     { id: "dead", does: "Opens the revoked link again", shows: "\"This link is no longer valid.\"",
       run: async (ctx) => {
-        if (!made(ctx).url) skip("no link was kept");
+        if (!ctx.cache.signUrl) skip("the link's address is not kept between runs");
         const w = ctx.lastWindow = await windowFor(ctx, "stranger");
-        await go(w.page, made(ctx).url);
+        await go(w.page, ctx.cache.signUrl);
         await see(w.page, "#signBody", "no longer valid", "the revoked link", 30000);
       } },
   ],
@@ -326,8 +352,11 @@ async function answer(ctx, w, id, { accept, ref, seeker, host }) {
     const tick = w.page.locator(`#introTerms-${id} input[type=checkbox]`);
     if (await tick.count()) await tick.first().check();
     const done = w.page.waitForResponse((r) => r.url() === `${API}/introductions/accept` && r.request().method() === "POST");
-    await w.page.click(`[data-act="intro-accept-send"][data-intro="${id}"]`);
-    if (!(await done).ok()) differs("accepting", await text(w.page, `#introMsg-${id}`).catch(() => "refused"), "Accepted");
+    ctx.acceptNow = true;      // the lock on accepting opens for this one press
+    let sent;
+    try { await w.page.click(`[data-act="intro-accept-send"][data-intro="${id}"]`); sent = await done; } finally { ctx.acceptNow = false; }
+    if (!sent.ok()) differs("accepting", await text(w.page, `#introMsg-${id}`).catch(() => "refused"), "Accepted");
+    ctx.did();
     await see(w.page, `#intro-${id}`, "Introduced on", "the row after accepting", 20000);
     ctx.mail.expect(`The introduction email, ${ref} (to the seeker)`, seeker, `Introduction ${ref}`);
     ctx.mail.expect(`The introduction email, ${ref} (to the host)`, host, `Introduction ${ref}`);
@@ -338,6 +367,7 @@ async function answer(ctx, w, id, { accept, ref, seeker, host }) {
   const done = w.page.waitForResponse((r) => r.url() === `${API}/introductions/decline` && r.request().method() === "POST");
   await w.page.click(`[data-act="intro-decline-send"][data-intro="${id}"]`);
   if (!(await done).ok()) differs("declining", await text(w.page, `#introMsg-${id}`).catch(() => "refused"), "Declined");
+  ctx.did();
   await w.page.locator(`[data-act="intro-accept-open"][data-intro="${id}"]`).waitFor({ state: "detached", timeout: 20000 })
     .catch(() => differs("the row after declining", "can still be answered", "closed"));
   ctx.mail.expect(`Declined, ${ref}`, seeker, "An update on");
@@ -422,6 +452,7 @@ const hubJourney = (h) => ({
         const r = await answered, j = await r.json().catch(() => ({}));
         if (!r.ok() || !j.introduction) differs("sending the request", `${r.status()} ${j.error || await text(w.page, "#requestErr").catch(() => "")}`, "an introduction");
         Object.assign(made(ctx), { intro: j.introduction.id, ref: j.introduction.ref, request: j.ref });
+        ctx.did();
         await see(w.page, "#step3Body .success", "Thank you.", "after sending");
         ctx.mail.expect(`Request received, ${h.name}`, acct(ctx, "seeker").email, "We have your request");
         ctx.mail.expect(`The offer to the host, ${j.introduction.ref}`, acct(ctx, "host").email, "New introduction for you");
@@ -502,7 +533,9 @@ const board = [{
         await w.page.fill("#formContent textarea[name=fit]", m.fit);
         const tick = w.page.locator("#formContent [data-post-terms] [data-np-terms-tick]");
         if (await shows(w.page, "#formContent [data-post-terms] [data-np-terms-tick]", 6000)) await tick.check();
+        const sent = w.page.waitForResponse((r) => r.url() === `${API}/requests` && r.request().method() === "POST", { timeout: 30000 });
         await w.page.click("#formContent button[type=submit]:not([disabled])");
+        if ((await sent).ok()) ctx.did();
         await see(w.page, "#formContent .success", "Received.", "after posting", 30000);
         if (ctx.mail.s.desk) ctx.mail.expect("Desk notice: an opportunity posted", ctx.mail.s.desk, "an opportunity from");
       } },
@@ -514,6 +547,7 @@ const board = [{
         if (!(await row.textContent()).includes(host)) throw new Refused("refused: the post is not from the ZZ host");
         mustBeZZ(host, "the post to approve");
         await row.locator('[data-act="reviewRequest"][data-status="approved"]').click();
+        ctx.did();
         await see(w.page, "#toast", /queued/i, "after approving");
       } },
     { id: "publish", once: true, does: "Admin: Review and publish, on the card owned by the ZZ host", shows: "The card reads Live",
@@ -526,9 +560,16 @@ const board = [{
         const id = (await card.getAttribute("id")).replace(/^opp-/, "");
         Object.assign(made(ctx), { opp: id, ref: await text(w.page, `#opp-${id} .opp-top .ref`) });
         await card.locator("button", { hasText: "Review and publish" }).click();
+        await w.page.evaluate(() => { const t = document.getElementById("toast"); if (t) t.textContent = ""; });
         await w.page.click(`[data-act="publish"][data-opp="${id}"]`);
+        /* The editor asks for a save first when it filled something in by itself. The save goes to the engine. */
+        if (await shows(w.page, '#toast:has-text("Save your changes first")', 2500)) {
+          await w.page.click('[data-act="saveEditor"]');
+          wait("the card's editor asked for a save first; it is saved at the engine's next run, then the runner publishes it");
+        }
         await w.page.locator(`#opp-${id} .opp-top .stage`, { hasText: /live/i }).waitFor({ state: "visible", timeout: 20000 })
           .catch(async () => differs("the card after Publish", `${await text(w.page, `#opp-${id} .opp-top .stage`).catch(() => "")} · ${await text(w.page, "#toast").catch(() => "")}`, "Live"));
+        ctx.did();
         ctx.left.push(`the board card ${made(ctx).ref} (the runner ends it at the last step)`);
       } },
     { id: "shown", does: "Seeker opens the board", shows: "The new card, by its NX number",
@@ -549,7 +590,9 @@ const board = [{
         await w.page.locator("[data-np-send]").waitFor({ state: "visible" });
         if (await shows(w.page, "[data-np-terms] [data-np-terms-tick]", 6000)) await w.page.check("[data-np-terms] [data-np-terms-tick]");
         await w.page.fill("#gNotes", `${MARK}: a test request, please ignore.`);
+        const sent = w.page.waitForResponse((r) => r.url() === `${API}/requests` && r.request().method() === "POST", { timeout: 30000 });
         await w.page.click("[data-np-send]:not([disabled])");
+        if ((await sent).ok()) ctx.did();
         await see(w.page, ".success", "Received, in confidence.", "after requesting", 30000);
         if (ctx.mail.s.desk) ctx.mail.expect("Desk notice: an introduction requested on the board", ctx.mail.s.desk, "User request:");
       } },
@@ -564,8 +607,12 @@ const board = [{
         if (!(await shows(w.page, form))) throw new Refused("refused: the request is not for the ZZ card");
         await w.page.fill(`#i-note-${m.opp}`, "Test data, no fee");
         await w.page.fill(`#i-agreed-${m.opp}`, today());
+        /* A two-way card asks who sells; the owner is the ZZ host. */
+        const sells = w.page.locator(`#i-sells-${m.opp}`);
+        if (await sells.isEnabled() && !(await sells.inputValue())) await sells.selectOption("owner");
         await w.page.click(form);
         await see(w.page, "#toast", /Introduced on/, "after Introduce");
+        ctx.did();
       } },
     { id: "owner-row", does: "Host opens the introduction on its account page", shows: "\"Opportunity NX-…\", \"Waiting for your answer.\"",
       run: async (ctx) => {
@@ -591,6 +638,7 @@ const board = [{
         await w.page.click(`#opp-${m.opp} [data-ui="end:${m.opp}"]`);
         await w.page.fill(`#en-why-${m.opp}`, "test data");
         await w.page.click(`#opp-${m.opp} [data-act="end"]`);
+        ctx.did();
         await see(w.page, "#toast", /queued/i, "after ending the card");
       } },
   ],
@@ -730,7 +778,8 @@ async function companyPage(ctx, company) {
     ctx.cache[company] = await row.getAttribute("href");
   }
   const w = await adminGo(ctx, ctx.cache[company]);
-  await w.page.waitForFunction(() => /^NexPoint CRM: ./.test(document.title), null, { timeout: 20000 }).catch(() => {});
+  /* The title reads "NexPoint CRM: Company" until the company has loaded. */
+  await w.page.waitForFunction(() => /^NexPoint CRM: (?!Company$)./.test(document.title), null, { timeout: 20000 }).catch(() => {});
   const title = (await w.page.title()).replace(/^NexPoint CRM:\s*/, "");
   if (!same(title, company)) throw new Refused(`refused: the page is titled ${JSON.stringify(title.slice(0, 60))}, not the ZZ company`);
   mustBeZZ(title, "the company page");
@@ -826,6 +875,8 @@ const admin = [{
       run: async (ctx) => {
         const company = acct(ctx, "host").company, w = await adminGo(ctx, "pipelines.html?tab=hub");
         mustBeZZ(company, "the company for the card");
+        /* The cards there before, so the runner only ever touches the one it adds. */
+        made(ctx).before = await w.page.locator(".card[data-card]").evaluateAll((els) => els.map((e) => e.dataset.card));
         await w.page.click('[data-act="openUi"][data-ui="add"]');
         await w.page.fill("#ac-q", company);
         await w.page.click('[data-act="findCompany"]');
@@ -834,22 +885,28 @@ const admin = [{
         await pick.click();
         await w.page.click('[data-act="toggleHub"][data-hub="print"]');
         const saved = await saveVia(w.page, () => w.page.click('[data-act="confirmAdd"]'));
+        ctx.did();
         ctx.left.push(`a pipeline card for ${company} (the runner marks it dead)`);
-        if (!saved.direct) wait(`the card was queued for the engine ("${saved.toast}"): fast saves read off, so it shows after the next run`);
+        return saved.direct ? "" : `queued for the engine ("${saved.toast}"): fast saves read off, so the card shows after the next run`;
       } },
     { id: "move", does: "Moves it to In conversation, on the company page", shows: "The stage changes; \"Saved\"",
       run: async (ctx) => {
         const company = acct(ctx, "host").company, w = await adminGo(ctx, "pipelines.html?tab=hub");
-        const card = w.page.locator(".card[data-card]", { hasText: company }).first();
-        if (!(await card.count())) wait("the card is not on the board yet");
-        const id = made(ctx).card = await card.getAttribute("data-card");
+        const before = made(ctx).before || null;
+        if (!before) skip("the runner does not know which card it added, so it moves none");
+        const fresh = await w.page.locator(".card[data-card]", { hasText: company }).evaluateAll((els, old) => els.map((e) => e.dataset.card).filter((c) => !old.includes(c)), before);
+        if (!fresh.length) wait("the new card is not on the board yet (the engine adds it at its next run)");
+        if (fresh.length > 1) throw new Refused("refused: more than one new card for the ZZ host; the runner cannot tell which is its own");
+        const id = made(ctx).card = fresh[0];
         await companyPage(ctx, company);
         await w.page.locator(`#card-${id}`).waitFor({ state: "visible" }).catch(() => differs("the card on the company page", "not shown", `#card-${id}`));
         wantDirect(await saveVia(w.page, () => w.page.click(`#card-${id} [data-act="setStage"][data-stage="conversation"]`)), "moving the card");
       } },
     { id: "dead", does: "Marks the card dead", shows: "\"Saved\"; the card leaves the board",
       run: async (ctx) => {
-        const company = acct(ctx, "host").company, id = made(ctx).card, w = await companyPage(ctx, company);
+        const company = acct(ctx, "host").company, id = made(ctx).card;
+        if (!id) skip("the runner does not know which card it added, so it marks none dead");
+        const w = await companyPage(ctx, company);
         await w.page.click(`[data-act="openUi"][data-ui="dead:${id}"]`);
         await w.page.locator('[data-act="pickReason"]').first().click();
         await w.page.fill("#dd-note", "test data");
@@ -869,6 +926,7 @@ const admin = [{
         await p.w.page.fill("#add-name", p.name);
         await p.w.page.selectOption("#add-type", { label: "Known contact" });
         await p.w.page.click("#add-go");
+        ctx.did();
         await see(p.w.page, "#toast", /./, "after adding");
         ctx.left.push(`the prospect ${p.name}, and the lead folder made when it is accepted`);
       } },
@@ -905,6 +963,7 @@ const admin = [{
         const lit = await p.w.page.locator(`#plist [data-act="toggleMany"][data-id="${p.id}"][data-f="campaigns"][aria-pressed="true"]`).count();
         if (lit) throw new Refused("refused: a campaign is chosen on the row, and a campaign goes into Smartlead");
         await p.w.page.click(`#act-${p.id} [data-act="accept"][data-id="${p.id}"]`);
+        ctx.did();
         await see(p.w.page, "#toast", "Accepted", "after Accept");
       } },
     { id: "in-contacts", does: "Looks for the accepted company in Contacts", shows: "The company, as a lead",
@@ -928,6 +987,7 @@ const admin = [{
         const user = await w.page.locator('[data-act="deleteUser"]').first().getAttribute("data-user");
         await w.page.click(`[data-act="deleteUser"][data-user="${user}"]`);
         await w.page.click(`[data-act="confirmDeleteUser"][data-user="${user}"]`);
+        ctx.did();
         await see(w.page, "#toast", /./, "after Delete user");
       } },
     { id: "kept", does: "Opens the company page again", shows: "The person stays, with no Portal user tag; the timeline says a login was deleted",

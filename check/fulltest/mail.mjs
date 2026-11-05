@@ -65,9 +65,9 @@ export class Mail {
     }
     return this.folders.get(key);
   }
-  async recent(box) {
+  async recent(box, since) {
     const q = new URLSearchParams({
-      $filter: `receivedDateTime ge ${this.since.toISOString()}`, $orderby: "receivedDateTime desc", $top: "50",
+      $filter: `receivedDateTime ge ${new Date(since || this.since).toISOString()}`, $orderby: "receivedDateTime desc", $top: "50",
       $select: "id,subject,from,toRecipients,ccRecipients,receivedDateTime,parentFolderId",
     });
     const j = await this.get(`/users/${encodeURIComponent(box)}/messages?${q}`);
@@ -75,9 +75,9 @@ export class Mail {
   }
   /* The newest message since the run began, in this mailbox, to this
      address, whose subject fits. Null when there is none yet. */
-  async find(box, { to, subject }) {
+  async find(box, { to, subject, since }) {
     const want = lower(to);
-    for (const m of await this.recent(box)) {
+    for (const m of await this.recent(box, since)) {
       const people = [].concat(m.toRecipients || [], m.ccRecipients || []).map((p) => lower(p.emailAddress && p.emailAddress.address));
       if (want && !people.includes(want)) continue;
       const s = String(m.subject || "");
@@ -103,7 +103,7 @@ export class Mail {
     return links.find((l) => l.includes(pathPart)) || "";
   }
   /* A journey says what email its step should cause. Checked at the end. */
-  expect(what, to, subject) { this.expected.push({ what, to, subject }); }
+  expect(what, to, subject) { if (to) this.expected.push({ what, to, subject }); }
   /* Every expected email: found (who from, which folder) or not. */
   async settle(log = () => {}) {
     const rows = [];
