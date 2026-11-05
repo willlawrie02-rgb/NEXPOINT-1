@@ -62,7 +62,7 @@
 2026-09-07 (Global Portal v2) - the seeker's own page, rebuilt around the live
 marketplace. The placeholder capacity map is gone: what a seeker needs is an
 ask in the network's own vocabulary, a ranked shortlist (the three best fits
-named once the introduction terms are accepted, plan 067), and one pick (plan
+named once the Seeker Agreement is accepted, plan 078), and one pick (plan
 052: the best three on a map, one picked). hub/assets/find.js owns all four steps.
 -->
 <div class="scroll-progress" aria-hidden="true"></div>
@@ -95,7 +95,7 @@ named once the introduction terms are accepted, plan 067), and one pick (plan
   <div class="container">
     <span class="eyebrow"><span class="live-dot"></span>I need capacity</span>
     <h1>Find 3D print capacity <em>for your market.</em></h1>
-    <p class="lede">Tell us what you need and where it lands. Accept our introduction terms, and we show you the three sites that fit best, by name. Pick one and your request goes straight to it.</p>
+    <p class="lede">Tell us what you need and where it lands. We show you the three sites that fit best, by name. Pick one and your request goes straight to it.</p>
   </div>
 </section>
 
@@ -112,14 +112,15 @@ named once the introduction terms are accepted, plan 067), and one pick (plan
         </div>
       </div>
 
-      <!-- 02 - the terms, before any name (plan 067) -->
+      <!-- 02 - the Seeker Agreement, before any name, once ever (plan 078): a
+           returning seeker never sees this step, and the numbers close up -->
       <div class="flow-step" id="stepTerms" hidden>
         <h2>Before we show you who fits</h2>
-        <p class="hint">Accept the introduction terms for this search and we show you the three sites that fit best, by name.</p>
+        <p class="hint">Read this once and we show you the three sites that fit best, by name. You will not be asked again unless these words change.</p>
         <div class="panel">
           <div id="searchTermsBlock"></div>
           <p class="np-sign-error" id="searchTermsErr" style="display:none"></p>
-          <div class="modal-actions"><button class="btn btn-primary" type="button" id="searchAccept">Accept and see the sites that fit</button></div>
+          <div class="modal-actions"><button class="btn btn-primary" type="button" id="searchAccept">Accept and continue</button></div>
         </div>
       </div>
 
@@ -235,11 +236,11 @@ named once the introduction terms are accepted, plan 067), and one pick (plan
   (function () {
     var apex = window.NP_APEX || '';
     var srcs = [
-      '/assets/hub-account.js',
+      '/assets/hub-account.js?v=20261103-078',
       '/hub/assets/portal.js',
       '/hub/assets/vocab.js?v=20261102',
       '/hub/assets/typeahead.js?v=20261102',
-      '/hub/assets/find.js?v=20261103b'
+      '/hub/assets/find.js?v=20261103-078'
     ];
     (function next(i) {
       if (i >= srcs.length) { done(); return; }

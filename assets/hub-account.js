@@ -83,6 +83,9 @@
     return termsFetch;
   }
 
+  function readTerms(d) { return d && d.terms && typeof d.terms === 'object' ? d.terms : null; }
+  let termsRead = null;
+
   const A = {
     api: API,
     accountUrl: ACCOUNT_URL,
@@ -101,6 +104,7 @@
     TURNSTILE_SITE_KEY: '0x4AAAAAAE-v1pLLNA7WlqfZ',
     user: null,
     closed: false,
+    terms: null,
     ready: null,
     async refresh() {
       /* Until /auth/me has answered, the door shows neither the stranger's
@@ -132,15 +136,32 @@
         /* Plan 069: a closed account keeps its sign-in for what survives; the
            hub forms read this and show a notice in place of the form. */
         A.closed = !!(signedIn && d.closed);
-      } catch (e) { A.user = null; A.closed = false; }
+        /* Plan 078: which version of each document this account holds. Absent
+           or null (a failed read, an older worker) is "cannot tell". */
+        A.terms = readTerms(signedIn ? d : null);
+      } catch (e) { A.user = null; A.closed = false; A.terms = null; }
       document.dispatchEvent(new CustomEvent('npaccount:change'));
       renderChip();
       whenDom(enforceDoor);
+      whenDom(openPlatformGate);
       return A.user;
     },
     async signIn(email, password) {
       const d = await postJson('/auth/login', { email, password });
-      if (d.ok) { A.user = normalise(d.member); document.dispatchEvent(new CustomEvent('npaccount:change')); renderChip(); whenDom(enforceDoor); }
+      if (d.ok) {
+        A.user = normalise(d.member);
+        /* The sign-in answer does not carry the terms, so they are read again.
+           Nothing waits on it but termsFor and the Platform gate. */
+        A.terms = null;
+        platformGateAsked = false;
+        termsRead = call('/auth/me', { method: 'GET', timeoutMs: 8000 }).then((m) => {
+          A.terms = readTerms(m);
+          whenDom(openPlatformGate);
+        });
+        document.dispatchEvent(new CustomEvent('npaccount:change'));
+        renderChip();
+        whenDom(enforceDoor);
+      }
       return d;
     },
     /* Honest sign-out (audit plan 008): the worker's answer is read, and a
@@ -218,8 +239,8 @@
 
   /* The one place a desk request is posted, so there is a single request
      shape to keep true. A request on the Opportunities Board carries the
-     Opportunity Terms version it accepted (plan 070); with none the key is
-     left out, so the homepage's call is byte for byte as before. */
+     version it has just accepted (plan 078), and none when the account already
+     holds it; with none the key is left out. */
   A.submitRequest = function (action) {
     const u = A.user || {};
     return postJson('/requests', {
@@ -580,8 +601,10 @@
         return;
       }
       draft.terms_version_id = d.id;
-      box.innerHTML = '<label class="np-terms-tick"><input type="checkbox" id="qTerms" required> I accept the ' +
-        '<a href="https://nexpoint.co.uk/hub/terms/" target="_blank" rel="noopener">NexPoint Platform Terms</a></label>';
+      box.innerHTML = '<label class="np-terms-tick"><input type="checkbox" id="qTerms" required> <span>I accept the ' +
+        '<a href="https://nexpoint.co.uk/hub/terms/" target="_blank" rel="noopener">Platform Terms</a>' +
+        (d.version ? ', version ' + esc(d.version) : '') + '</span></label>' +
+        (d.version ? '<p class="np-terms-links">' + downloadLink('platform', d.version) + '</p>' : '');
       refreshSubmitGate();
     };
     if (termsResult) { apply(termsResult); return; }
@@ -687,7 +710,7 @@
     step1();
   };
 
-  /* ── the Opportunity Terms, one screen at a time (plan 070) ─── */
+  /* ── the three documents, each accepted once (plan 078) ─── */
   /* The renderer from hub/assets/portal.js (markdownLite), copied because the
      Opportunities Board loads no portal.js. Two copies, one rule: a change to
      one is a change to both, and the walk renders the same text through each. */
@@ -717,64 +740,185 @@
   }
   A.markdownLite = markdownLite;
 
-  /* One screen of a terms document: the lines under `## Screen n:` up to the
-     next line that starts `## `, without the heading itself, the screen's own
-     button line (the page draws the button) or a closing rule. The
-     `## Records written` section is never a screen, so it can never be shown.
-     Empty when the heading is absent. `fill` names the [reference] and [date]
-     the screen's header carries. */
-  A.termsScreen = function (body, n, fill) {
-    const lines = String(body || '').replace(/\r\n/g, '\n').split('\n');
-    const start = lines.findIndex((l) => new RegExp('^##\\s+Screen\\s+' + Number(n) + ':').test(l.trim()));
-    if (start < 0) return '';
-    const out = [];
-    for (let k = start + 1; k < lines.length; k++) {
-      if (/^##\s/.test(lines[k].trim())) break;
-      out.push(lines[k]);
+  const LAYER_NAME = { platform: 'Platform Terms', host: 'Host Agreement', seeker: 'Seeker Agreement' };
+  const TERMS_PAGE = 'https://nexpoint.co.uk/hub/terms/';
+
+  /* `{id, version, accepted}` for a layer, or null when this page cannot tell:
+     signed out, a read that failed, an older worker. Null means show the gate:
+     the worker writes no second row for a version the account holds, so the
+     only cost of a wrong gate is one extra tick. */
+  A.termsFor = async function (layer) {
+    try { await (termsRead || A.ready); } catch (e) { /* null below */ }
+    const t = A.user && A.terms ? A.terms[layer] : null;
+    return t && t.id ? { id: t.id, version: t.version, accepted: !!t.accepted } : null;
+  };
+  /* After a send the worker took with a tick: nobody is asked twice. */
+  A.noteAccepted = function (layer) {
+    if (A.terms && A.terms[layer]) A.terms[layer].accepted = true;
+  };
+  A.termsPdfUrl = function (layer, version) {
+    return API + '/terms/' + encodeURIComponent(layer) + '/' + encodeURIComponent(version) + '.pdf';
+  };
+  function downloadLink(layer, version) {
+    return '<a class="np-terms-dl" href="' + esc(A.termsPdfUrl(layer, version)) + '" download>Download a copy</a>';
+  }
+  A.termsDownloadLink = downloadLink;
+
+  /* The block every act shares: the whole document, Download a copy and the
+     tick, or when the account already holds the version the held line (host)
+     or nothing (seeker). Resolves `{ok, id, version, held}`; the caller sends
+     the id only when `held` is false, and only once the tick is set
+     ([data-np-terms-tick]). `fresh` is for a stale_terms refusal: the account
+     no longer holds the version, whatever this page was told, so the
+     current words go up. */
+  A.termsBlock = async function (target, layer, opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const name = LAYER_NAME[layer] || 'terms';
+    if (!target) return { ok: false };
+    /* A closed account is asked nothing (Platform §9), and the worker would refuse what it sent. */
+    if (A.closed) {
+      target.innerHTML = '<p class="np-sign-error" style="display:block">This account is closed. ' +
+        '<a href="' + ACCOUNT_URL + '">Reopen it from your account page</a> to carry on.</p>';
+      return { ok: false, error: 'account_closed' };
     }
-    const f = fill || {};
-    return out.filter((l) => !/^\[\s.*\s\]$/.test(l.trim()))
-      .join('\n').replace(/\n-{3,}\s*$/, '').trim()
-      .replace(/\[reference\]/g, f.reference || '').replace(/\[date\]/g, f.date || '');
-  };
-
-  const OPP_LAYER_NAME = { opportunity: 'Opportunity Terms', introduction: 'introduction terms' };
-  /* `{id, version, html}` for one screen of a layer's current text, or
-     `{error: 'terms_not_live'}` while the layer has no current version (the
-     worker answers 404, or 422 before it knows the layer), or
-     `{error: 'network'}`. */
-  A.loadTermsScreen = function (layer, n, fill) {
-    return getJson('/terms/current?layer=' + encodeURIComponent(layer)).then((d) => {
-      if (d && d.error === 'network') return { error: 'network' };
-      if (!d || d.error || !d.id) return { error: 'terms_not_live' };
-      const text = A.termsScreen(d.body_md, n, fill);
-      if (!text) return { error: 'terms_not_live' };
-      return { id: d.id, version: d.version, html: markdownLite(text) };
-    });
-  };
-
-  /* The terms block: the screen in a scroll box and one tick, or the line
-     that says why there is nothing to accept. Resolves `{ok, id, version}`;
-     the caller sends nothing until the tick is set ([data-np-terms-tick]). */
-  A.termsBlock = function (target, layer, n, opts) {
-    const o = opts || {};
-    const name = OPP_LAYER_NAME[layer] || 'terms';
-    if (!target) return Promise.resolve({ ok: false });
     target.innerHTML = '<p class="body" style="margin:0">Loading the ' + esc(name) + '…</p>';
-    return A.loadTermsScreen(layer, n, o.fill).then((d) => {
-      if (d.error) {
-        target.innerHTML = '<p class="np-sign-error" style="display:block">' + (d.error === 'network'
-          ? 'We could not load the ' + esc(name) + '. Check your connection and try again, or email hello@nexpoint.co.uk.'
-          : 'The ' + esc(name) + ' are not live yet. Try again soon, or email hello@nexpoint.co.uk.') + '</p>';
-        return { ok: false, error: d.error };
-      }
-      target.innerHTML = (o.note ? '<p class="np-sign-error" style="display:block">' + esc(o.note) + '</p>' : '') +
-        '<div class="terms-scroll">' + d.html + '</div>' +
-        '<label class="np-terms-tick"><input type="checkbox" data-np-terms-tick> ' +
-        esc('I accept the ' + name + ', version ' + d.version) + '</label>';
-      return { ok: true, id: d.id, version: d.version };
-    });
+    const mine = o.fresh ? null : await A.termsFor(layer);
+    if (mine && mine.accepted) {
+      target.innerHTML = layer === 'host'
+        ? '<p class="body np-terms-held" style="margin:0">Your Host Agreement v' + esc(mine.version) + ' still applies. ' +
+          '<a href="' + TERMS_PAGE + '#host" target="_blank" rel="noopener">Read it</a> · ' + downloadLink('host', mine.version) + '</p>'
+        : '';
+      return { ok: true, id: mine.id, version: mine.version, held: true };
+    }
+    const d = await getJson('/terms/current?layer=' + encodeURIComponent(layer));
+    if (!d || d.error || !d.id) {
+      target.innerHTML = '<p class="np-sign-error" style="display:block">We could not load the ' + esc(name) +
+        '. Refresh and try again, or email hello@nexpoint.co.uk.</p>';
+      return { ok: false, error: d && d.error === 'network' ? 'network' : 'terms_not_live' };
+    }
+    if (A.terms && A.terms[layer]) A.terms[layer] = { id: d.id, version: d.version, accepted: false };
+    target.innerHTML = (o.note ? '<p class="np-sign-error" style="display:block">' + esc(o.note) + '</p>' : '') +
+      '<div class="terms-scroll">' + markdownLite(d.body_md) + '</div>' +
+      '<p class="np-terms-links">' + downloadLink(layer, d.version) + '</p>' +
+      '<label class="np-terms-tick"><input type="checkbox" data-np-terms-tick> <span>' +
+      esc('I accept the ' + name + ', version ' + d.version) + '</span></label>';
+    return { ok: true, id: d.id, version: d.version, held: false };
   };
+  /* The line for a refusal that says the version moved on while the page was open. */
+  A.termsMoved = function (layer) {
+    return 'The ' + (LAYER_NAME[layer] || 'terms') + ' ' + (layer === 'platform' ? 'have' : 'has') +
+      ' been updated. Read ' + (layer === 'platform' ? 'them' : 'it') + ' again and tick to accept.';
+  };
+
+  /* ── the Platform gate (plan 078) ─────────────────────────────
+     A new version of the Platform Terms, for an account that holds an older
+     one: asked once, on the next page it opens, with no way past but accepting
+     (Platform §9). Its own element and class, not an .overlay: every page's
+     closeAll() shuts those. Its own small stylesheet too, because the main
+     site loads this module without portal.css. A closed account is never asked
+     and the worker sends it no terms; `terms: null` shows nothing. If the words
+     cannot be read the gate does not open, since until it is asked the last
+     accepted version continues. */
+  function gateStyles() {
+    if (document.getElementById('npTermsGateCss')) return;
+    const css = document.createElement('style');
+    css.id = 'npTermsGateCss';
+    css.textContent =
+      '.np-gate{position:fixed;inset:0;z-index:10000;display:flex;padding:16px;overflow-y:auto;background:rgba(14,22,38,.55)}' +
+      '.np-gate__box{margin:auto;box-sizing:border-box;width:100%;max-width:600px;padding:clamp(20px,4vw,32px);border-radius:16px;background:#fff;color:#2C3444;font:400 14.5px/1.55 Inter,system-ui,sans-serif;box-shadow:0 24px 64px rgba(14,22,38,.28)}' +
+      '.np-gate__box h2{margin:0 0 6px;font:600 clamp(20px,3vw,24px)/1.25 Montserrat,Inter,sans-serif;letter-spacing:-.015em;color:#0E1626;outline:none}' +
+      '.np-gate__box p{margin:0 0 10px}' +
+      '.np-gate__box .terms-scroll{max-height:min(42vh,340px);overflow-y:auto;margin:14px 0 10px;padding:14px 16px;border:1px solid #E3E7ED;border-radius:12px;background:#F5F7FA;font-size:13.5px;line-height:1.6;overflow-wrap:anywhere}' +
+      '.np-gate__box .terms-scroll h3,.np-gate__box .terms-scroll h4,.np-gate__box .terms-scroll h5{margin:12px 0 6px;font:600 14.5px/1.3 Montserrat,Inter,sans-serif;color:#0E1626}' +
+      '.np-gate__box .terms-scroll h3:first-child{margin-top:0}' +
+      '.np-gate__box .np-terms-links a{color:#005CC8;font-weight:600}' +
+      '.np-gate__box .np-terms-tick{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:1.4;cursor:pointer}' +
+      '.np-gate__box .np-terms-tick input{margin-top:2px;accent-color:#005CC8}' +
+      '.np-gate__err{color:#C62828;font-size:13.5px}' +
+      '.np-gate__acts{display:flex;justify-content:flex-end;margin-top:16px}' +
+      '.np-gate__go{padding:13px 22px;border:0;border-radius:10px;background:#005CC8;color:#fff;font:600 14px/1.2 Inter,system-ui,sans-serif;cursor:pointer}' +
+      '.np-gate__go:hover{background:#0066DC}.np-gate__go:disabled{opacity:.5;cursor:not-allowed}';
+    document.head.appendChild(css);
+  }
+  function closePlatformGate() {
+    const g = document.getElementById('npTermsGate');
+    if (g) g.remove();
+    document.documentElement.style.overflow = '';
+  }
+  async function drawPlatformGate(note) {
+    const d = await getJson('/terms/current?layer=platform');
+    if (!d || d.error || !d.id || !d.body_md) { closePlatformGate(); return; }
+    gateStyles();
+    let g = document.getElementById('npTermsGate');
+    if (!g) {
+      g = document.createElement('div');
+      g.id = 'npTermsGate';
+      g.className = 'np-gate';
+      document.body.appendChild(g);
+      document.documentElement.style.overflow = 'hidden';
+      /* The dialog holds the keyboard until it is answered. */
+      g.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); return; }
+        if (e.key !== 'Tab') return;
+        const stops = Array.from(g.querySelectorAll('a[href],input,button:not([disabled]),.terms-scroll'));
+        if (!stops.length) return;
+        const first = stops[0], last = stops[stops.length - 1];
+        if (e.shiftKey && (document.activeElement === first || !g.contains(document.activeElement) || document.activeElement.id === 'npGateHead')) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      });
+    }
+    g.innerHTML = '<div class="np-gate__box" role="dialog" aria-modal="true" aria-labelledby="npGateHead">' +
+      '<h2 id="npGateHead" tabindex="-1">Our Platform Terms have changed</h2>' +
+      '<p>Read the new version and accept it to carry on.</p>' +
+      (note ? '<p class="np-gate__err">' + esc(note) + '</p>' : '') +
+      '<div class="terms-scroll" tabindex="0">' + markdownLite(d.body_md) + '</div>' +
+      '<p class="np-terms-links">' + downloadLink('platform', d.version) + '</p>' +
+      '<label class="np-terms-tick"><input type="checkbox" data-np-gate-tick> <span>' +
+      esc('I accept the Platform Terms, version ' + d.version) + '</span></label>' +
+      '<p class="np-gate__err" data-np-gate-msg role="alert" hidden></p>' +
+      '<div class="np-gate__acts"><button class="np-gate__go" type="button" data-np-gate-go disabled>Accept and continue</button></div>' +
+      '</div>';
+    const tick = g.querySelector('[data-np-gate-tick]');
+    const go = g.querySelector('[data-np-gate-go]');
+    const msg = g.querySelector('[data-np-gate-msg]');
+    tick.addEventListener('change', () => { go.disabled = !tick.checked; });
+    go.addEventListener('click', async () => {
+      if (go.disabled) return;
+      go.disabled = true;
+      go.textContent = 'Saving…';
+      msg.hidden = true;
+      const r = await postJson('/terms/platform/accept', { terms_version_id: d.id });
+      if (r && r.ok) {
+        A.noteAccepted('platform');
+        closePlatformGate();
+        document.dispatchEvent(new CustomEvent('npterms:accepted'));
+        return;
+      }
+      const e = r && r.error;
+      if (e === 'stale_terms') { drawPlatformGate(A.termsMoved('platform')); return; }
+      /* A session that lapsed, or an account closed elsewhere, has nothing to accept here. */
+      if (e === 'sign in required' || e === 'account_closed' || e === 'account_removed' || e === 'email_unconfirmed') {
+        closePlatformGate();
+        return;
+      }
+      go.textContent = 'Accept and continue';
+      go.disabled = !tick.checked;
+      msg.hidden = false;
+      msg.textContent = e === 'network'
+        ? 'That did not go through. Check your connection and try again, or email hello@nexpoint.co.uk.'
+        : 'That did not go through. Try again, or email hello@nexpoint.co.uk.';
+    });
+    const head = g.querySelector('#npGateHead');
+    if (head) head.focus();
+  }
+  let platformGateAsked = false;
+  function openPlatformGate() {
+    if (platformGateAsked || !document.body) return;
+    const p = A.terms && A.terms.platform;
+    if (!A.user || !A.user.email_confirmed || A.closed || !p || p.accepted !== false) return;
+    platformGateAsked = true;
+    drawPlatformGate();
+  }
 
   /* ── the act gate ────────────────────────────────────────── */
   A.gate = function (action) {
@@ -794,41 +938,46 @@
       <div class="modal-actions"><button class="btn btn-primary" data-np-send>${esc(label)}</button></div>`;
     show();
     const btn = content().querySelector('[data-np-send]');
-    /* Plan 070: a request on the Opportunities Board accepts one screen of
-       the Opportunity Terms. The button waits for the tick; the version the
-       tick names is the one sent. */
+    /* A request on the Opportunities Board needs its document held (plan 078).
+       The button waits only when there is a tick; the version the tick names
+       is the one sent, and an account already holding it sends none. */
     let terms = null;
     const tick = () => content().querySelector('[data-np-terms-tick]');
-    const drawTerms = (note) => {
+    const drawTerms = (layer, note, fresh) => {
       btn.disabled = true;
       terms = null;
-      return A.termsBlock(content().querySelector('[data-np-terms]'), action.terms.layer, action.terms.screen,
-        { fill: action.terms.fill, note: note }).then((t) => {
-        terms = t.ok ? t : null;
+      return A.termsBlock(content().querySelector('[data-np-terms]'), layer, { note: note, fresh: fresh }).then((t) => {
+        if (!t.ok) return;
+        terms = Object.assign({ layer: layer }, t);
         const box = tick();
         if (box) box.addEventListener('change', () => { btn.disabled = !box.checked; });
+        else btn.disabled = false;
       });
     };
-    if (action.terms) drawTerms();
+    if (action.terms) drawTerms(action.terms.layer);
     btn.addEventListener('click', async () => {
       if (btn.disabled) return;
-      if (action.terms && !(terms && tick() && tick().checked)) return;
+      if (action.terms && !terms) return;
+      if (terms && !terms.held && !(tick() && tick().checked)) return;
       btn.disabled = true; btn.textContent = 'Sending…';
       const payload = Object.assign({}, action.payload || {});
       const extra = qv('gNotes'); if (extra) payload.notes = payload.notes ? payload.notes + '. ' + extra : extra;
-      const sent = Object.assign({}, action, { payload: payload }, terms ? { terms_version_id: terms.id } : {});
+      const sent = Object.assign({}, action, { payload: payload }, terms && !terms.held ? { terms_version_id: terms.id } : {});
       delete sent.terms;
       const d = await A.submitRequest(sent);
       if (d.ok) {
+        if (terms && !terms.held) A.noteAccepted(terms.layer);
         successCard(action.successLine || 'The NexPoint desk reads every request personally. Expect to hear within two working days.',
           action.backLabel);
         return;
       }
       btn.textContent = label;
       const err = content().querySelector('[data-np-gate-err]');
+      /* The worker decides which document applies, and says so in its refusal. */
       if (action.terms && (d.error === 'stale_terms' || d.error === 'terms_not_live')) {
         err.style.display = 'none';
-        drawTerms('The terms have moved on: read the new version and tick again.');
+        const layer = d.layer || action.terms.layer;
+        drawTerms(layer, A.termsMoved(layer), true);
         return;
       }
       btn.disabled = false;
