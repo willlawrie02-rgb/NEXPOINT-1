@@ -170,7 +170,7 @@ export function writeTemplate(path) {
 /* Some steps wait on the engine (a sync every two hours) or on a person.
    The run writes down what it made and where each journey stopped, so the
    next run carries on from there. The file holds record numbers and test
-   names only: no password, no key. */
+   names only: no password, no key, no link that opens anything. */
 export function loadState(path, fresh) {
   if (fresh || !existsSync(path)) return { made: {}, at: {} };
   try {
@@ -286,7 +286,7 @@ export async function runAll(journeys, ctx) {
       log(`  skipped: ${why}`);
       continue;
     }
-    const key = `${j.id}@${ctx.pass}`;
+    const key = j.id;
     let stopped = "";
     for (let i = 0; i < j.steps.length; i++) {
       const s = j.steps[i];
@@ -298,17 +298,21 @@ export async function runAll(journeys, ctx) {
         r.status = "as written"; r.detail = "done on an earlier run"; log(`  done before  ${s.does}`); continue;
       }
       ctx.current = { journey: j, step: s, key };
+      /* A step calls ctx.did() the moment it has done the thing that cannot
+         be taken back, so a check that fails after it never sends it twice. */
+      ctx.did = () => {
+        if (!s.once) return;
+        state.at[key] = state.at[key] || {};
+        if (!(state.at[key].done || []).includes(s.id)) state.at[key].done = (state.at[key].done || []).concat(s.id);
+        saveState(ctx.statePath, state);
+      };
       const blockedBefore = ctx.blocked.length;
       try {
         const note = await s.run(ctx);
         /* A save the locks stopped is never "as written", whatever the page showed. */
         if (ctx.blocked.length > blockedBefore) throw new Refused(`refused: the locks stopped ${ctx.blocked.slice(blockedBefore).join("; ")}`);
         if (typeof note === "string") r.detail = note;
-        if (s.once) {
-          state.at[key] = state.at[key] || {};
-          state.at[key].done = (state.at[key].done || []).concat(s.id);
-          saveState(ctx.statePath, state);
-        }
+        ctx.did();
         log(`  as written   ${s.does}`);
       } catch (e) {
         r.detail = firstLine(e);
@@ -325,8 +329,10 @@ export async function runAll(journeys, ctx) {
       }
       saveState(ctx.statePath, state);
     }
-    /* A journey that reached its end starts from the top on the next run. */
-    if (!stopped) { delete state.at[key]; delete state.made[key]; saveState(ctx.statePath, state); }
+    /* A journey whose every step was as written starts from the top on the
+       next run. Anything less keeps what it made, so nothing is sent twice. */
+    const mine = results.filter((r) => r.journey === j && r.pass === ctx.pass);
+    if (mine.every((r) => r.status === "as written")) { delete state.at[key]; delete state.made[key]; saveState(ctx.statePath, state); }
     if (ctx.afterJourney) await ctx.afterJourney(j).catch(() => {});
   }
 }

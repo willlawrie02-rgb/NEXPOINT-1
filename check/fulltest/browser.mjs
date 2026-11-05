@@ -34,9 +34,22 @@ const ACCOUNT_POSTS = new Set(["/auth/login", "/auth/logout", "/auth/register", 
 /* What the admin window may ask the engine to do. Nothing here raises an
    invoice, approves a listing, invites anyone, or runs a job. */
 const ADMIN_INTENTS = new Set(["add-note", "edit-company", "add-task", "done-task", "add-card", "move-card", "mark-card-dead",
-  "add-prospect", "edit-prospect", "add-prospect-note", "accept-prospect", "review-web-request", "publish-to-live-site",
-  "end-board-opportunity", "introduce-on-board"]);
+  "add-prospect", "edit-prospect", "add-prospect-note", "accept-prospect", "review-web-request", "save-board-opportunity",
+  "publish-to-live-site", "end-board-opportunity", "introduce-on-board"]);
 const ADMIN_INTENTS_DELETE_LOGIN = new Set(["edit-person", "delete-user"]);
+/* The fast saves (plan 079) the journeys make: database functions that change
+   the CRM's own rows. Named one by one, so crm_change_campaign and the rest
+   stay shut. */
+const ADMIN_FUNCTIONS = new Set(["crm_add_note", "crm_edit_company", "crm_add_task", "crm_done_task", "crm_add_card", "crm_move_card",
+  "crm_mark_card_dead", "crm_edit_prospect", "crm_add_prospect_note"]);
+const ADMIN_FUNCTIONS_DELETE_LOGIN = new Set(["crm_edit_person"]);
+/* The admin's own sign-in and second factor, and nothing else of the sign-in service. */
+const ADMIN_AUTH = [/^\/auth\/v1\/token$/, /^\/auth\/v1\/factors\/[^/]+\/(challenge|verify)$/, /^\/auth\/v1\/logout$/];
+/* Other hosts a page may post to: Cloudflare's human check, and nothing else. */
+const OTHER_POST_HOSTS = new Set(["challenges.cloudflare.com"]);
+const asObject = (v) => { if (typeof v === "string") { try { return JSON.parse(v); } catch { return null; } } return v && typeof v === "object" ? v : null; };
+/* A prospect edit that names a campaign puts the company into Smartlead. */
+const namesCampaign = (fields) => !fields || (Array.isArray(fields.campaign_ids) ? fields.campaign_ids.length > 0 : "campaign_ids" in fields);
 const ADMIN_API_POSTS = new Set(["/consultancy/links", "/consultancy/links/revoke"]);
 const ADMIN_TABLE_WRITES = new Set(["PATCH board_opportunities"]);
 
@@ -55,8 +68,8 @@ export function lockVerdict(kind, method, url, body, opts = {}) {
     return `${method} ${u.pathname}`;
   }
   if (u.hostname === DB_HOST) {
-    if (u.pathname.startsWith("/auth/v1/")) return "";                       // the admin's own sign-in and second factor
     if (kind !== "admin") return `${method} ${u.pathname} from an account window`;
+    if (u.pathname.startsWith("/auth/v1/")) return method === "POST" && ADMIN_AUTH.some((re) => re.test(u.pathname)) ? "" : `${method} ${u.pathname}`;
     const table = u.pathname.replace(/^\/rest\/v1\//, "");
     if (table === "engine_intents" && method === "POST") {
       const rows = [].concat(body || []);
@@ -65,57 +78,74 @@ export function lockVerdict(kind, method, url, body, opts = {}) {
         const type = String((row && row.type) || "");
         const ok = ADMIN_INTENTS.has(type) || (opts.deleteLogin && ADMIN_INTENTS_DELETE_LOGIN.has(type));
         if (!ok) return `the engine request "${type}"`;
-        let p = row.payload_json; if (typeof p === "string") { try { p = JSON.parse(p); } catch { p = null; } }
+        const p = asObject(row.payload_json);
         if (type === "accept-prospect" && !(p && Array.isArray(p.campaign_ids) && p.campaign_ids.length === 0)) {
           return "accepting a prospect onto a campaign (it goes into Smartlead)";
         }
         if (type === "add-prospect" && p && Array.isArray(p.campaign_ids) && p.campaign_ids.length) {
           return "adding a prospect onto a campaign (it goes into Smartlead)";
         }
-        if (type === "review-web-request" && p && p.status !== "approved") return "declining a request (the company is told)";
+        if (type === "review-web-request" && !(p && p.status === "approved")) return "declining a request (the company is told)";
+        if (type === "edit-prospect" && namesCampaign(p && p.fields)) return "putting a prospect onto a campaign (it goes into Smartlead)";
       }
       return "";
     }
-    /* The fast saves (plan 079): database functions that change the CRM's own
-       rows and nothing outside it. The page falls back to an engine request
-       when one is missing, and that is checked above. */
-    if (method === "POST" && /^rpc\/crm_[a-z_]+$/.test(table)) return "";
-    if (ADMIN_TABLE_WRITES.has(`${method} ${table}`)) return "";
+    if (method === "POST" && table.startsWith("rpc/")) {
+      const fn = table.slice(4);
+      if (!(ADMIN_FUNCTIONS.has(fn) || (opts.deleteLogin && ADMIN_FUNCTIONS_DELETE_LOGIN.has(fn)))) return `the database function ${fn}`;
+      const p = asObject(body && body.p);
+      if (fn === "crm_edit_prospect" && namesCampaign(p && p.fields)) return "putting a prospect onto a campaign (it goes into Smartlead)";
+      return "";
+    }
+    /* Publish: one row's status set to live, and nothing else. */
+    if (ADMIN_TABLE_WRITES.has(`${method} ${table}`)) {
+      const b = asObject(body);
+      const keys = b ? Object.keys(b).sort().join() : "";
+      return b && b.status === "live" && keys === "status,updated_at" && /^\?id=eq\.[\w-]+$/.test(u.search) ? "" : `${method} ${table} with something other than "set live"`;
+    }
     return `${method} ${table}`;
   }
-  return "";   // other hosts: fonts, maps, the human check. Our pages send nothing else of ours.
+  /* Any other host: reads only, bar Cloudflare's human check. The home page's
+     old desk form posts to a mail service, for one. */
+  return OTHER_POST_HOSTS.has(u.hostname) ? "" : `${method} to ${u.hostname}`;
 }
 async function lock(context, kind, ctx) {
-  const opts = { accept: ctx.args.with.includes("accept"), deleteLogin: ctx.args.with.includes("delete-login") };
   const guard = async (route) => {
     const request = route.request();
+    if (request.method() === "GET") return route.continue();
+    /* Accepting is open only while the one step that is asked to accept runs. */
+    const opts = { accept: !!ctx.acceptNow, deleteLogin: ctx.args.with.includes("delete-login") };
     const why = lockVerdict(kind, request.method(), request.url(), bodyOf(request), opts);
     if (!why) return route.continue();
-    ctx.blocked.push(why);
-    ctx.log(`  LOCK: stopped ${why}`);
+    /* A stopped save to our API or database fails the step. A post to any
+       other host (a page's visitor counter, say) is stopped quietly. */
+    const ours = ["api.nexpoint.co.uk", DB_HOST].includes(new URL(request.url()).hostname);
+    if (ours) ctx.blocked.push(why);
+    if (ours || !ctx.quiet.has(why)) ctx.log(`  LOCK: stopped ${why}`);
+    ctx.quiet.add(why);
     return route.abort("blockedbyclient");
   };
-  await context.route(`https://api.nexpoint.co.uk/**`, guard);
-  await context.route(`https://${DB_HOST}/**`, guard);
+  await context.route("**/*", guard);
 }
 
 // ---------------------------------------------------------------- windows
 /* One browser context per account and pass. The phone pass starts from the
    computer pass's session, so nobody signs in twice. */
 export async function windowFor(ctx, role, { fresh = false } = {}) {
-  const key = `${role}@${ctx.pass}`;
+  const key = `${role}@${ctx.size}`;
   if (!fresh && ctx.windows[key]) return ctx.windows[key];
   const size = SIZES[ctx.size];
   const earlier = ctx.windows[`${role}@computer`];
-  const storageState = !fresh && earlier && ctx.pass !== "computer" ? await earlier.context.storageState() : undefined;
+  const storageState = !fresh && earlier && ctx.size !== "computer" ? await earlier.context.storageState() : undefined;
   const context = await ctx.browser.newContext({ ...size, locale: "en-GB", timezoneId: "Europe/London", storageState });
   context.setDefaultTimeout(15000);
   await lock(context, role === "admin" ? "admin" : "account", ctx);
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e.message || e).slice(0, 200)));
-  /* Remove user asks with the browser's own confirm box. */
-  page.on("dialog", (d) => d.accept().catch(() => {}));
+  /* Remove user asks with the browser's own confirm box. In the admin a
+     confirm box guards things the test never does, so there it is refused. */
+  page.on("dialog", (d) => (role === "admin" ? d.dismiss() : d.accept()).catch(() => {}));
   const w = { role, context, page, errors, signedIn: !!storageState && role !== "stranger" };
   if (!fresh) ctx.windows[key] = w; else ctx.spare.push(w);
   return w;
@@ -188,7 +218,7 @@ export async function signIn(ctx, role, { leaveGate = false, account } = {}) {
     }
     const me = await whoAmI(w.page);
     const company = me && me.member && me.member.company;
-    if (!(me && me.signed_in && sameName(company, a.company) && isZZ(company))) {
+    if (!(me && me.signed_in !== false && me.member && sameName(company, a.company) && isZZ(company))) {
       throw new Refused(`refused: the live site says this window is signed in as ${JSON.stringify(String(company || "nobody").slice(0, 60))}, not the ZZ ${role} account`);
     }
     w.signedIn = true; w.proved = true; w.me = me;
@@ -224,12 +254,13 @@ export async function adminWindow(ctx) {
   const w = await windowFor(ctx, "admin");
   ctx.lastWindow = w;
   if (w.proved) return w;
+  if (ctx.adminDeclined) skip("you chose to leave the admin out");
   if (!/\/admin\//.test(w.page.url())) await go(w.page, `${ADMIN}/inbox.html`);
   if (!(await shows(w.page, "#admin", 3000))) {
     if (ctx.args.headless) skip("the admin needs you to sign in, in the Chrome window");
     await w.page.bringToFront().catch(() => {});
     const went = await askEnter("Sign in to the admin in the Chrome window (password, then your six-digit code). The test carries on from there.");
-    if (!went) skip("you chose to leave the admin out");
+    if (!went) { ctx.adminDeclined = true; skip("you chose to leave the admin out"); }
     await w.page.locator("#admin").waitFor({ state: "visible", timeout: 10 * 60 * 1000 })
       .catch(() => differs("the admin after sign-in", "still at the door after ten minutes", "the boards"));
   }
@@ -249,19 +280,20 @@ export async function adminGo(ctx, file) {
 /* The toast after a save, and which route the save took: straight to the
    database (fast saves on) or queued for the engine. */
 export async function saveVia(page, press) {
-  const sent = page.waitForRequest((r) => r.method() === "POST" && new URL(r.url()).hostname === DB_HOST
-    && /\/rest\/v1\/(rpc\/crm_|engine_intents)/.test(r.url()), { timeout: 15000 });
+  /* The page says how the save went in its toast, once the save has come
+     back: exactly "Saved" for a fast save (admin/save.js), its own words
+     ending "queued" for the engine's route, and a sentence when it failed.
+     A missing database function falls back to the engine by itself. */
+  await page.evaluate(() => { const t = document.getElementById("toast"); if (t) t.textContent = ""; });
   await press();
-  const request = await sent.catch(() => { throw new Error("the save sent nothing"); });
-  const direct = /\/rpc\/crm_/.test(request.url());
-  const response = await request.response().catch(() => null);
-  const toast = await text(page, "#toast").catch(() => "");
-  if (response && response.status() >= 400) differs("the save", `${response.status()} ${toast}`, "saved");
-  return { direct, toast };
+  await page.waitForFunction(() => { const t = document.getElementById("toast"); return !!t && t.textContent.trim() !== ""; }, null, { timeout: 35000 })
+    .catch(() => { throw new Error("the save showed no result"); });
+  const toast = await text(page, "#toast");
+  if (/^Not saved|may not have saved|Could not|Still saving/i.test(toast)) differs("the save", toast, "Saved");
+  return { direct: toast === "Saved", toast };
 }
 /* CY11 and DA9 expect the fast saves on. A save that went the old way is
    not wrong, but it is not what those steps describe. */
 export function wantDirect(saved, what) {
   if (!saved.direct) differs(`${what}: fast saves`, `queued for the engine ("${saved.toast}"); the direct_writes switch reads off`, "Saved, straight to the database");
-  if (!/^Saved/.test(saved.toast)) differs(`${what}: the toast`, saved.toast, "Saved");
 }

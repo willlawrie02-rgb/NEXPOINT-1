@@ -70,7 +70,6 @@ async function main() {
   }
   if (problems.length) throw new Refused(`the settings file will not do:\n  - ${problems.join("\n  - ")}`);
 
-  const passOf = (j) => (j.pass === "computer" && args.phone ? "phone, whole script" : j.pass === "last" ? "computer" : j.pass);
   if (args.dry) {
     const world = { build: "", termsVersion: null, terms2: false };
     console.log("The full test: every step it would take. Nothing is opened and nothing is sent.");
@@ -93,7 +92,7 @@ async function main() {
   const ctx = {
     args, settings, have, world, state, statePath: STATE_PATH, results, browser, log: console.log,
     stamp: when.replace(/^\d{4}-/, "").replace("_", "-"), shotsDir: join(dir, "shots"),
-    windows: {}, spare: [], blocked: [], notes: [], left: [], cache: {}, mailRows: [], lastWindow: null,
+    windows: {}, spare: [], blocked: [], quiet: new Set(), acceptNow: false, adminDeclined: false, notes: [], left: [], cache: {}, mailRows: [], lastWindow: null,
     mail: new Mail(settings, started), pass: "computer", size: "computer",
   };
   ctx.shot = (name) => shot(ctx, name);
@@ -102,7 +101,7 @@ async function main() {
   let crashed = "";
   try {
     for (const pass of ["computer", "phone", "last"]) {
-      ctx.pass = pass === "last" ? "computer" : passOf({ pass });
+      ctx.pass = pass === "phone" ? "phone" : args.phone ? "whole script at phone width" : "computer";
       ctx.size = pass === "phone" || args.phone ? "phone" : "computer";
       await runAll(JOURNEYS.filter((j) => j.pass === pass), ctx);
     }
