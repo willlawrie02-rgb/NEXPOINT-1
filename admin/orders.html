@@ -33,7 +33,6 @@
   .stg-submitted { background: var(--ok-wash);   color: var(--ok-ink); }
   .stg-nothing   { background: var(--bg-alt);    color: var(--fg-2); }
   .stg-missing   { background: var(--err-wash);  color: var(--err-ink); }
-  .stg-due       { background: var(--warn-wash); color: var(--warn-ink); }
   .stg-overdue   { background: var(--err-wash);  color: var(--err-ink); }
   .stg-unmatched { background: var(--warn-wash); color: var(--warn-ink); }
   .stg-matched   { background: var(--ok-wash);   color: var(--ok-ink); }
@@ -42,7 +41,6 @@
   /* Mismatch flags: the three things a reconciliation row can be wrong about. */
   .mis { display: inline-block; font: 600 11px/1 var(--font-body); padding: 5px 9px;
          border-radius: 999px; margin: 0 6px 6px 0; background: var(--err-wash); color: var(--err-ink); }
-  .mis-soft { background: var(--warn-wash); color: var(--warn-ink); }
   /* Declaration lines inside a site card. */
   .lines { margin-top: 10px; border-top: 1px solid var(--border-faint); }
   .lines .ln { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -89,8 +87,8 @@ ink #0E1626, Montserrat headings / Inter body, blue #005CC8 as the one action
 accent, green reserved for "go" semantics, the square logo in a translucent bar.
 STORY: the declarations board. Does the declared month agree with what the
 CC inbox saw (reconciliation), with the pre-declarations order ledger kept
-below as a filter. Order emails with no introduction and disputed lines are
-decided in the Inbox since plan 072; the statements, what is billable, are
+below as a filter. Order emails with no introduction and lines the desk holds
+are decided in the Inbox since plan 072; the statements, what is billable, are
 on Money since plan 075 (D10), with the by-hand Mark invoiced and Mark paid
 for them. The legacy ledger keeps its own order_ids path for both.
 Every action here is an engine_intents row: the browser reads freely and
@@ -158,7 +156,7 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
         </div>
         <p class="note">
           The reconciliation shows whether each provider site declared the month the CC mailbox
-          saw. Order emails with no introduction, and disputed lines, are decided in the Inbox.
+          saw. Order emails with no introduction, and any line the desk is holding, are decided in the Inbox.
           Nothing here changes a row directly: each action queues the engine.
         </p>
         <!-- Plan 075 (D10): the quarterly statements, what gets invoiced, are on Money, with
@@ -180,8 +178,8 @@ FORM: user-pinned (match nexpoint.co.uk, light only) — no roll, no seed.
           <div id="recRows"><div class="empty">Loading…</div></div>
         </div>
 
-        <p class="note">Order emails the CC mailbox matched to no introduction, and any a site
-          has disputed, are decided in the Inbox. <a href="inbox.html">Open the Inbox</a></p>
+        <p class="note">Order emails the CC mailbox matched to no introduction, and any line the desk is holding
+          as a dispute, are decided in the Inbox. <a href="inbox.html">Open the Inbox</a></p>
 
         <details class="legacy" id="legacy">
           <summary>Legacy order ledger</summary>
@@ -244,8 +242,6 @@ const DEAD_STAGES=['dead','expired','declined'];
 /* A declaration counts as answered in these states
    (declarations.DECLARED_STATUSES). */
 const DECLARED=['submitted','nothing','closed'];
-/* How long a seeker gets to confirm a line before the desk should look. */
-const CONFIRM_DAYS=7;
 /* resolve-dispute and match-order-evidence moved to the Inbox (plan 072);
    the statements' mark-invoiced and mark-paid to Money (plan 075). The two
    stay here for the legacy ledger, by order_ids. */
@@ -306,7 +302,6 @@ function recentMonths(n){
   }
   return out;
 }
-const daysSince=v=>v?Math.floor((Date.now()-new Date(v).getTime())/86400000):null;
 
 /* ── Data ──────────────────────────────────────────────────────────── */
 
@@ -480,14 +475,14 @@ function declStatus(decl){
   return decl.status||'missing';
 }
 
-function confirmState(line){
+/* The host's declaration is the record (Host Agreement §8): a live line is
+   declared, unless the desk holds it as a dispute (plan 078). */
+function lineState(line){
   if(line.seeker_disputed_at&&!line.resolved_at)
     return {label:'Disputed',cls:'stg-disputed',open:true};
   if(line.resolved_at)
     return {label:'Dispute '+(line.resolution||'resolved'),cls:'stg-matched',open:false};
-  if(line.seeker_confirmed_at)
-    return {label:'Confirmed',cls:'stg-matched',open:false};
-  return {label:'Awaiting the seeker',cls:'stg-due',open:false};
+  return {label:'Declared',cls:'stg-matched',open:false};
 }
 
 function evidencePopover(rows){
@@ -528,13 +523,9 @@ function siteCard(site,period){
   const disputed=lines.filter(l=>l.seeker_disputed_at&&!l.resolved_at);
   if(disputed.length)
     flags.push(`<span class="mis">${disputed.length} disputed line${disputed.length===1?'':'s'}</span>`);
-  const since=decl?daysSince(decl.submitted_at||decl.created_at):null;
-  const stale=lines.filter(l=>!l.seeker_confirmed_at&&!l.seeker_disputed_at);
-  if(stale.length&&since!=null&&since>CONFIRM_DAYS)
-    flags.push(`<span class="mis mis-soft">${stale.length} line${stale.length===1?'':'s'} unconfirmed after ${since} days</span>`);
 
   const lineRows=lines.length?`<div class="lines">${lines.map(l=>{
-    const state=confirmState(l);
+    const state=lineState(l);
     const ev=evidenceFor(l.introduction_id,period);
     /* A disputed line is decided in the Inbox (plan 072); it stays visible here. */
     const act=state.open?'<span class="muted">Decide it in the Inbox. <a href="inbox.html">Open the Inbox</a></span>':'';
