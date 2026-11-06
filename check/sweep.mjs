@@ -2,6 +2,7 @@
 // paint fast. Each rule below is a thing that was wrong once; the check keeps
 // it from coming back. The admin boards are synced from another repo and are
 // out of scope here.
+import { runInNewContext } from "node:vm";
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import vm from "node:vm";
@@ -487,6 +488,23 @@ for (const p of pages) {
   if (!a) fail("hub/assets/portal.js: the LAND array was not found (plan 055)");
   if (!b) fail("hub/assets/world-map.js: the LAND array was not found (plan 055)");
   if (a && b && a !== b) fail("hub/assets/world-map.js: its LAND mask differs from hub/assets/portal.js's; the two copies must stay identical (plan 055)");
+}
+
+// ---------------------------------------------------------------- the logo banner (plan 088)
+// A name reaches the page only with the operator's confirmation on its line and
+// a logo the page can stand straight on the canvas. A JPEG cannot be see-through,
+// so it would arrive in the white box the brand forbids; the walk checks the
+// corners of whatever else is listed.
+{
+  const sandbox = { window: {}, document: { getElementById: () => null } };
+  runInNewContext(read("assets/logo-banner.js"), sandbox);
+  for (const c of sandbox.window.NP_LOGO_BANNER) {
+    const what = `assets/logo-banner.js "${c.name}"`;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(c.confirmed || "")) fail(`${what}: no date for the operator's confirmation`);
+    if (!/^assets\/img\/logos\/[\w.-]+\.(svg|png)$/.test(c.logo || "")) fail(`${what}: the logo must be a transparent SVG or PNG in assets/img/logos/`);
+    else if (!existsSync(join(ROOT, c.logo))) fail(`${what}: ${c.logo} is not in the repo`);
+  }
+  if (!/assets\/logo-banner\.js\?v=[\w.-]+/.test(read("index.html"))) fail("index.html: the logo banner's script is not asked for by version");
 }
 
 // ---------------------------------------------------------------- the door asks for its sheet and script by version
