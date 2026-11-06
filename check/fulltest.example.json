@@ -1,0 +1,53 @@
+{
+  "//": "The full test's settings. Keep this file out of every repository. Every company name must start ZZ, then a space or a hyphen.",
+  "accounts": {
+    "host": {
+      "company": "",
+      "email": "",
+      "password": "",
+      "//": "folder is the company's folder name in the workspace (zz-something), for the consultancy link.",
+      "folder": ""
+    },
+    "seeker": {
+      "company": "",
+      "email": "",
+      "password": ""
+    },
+    "veteran": {
+      "company": "",
+      "email": "",
+      "password": ""
+    },
+    "disposable": {
+      "company": "",
+      "email": "",
+      "password": ""
+    }
+  },
+  "new_account": {
+    "//": "Registration and the invitation each make a new person on every run. {stamp} becomes the run's date and time, and both addresses must carry it. Use addresses you can open.",
+    "company": "ZZ Full Test {stamp}",
+    "name": "ZZ Full Test",
+    "email": "",
+    "invite_email": "",
+    "password": "",
+    "town": "",
+    "country": ""
+  },
+  "admin": {
+    "//": "Your admin address, to recognise your session. No password: you sign in yourself, in the window.",
+    "email": ""
+  },
+  "mail": {
+    "//": "Read-only mailbox checks through Microsoft Graph. Leave blank and every email is listed for you to check by hand.",
+    "// secret": "Give client_secret, or client_secret_file: the path of a file that holds it.",
+    "// mailboxes": "The mailboxes this app may read. Mail to name+anything@ lands in name@.",
+    "tenant_id": "",
+    "client_id": "",
+    "client_secret": "",
+    "client_secret_file": "",
+    "mailboxes": [],
+    "sent_from": "",
+    "desk": ""
+  }
+}
