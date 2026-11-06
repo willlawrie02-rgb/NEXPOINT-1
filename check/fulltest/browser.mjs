@@ -168,9 +168,18 @@ export async function shot(ctx, name) {
 export const text = async (page, selector) => ((await page.locator(selector).first().textContent()) || "").replace(/\s+/g, " ").trim();
 export async function see(page, selector, part, what, ms = 15000) {
   const loc = page.locator(selector).first();
+  const until = Date.now() + ms;
   await loc.waitFor({ state: "visible", timeout: ms }).catch(() => { throw new Error(`${what}: nothing showed at ${selector}`); });
-  const got = ((await loc.textContent()) || "").replace(/\s+/g, " ").trim();
-  const ok = part instanceof RegExp ? part.test(got) : got.includes(part);
+  /* Visible is not the same as written: the admin's toast is on the page
+     before a save comes back and fills it (the first run, 6 November). */
+  const matches = (t) => (part instanceof RegExp ? part.test(t) : t.includes(part));
+  let got = "";
+  for (;;) {
+    got = ((await loc.textContent()) || "").replace(/\s+/g, " ").trim();
+    if (matches(got) || Date.now() > until) break;
+    await page.waitForTimeout(250);
+  }
+  const ok = matches(got);
   if (!ok) differs(what, got, part instanceof RegExp ? String(part) : part);
   return got;
 }
