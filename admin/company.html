@@ -71,7 +71,7 @@
 <script src="crm-shell.js?v=4"></script>
 <script src="crm.js?v=071"></script>
 <script src="save.js?v=0794"></script>
-<script src="jobs.js?v=088"></script>
+<script src="jobs.js?v=082b"></script>
 <script src="pipelines.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -139,7 +139,9 @@ function showAdmin(u){$('login').style.display='none';$('admin').style.display='
    on the Campaigns page. */
 const esc=NXCRM.esc, ms=NXShell.ms, plural=(n,a,b)=>`${n} ${n===1?a:(b||a+'s')}`;
 const PIPE_INTENTS=['add-card','edit-card','move-card','set-card-next','mark-card-dead','revive-card','link-card-site','invite-to-portal','move-introduction'];
-const ORG_INTENTS=['delete-account','erase-account','pause-org','resume-org','remove-org','restore-org','open-audit-strike','cure-strike','delete-user'];
+const ORG_INTENTS=['delete-account','erase-account','pause-org','resume-org','remove-org','restore-org','open-audit-strike','cure-strike','delete-user',
+  /* plan 082: the three-year check's Keep, Email the notice and Remove */
+  'keep-dormant-account','notice-dormant-account','remove-dormant-account'];
 const CRM_INTENTS=Object.keys(NXCRM.KEYS);
 /* Plan 054 (D1): the composer's Note, watched so a queued or failed note shows by the composer. */
 const NOTE_INTENTS=['add-note'];
@@ -167,7 +169,7 @@ const UI={open:null,edit:null,tl:'all',tlMax:50,job:null,flashDone:false,card:nu
 const checkBack=NXJOBS.poll(sb,load,()=>!!(UI.open||UI.edit||val('cp-note')||val('cp-title')));
 let state='loading', problem='', banners=[];
 let C=null;
-let A={orgs:[],listings:[],revisions:[],strikes:[],fees:{},terms:{},users:[],versions:{},requests:[]};
+let A={orgs:[],listings:[],revisions:[],strikes:[],fees:{},terms:{},users:[],versions:{},requests:[],dormant:{}};
 let intentById={}, pendingByOrg={}, pendingByStrike={}, pendingByUser={}, pendingByPerson={}, pendingBySite={}, crmOpen=[], doneOrg=[], noteByCompany={};
 /* Plan 073: the newest open pipeline intent per card and per introduction. */
 let pendingByCard={}, pendingByIntro={};
@@ -345,7 +347,7 @@ async function loadCompanyNames(){
 }
 
 async function loadAccounts(orgIds){
-  A={orgs:[],listings:[],revisions:[],strikes:[],fees:{},terms:{},users:[],versions:{},requests:[]};
+  A={orgs:[],listings:[],revisions:[],strikes:[],fees:{},terms:{},users:[],versions:{},requests:[],dormant:{}};
   if(!orgIds.length)return;
   const [oq,lsq,skq,odq,taq,tvq,upq,srq]=await Promise.all([
     sb.from('organisations').select('*').in('id',orgIds),
@@ -360,6 +362,14 @@ async function loadAccounts(orgIds){
   for(const [what,e] of [['accounts',oq.error],['listings',lsq.error],['strikes',skq.error],['fees owed',odq.error],
     ['terms',taq.error||tvq.error],['users',upq.error],['requests',srq.error]])if(e)banners.push(`Could not read the ${what}: ${e.message}.`);
   A.orgs=oq.data||[];A.listings=lsq.data||[];A.strikes=skq.data||[];A.users=upq.data||[];A.requests=srq.data||[];
+  /* Plan 082: an open account on the three-year check. hub_dormant_card (0097) is the one read on any page
+     that is not a table: the last sign-in and who would leave Contacts are in no table the browser may read.
+     Admins only, and it changes nothing. */
+  await Promise.all(A.orgs.filter(onCheck).map(async o=>{
+    const q=await sb.rpc('hub_dormant_card', { p_org: o.id });
+    A.dormant[o.id]=q.error?{error:q.error.message}:(q.data||{});
+    if(q.error)banners.push(`Could not read the three-year check for ${o.name||'this account'}: ${q.error.message}.`);
+  }));
   (odq.data||[]).forEach(o=>{
     if(!o.confirmed_at||o.invoiced_at)return;
     const m=A.fees[o.org_provider]||(A.fees[o.org_provider]={}), cur=o.currency||'GBP';
@@ -545,6 +555,78 @@ function strikesBlock(o){
       (UI.open==='cure:'+s.id?choice('How was it cured? Kept on the strike.',input('cu-note','How it was cured (optional)')+btn('confirmCure','Cure the strike','',{strike:s.id},'primary')+cancel()):'');
   }).join('')}${cured?`<p class="picker-note">${plural(cured,'more strike')} cured.</p>`:''}</div>`;
 }
+/* ---------- the three-year check (plan 082) ----------
+   An open account three years old that has never offered or sought, stamped
+   by the engine's daily check. The panel shows who is on it, when each last
+   signed in and what removal would do to them in Contacts, then offers Keep,
+   Email the notice and, 30 days after the notice, Remove behind the typed
+   name. Each is an intent; the engine and the database check again. */
+const NOTICE_DAYS=30;
+const onCheck=o=>!!o.dormant_since&&!o.closed_at&&!o.deleted_at&&!o.erased_at;
+const day=v=>NXCRM.fmtDate(v,new Date(0));
+const noticeOver=o=>!!o.dormant_notice_at&&new Date(o.dormant_notice_at).getTime()+NOTICE_DAYS*864e5<=Date.now();
+const removeFrom=o=>{const d=(A.dormant[o.id]||{}).remove_from;return d||new Date(new Date(o.dormant_notice_at).getTime()+NOTICE_DAYS*864e5).toISOString().slice(0,10);};
+/* Why the notice and the removal are withheld, or '' when they are not. */
+function dormantStop(o){
+  const d=A.dormant[o.id]||{};
+  if(d.error||!Array.isArray(d.users))return 'The people on this account could not be read, so only Keep is offered.';
+  if((d.acts||[]).length)return `It has since offered or sought (${d.acts.join(', ')}), so it stays. Its card comes off the Inbox at the next 06:15 run.`;
+  if(d.hold_until)return `It was shown an opportunity in the last twelve months, so nothing happens before ${day(d.hold_until)}.`;
+  if(d.notice_void==='reopened')return 'Its holder closed and reopened it after the notice, so a new notice is needed. The check starts again at the next 06:15 run.';
+  if(d.notice_void==='joined')return 'Someone joined after the notice and has not been told, so a new notice is needed. Email the notice comes back at the next 06:15 run.';
+  if(d.switch==='off')return 'The three-year check is switched off, so only Keep is offered.';
+  return '';
+}
+/* Why no notice can be sent though nothing else stops it: nobody to send it to. */
+const noticeStop=o=>{const d=A.dormant[o.id]||{};return Array.isArray(d.users)&&!d.users.some(u=>u.confirmed)
+  ?'No user has a confirmed address, so no notice can be sent. Press Keep, or use Delete account.':'';};
+const fateNames=(o,fate)=>((A.dormant[o.id]||{}).users||[]).filter(u=>u.fate===fate).map(u=>u.name||u.email);
+const listOf=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+function dormantLines(o){
+  const d=A.dormant[o.id]||{}, lines=[], stop=dormantStop(o);
+  lines.push(`<span>Created ${esc(day(o.created_at))}. It has never offered or sought anything.</span>`);
+  if(!o.dormant_notice_at)lines.push('<span class="st info">To check</span>');
+  else if(noticeOver(o))lines.push(`<span class="st err">The 30 days’ notice is over</span><span class="muted-t">Notice emailed ${esc(day(o.dormant_notice_at))}</span>`);
+  else lines.push(`<span class="st">Notice emailed ${esc(day(o.dormant_notice_at))}</span><span class="muted-t">It can be removed from ${esc(day(removeFrom(o)))}, unless they ask to keep it.</span>`);
+  if(stop)lines.push(`<span class="muted-t">${esc(stop)}</span>`);
+  else if(!o.dormant_notice_at&&noticeStop(o))lines.push(`<span class="muted-t">${esc(noticeStop(o))}</span>`);
+  (d.users||[]).forEach(u=>{
+    const fate=u.fate==='goes'?'<span class="st err">Goes completely</span>':u.fate==='stays'?'<span class="st ok">Stays as a contact</span>':'<span class="st">Not in Contacts</span>';
+    lines.push(`<span class="mini"><span class="strong" title="${esc(u.email||'')}">${esc(u.name||u.email||'A user')}</span> ${fate}`+
+      `<span class="item-sub wrap">${u.last_sign_in_at?`Last signed in ${esc(day(u.last_sign_in_at))}`:'Never signed in'}. Joined ${esc(day(u.joined_at))}.${u.confirmed?'':' Not confirmed.'}`+
+      `${u.prospect_note?' A prospect note mentions them: read it before removing.':''}</span></span>`);
+  });
+  if(Array.isArray(d.users)&&!d.users.length)lines.push('<span class="muted-t">Nobody is on this account.</span>');
+  const cards=(d.open_cards||[]).length, links=Number(d.consultancy_links||0);
+  if(cards||links)lines.push(`<span class="muted-t">${[cards?plural(cards,'open pipeline card'):'',links?plural(links,'consultancy link'):''].filter(Boolean).join(' and ')} on the company: a reason to keep it.</span>`);
+  return `<span style="display:flex;flex-direction:column;gap:4px">${lines.join('')}</span>`;
+}
+function dormantButtons(o){
+  if(!onCheck(o))return '';
+  const id={'org-id':o.id}, can=!dormantStop(o);
+  return btn('keepDormantOrg','Keep for twelve months','event_repeat',id)
+    +(can&&!o.dormant_notice_at&&!noticeStop(o)?btn('noticeDormantOrg','Email the notice','outgoing_mail',id):'')
+    +(can&&noticeOver(o)?btn('removeDormantOrg','Remove the account','person_off',id,'danger'):'');
+}
+function dormantChoice(o){
+  const id=o.id, name=esc(o.name||'this account'), d=A.dormant[o.id]||{};
+  if(UI.open==='keepd:'+id)return choice(`Keep ${name} for twelve months? The check asks again after that, and any notice already sent no longer counts.`,
+    btn('confirmKeepDormant','Keep for twelve months','',{'org-id':id},'primary')+cancel());
+  if(UI.open==='noticed:'+id){
+    const to=(d.users||[]).filter(u=>u.confirmed).length;
+    return choice(`Email ${plural(to,'confirmed user')} of ${name} that the account will be removed in 30 days unless they reply? A reply goes to the desk; press Keep if they ask to stay.`,
+      btn('confirmNoticeDormant','Email the notice','',{'org-id':id},'primary')+cancel());
+  }
+  if(UI.open==='removed:'+id){
+    const goes=fateNames(o,'goes'), stays=fateNames(o,'stays');
+    const who=[goes.length?`${esc(listOf(goes))} ${goes.length===1?'leaves':'leave'} Contacts completely.`:'',
+      stays.length?`${esc(listOf(stays))} ${stays.length===1?'stays':'stay'} as a contact.`:''].filter(Boolean).join(' ');
+    return typed(`Removing ${name} cannot be undone. Every user’s sign-in goes. ${who} The account’s record and its acceptance of our terms are kept for six years, like any deleted account. The company and its filed emails stay. Type the name to confirm.`,
+      input('rdName',o.name||''),`<button type="button" class="btn sm danger" id="rdGo" disabled data-act="confirmRemoveDormant" data-org-id="${esc(id)}">Remove the account</button>`+cancel());
+  }
+  return '';
+}
+
 function accountBlock(o){
   const s=NXCRM.orgState(o), q=pendingByOrg[o.id];
   const kv=rows=>`<dl class="kv">${rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
@@ -556,7 +638,9 @@ function accountBlock(o){
     rows.push(['Reopen','Only by the account holder, from the account page']);
     rows.push(['Fees owed',feesLine(o.id)]);
   }else if(s==='deleted'){
-    rows.push(['Deleted',`${esc(fmt(o.deleted_at))}: kept for its fees and invoices`]);
+    rows.push(o.removed_by==='Three-year check'
+      ?['Removed',`${esc(fmt(o.deleted_at))}: Removed by the three-year check. Its record and its acceptance of our terms are kept.`]
+      :['Deleted',`${esc(fmt(o.deleted_at))}: kept for its fees and invoices`]);
     rows.push(['Fees owed',feesLine(o.id)]);
     if(o.retention_until)rows.push(['Records kept',retentionDue(o)?'<span class="st">Retention period over</span>':`Until ${esc(NXCRM.fmtDate(o.retention_until,new Date(0)))}`]);
   }else{
@@ -564,6 +648,7 @@ function accountBlock(o){
       const who=s==='paused'?o.paused_by:o.removed_by, why=s==='paused'?o.paused_reason:o.removed_reason, when=s==='paused'?o.hidden_at:o.removed_at;
       rows.push([s==='paused'?'Paused':'Removed',`<span style="display:flex;flex-direction:column;gap:2px"><span>${esc(fmt(when))}${who?', by '+esc(NXShell.personOf(who)):''}</span>${why?`<span class="muted-t">${esc(why)}</span>`:''}</span>`]);
     }
+    if(onCheck(o))rows.push(['Three-year check',dormantLines(o)]);
     rows.push(['Listings',listingsLine(o.id)]);
     const reqs=A.requests.filter(r=>r.org_id===o.id);
     if(reqs.length)rows.push(['Requests',requestsLine(reqs)]);
@@ -580,10 +665,11 @@ function accountBlock(o){
   if(s==='on')buttons=btn('pauseOrg','Pause','pause_circle',{'org-id':o.id})+btn('openAuditStrike','Open audit strike','flag',{'org-id':o.id})+btn('removeOrg','Remove from the hub','remove_circle',{'org-id':o.id})+del;
   else if(s==='paused')buttons=btn('resumeOrg','Resume','play_circle',{'org-id':o.id})+btn('openAuditStrike','Open audit strike','flag',{'org-id':o.id})+btn('removeOrg','Remove from the hub','remove_circle',{'org-id':o.id})+del;
   else if(s==='removed')buttons=btn('restoreOrg','Restore to the hub','undo',{'org-id':o.id})+del;
+  if(s==='on'||s==='paused'||s==='removed')buttons=dormantButtons(o)+buttons;
   else if(s==='closed')buttons=del+erase;
   else if(s==='deleted'&&retentionDue(o))buttons=erase;
   if(buttons)h+=`<div class="panel-actions acct-actions"><div class="actions">${manageFor(q,buttons)}</div></div>`;
-  h+=orgChoice(o);
+  h+=orgChoice(o)+dormantChoice(o);
   if(s==='on'||s==='paused')h+='<p class="picker-note">Pausing for strikes is always a person’s decision. Only the day-14 payment hide is automatic.</p>';
   return h;
 }
@@ -808,12 +894,12 @@ function openTasksPanel(){
 /* What jobs.js's panels and decisions are given (see its header). account()
    calls the account panel's own Pause, Remove or Erase and puts the cursor in
    its choice (D12): one control for one thing on the page. */
-const ACCOUNT_FIELD={pause:'pa-why',remove:'rm-why',erase:'erName'};
+const ACCOUNT_FIELD={pause:'pa-why',remove:'rm-why',erase:'erName',removeDormant:'rdName'};
 function jobCtx(){
   return Object.assign({},J,{rows:jobRows,pending:jobPending,ui:UI,me:me&&me.email,flash:UI.flashDone?null:UI.job,
     tasks:T.rows,companies:C?{[C.id]:{id:C.id,name:C.company.name}}:{},companyList:[],today:NXJOBS.todayIn(),
     raise:(type,payload,spot,verb,toastText)=>raise(type,payload,verb,toastText),val,need,toast:NXShell.toast,
-    retry:id=>{const i=intentById[id];if(i)return raise(i.type,i.payload_json||{},'Tried again');},
+    retry:id=>ACT.retry({dataset:{intent:id}}),
     open:k=>{UI.open=k;render();},close:()=>{UI.open=null;render();},
     account:(what,orgId)=>{
       const fn=ACT[what+'Org'];if(!fn)return;
@@ -994,7 +1080,8 @@ function jumpToCard(){
 const SOURCE_WORD={folder:'the workspace folder',portal:'a portal account',pipedrive:'Pipedrive',admin:'the admin',profile:'the profile'};
 const FIELD_WORD={name:'Name changed',website:'Website changed'};
 const DONE_WORD={'pause-org':'Paused','resume-org':'Resumed','remove-org':'Removed from the hub','restore-org':'Restored to the hub',
-  'open-audit-strike':'Audit strike opened','cure-strike':'Strike cured','delete-account':'Account deleted','erase-account':'Records erased','delete-user':'User deleted'};
+  'open-audit-strike':'Audit strike opened','cure-strike':'Strike cured','delete-account':'Account deleted','erase-account':'Records erased','delete-user':'User deleted',
+  'keep-dormant-account':'Kept for twelve months (three-year check)','notice-dormant-account':'30 days’ notice emailed (three-year check)','remove-dormant-account':'Account removed (three-year check)'};
 const by=w=>w&&String(w).includes('@')?` By ${NXShell.personOf(w)}.`:'';
 function timelineItems(){
   const out=[], personName=id=>(C.people.find(p=>p.id===id)||{}).name||'A person', siteName=id=>(C.sites.find(s=>s.id===id)||{}).name;
@@ -1158,7 +1245,16 @@ const ACT={
   },
   tlFilter(el){UI.tl=el.dataset.f;UI.tlMax=50;render();},
   moreTl(){UI.tlMax+=200;render();},
-  retry(el){const i=intentById[el.dataset.intent];if(i)return raise(i.type,i.payload_json||{},'Tried again');},
+  retry(el){
+    const i=intentById[el.dataset.intent];
+    if(!i)return;
+    /* plan 082: a removal is never replayed from a stored name. The dialog opens and the name is typed again. */
+    if(i.type==='remove-dormant-account'){
+      NXShell.toast('Type the account’s name again to remove it.');
+      return ACT.removeDormantOrg({dataset:{orgId:(i.payload_json||{}).org_id}});
+    }
+    return raise(i.type,i.payload_json||{},'Tried again');
+  },
   /* the company and its tags */
   async saveCompany(){
     const c=C.company, payload={company_id:C.id}, name=val('ec-name'), web=val('ec-web');
@@ -1256,6 +1352,31 @@ const ACT={
   eraseOrg(el){open(el,'erase:'+el.dataset.orgId);},
   cureStrike(el){open(el,'cure:'+el.dataset.strike);},
   deleteUser(el){open(el,'deluser:'+el.dataset.user);},
+  /* plan 082: the three-year check */
+  keepDormantOrg(el){open(el,'keepd:'+el.dataset.orgId);},
+  /* The Needs you card chooses its buttons by stage alone; the panel knows more, and says why. */
+  noticeDormantOrg(el){
+    const o=orgOf(el), stop=!onCheck(o)?'This account is not on the three-year check.':o.dormant_notice_at?'The notice has already been sent.':dormantStop(o)||noticeStop(o);
+    if(stop)return NXShell.toast(stop);
+    open(el,'noticed:'+el.dataset.orgId);
+  },
+  removeDormantOrg(el){
+    const o=orgOf(el), stop=!onCheck(o)?'This account is not on the three-year check.':dormantStop(o)||(noticeOver(o)?'':'The 30 days’ notice has not run yet.');
+    if(stop)return NXShell.toast(stop);
+    open(el,'removed:'+el.dataset.orgId);
+  },
+  async confirmKeepDormant(el){const orgId=el.dataset.orgId;if(await raise('keep-dormant-account',{org_id:orgId},'Kept for twelve months'))render();},
+  async confirmNoticeDormant(el){
+    const orgId=el.dataset.orgId, o=orgOf(el);
+    if(!o||!onCheck(o)||o.dormant_notice_at||dormantStop(o)||noticeStop(o))return NXShell.toast(dormantStop(o)||noticeStop(o)||'The notice cannot be sent for this account as it stands.');
+    if(await raise('notice-dormant-account',{org_id:orgId},'Notice queued'))render();
+  },
+  async confirmRemoveDormant(el){
+    const orgId=el.dataset.orgId, o=orgOf(el), name=val('rdName');
+    if(!o||!onCheck(o)||!noticeOver(o)||dormantStop(o))return NXShell.toast(dormantStop(o)||'This account cannot be removed yet: the 30 days’ notice has not run, or it is no longer due.');
+    if(!delMatches(name,o.name))return need('rdName','Type the account’s name exactly to remove it.');
+    if(await raise('remove-dormant-account',{org_id:orgId,confirm_name:name},'Removal queued'))render();
+  },
   async confirmPause(el){
     const orgId=el.dataset.orgId, reason=val('pa-why');
     if(!reason.trim())return need('pa-why','A pause carries its reason.');
@@ -1331,6 +1452,7 @@ document.addEventListener('click',e=>{
 document.addEventListener('input',e=>{
   if(e.target.id==='erName'||e.target.id==='erWhy')eraseCheck();
   if(e.target.id==='delName'){const go=$('delGo'), o=orgById(go&&go.dataset.orgId);if(go&&o)go.disabled=!delMatches(e.target.value,o.name);}
+  if(e.target.id==='rdName'){const go=$('rdGo'), o=orgById(go&&go.dataset.orgId);if(go&&o)go.disabled=!delMatches(e.target.value,o.name);}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(UI.open||UI.edit)){UI.open=null;UI.edit=null;render();}});
 
