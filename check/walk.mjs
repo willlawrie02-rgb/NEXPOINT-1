@@ -3934,8 +3934,11 @@ async function walkHomepage() {
     const got = await page.evaluate(() => {
       const v = document.getElementById("heroFilm"), stage = document.querySelector(".hero-reveal .globe-stage");
       const box = document.querySelector(".hero-reveal").getBoundingClientRect(), g = stage.getBoundingClientRect();
-      // 14 October (Will, evening): the globe stands taller than the film box, so it is at least the box's size
-      return { globeFillsItsBox: Math.round(g.width) === Math.round(box.width) && Math.round(g.height) >= Math.round(box.height) && g.width > 300,
+      // 9 November 2026 (Will): the Global Portal's globe, a round disc at the film box's height (at most
+      // 520px), centred on it; it no longer stands taller than the box
+      const want = Math.min(Math.round(box.height), 520);
+      return { globeFillsItsBox: Math.abs(g.width - g.height) <= 1 && Math.abs(Math.round(g.height) - want) <= 1 && g.width > 300 &&
+          Math.abs((g.left + g.width / 2) - (box.left + box.width / 2)) <= 1,
         globeStays: !stage.classList.contains("is-gone") && getComputedStyle(stage).visibility !== "hidden",
         films: document.querySelectorAll("video").length, sections: document.querySelectorAll("section#film").length, controls: v.controls };
     });
