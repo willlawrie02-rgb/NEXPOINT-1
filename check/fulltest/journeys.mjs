@@ -793,16 +793,24 @@ async function prospectRow(ctx) {
   await w.page.locator("#admin").waitFor({ state: "visible" });
   await w.page.waitForLoadState("networkidle").catch(() => {});
   await w.page.fill("#f-search", name);
+  /* Leaving the search box fires its change event, which redraws the list. Left to the first
+     click, that redraw lands between the button's mousedown and mouseup, so the click is lost
+     and the row never opens (the 6 November run). Blur here, so the redraw comes first. */
+  await w.page.locator("#f-search").blur();
   const row = w.page.locator("#plist tbody tr", { hasText: name }).first();
-  const id = (await row.count()) ? await row.locator('[data-act="openRow"]').first().getAttribute("data-id") : "";
+  /* A row whose decision is queued for the engine shows "… queued" in place of Show details. */
+  const button = row.locator('[data-act="openRow"]').first();
+  const id = (await row.count()) && (await button.count()) ? await button.getAttribute("data-id") : "";
+  if (!id && (await row.count())) wait(`${name} has a decision queued for the engine; it opens again after the engine's next run`);
   return { w, name, id };
 }
 async function openProspect(ctx) {
   const p = await prospectRow(ctx);
   if (!p.id) wait(`${p.name} is not on Prospects yet (the engine files it at its next run)`);
   mustBeZZ(p.name, "the prospect to open");
-  await p.w.page.click(`[data-act="openRow"][data-id="${p.id}"]`);
-  await p.w.page.locator(`#type-${p.id}`).waitFor({ state: "visible" });
+  await p.w.page.click(`#plist [data-act="openRow"][data-id="${p.id}"]`);
+  await p.w.page.locator(`#type-${p.id}`).waitFor({ state: "visible" })
+    .catch(() => differs("Show details on the row", "the row stayed shut", "the row's fields"));
   return p;
 }
 const admin = [{
