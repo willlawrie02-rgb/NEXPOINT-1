@@ -847,6 +847,8 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{
   const t=e.target;
+  /* The search box redraws on input; redrawing again as it loses focus would swallow the click that took the focus away. */
+  if(t.id==='f-search')return;
   if(FILTERS.includes(t.id)){F[t.id]=t.value;saveFilters();$('plist').innerHTML=listHtml();return;}
   if(t.id&&t.id.startsWith('add-')){UI.addValues=Object.assign(UI.addValues||{},{[t.id.slice(4)]:t.value});if(t.id==='add-type')render();return;}
   if(!(t.dataset&&t.dataset.edit))return;
