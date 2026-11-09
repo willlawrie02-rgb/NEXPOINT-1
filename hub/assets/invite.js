@@ -91,7 +91,10 @@
       }
       termsId = o.d.id;
       $('invTerms').innerHTML = '<label class="terms-tick"><input type="checkbox" id="invTick"> <span>I accept the ' +
-        '<a href="' + TERMS_URL + '" target="_blank" rel="noopener">NexPoint Platform Terms</a></span></label>';
+        '<a href="' + TERMS_URL + '" target="_blank" rel="noopener">Platform Terms</a>' +
+        (o.d.version ? ', version ' + esc(o.d.version) + '</span></label>' +
+          '<p class="terms-dl"><a href="' + esc(API + '/terms/platform/' + encodeURIComponent(o.d.version) + '.pdf') + '" download>Download a copy</a></p>'
+          : '</span></label>');
       $('joinBtn').disabled = false;
     }).catch(function () {
       $('invTerms').innerHTML = '<p class="err" style="display:block">We could not load the Platform Terms. Check your connection and refresh.</p>';

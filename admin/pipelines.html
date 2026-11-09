@@ -79,7 +79,7 @@
 <script src="crm-shell.js?v=4"></script>
 <script src="crm.js?v=071"></script>
 <script src="save.js?v=0794"></script>
-<script src="jobs.js?v=088"></script>
+<script src="jobs.js?v=082b"></script>
 <script src="pipelines.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -323,8 +323,9 @@ function nowLine(i,st){
     return `Day ${Math.max(0,Math.min(14,d==null?0:d))} of 14, waiting on ${(D.orgs[askedOf(i)]||{}).name||'the provider'}`;
   }
   if(st==='introduced')return i.introduced_at?`Contacts released ${NXCRM.fmtDate(i.introduced_at)}`:'Introduced';
-  const from=i.introduced_at||i.created_at, year=Math.floor((P.daysSince(from,now())||0)/365)+1;
-  return `Fee year ${year}, introduced ${NXCRM.fmtDate(from)}`;
+  if(!i.first_order_at)return 'No first order on record';
+  const year=Math.floor((P.daysSince(i.first_order_at,now())||0)/365)+1;
+  return `Fee year ${year}, first order ${NXCRM.fmtDate(i.first_order_at)}`;
 }
 function closePicker(i){
   return `<div class="picker"><span class="tg-label">Why is it closing? Pick one</span><div class="picker-opts">${P.DEAD_REASONS.map(r=>`<button type="button" class="opt" data-act="pickReason" data-reason="${esc(r)}" aria-pressed="${UI.reason===r}">${esc(r)}</button>`).join('')}</div>`+

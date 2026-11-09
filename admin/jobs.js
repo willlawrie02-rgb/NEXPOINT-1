@@ -155,6 +155,14 @@ const KINDS={
     line:r=>`${who(r)} has gone quiet for ${plural(Math.max(14,Math.floor((Number(r.age_hours)||0)/24)),'day')}`,panel:stalePanel},
   retention:{group:'money',icon:'auto_delete',label:'Retention period over',
     line:r=>`${who(r)}: its records may now be erased`,panel:retentionPanel},
+  /* Plan 082: an open account three years old that has never offered or
+     sought. status is the stage: to check, notice sent, or notice over. A
+     person decides on the company page, where the account's people are
+     shown; nothing is removed by itself. */
+  dormant_account:{group:'waiting',icon:'person_off',label:'Three-year check',
+    line:r=>r.status==='notice over'?`${who(r)}: the 30 days’ notice is over`
+      :r.status==='notice sent'?`${who(r)} was given 30 days’ notice: it can be removed once that has run`
+      :`${who(r)} has never offered or sought in three years: check it`,panel:dormantPanel},
   /* Plan 075 (D4): a fee invoice a week past its due date and unpaid. No
      reminder goes: a person chases it from Money's Xero invoices tab, which
      the card opens (ref is the Xero number). */
@@ -776,6 +784,22 @@ function retentionPanel(r,ctx){
   return {body:para('The records may now be erased.'),
     actions:ctx.account?btn('jobAccount','Erase the records','auto_delete',{key:r.item_key,what:'erase'},'danger')
       :link(companyHref(r),'Open the company page','open_in_new')};
+}
+
+/* Plan 082, the three-year check. The card says the stage; the buttons are
+   the account panel's own (Keep, Email the notice, Remove), so the people who
+   would go are in view when one is pressed. Remove is offered only once the
+   notice has run, and the engine and the database both check again. */
+function dormantPanel(r,ctx){
+  const k=r.item_key, over=r.status==='notice over', sent=r.status==='notice sent';
+  const body=para(over?'The 30 days’ notice is over and nobody has asked to keep the account. Remove it, or keep it for another twelve months.'
+      :sent?'Its users were emailed 30 days’ notice. A reply asking to keep it is enough: press Keep. It can be removed once the 30 days have run.'
+      :'This account is three years old and has never offered or sought anything. Check who is on it, then keep it or email its users 30 days’ notice.')
+    +para('Nothing is removed by itself: an account goes only when a person presses Remove and types its name.');
+  if(!ctx.account)return {body,actions:link(companyHref(r),'Open the company page','open_in_new')};
+  const keep=btn('jobAccount','Keep for twelve months','event_repeat',{key:k,what:'keepDormant'});
+  return {body,actions:over?btn('jobAccount','Remove the account','person_off',{key:k,what:'removeDormant'},'danger')+keep
+      :sent?keep:keep+btn('jobAccount','Email the notice','outgoing_mail',{key:k,what:'noticeDormant'},'primary')};
 }
 
 function failedRunPanel(r,ctx){
