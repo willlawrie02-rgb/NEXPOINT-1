@@ -54,12 +54,16 @@ for (const p of pages) {
   const priv = read("hub/privacy.html");
   if ((priv.match(/hosted in the UK/g) || []).length !== 1) fail('hub/privacy.html: the database line must say "hosted in the UK" exactly once');
   const print = read("printhub/index.html");
-  if (!/Certified labs near your customers print your work\./.test(print)) fail("printhub/index.html: the hero does not lead with local capacity");
+  // Chris's wording of 9 November 2026 (his Word document, applied 9 Nov): the hero
+  // leads with capacity meeting those who need it, never with the cross-border line,
+  // and no page claims certification (it contradicts the Terms).
+  if (!/to connect with those beginning their 3D printing journey/.test(print)) fail("printhub/index.html: the hero does not lead with local capacity meeting those who need it");
+  if (/[Cc]ertif/.test(print.replace(/<!--[\s\S]*?-->/g, ""))) fail("printhub/index.html: claims certification, which contradicts the Terms (Chris, 9 Nov 2026)");
   if (/No freight, no customs, no import taxes/.test(print)) fail("printhub/index.html: the hero still leads with the cross-border line");
   const block = print.slice(print.indexOf('<div class="rows">'));
   const leads = [...block.slice(0, block.indexOf("</section>")).matchAll(/<span class="lead">([^<]*)<\/span>/g)].map((m) => m[1]);
   if (!leads.length) fail("printhub/index.html: the use-case rows were not found");
-  else if (!/^Later, cross-border/.test(leads[leads.length - 1])) fail("printhub/index.html: the cross-border use case is not the last row, softened to the add-on it is");
+  else if (!/^Expand: delivery lead times to other countries/.test(leads[leads.length - 1]) || !/Once global capacity is in place/.test(block)) fail("printhub/index.html: the cross-border use case is not the last row, softened to the add-on it is");
 }
 
 // Plan 045: the listing form's copy as Will and Chris wrote it, and the
