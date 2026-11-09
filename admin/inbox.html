@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
-<link rel="stylesheet" href="crm.css?v=2">
+<link rel="stylesheet" href="crm.css?v=3">
 </head>
 <body>
 <div id="login" class="door" style="display:none">
@@ -37,7 +37,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=4"></script>
+<script src="crm-shell.js?v=5"></script>
 <script src="crm.js?v=071"></script>
 <script src="save.js?v=0794"></script>
 <script src="jobs.js?v=082b"></script>
@@ -91,6 +91,7 @@ let T={missing:false,error:'',open:[],done:[]}, WS={error:'',rows:[]}, M={error:
 /* Set aside: every card put off with Not now and not yet put back (0077's table; a missing one hides it). */
 let SA={ok:false,rows:[]};
 let companies={}, companyList=[], companyBySlug={};
+let deskCo={};
 
 const isMissing=e=>!!e&&/does not exist|schema cache|Could not find/i.test(e.message||'');
 
@@ -98,7 +99,7 @@ async function load(){
   banners=[];
   NXSAVE.use((await sb.from('crm_settings').select('key,value').eq('key','direct_writes')).data);
   const day=864e5, since14=new Date(Date.now()-14*day).toISOString(), since30=new Date(Date.now()-30*day).toISOString();
-  const [iq,oq,dq,eq,cq,mq,vq,nq,sq]=await Promise.all([
+  const [iq,oq,dq,eq,cq,mq,vq,nq,sq,kq]=await Promise.all([
     sb.from('inbox').select('*').order('created_at',{ascending:true}).limit(CAP),
     sb.from('crm_tasks').select('id,title,company_id,due_on,source,created_at,created_by,done_at,done_by').is('done_at',null).order('id',{ascending:true}).limit(1000),
     sb.from('crm_tasks').select('id,title,company_id,due_on,source,created_at,created_by,done_at,done_by').gte('done_at',since14).order('done_at',{ascending:false}).limit(200),
@@ -111,7 +112,11 @@ async function load(){
       .in('status',['pending','claimed','failed','done']).in('type',[...NXJOBS.TYPES,...NXJOBS.TASK_TYPES,'restore-inbox-item','tick-task','rerun-job'])
       .order('id',{ascending:false}).limit(1000),
     sb.from('crm_inbox_dismissals').select('id,item_key,kind,reason,dismissed_at,dismissed_by,restored_at').is('restored_at',null).order('dismissed_at',{ascending:false}).limit(500),
+    /* Which company each open Desk conversation belongs to, so its job card can link to it. */
+    sb.from('desk_threads').select('id,company_id').eq('status','open').eq('waiting_on','us').limit(CAP),
   ]);
+  deskCo={};
+  (kq.data||[]).forEach(t=>{if(t.company_id!=null)deskCo[String(t.id)]=t.company_id;});
 
   queueError=!!iq.error;
   SA={ok:!sq.error,rows:sq.data||[]};
@@ -194,16 +199,42 @@ function statTiles(){
     esc((NXJOBS.GROUPS.find(g=>g.id===UI.filter)||{}).name||'')}${ms('close')}</button></div>`);
 }
 
+/* The job's company: its name and its own page. A job always names its
+   company as a link (Will, 9 November 2026); the shell gives the link its tile. */
+function coOf(r){
+  const name=String(r.name||'').trim(), b=String(r.board||'');
+  /* Only a job whose own sentence names the company shows it: a registration names nobody. */
+  if(!name||String(NXJOBS.lineOf(r)||'').indexOf(name)!==0)return null;
+  const m=/^company\.html\?(?:id|org|slug)=[^&]+/.exec(b);
+  /* A Desk job's own link goes to the conversation; its company is the one the conversation is matched to. */
+  const dc=r.kind==='desk'?deskCo[String(r.item_id)]:null;
+  return {name,href:m?m[0]:(dc!=null&&companies[dc]?'company.html?id='+encodeURIComponent(dc):(r.org_id?'company.html?org='+encodeURIComponent(r.org_id):null))};
+}
+/* What happened, without the company's name in front: the card already leads with it. */
+function whatOf(r,co){
+  const line=String(NXJOBS.lineOf(r)||'');
+  if(!co||line.indexOf(co.name)!==0)return line;
+  const rest=line.slice(co.name.length).replace(/^[\s:,]+/,'');
+  return rest?rest.charAt(0).toUpperCase()+rest.slice(1):'';
+}
+/* One card per job: its icon, its company (a link), what happened, how long
+   it has waited, and one button that opens the place where it is decided. */
 function qitem(r){
-  const k=NXJOBS.kindOf(r), href=NXJOBS.hrefOf(r), key=r.item_key;
-  const inner=`<span class="qicon ${esc(k.group)}">${ms(k.icon)}</span><span class="qmain"><span class="ditem-title">${esc(NXJOBS.lineOf(r))}</span><span class="ditem-meta">${esc(k.label)}</span></span><span class="st num">${esc(NXJOBS.ageText(r.age_hours))}</span>`;
+  const k=NXJOBS.kindOf(r), href=NXJOBS.hrefOf(r), key=r.item_key, co=coOf(r);
+  const who=co?(co.href?`<a class="linkish qco" href="${esc(co.href)}">${esc(co.name)}</a>`:`<span class="qco">${NXShell.tileHtml(co.name)}${esc(co.name)}</span>`)
+    :`<span class="qco none">${esc(k.label)}</span>`;
+  const what=whatOf(r,co);
+  const inner=`<span class="qicon ${esc(k.group)}">${ms(k.icon)}</span><span class="qmain">${who}<span class="ditem-title">${esc(what||k.label)}</span>${co&&what?`<span class="ditem-meta">${esc(k.label)}</span>`:''}</span><span class="st num">${esc(NXJOBS.ageText(r.age_hours))}</span>`;
+  const verb=k.group==='approve'?'Review':'Open';
+  /* The card reads aloud as the job's whole sentence, as the queue line always has. */
+  const label=esc(NXJOBS.lineOf(r));
   if(NXJOBS.inPlace(r)){
     const open=UI.rows.has(key);
-    return `<button type="button" class="qitem" data-act="toggleRow" data-key="${esc(key)}" aria-expanded="${open}">${inner}${ms(open?'expand_less':'expand_more','qchev')}</button>`
+    return `<div class="qitem${open?' open':''}" role="group" aria-label="${label}">${inner}<button type="button" class="btn sm" data-act="toggleRow" data-key="${esc(key)}" aria-expanded="${open}">${open?'Close':verb}${ms(open?'expand_less':'expand_more')}</button></div>`
       +(open?`<div class="ditem inplace" id="job-${esc(NXJOBS.domId(key))}">${NXJOBS.body(r,jobCtx())}</div>`:'');
   }
-  if(href)return `<a class="qitem" href="${esc(href)}">${inner}${ms('chevron_right','qchev')}</a>`;
-  return `<div class="qitem">${inner}<span></span></div>`;
+  if(href)return `<div class="qitem" role="group" aria-label="${label}">${inner}<a class="btn sm" href="${esc(href)}">${verb}${ms('chevron_right')}</a></div>`;
+  return `<div class="qitem" role="group" aria-label="${label}">${inner}<span></span></div>`;
 }
 
 function queueHtml(){
@@ -344,9 +375,25 @@ function clocksPanel(){
   return `<section class="panel"><h2>Payment clocks <span class="n num">${P.rows.length}</span></h2><div>${body}</div><p class="picker-note">Reminders go to the host on days 7 and 12. On day 14 the listing hides itself, and paying restores it.</p></section>`;
 }
 
+/* The page's one blue action: the first job in the queue as it is drawn
+   (the groups in their order, the oldest first), opened where it is decided.
+   A shortcut to the first line, nothing more: it raises no intent. */
+function firstJobAction(){
+  if(!loaded||queueError)return '';
+  for(const g of NXJOBS.GROUPS){
+    if(UI.filter!=='all'&&UI.filter!==g.id)continue;
+    const r=rows.filter(x=>groupOf(x)===g.id).sort(oldest)[0];
+    if(!r)continue;
+    if(NXJOBS.inPlace(r))return UI.rows.has(r.item_key)?'':`<button type="button" class="btn primary" data-act="toggleRow" data-key="${esc(r.item_key)}">${ms('arrow_forward')}Open the first job</button>`;
+    const href=NXJOBS.hrefOf(r);
+    return href?`<a class="btn primary" href="${esc(href)}">${ms('arrow_forward')}Open the first job</a>`:'';
+  }
+  return '';
+}
+
 function render(){
   const page=$('page');
-  const head=NXShell.headHtml({title:todayTitle(),lede:LEDE});
+  const head=NXShell.headHtml({title:todayTitle(),lede:LEDE,actions:firstJobAction()});
   if(!loaded){page.innerHTML=head+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the queue.</span></div></section>`;return;}
   const bn=banners.map(([tone,b])=>`<div class="banner${tone==='err'?' err':''}">${ms(tone==='err'?'error':'info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
   /* A queue that could not be read shows its banner and nothing that reads as an empty queue. */

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
-<link rel="stylesheet" href="crm.css?v=2">
+<link rel="stylesheet" href="crm.css?v=3">
 <style>
   .acct-actions { display: flex; flex-direction: column; gap: 8px; }
   .fail-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12.5px; color: var(--err-ink); }
@@ -26,14 +26,19 @@
   .pipe-h .tg-label .ms { width: auto; font-size: 16px; color: var(--blue); }
   .ladder-ctl { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .steps-wrap { overflow-x: auto; max-width: 100%; }
-  .steps { display: inline-flex; border: 1px solid var(--border-control); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
-  .steps button { all: unset; cursor: pointer; padding: 8px 13px; font-size: 13px; font-weight: 600; color: var(--fg-2); border-right: 1px solid var(--border); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-  .steps button:last-child { border-right: 0; }
-  .steps button:hover { background: var(--bg); color: var(--fg); }
-  .steps button.done { color: var(--info-ink); background: var(--info-wash); }
-  .steps button.current { color: var(--on-blue); background: var(--blue); }
-  .steps button.current.agreed { background: var(--ok-ink); }
-  .steps button:focus-visible { box-shadow: inset var(--ring); }
+  /* The stage tracker: one bar per stage, blue once passed, green where the card stands. */
+  .steps { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(84px, 1fr); gap: 6px; min-width: min(100%, 640px); }
+  .steps-wrap { flex: 1 1 520px; }
+  .steps button { all: unset; cursor: pointer; display: grid; gap: 7px; align-content: start; font: 600 12.5px/1.25 var(--font-body); color: var(--fg-2); border-radius: 6px; padding-bottom: 2px; }
+  .steps button::before { content: ""; height: 8px; border-radius: 999px; background: var(--bg-alt); transition: background 150ms var(--ease); }
+  .steps button .ms { display: none; }
+  .steps button:hover { color: var(--fg); }
+  .steps button:hover::before { background: var(--border-control); }
+  .steps button.done { color: var(--fg); }
+  .steps button.done::before { background: var(--blue); }
+  .steps button.current { color: var(--fg); font-weight: 700; }
+  .steps button.current::before { background: var(--green); box-shadow: 0 0 0 3px var(--ok-wash); }
+  .steps button:focus-visible { box-shadow: var(--ring); }
   .auto-note { font-size: 12.5px; color: var(--fg-2); display: flex; gap: 6px; align-items: center; }
   .auto-note .ms { font-size: 16px; color: var(--blue); }
   .held { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
@@ -68,7 +73,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=4"></script>
+<script src="crm-shell.js?v=5"></script>
 <script src="crm.js?v=071"></script>
 <script src="save.js?v=0794"></script>
 <script src="jobs.js?v=082b"></script>
