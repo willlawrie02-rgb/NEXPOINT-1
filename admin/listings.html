@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
-<link rel="stylesheet" href="crm.css?v=2">
+<link rel="stylesheet" href="crm.css?v=3">
 <style>
   /* Live Listings' own parts, as the design's prototype draws them (plan 075). */
   .opp { display: flex; flex-direction: column; gap: 10px; }
@@ -25,6 +25,7 @@
   .editor .priv { border: 1px dashed var(--border-control); border-radius: var(--radius); padding: 12px; background: var(--bg-alt); }
   .editor .priv > .tg-label { display: block; margin-bottom: 8px; }
   .hosts .tbl td { vertical-align: top; }
+  .hosts .tbl td:first-child { min-width: 150px; }
   .hosts .tbl td small { display: block; color: var(--fg-2); font-size: 12px; }
   .decl { display: flex; gap: 8px; flex-wrap: wrap; }
   .decl span { font-size: 12px; color: var(--fg-2); }
@@ -61,7 +62,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=4"></script>
+<script src="crm-shell.js?v=5"></script>
 <script src="crm.js?v=071"></script>
 <script src="jobs.js?v=082b"></script>
 <script>
