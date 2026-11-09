@@ -611,11 +611,11 @@ function dormantButtons(o){
 function dormantChoice(o){
   const id=o.id, name=esc(o.name||'this account'), d=A.dormant[o.id]||{};
   if(UI.open==='keepd:'+id)return choice(`Keep ${name} for twelve months? The check asks again after that, and any notice already sent no longer counts.`,
-    btn('confirmKeepDormant','Keep for twelve months','',{'org-id':id},'primary')+cancel());
+    `<button type="button" class="btn sm primary" id="kdGo" data-act="confirmKeepDormant" data-org-id="${esc(id)}">Keep for twelve months</button>`+cancel());
   if(UI.open==='noticed:'+id){
     const to=(d.users||[]).filter(u=>u.confirmed).length;
     return choice(`Email ${plural(to,'confirmed user')} of ${name} that the account will be removed in 30 days unless they reply? A reply goes to the desk; press Keep if they ask to stay.`,
-      btn('confirmNoticeDormant','Email the notice','',{'org-id':id},'primary')+cancel());
+      `<button type="button" class="btn sm primary" id="ndGo" data-act="confirmNoticeDormant" data-org-id="${esc(id)}">Email the notice</button>`+cancel());
   }
   if(UI.open==='removed:'+id){
     const goes=fateNames(o,'goes'), stays=fateNames(o,'stays');
@@ -893,8 +893,10 @@ function openTasksPanel(){
 }
 /* What jobs.js's panels and decisions are given (see its header). account()
    calls the account panel's own Pause, Remove or Erase and puts the cursor in
-   its choice (D12): one control for one thing on the page. */
-const ACCOUNT_FIELD={pause:'pa-why',remove:'rm-why',erase:'erName',removeDormant:'rdName'};
+   its choice (D12): one control for one thing on the page. A choice with no
+   field (Keep, Email the notice) is scrolled to by its button instead, or the
+   press from Needs you opens it out of sight and looks dead (9 Nov 2026). */
+const ACCOUNT_FIELD={pause:'pa-why',remove:'rm-why',erase:'erName',removeDormant:'rdName',keepDormant:'kdGo',noticeDormant:'ndGo'};
 function jobCtx(){
   return Object.assign({},J,{rows:jobRows,pending:jobPending,ui:UI,me:me&&me.email,flash:UI.flashDone?null:UI.job,
     tasks:T.rows,companies:C?{[C.id]:{id:C.id,name:C.company.name}}:{},companyList:[],today:NXJOBS.todayIn(),
@@ -904,7 +906,9 @@ function jobCtx(){
     account:(what,orgId)=>{
       const fn=ACT[what+'Org'];if(!fn)return;
       fn({dataset:{orgId}});
-      const f=$(ACCOUNT_FIELD[what]);if(f&&f.focus)f.focus();
+      const f=$(ACCOUNT_FIELD[what]);if(!f)return;
+      if(f.scrollIntoView)f.scrollIntoView({block:'center'});
+      if(f.focus)f.focus();
     }});
 }
 /* &job=<item_key> (the Inbox's link): scroll to that job once, and flash it. */
@@ -1210,7 +1214,7 @@ async function raise(type,payload,verb,toastText){
     sending=sending.filter(x=>x!==temp);watch(readIntents.concat(sending));render();
     NXShell.toast(`Could not queue it: ${error.message}`);return false;
   }
-  NXShell.toast(toastText||`${verb}, queued. This page updates by itself.`);
+  NXShell.toast(toastText||`${/queued$/i.test(verb)?verb:verb+', queued'}. This page updates by itself.`);
   checkBack.pressed();
   setTimeout(load,1500);
   return true;
