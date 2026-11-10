@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
-<link rel="stylesheet" href="crm.css?v=2">
+<link rel="stylesheet" href="crm.css?v=3">
 <style>
   /* The board's own parts, as the design's prototype draws them (plan 073). */
   .legend .ms { font-size: 16px; width: auto; }
@@ -76,10 +76,11 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=3"></script>
+<script src="crm-shell.js?v=6"></script>
 <script src="crm.js?v=071"></script>
-<script src="jobs.js?v=088"></script>
-<script src="pipelines.js?v=073"></script>
+<script src="save.js?v=0794"></script>
+<script src="jobs.js?v=082b"></script>
+<script src="pipelines.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -156,7 +157,7 @@ async function load(){
     /* the Inbox's re-route jobs: an expired offer it lists stays in Offered */
     sb.from('inbox').select('*').eq('kind','reroute').limit(1000),
   ]);
-  for(const [what,r] of [['cards',cq],['moves',mq],['companies',coq],['sites',sq],['filed emails',eq],['membership invoices',iq],['signing links',lq],['introductions',nq],['declared lines',dq],['accounts',oq],['statements',stq],['re-route jobs',rq]])
+  for(const [what,r] of [['cards',cq],['moves',mq],['companies',coq],['sites',sq],['filed emails',eq],['membership invoices',iq],['agreement links',lq],['introductions',nq],['declared lines',dq],['accounts',oq],['statements',stq],['re-route jobs',rq]])
     if(r.error)banners.push(`Could not read the ${what}: ${r.error.message}.`);
   D={cards:cq.data||[],moves:{},companies:{},sites:{},lastMail:{},invoices:{},links:{},intros:nq.data||[],declared:{},disputed:{},orgs:{},orgCompany:{},statements:{},opps:{},
      reroute:new Set((rq.data||[]).map(r=>String(r.item_id)))};
@@ -178,11 +179,12 @@ async function load(){
     const bq=await sb.from('board_opportunities').select('id,ref,owner_company_id,owner_org_id').in('id',briefIds);
     (bq.data||[]).forEach(o=>{D.opps[o.id]=o;});
   }
+  NXSAVE.use((await sb.from('crm_settings').select('key,value').eq('key','direct_writes')).data);
   const pq=await sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at,requested_by')
     .in('status',['pending','claimed','failed','done']).in('type',PIPE_INTENTS).order('id',{ascending:false}).limit(1000);
   if(pq.error)banners.push(`Could not read the queued moves: ${pq.error.message}.`);
   if((pq.data||[]).length===1000)banners.push('Showing the newest 1,000 intent rows; older ones are not on this page.');
-  readIntents=pq.data||[];sending=[];watch(readIntents);
+  readIntents=NXSAVE.live(pq.data);sending=[];watch(readIntents);
   checkBack.watch(pq.data);
   state='ready';render();
 }
@@ -321,8 +323,9 @@ function nowLine(i,st){
     return `Day ${Math.max(0,Math.min(14,d==null?0:d))} of 14, waiting on ${(D.orgs[askedOf(i)]||{}).name||'the provider'}`;
   }
   if(st==='introduced')return i.introduced_at?`Contacts released ${NXCRM.fmtDate(i.introduced_at)}`:'Introduced';
-  const from=i.introduced_at||i.created_at, year=Math.floor((P.daysSince(from,now())||0)/365)+1;
-  return `Fee year ${year}, introduced ${NXCRM.fmtDate(from)}`;
+  if(!i.first_order_at)return 'No first order on record';
+  const year=Math.floor((P.daysSince(i.first_order_at,now())||0)/365)+1;
+  return `Fee year ${year}, first order ${NXCRM.fmtDate(i.first_order_at)}`;
 }
 function closePicker(i){
   return `<div class="picker"><span class="tg-label">Why is it closing? Pick one</span><div class="picker-opts">${P.DEAD_REASONS.map(r=>`<button type="button" class="opt" data-act="pickReason" data-reason="${esc(r)}" aria-pressed="${UI.reason===r}">${esc(r)}</button>`).join('')}</div>`+
@@ -404,7 +407,7 @@ function render(){
     `<section class="panel"><div class="empty-state">${ms('view_kanban')}<p>Once it is, every card shows here.</p><div class="until"><a class="btn sm" href="listings.html?tab=print">Open the 3D Print Hub</a><a class="btn sm" href="listings.html?tab=mill">Open the Mill Hub</a></div></div></section>`;return;}
   if(state==='error'){page.innerHTML=NXShell.headHtml({title:'Pipelines'})+`<div class="banner err">${ms('error')}<div class="banner-text"><strong>Could not read the boards</strong><span>${esc(problem)}</span></div></div>`;return;}
   const boardTab=UI.tab==='hub'||UI.tab==='consultancy';
-  const actions=boardTab?btn('openUi','Add a card','add',{ui:'add'},'primary')+(UI.tab==='consultancy'?`<a class="btn sm" href="consultancy.html">${ms('draw','sm')}Make a signing link</a>`:''):'';
+  const actions=boardTab?btn('openUi','Add a card','add',{ui:'add'},'primary')+(UI.tab==='consultancy'?`<a class="btn sm" href="consultancy.html">${ms('draw','sm')}Make an agreement link</a>`:''):'';
   let h=NXShell.headHtml({title,lede:LEDE[UI.tab],actions})+bn+tabsHtml();
   if(boardTab){
     /* an Add a card the engine refused says why, above the board */
@@ -421,6 +424,10 @@ function render(){
 
 /* ---------- raising ---------- */
 async function raise(type,payload,toastText){
+  if(NXSAVE.direct(type)){
+    const saved=await NXSAVE.press(sb,type,payload,()=>{UI.open=null;UI.reason=null;render();return load();});
+    if(saved!==null)return saved;
+  }
   const temp={id:1e15+(++seq),type,payload_json:payload,status:'pending',requested_by:me.email};
   sending.push(temp);watch(readIntents.concat(sending));UI.open=null;UI.reason=null;render();
   const {error}=await sb.from('engine_intents').insert({type,payload_json:payload,requested_by:me.email});

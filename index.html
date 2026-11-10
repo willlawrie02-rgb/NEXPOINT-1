@@ -4,19 +4,19 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>NexPoint | Global O&P commercial connectors</title>
-<meta name="description" content="NexPoint connects the O&amp;P industry person to person: print capacity, milled production, products and partners, through the NexPoint Global Portal." />
+<meta name="description" content="NexPoint connects the O&amp;P industry: 3D print capacity, milled production, products and partners, through the NexPoint Global Portal." />
 <link rel="canonical" href="https://nexpoint.co.uk/" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://nexpoint.co.uk/" />
 <meta property="og:title" content="NexPoint | Global O&amp;P commercial connectors" />
-<meta property="og:description" content="NexPoint connects the O&amp;P industry person to person: print capacity, milled production, products and partners, through the NexPoint Global Portal." />
+<meta property="og:description" content="NexPoint connects the O&amp;P industry: 3D print capacity, milled production, products and partners, through the NexPoint Global Portal." />
 <meta property="og:image" content="https://nexpoint.co.uk/assets/og-image.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:image:alt" content="NexPoint: the commercial bridge for Orthotics and Prosthetics worldwide" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="NexPoint | Global O&amp;P commercial connectors" />
-<meta name="twitter:description" content="NexPoint connects the O&amp;P industry person to person: print capacity, milled production, products and partners, through the NexPoint Global Portal." />
+<meta name="twitter:description" content="NexPoint connects the O&amp;P industry: 3D print capacity, milled production, products and partners, through the NexPoint Global Portal." />
 <meta name="twitter:image" content="https://nexpoint.co.uk/assets/og-image.png" />
 <link rel="icon" href="assets/nexpoint-logo.png" />
 
@@ -25,6 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet" />
+<link rel="stylesheet" href="assets/film-tags.css?v=1" />
+<script src="assets/film-tags.js?v=1" defer></script>
 
 <style>
   :root {
@@ -665,9 +667,12 @@
   html.np-reveal .hero-film.is-live { pointer-events: auto; }
   html.np-reveal .hero-film__play { opacity: var(--np-b, 0); }
   html.np-reveal .hero-reveal .globe-stage {
-    /* sized outright: an absolutely placed child of a flex box is not
-       stretched to its insets, so nothing is left to the box's alignment */
-    display: block; position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; aspect-ratio: auto;
+    /* The Global Portal's globe (Will, 9 November 2026): a contained dark disc at the film box's
+       height, centred on it, as nexpoint.co.uk/hub/ draws it. Sized outright (height and a square
+       aspect, centred by inset and auto margins): an absolutely placed child of a flex box is not
+       stretched to its insets, so nothing is left to the box's alignment. */
+    display: block; position: absolute; inset: 0; margin: auto; height: 100%; max-height: 520px; width: auto; aspect-ratio: 1 / 1;
+    border-radius: 9999px; background: #0d1424; overflow: hidden;
     z-index: 2; pointer-events: none;
     opacity: calc(1 - var(--np-g, 0));
     transform: translate3d(0, calc(-42% * var(--np-g, 0)), 0) scale(calc(1 - 0.08 * var(--np-g, 0)));
@@ -676,7 +681,6 @@
   html.np-reveal .hero-reveal .globe-stage.is-gone { visibility: hidden; }
   @media (max-width: 1100px) {
     .hero-reveal { width: min(100%, 520px); aspect-ratio: auto; margin: 0 auto; justify-self: center; }
-    html.np-reveal .hero-reveal .globe-stage { inset: 0; margin: auto; height: 100%; width: auto; aspect-ratio: 1 / 1; }
   }
   @media (prefers-reduced-motion: reduce) {
     html.np-reveal .hero-reveal .globe-stage { display: none; }
@@ -784,15 +788,12 @@
   .hero__title { font: 800 clamp(40px, 5vw, 70px)/1.02 var(--font-display); letter-spacing: -0.035em; max-width: 20ch; }
   /* The film, much bigger (Will, 14 October, evening): the reveal box is 16:9 rather than square, so
      the film fills it; it takes the wider column and runs into the right-hand padding. The globe draws
-     a centred sphere at the box's height, so the reveal is unchanged. The title steps down one notch
+     a centred disc at the box's height, so the reveal is unchanged. The title steps down one notch
      to keep to its column. */
   @media (min-width: 1101px) {
     .hero__inner { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.45fr); gap: clamp(28px, 3.5vw, 48px); }
     .hero__title { font-size: clamp(40px, 4vw, 58px); }
     .hero-reveal { width: calc(100% + var(--side-pad)); max-width: 920px; aspect-ratio: 16 / 9; margin-right: calc(-1 * var(--side-pad)); }
-    /* the globe bigger (Will, 14 October, evening): its canvas stands 40% taller than the film box,
-       centred on it, so the sphere, bounded by the canvas's shorter side, comes back to its old size */
-    html.np-reveal .hero-reveal .globe-stage { inset: -20% 0; height: 140%; }
   }
   .hero__sub { font: 400 clamp(16px, 1.35vw, 19px)/1.5 var(--font-body); max-width: 520px; }
   .hero__hint { font-size: 14px; }
@@ -935,7 +936,7 @@
          script: the film alone. -->
     <div class="hero-reveal" id="film">
       <figure class="film__frame hero-film">
-        <video class="film__video" id="heroFilm" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-home-film-poster.jpg?v=2" aria-label="NexPoint in two minutes: who we are, the match, the one-to-one service and the Global Portal, with captions">
+        <video class="film__video" id="heroFilm" data-film-tags="home" preload="metadata" playsinline poster="https://nexpoint.co.uk/assets/video/nexpoint-home-film-poster.jpg?v=2" aria-label="NexPoint in two minutes: who we are, the match, the one-to-one service and the Global Portal, with captions">
           <source src="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4?v=2" type="video/mp4">
           Your browser cannot play this film. <a href="https://nexpoint.co.uk/assets/video/nexpoint-home-film.mp4?v=2">Download it instead</a>.
         </video>
@@ -988,9 +989,9 @@
   <div class="container">
     <div class="sec-head enter enter--up">
       <span class="eyebrow">The Global Portal</span>
-      <h2 class="h2">Four hubs on one trusted network.</h2>
+      <h2 class="h2">Four areas on one trusted network.</h2>
       <p class="lede" style="margin-top:20px;">
-        Each hub is a door into a different part of the network. Together they are the Global Portal: one free account opens all four, and every introduction is still made by the NexPoint desk.
+        Each one is a door into a different part of the network. Together they are the Global Portal: one free account opens all four, and the NexPoint desk reviews every listing and opportunity before it appears.
       </p>
     </div>
 
@@ -998,7 +999,7 @@
       <span class="portal-step__text">
         <span class="portal-step__kicker">Start here</span>
         <strong>The Global Portal, explained in a short film.</strong>
-        <span class="portal-step__sub">What it is, how an introduction happens, and where each hub fits. Then pick your door.</span>
+        <span class="portal-step__sub">What it is, how an introduction happens, and where each area fits. Then pick your door.</span>
       </span>
       <span class="portal-step__cta">See how the Global Portal works <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
     </a>
@@ -1035,7 +1036,7 @@
         </div>
         <div class="door__body">
           <h3>Opportunities Board</h3>
-          <p>Products, materials, technology, partners, and companies looking to buy or sell, as verified, anonymised opportunities. Nothing is sold on the page; you request an introduction.</p>
+          <p>Products, materials, technology, partners, and companies looking to buy or sell, as vetted opportunities, named or anonymised as each owner chooses. Nothing is sold on the page; you request an introduction.</p>
           <span class="go">Browse the board <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
         </div>
       </a>
@@ -1046,7 +1047,7 @@
           <span class="door__status door__status--soon">Coming soon</span>
         </div>
         <div class="door__body">
-          <h3>Education Hub</h3>
+          <h3>Education</h3>
           <p>Webinars and articles for the whole community, from the people on the hubs: what the new 3D printers and materials actually do, and what is coming next.</p>
           <span class="go">Join the waiting list <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
         </div>
@@ -1087,13 +1088,13 @@
       </div>
       <div class="how-step enter enter--up" style="--d:140ms;">
         <div class="how-step__num"><span class="material-symbols-outlined" aria-hidden="true">person</span>03</div>
-        <h3>A person weighs the fit</h3>
-        <p>You ask once, and someone at the NexPoint desk reads your request and weighs the fit before anyone is introduced.</p>
+        <h3>Find the fit</h3>
+        <p>On the hubs, you accept the terms and we show you the sites that fit best, up to three, by name. On the Opportunities Board, the NexPoint desk reads your request first.</p>
       </div>
       <div class="how-step enter enter--up" style="--d:210ms;">
         <div class="how-step__num"><span class="material-symbols-outlined" aria-hidden="true">handshake</span>04</div>
-        <h3>A personal introduction</h3>
-        <p>When it fits, we introduce you directly and step back. Orders, files and payments then go straight between the two companies.</p>
+        <h3>The introduction</h3>
+        <p>Pick a site and your request goes straight to it; on the board, we ask the company behind the opportunity. When it accepts, you exchange contact details and we step back. Orders, files and payments then move directly between the two companies.</p>
       </div>
     </div>
 
@@ -1116,7 +1117,7 @@
     <div class="sec-head enter enter--up">
       <h2 class="h2">Built for both sides of the industry.</h2>
       <p class="lede" style="margin-top:20px;">
-        Every company on the portal is offering something, seeking something, or both. Seekers never pay. Providers pay to list, and we talk the commercial side through with them personally before anything is listed.
+        Every company on the portal is offering something, seeking something, or both. Seekers never pay. Providers pay to list, and we review every listing before it appears.
       </p>
     </div>
 
@@ -1125,7 +1126,7 @@
         <span class="who-col__icon material-symbols-outlined" aria-hidden="true">medical_services</span>
         <h3>If you need something</h3>
         <ul>
-          <li><span class="material-symbols-outlined" aria-hidden="true">print_disabled</span>A clinic or lab that designs digitally but owns no production machine, or wants to try 3D printing before buying a printer</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">print_disabled</span>A clinic or lab that designs digitally but owns no production machine, or wants to try 3D printing before buying a 3D printer</li>
           <li><span class="material-symbols-outlined" aria-hidden="true">grid_view</span>A lab that needs overflow capacity, or a technology its own machines cannot do</li>
           <li><span class="material-symbols-outlined" aria-hidden="true">warehouse</span>A lab outsourcing its manufacturing without giving up its brand or its standard</li>
           <li><span class="material-symbols-outlined" aria-hidden="true">travel_explore</span>A company looking for a product, a partner, or a business to acquire</li>
@@ -1228,8 +1229,8 @@
         <article class="why-item enter enter--up" style="--d:80ms;">
           <div class="why-item__num">02</div>
           <div>
-            <h4>A person reads every request</h4>
-            <p>The NexPoint desk weighs each request before anyone is introduced. Names, prices and references are shared only inside an introduction, never on a page.</p>
+            <h4>A person reviews every listing</h4>
+            <p>No listing or opportunity appears until the NexPoint desk has reviewed it. Contact details are exchanged only when both sides have agreed to an introduction.</p>
           </div>
         </article>
         <article class="why-item enter enter--up" style="--d:160ms;">
@@ -1367,7 +1368,7 @@
     <div class="hubteaser">
       <div class="enter enter--left">
         <span class="eyebrow">The Global Portal</span>
-        <h2 class="hubteaser__line">Four hubs, one account, and every introduction made by people who know both sides.</h2>
+        <h2 class="hubteaser__line">Four areas, one account.</h2>
         <div class="hero__ctas">
           <a class="btn btn--primary-lg" href="https://nexpoint.co.uk/hub/">
             Enter the Global Portal
@@ -1468,7 +1469,7 @@
      the hero, and a module the browser has to fetch or recheck would hold it back
      while the page painted unpinned (30 October 2026). -->
 <script>window.NP_ACCOUNT_LINKS = { signin: '/hub/?signin=1&return=' + encodeURIComponent(location.href), join: '/hub/?join=1' };</script>
-<script src="assets/hub-account.js" defer></script>
+<script src="assets/hub-account.js?v=20261103-078" defer></script>
 <script src="hub/assets/world-map.js" defer></script>
 <script>
 (function () {
@@ -1671,61 +1672,157 @@
     });
   })();
 
-  // ─── Hero globe: realistically lit dotted Earth with live connection arcs (canvas, dependency-free) ───
+  // ─── Hero globe: the Global Portal's globe (Will, 9 November 2026: the home page draws the same
+  // globe as nexpoint.co.uk/hub/, a contained dark disc with the dotted continents and live
+  // connection arcs; the code is portal.js's initGlobe, with this page's scroll-reveal hooks) ───
   (function initGlobe() {
     const canvas = document.getElementById('globeCanvas');
     if (!canvas) return;
-    // The globe is the opening of the film reveal: with no reveal (reduced
-    // motion) it is not drawn at all. The reveal driver above marks the stage
-    // is-gone once the globe has risen away and clears it when the visitor
-    // scrolls it back; the loop stops and restarts with that.
+    /* The globe is the opening of the film reveal: with no reveal (reduced
+       motion) it is not drawn at all. The reveal driver above marks the stage
+       is-gone once the globe has risen away and clears it when the visitor
+       scrolls it back; the loop stops and restarts with that. */
     const leaving = canvas.closest('.hero-reveal') ? canvas.closest('.globe-stage') : null;
     if (leaving && !document.documentElement.classList.contains('np-reveal')) return;
     let gone = !!(leaving && leaving.classList.contains('is-gone'));
     const ctx = canvas.getContext('2d');
+    const reduce = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false;
 
-    // Land mask: 24 rows (N->S) x 60 cols (lon -180..+180); [colStart,colEnd] land runs.
+    const TILT = -0.41;
+    const cosT = Math.cos(TILT), sinT = Math.sin(TILT);
+    let Lx = -0.55, Ly = 0.42, Lz = 0.72;
+    const Ln = Math.hypot(Lx, Ly, Lz); Lx /= Ln; Ly /= Ln; Lz /= Ln;
+
+    /* the land mask, the Global Portal's own (hub/assets/portal.js), carried here so both globes draw the same Earth */
+    const LAND_STEP = 1.2, LAND_COLS = 300, LAND_ROWS = 118, LAND_LAT_TOP = 84;
     const LAND = [
-      [[9,19],[23,28],[39,55]],
-      [[3,6],[8,21],[23,29],[30,33],[37,57]],
-      [[3,7],[8,22],[23,29],[29,34],[36,58]],
-      [[4,7],[8,23],[25,28],[28,35],[36,58]],
-      [[7,22],[28,29],[30,36],[37,58]],
-      [[8,21],[29,36],[37,57]],
-      [[9,21],[29,35],[36,54],[56,57]],
-      [[9,21],[28,34],[40,47],[48,55],[56,57]],
-      [[10,20],[28,40],[41,47],[48,55]],
-      [[13,19],[28,41],[42,47],[48,54]],
-      [[14,19],[28,41],[43,47],[49,53]],
-      [[16,20],[28,41],[43,46],[49,54]],
-      [[17,20],[27,41],[43,45],[50,55]],
-      [[18,21],[27,40],[45,46],[50,56]],
-      [[18,26],[29,40],[49,56]],
-      [[17,27],[30,40],[50,56]],
-      [[18,28],[31,39],[51,55]],
-      [[18,28],[31,39],[50,57]],
-      [[19,28],[32,38],[49,58]],
-      [[19,27],[32,38],[49,58]],
-      [[20,26],[33,37],[50,57]],
-      [[20,25],[33,36],[51,56],[58,59]],
-      [[21,25],[58,59]],
-      [[21,24]],
+      [[117,127]],
+      [[77,97],[107,108],[111,122]],
+      [[71,73],[75,93],[96,137],[228,230]],
+      [[70,76],[78,90],[95,134],[160,160],[163,164],[167,171],[227,232]],
+      [[56,58],[63,65],[68,69],[72,75],[77,86],[90,133],[160,165],[234,237]],
+      [[50,52],[77,83],[94,133],[162,164],[236,237]],
+      [[48,50],[53,55],[58,59],[65,68],[72,73],[92,132],[201,206],[232,243]],
+      [[56,60],[66,67],[69,71],[73,82],[101,132],[196,200],[222,243],[265,269],[272,274]],
+      [[47,52],[66,66],[70,73],[103,132],[195,197],[218,243],[268,268]],
+      [[46,50],[52,56],[58,58],[60,61],[65,68],[70,71],[75,77],[79,82],[85,85],[104,130],[194,195],[208,210],[212,212],[217,256],[266,269]],
+      [[0,0],[47,49],[51,62],[67,67],[70,71],[75,87],[89,89],[105,131],[193,196],[206,209],[211,212],[214,257],[260,263],[265,275]],
+      [[15,26],[43,43],[54,64],[70,73],[78,92],[104,128],[168,174],[206,210],[212,282]],
+      [[13,34],[36,51],[55,59],[63,64],[69,69],[71,75],[79,81],[86,93],[107,127],[164,180],[201,204],[207,210],[212,290],[292,299]],
+      [[0,2],[13,54],[58,58],[60,64],[68,75],[78,81],[86,86],[89,95],[105,122],[162,183],[187,188],[191,210],[213,299]],
+      [[0,3],[5,6],[15,80],[89,97],[105,120],[161,177],[179,183],[187,209],[211,299]],
+      [[3,5],[10,78],[88,93],[96,96],[106,116],[131,137],[160,167],[171,178],[183,299]],
+      [[16,75],[78,81],[89,95],[107,115],[131,136],[158,166],[169,179],[181,297]],
+      [[13,73],[91,93],[95,95],[108,114],[156,164],[168,298]],
+      [[12,71],[83,83],[85,89],[109,114],[154,163],[168,285],[287,295]],
+      [[12,22],[24,25],[28,70],[85,91],[112,113],[154,164],[168,279],[283,283],[285,292]],
+      [[15,21],[24,24],[34,70],[85,91],[95,96],[154,164],[170,273],[276,278],[284,285]],
+      [[19,21],[37,72],[85,97],[145,146],[159,163],[170,266],[282,284]],
+      [[18,19],[21,21],[39,74],[86,98],[145,147],[157,158],[160,163],[168,265],[280,285]],
+      [[15,17],[40,77],[86,99],[145,147],[157,157],[159,159],[161,161],[168,263],[280,284]],
+      [[13,13],[41,80],[84,101],[143,144],[147,148],[157,157],[164,263],[280,283]],
+      [[39,39],[42,81],[84,102],[142,144],[146,149],[155,266],[268,268],[280,282]],
+      [[40,40],[43,81],[84,103],[142,143],[146,150],[153,268],[280,281]],
+      [[44,100],[102,102],[146,150],[152,266],[268,269]],
+      [[44,93],[96,96],[102,103],[150,266],[268,269]],
+      [[46,46],[48,91],[93,95],[101,105],[146,266],[268,268]],
+      [[46,90],[92,95],[105,105],[148,265],[268,268]],
+      [[47,95],[97,97],[99,99],[149,174],[177,178],[182,264],[268,268]],
+      [[47,93],[96,97],[149,159],[161,174],[178,179],[181,263],[268,268]],
+      [[47,91],[95,95],[149,156],[159,160],[163,173],[183,262],[268,270]],
+      [[46,90],[143,152],[157,157],[159,161],[165,172],[185,258],[267,269]],
+      [[47,89],[143,151],[161,163],[166,173],[176,180],[184,257]],
+      [[46,87],[143,149],[157,157],[162,163],[166,169],[173,249],[252,256],[267,267]],
+      [[47,86],[142,149],[163,163],[167,168],[172,247],[254,256],[267,267]],
+      [[48,85],[143,148],[160,162],[168,168],[172,248],[254,256],[266,266]],
+      [[48,86],[145,145],[151,158],[168,168],[174,174],[176,178],[180,250],[255,257],[264,266]],
+      [[49,86],[145,145],[149,158],[180,249],[255,257],[260,266]],
+      [[51,84],[144,157],[180,249],[259,261],[263,263]],
+      [[52,83],[143,159],[179,250],[258,260]],
+      [[53,81],[142,162],[167,170],[179,251],[259,259]],
+      [[53,53],[56,81],[142,164],[166,250]],
+      [[54,54],[56,70],[74,75],[81,81],[142,189],[192,251]],
+      [[55,55],[57,68],[81,82],[140,189],[193,250]],
+      [[55,56],[58,68],[81,82],[139,177],[180,190],[194,249]],
+      [[56,56],[59,68],[82,82],[138,178],[181,192],[198,249]],
+      [[57,57],[60,68],[137,178],[181,192],[195,196],[206,248],[251,251]],
+      [[58,58],[61,68],[137,179],[182,198],[207,246],[250,250]],
+      [[62,68],[82,84],[136,180],[183,199],[208,224],[227,244]],
+      [[19,19],[62,68],[75,77],[85,86],[136,180],[183,198],[209,209],[211,222],[227,238],[241,241]],
+      [[20,20],[62,69],[75,76],[89,90],[136,180],[184,197],[211,220],[228,237],[241,241]],
+      [[64,70],[73,76],[90,92],[136,180],[184,196],[211,219],[228,237],[241,241]],
+      [[66,75],[136,181],[185,195],[211,218],[229,238],[250,251]],
+      [[68,75],[136,182],[186,193],[211,217],[229,229],[231,239],[250,251]],
+      [[73,80],[136,183],[186,191],[212,216],[231,240],[250,250]],
+      [[75,79],[136,184],[186,189],[212,216],[232,240],[251,252]],
+      [[77,79],[136,185],[212,216],[232,232],[235,240]],
+      [[78,79],[89,89],[92,92],[137,185],[191,192],[213,216],[232,232],[236,240],[252,252],[254,254]],
+      [[79,80],[87,89],[91,94],[96,98],[138,191],[213,215],[232,232],[237,238],[252,252]],
+      [[80,80],[83,84],[86,98],[139,191],[214,214],[217,217],[232,232],[237,237]],
+      [[82,82],[85,100],[139,191],[216,217],[233,233],[252,254]],
+      [[85,101],[141,190],[217,217],[233,234],[247,247],[253,254]],
+      [[85,105],[142,149],[154,190],[229,229],[234,235],[246,248]],
+      [[85,106],[157,189],[230,231],[234,235],[245,247]],
+      [[85,107],[158,188],[231,232],[234,235],[244,247]],
+      [[84,107],[158,187],[232,234],[236,236],[241,247],[256,256]],
+      [[83,107],[158,185],[233,235],[241,247],[250,253],[256,256]],
+      [[83,108],[157,184],[233,235],[241,247],[260,260]],
+      [[83,112],[158,183],[234,236],[242,246],[249,250],[260,261],[264,264]],
+      [[83,116],[158,182],[235,237],[242,246],[249,249],[251,251],[257,257],[260,261],[263,267],[276,276]],
+      [[82,117],[159,182],[235,237],[251,251],[262,270],[276,277]],
+      [[82,120],[160,181],[237,237],[249,249],[252,252],[265,271],[276,276]],
+      [[83,120],[160,182],[238,239],[242,242],[265,272],[279,279]],
+      [[84,120],[161,182],[241,244],[265,269],[271,272],[282,282]],
+      [[84,120],[161,182],[247,247],[254,254],[267,268],[272,273]],
+      [[85,119],[161,182],[250,250],[253,253],[274,274]],
+      [[85,118],[161,183],[260,260],[268,268]],
+      [[86,117],[161,183],[259,263],[268,268]],
+      [[86,117],[160,183],[190,191],[258,262],[268,269]],
+      [[87,117],[160,183],[189,191],[254,262],[268,270]],
+      [[89,117],[160,182],[187,190],[254,264],[268,270],[289,289]],
+      [[90,116],[160,181],[187,190],[252,265],[267,271]],
+      [[91,116],[160,179],[187,190],[251,271]],
+      [[92,116],[161,178],[187,190],[250,272]],
+      [[92,115],[161,178],[187,189],[247,273],[287,287]],
+      [[91,114],[162,179],[186,189],[245,274]],
+      [[91,112],[162,179],[186,189],[245,275]],
+      [[91,110],[162,178],[187,188],[245,276]],
+      [[91,109],[162,176],[245,277]],
+      [[91,109],[163,176],[245,277]],
+      [[91,108],[163,176],[245,277]],
+      [[90,108],[164,175],[246,277]],
+      [[90,107],[165,174],[246,277]],
+      [[90,106],[165,173],[246,256],[260,276]],
+      [[90,105],[165,172],[246,253],[262,275]],
+      [[90,100],[102,104],[166,167],[246,249],[263,263],[265,275]],
+      [[90,101],[265,274],[294,294]],
+      [[89,102],[266,274],[295,295]],
+      [[89,101],[267,273],[296,296],[298,298]],
+      [[89,97],[295,297]],
+      [[89,97],[296,296]],
+      [[88,95],[271,273],[293,294]],
+      [[88,96],[271,272],[293,294]],
+      [[89,95],[291,293]],
+      [[88,94],[289,292]],
+      [[87,93],[289,291]],
+      [[88,94]],
+      [[87,93]],
+      [[87,93]],
+      [[87,91]],
+      [[88,92],[99,100]],
+      [[88,92]],
+      [[90,94]],
+      [],
+      []
     ];
-    function isLand(lat, lon) {
-      let row = Math.floor((90 - lat) / 180 * 24);
-      let col = Math.floor((lon + 180) / 360 * 60);
-      if (row < 0) row = 0; if (row > 23) row = 23;
-      if (col < 0) col = 0; if (col > 59) col = 59;
+    function isLand(lat, lon){
+      const row = Math.floor((LAND_LAT_TOP - lat) / LAND_STEP);
+      const col = Math.floor((lon + 180) / LAND_STEP);
+      if (row < 0 || row >= LAND_ROWS || col < 0 || col >= LAND_COLS) return false;
       const segs = LAND[row];
       for (let i = 0; i < segs.length; i++) if (col >= segs[i][0] && col <= segs[i][1]) return true;
       return false;
     }
-
-    const TILT = -0.41;                       // axial tilt - north leans toward viewer
-    const cosT = Math.cos(TILT), sinT = Math.sin(TILT);
-    // Fixed light (view space): upper-left, toward viewer -> a sun the globe rotates under
-    let Lx = -0.55, Ly = 0.42, Lz = 0.72;
-    const Ln = Math.hypot(Lx, Ly, Lz); Lx /= Ln; Ly /= Ln; Lz /= Ln;
 
     function toVec(lat, lon) {
       const la = lat * Math.PI / 180, lo = lon * Math.PI / 180;
@@ -1735,11 +1832,10 @@
       return { x: x0, y: y0 * cosT - z0 * sinT, z: y0 * sinT + z0 * cosT };
     }
 
-    // Dense point cloud (tilt baked in; Y-rotation applied per frame)
     const pts = [];
     for (let lat = -87; lat <= 87; lat += 3) {
       const cosLat = Math.cos(lat * Math.PI / 180);
-      const step = 3 / Math.max(0.22, cosLat);   // even-area: fewer dots near poles
+      const step = 3 / Math.max(0.22, cosLat);
       for (let lon = -180; lon < 180; lon += step) {
         const v = toVec(lat, lon);
         v.land = isLand(lat, lon);
@@ -1747,15 +1843,9 @@
       }
     }
 
-    // Market hubs
     const HUBS = [
-      { lat: 40, lon: -96 },   // North America
-      { lat: 54, lon: -2 },    // United Kingdom
-      { lat: 50, lon: 12 },    // Europe
-      { lat: 25, lon: 45 },    // Middle East
-      { lat: 28, lon: 112 },   // Asia
-      { lat: -25, lon: 134 },  // Australia
-      { lat: -41, lon: 173 },  // New Zealand
+      { lat: 40, lon: -96 }, { lat: 54, lon: -2 }, { lat: 50, lon: 12 },
+      { lat: 25, lon: 45 }, { lat: 28, lon: 112 }, { lat: -25, lon: 134 }, { lat: -41, lon: 173 },
     ].map(h => toVec(h.lat, h.lon));
 
     function slerp(a, b, t) {
@@ -1769,8 +1859,8 @@
 
     let W = 0, H = 0, cx = 0, cy = 0, R = 0, dpr = 1;
     function resize() {
-      // layout size, not the bounding rect: the stage is scaled by a transform
-      // while it leaves, and a resize caught mid-reveal must not shrink the canvas
+      /* layout size, not the bounding rect: the stage is scaled by a transform
+         while it leaves, and a resize caught mid-reveal must not shrink the canvas */
       const w = canvas.clientWidth, h = canvas.clientHeight;
       if (!w || !h) return;
       dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1794,7 +1884,7 @@
       while (j === i && guard++ < 6) j = front[(Math.random() * front.length) | 0];
       if (i === j) return;
       const A = HUBS[i], B = HUBS[j];
-      if (A.x * B.x + A.y * B.y + A.z * B.z < 0) return;   // keep arcs on one hemisphere
+      if (A.x * B.x + A.y * B.y + A.z * B.z < 0) return;
       arcs.push({ a: i, b: j, t0: now, dur: 2600 });
     }
 
@@ -1804,16 +1894,6 @@
       const edge = Math.min(W, H) * 0.5;
       ctx.clearRect(0, 0, W, H);
 
-      // the dark planet backing (the sphere is drawn semi-transparent): on the canvas, so it is
-      // a circle in every browser whatever the stage's shape; 92% of the shorter side, as the
-      // CSS disc was, lit from the upper left
-      const Rd = R * 1.045;
-      const disc = ctx.createRadialGradient(cx - Rd * 0.2, cy - Rd * 0.32, 0, cx, cy, Rd);
-      disc.addColorStop(0, '#18263e'); disc.addColorStop(0.62, '#0d1728');
-      disc.addColorStop(0.88, '#080f1c'); disc.addColorStop(1, 'rgba(8,15,28,0)');
-      ctx.fillStyle = disc; ctx.beginPath(); ctx.arc(cx, cy, Rd, 0, Math.PI * 2); ctx.fill();
-
-      // atmospheric rim glow
       const atmo = ctx.createRadialGradient(cx, cy, R * 0.9, cx, cy, edge);
       atmo.addColorStop(0, 'rgba(61,142,235,0)');
       atmo.addColorStop(0.8, 'rgba(61,142,235,0)');
@@ -1821,22 +1901,20 @@
       atmo.addColorStop(1, 'rgba(61,142,235,0)');
       ctx.fillStyle = atmo; ctx.beginPath(); ctx.arc(cx, cy, edge, 0, Math.PI * 2); ctx.fill();
 
-      // lit ocean-blue sphere body (highlight toward the light)
       const body = ctx.createRadialGradient(cx - R * 0.4, cy - R * 0.44, R * 0.1, cx, cy, R);
       body.addColorStop(0, 'rgba(32,60,98,0.68)');
       body.addColorStop(0.6, 'rgba(12,26,48,0.5)');
       body.addColorStop(1, 'rgba(5,10,20,0.32)');
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fillStyle = body; ctx.fill();
 
-      // dots, lit by the fixed sun (day/night terminator)
       for (let k = 0; k < pts.length; k++) {
         const p = pts[k];
         const z2 = -p.x * sinA + p.z * cosA;
-        if (z2 <= 0) continue;                       // cull back hemisphere
+        if (z2 <= 0) continue;
         const x2 = p.x * cosA + p.z * sinA, y2 = p.y;
-        let nl = x2 * Lx + y2 * Ly + z2 * Lz;        // surface normal . light
+        let nl = x2 * Lx + y2 * Ly + z2 * Lz;
         if (nl < 0) nl = 0;
-        const b = (0.12 + 0.88 * nl) * (0.30 + 0.70 * z2);   // day/night * limb
+        const b = (0.12 + 0.88 * nl) * (0.30 + 0.70 * z2);
         const sx = cx + x2 * R, sy = cy - y2 * R;
         if (p.land) {
           ctx.fillStyle = 'rgba(139,197,63,' + (0.16 + 0.74 * b) + ')';
@@ -1848,7 +1926,6 @@
         }
       }
 
-      // hub screen positions
       for (let i = 0; i < HUBS.length; i++) {
         const h = HUBS[i];
         h._z = -h.x * sinA + h.z * cosA;
@@ -1856,7 +1933,6 @@
         h._sy = cy - h.y * R;
       }
 
-      // arcs
       for (let ai = arcs.length - 1; ai >= 0; ai--) {
         const arc = arcs[ai];
         const life = (now - arc.t0) / arc.dur;
@@ -1870,7 +1946,7 @@
           const t = s / 40;
           if (t > drawTo) break;
           const sp = slerp(A, B, t);
-          if (-sp.x * sinA + sp.z * cosA < -0.08) break;   // behind globe
+          if (-sp.x * sinA + sp.z * cosA < -0.08) break;
           const lift = 1 + 0.42 * Math.sin(Math.PI * t);
           const sx = cx + (sp.x * lift * cosA + sp.z * lift * sinA) * R;
           const sy = cy - sp.y * lift * R;
@@ -1895,7 +1971,6 @@
         }
       }
 
-      // market markers (front only)
       for (let i = 0; i < HUBS.length; i++) {
         const h = HUBS[i];
         if (h._z <= 0.05) continue;
@@ -1928,8 +2003,8 @@
       return;
     }
 
-    let raf = 0, running = false, rotation = 0, lastT = null;
-    const ROT_SPEED = (2 * Math.PI) / 52000;   // one rotation per 52s
+    let raf = 0, running = false, rotation = 0.35, lastT = null;
+    const ROT_SPEED = (2 * Math.PI) / 52000;
     function loop(ts) {
       if (lastT == null) lastT = ts;
       rotation += ROT_SPEED * (ts - lastT); lastT = ts;

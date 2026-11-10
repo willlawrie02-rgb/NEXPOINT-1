@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
-<link rel="stylesheet" href="crm.css?v=2">
+<link rel="stylesheet" href="crm.css?v=3">
 <style>
   .acct-actions { display: flex; flex-direction: column; gap: 8px; }
   .fail-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12.5px; color: var(--err-ink); }
@@ -26,14 +26,19 @@
   .pipe-h .tg-label .ms { width: auto; font-size: 16px; color: var(--blue); }
   .ladder-ctl { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .steps-wrap { overflow-x: auto; max-width: 100%; }
-  .steps { display: inline-flex; border: 1px solid var(--border-control); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
-  .steps button { all: unset; cursor: pointer; padding: 8px 13px; font-size: 13px; font-weight: 600; color: var(--fg-2); border-right: 1px solid var(--border); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-  .steps button:last-child { border-right: 0; }
-  .steps button:hover { background: var(--bg); color: var(--fg); }
-  .steps button.done { color: var(--info-ink); background: var(--info-wash); }
-  .steps button.current { color: var(--on-blue); background: var(--blue); }
-  .steps button.current.agreed { background: var(--ok-ink); }
-  .steps button:focus-visible { box-shadow: inset var(--ring); }
+  /* The stage tracker: one bar per stage, blue once passed, green where the card stands. */
+  .steps { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(84px, 1fr); gap: 6px; min-width: min(100%, 640px); }
+  .steps-wrap { flex: 1 1 520px; }
+  .steps button { all: unset; cursor: pointer; display: grid; gap: 7px; align-content: start; font: 600 12.5px/1.25 var(--font-body); color: var(--fg-2); border-radius: 6px; padding-bottom: 2px; }
+  .steps button::before { content: ""; height: 8px; border-radius: 999px; background: var(--bg-alt); transition: background 150ms var(--ease); }
+  .steps button .ms { display: none; }
+  .steps button:hover { color: var(--fg); }
+  .steps button:hover::before { background: var(--border-control); }
+  .steps button.done { color: var(--fg); }
+  .steps button.done::before { background: var(--blue); }
+  .steps button.current { color: var(--fg); font-weight: 700; }
+  .steps button.current::before { background: var(--green); box-shadow: 0 0 0 3px var(--ok-wash); }
+  .steps button:focus-visible { box-shadow: var(--ring); }
   .auto-note { font-size: 12.5px; color: var(--fg-2); display: flex; gap: 6px; align-items: center; }
   .auto-note .ms { font-size: 16px; color: var(--blue); }
   .held { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
@@ -68,10 +73,11 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=3"></script>
+<script src="crm-shell.js?v=6"></script>
 <script src="crm.js?v=071"></script>
-<script src="jobs.js?v=088"></script>
-<script src="pipelines.js?v=073"></script>
+<script src="save.js?v=0794"></script>
+<script src="jobs.js?v=082b"></script>
+<script src="pipelines.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -138,7 +144,9 @@ function showAdmin(u){$('login').style.display='none';$('admin').style.display='
    on the Campaigns page. */
 const esc=NXCRM.esc, ms=NXShell.ms, plural=(n,a,b)=>`${n} ${n===1?a:(b||a+'s')}`;
 const PIPE_INTENTS=['add-card','edit-card','move-card','set-card-next','mark-card-dead','revive-card','link-card-site','invite-to-portal','move-introduction'];
-const ORG_INTENTS=['delete-account','erase-account','pause-org','resume-org','remove-org','restore-org','open-audit-strike','cure-strike','delete-user'];
+const ORG_INTENTS=['delete-account','erase-account','pause-org','resume-org','remove-org','restore-org','open-audit-strike','cure-strike','delete-user',
+  /* plan 082: the three-year check's Keep, Email the notice and Remove */
+  'keep-dormant-account','notice-dormant-account','remove-dormant-account'];
 const CRM_INTENTS=Object.keys(NXCRM.KEYS);
 /* Plan 054 (D1): the composer's Note, watched so a queued or failed note shows by the composer. */
 const NOTE_INTENTS=['add-note'];
@@ -150,7 +158,7 @@ const HUB={print:['3D Print Hub','listings.html?tab=print'],mill:['Mill Hub','li
    = 80, statements.SCORE_BAND_AMBER = 60). The middle band is neutral: the
    brand has no amber. */
 const SCORE_BAND_GREEN=80, SCORE_BAND_AMBER=60;
-const TERMS_LAYERS=[['platform','Platform'],['host','Host'],['introduction','Introduction']];
+const TERMS_LAYERS=[['platform','Platform'],['host','Host'],['seeker','Seeker']];
 const QUEUE_WORD={approved:'Accepted from Prospects',rejected:'Rejected on Prospects',withdrawn:'Withdrawn from Prospects',blocked:'Blocked on Prospects'};
 const BACK={'contacts.html':'Contacts','organisations.html':'Accounts','leads.html':'Prospects','inbox.html':'Inbox',
   'print-hub.html':'3D Print Hub','mill-hub.html':'Mill Hub','listings.html':'Live Listings','money.html':'Money','dashboard.html':'Dashboard','introductions.html':'Introductions','orders.html':'Orders',
@@ -166,7 +174,7 @@ const UI={open:null,edit:null,tl:'all',tlMax:50,job:null,flashDone:false,card:nu
 const checkBack=NXJOBS.poll(sb,load,()=>!!(UI.open||UI.edit||val('cp-note')||val('cp-title')));
 let state='loading', problem='', banners=[];
 let C=null;
-let A={orgs:[],listings:[],revisions:[],strikes:[],fees:{},terms:{},users:[],versions:{},requests:[]};
+let A={orgs:[],listings:[],revisions:[],strikes:[],fees:{},terms:{},users:[],versions:{},requests:[],dormant:{}};
 let intentById={}, pendingByOrg={}, pendingByStrike={}, pendingByUser={}, pendingByPerson={}, pendingBySite={}, crmOpen=[], doneOrg=[], noteByCompany={};
 /* Plan 073: the newest open pipeline intent per card and per introduction. */
 let pendingByCard={}, pendingByIntro={};
@@ -190,6 +198,7 @@ async function load(){
   const key={id:q.get('id'),slug:q.get('slug'),org:q.get('org'),person:q.get('person')};
   UI.job=q.get('job');UI.card=q.get('card');
   const st=await sb.from('crm_settings').select('key,value');
+  NXSAVE.use(st.data);
   const missing=!!st.error&&/crm_/.test(st.error.message||'');
   if(st.error&&!missing){state='error';problem=st.error.message;render();return;}
   const imported=!st.error&&(st.data||[]).some(r=>r.key==='imported_at');
@@ -198,7 +207,7 @@ async function load(){
     .order('id',{ascending:false}).limit(1000);
   if(iq.error)banners.push(`Could not read the queued changes: ${iq.error.message}.`);
   if((iq.data||[]).length===1000)banners.push('Showing the newest 1,000 intent rows; older ones are not on this page.');
-  readIntents=iq.data||[];sending=[];
+  readIntents=NXSAVE.live(iq.data);sending=[];
   watch(readIntents);
   checkBack.watch(iq.data);
   let cid=null;
@@ -273,9 +282,14 @@ async function loadCompany(cid){
   const slugs=[...new Set(folders.map(f=>f.slug))];
   const [eq,qq,prq]=await Promise.all([
     ids.length?sb.from('crm_person_emails').select('id,person_id,email,is_primary,retired_at').in('person_id',ids):none,
-    slugs.length?sb.from('engine_lead_queue').select('id,company,status,prospect_type,sector,company_type,proposed_at,decided_at,decided_by,source').in('company',slugs):none,
+    slugs.length?sb.from('engine_lead_queue').select('id,company,status,prospect_type,sector,company_type,sectors,company_types,proposed_at,decided_at,decided_by,source').in('company',slugs):none,
     slugs.length?sb.from('prospect_notes').select('id,company,body,by,at').in('company',slugs):none,
   ]);
+  /* Plan 079: notes saved and not filed yet. Before 0095 there is no table, and that is no trouble unless the switch is on. */
+  const unfiled=await sb.from('crm_new_notes').select('id,body,by,at,file_error').eq('company_id',cid).is('filed_at',null).order('id',{ascending:false});
+  if(unfiled.error&&NXSAVE.direct('add-note'))banners.push(`Could not read the notes waiting to be filed: ${unfiled.error.message}.`);
+  /* crm-sync may index a file before its stamp lands: the file's name carries the row's id. */
+  const onTimeline=new Set((nq.data||[]).map(n=>(/_note-(\d+)\.md$/.exec(n.path||'')||[])[1]));
   for(const [what,e] of [['addresses',eq.error],['Prospects history',qq.error],['Prospects notes',prq.error]])if(e)banners.push(`Could not read the ${what}: ${e.message}.`);
   const tags={};(tq.data||[]).forEach(t=>{tags[t.id]=t;});
   const emails={};(eq.data||[]).filter(e=>!e.retired_at).sort((a,b)=>(b.is_primary?1:0)-(a.is_primary?1:0)).forEach(e=>{(emails[e.person_id]=emails[e.person_id]||[]).push(e.email);});
@@ -284,7 +298,8 @@ async function loadCompany(cid){
      links:(lq.data||[]).filter(l=>!l.retired_at).sort((a,b)=>a.position-b.position),
      events:evq.data||[],mail:(mq.data||[]).filter(m=>!m.gone_at),notes:(nq.data||[]).filter(n=>!n.gone_at),
      capped:[[mq,'filed emails'],[evq,'changes'],[nq,'notes']].filter(([q])=>(q.data||[]).length===500).map(([,w])=>w),
-     queue:(qq.data||[]).slice().sort((a,b)=>String(b.proposed_at).localeCompare(String(a.proposed_at))),pnotes:prq.data||[]};
+     queue:(qq.data||[]).slice().sort((a,b)=>String(b.proposed_at).localeCompare(String(a.proposed_at))),pnotes:prq.data||[],
+     newNotes:(unfiled.data||[]).filter(n=>!onTimeline.has(String(n.id)))};
   await loadAccounts(C.sites.map(s=>s.org_id).filter(Boolean));
   await loadPipes(cid);
   await loadCampaigns();
@@ -306,7 +321,7 @@ async function loadPipes(cid){
     orgIds.length?sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,updated_at').in('org_a',orgIds):none,
     orgIds.length?sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,updated_at').in('org_b',orgIds):none,
   ]);
-  for(const [what,e] of [['card moves',mq.error],['signing links',lq.error],['membership invoices',iq.error],['linked cards',kq.error],['introductions',aq.error||bq.error]])
+  for(const [what,e] of [['card moves',mq.error],['agreement links',lq.error],['membership invoices',iq.error],['linked cards',kq.error],['introductions',aq.error||bq.error]])
     if(e&&!isMissing(e))banners.push(`Could not read the ${what}: ${e.message}.`);
   (mq.data||[]).forEach(m=>{(PL.moves[m.card_id]=PL.moves[m.card_id]||[]).push(m);});
   (lq.data||[]).forEach(l=>{PL.links[l.id]=l;});
@@ -337,7 +352,7 @@ async function loadCompanyNames(){
 }
 
 async function loadAccounts(orgIds){
-  A={orgs:[],listings:[],revisions:[],strikes:[],fees:{},terms:{},users:[],versions:{},requests:[]};
+  A={orgs:[],listings:[],revisions:[],strikes:[],fees:{},terms:{},users:[],versions:{},requests:[],dormant:{}};
   if(!orgIds.length)return;
   const [oq,lsq,skq,odq,taq,tvq,upq,srq]=await Promise.all([
     sb.from('organisations').select('*').in('id',orgIds),
@@ -352,6 +367,14 @@ async function loadAccounts(orgIds){
   for(const [what,e] of [['accounts',oq.error],['listings',lsq.error],['strikes',skq.error],['fees owed',odq.error],
     ['terms',taq.error||tvq.error],['users',upq.error],['requests',srq.error]])if(e)banners.push(`Could not read the ${what}: ${e.message}.`);
   A.orgs=oq.data||[];A.listings=lsq.data||[];A.strikes=skq.data||[];A.users=upq.data||[];A.requests=srq.data||[];
+  /* Plan 082: an open account on the three-year check. hub_dormant_card (0097) is the one read on any page
+     that is not a table: the last sign-in and who would leave Contacts are in no table the browser may read.
+     Admins only, and it changes nothing. */
+  await Promise.all(A.orgs.filter(onCheck).map(async o=>{
+    const q=await sb.rpc('hub_dormant_card', { p_org: o.id });
+    A.dormant[o.id]=q.error?{error:q.error.message}:(q.data||{});
+    if(q.error)banners.push(`Could not read the three-year check for ${o.name||'this account'}: ${q.error.message}.`);
+  }));
   (odq.data||[]).forEach(o=>{
     if(!o.confirmed_at||o.invoiced_at)return;
     const m=A.fees[o.org_provider]||(A.fees[o.org_provider]={}), cur=o.currency||'GBP';
@@ -490,7 +513,7 @@ function feesLine(orgId){
   }).join(', ');
 }
 /* One line per acceptance: layers accepted together (one version, one day, one signer) share it. */
-const TERMS_WORD={platform:'Platform terms',host:'Host Agreement',introduction:'Introduction terms'};
+const TERMS_WORD={platform:'Platform terms',host:'Host Agreement',seeker:'Seeker Agreement'};
 function termsLines(orgId){
   const by=A.terms[orgId]||{}, groups=[];
   TERMS_LAYERS.filter(([k])=>by[k]).forEach(([k])=>{
@@ -517,11 +540,12 @@ function usersBlock(o){
     return `<span class="mini user-row"><span><span class="strong" title="${esc(u.email)}">${esc(u.name||u.email)}</span>${u.email_confirmed_at?'':'<span class="item-sub">Not confirmed</span>'}</span>${del}</span>`+
       (UI.open==='deluser:'+u.user_id?deleteUserChoice(u,users.length):'');}).join('')}</span>`;
 }
+const CONTACTS_RULE='If they came only from the portal they also leave Contacts, with their addresses and activity. If they were already a contact they stay, and only their portal activity goes. The company and its filed emails stay.';
 function deleteUserChoice(u,count){
   const o=orgById(u.org_id)||{}, who=u.name||u.email, acct=o.name||'their account';
   const text=count<=1
-    ?`Delete ${esc(who)} (${esc(u.email)})? They are the only user of ${esc(acct)}, so the account is deleted too. Its introductions, declarations, statements and agreements stay, anonymised, because fees and invoice records outlive the account. This cannot be undone.`
-    :`Delete ${esc(who)} (${esc(u.email)})? Their sign-in is removed and the rest of ${esc(acct)}'s users stay. This cannot be undone.`;
+    ?`Delete ${esc(who)} (${esc(u.email)})? They are the only user of ${esc(acct)}, so the account is deleted too. Its introductions, declarations, statements and agreements stay, anonymised, because fees and invoice records outlive the account. ${CONTACTS_RULE} This cannot be undone.`
+    :`Delete ${esc(who)} (${esc(u.email)})? Their sign-in is removed and the rest of ${esc(acct)}'s users stay. ${CONTACTS_RULE} This cannot be undone.`;
   return choice(text,btn('confirmDeleteUser','Delete user','',{user:u.user_id},'danger')+cancel());
 }
 function strikesBlock(o){
@@ -536,6 +560,78 @@ function strikesBlock(o){
       (UI.open==='cure:'+s.id?choice('How was it cured? Kept on the strike.',input('cu-note','How it was cured (optional)')+btn('confirmCure','Cure the strike','',{strike:s.id},'primary')+cancel()):'');
   }).join('')}${cured?`<p class="picker-note">${plural(cured,'more strike')} cured.</p>`:''}</div>`;
 }
+/* ---------- the three-year check (plan 082) ----------
+   An open account three years old that has never offered or sought, stamped
+   by the engine's daily check. The panel shows who is on it, when each last
+   signed in and what removal would do to them in Contacts, then offers Keep,
+   Email the notice and, 30 days after the notice, Remove behind the typed
+   name. Each is an intent; the engine and the database check again. */
+const NOTICE_DAYS=30;
+const onCheck=o=>!!o.dormant_since&&!o.closed_at&&!o.deleted_at&&!o.erased_at;
+const day=v=>NXCRM.fmtDate(v,new Date(0));
+const noticeOver=o=>!!o.dormant_notice_at&&new Date(o.dormant_notice_at).getTime()+NOTICE_DAYS*864e5<=Date.now();
+const removeFrom=o=>{const d=(A.dormant[o.id]||{}).remove_from;return d||new Date(new Date(o.dormant_notice_at).getTime()+NOTICE_DAYS*864e5).toISOString().slice(0,10);};
+/* Why the notice and the removal are withheld, or '' when they are not. */
+function dormantStop(o){
+  const d=A.dormant[o.id]||{};
+  if(d.error||!Array.isArray(d.users))return 'The people on this account could not be read, so only Keep is offered.';
+  if((d.acts||[]).length)return `It has since offered or sought (${d.acts.join(', ')}), so it stays. Its card comes off the Inbox at the next 06:15 run.`;
+  if(d.hold_until)return `It was shown an opportunity in the last twelve months, so nothing happens before ${day(d.hold_until)}.`;
+  if(d.notice_void==='reopened')return 'Its holder closed and reopened it after the notice, so a new notice is needed. The check starts again at the next 06:15 run.';
+  if(d.notice_void==='joined')return 'Someone joined after the notice and has not been told, so a new notice is needed. Email the notice comes back at the next 06:15 run.';
+  if(d.switch==='off')return 'The three-year check is switched off, so only Keep is offered.';
+  return '';
+}
+/* Why no notice can be sent though nothing else stops it: nobody to send it to. */
+const noticeStop=o=>{const d=A.dormant[o.id]||{};return Array.isArray(d.users)&&!d.users.some(u=>u.confirmed)
+  ?'No user has a confirmed address, so no notice can be sent. Press Keep, or use Delete account.':'';};
+const fateNames=(o,fate)=>((A.dormant[o.id]||{}).users||[]).filter(u=>u.fate===fate).map(u=>u.name||u.email);
+const listOf=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+function dormantLines(o){
+  const d=A.dormant[o.id]||{}, lines=[], stop=dormantStop(o);
+  lines.push(`<span>Created ${esc(day(o.created_at))}. It has never offered or sought anything.</span>`);
+  if(!o.dormant_notice_at)lines.push('<span class="st info">To check</span>');
+  else if(noticeOver(o))lines.push(`<span class="st err">The 30 days’ notice is over</span><span class="muted-t">Notice emailed ${esc(day(o.dormant_notice_at))}</span>`);
+  else lines.push(`<span class="st">Notice emailed ${esc(day(o.dormant_notice_at))}</span><span class="muted-t">It can be removed from ${esc(day(removeFrom(o)))}, unless they ask to keep it.</span>`);
+  if(stop)lines.push(`<span class="muted-t">${esc(stop)}</span>`);
+  else if(!o.dormant_notice_at&&noticeStop(o))lines.push(`<span class="muted-t">${esc(noticeStop(o))}</span>`);
+  (d.users||[]).forEach(u=>{
+    const fate=u.fate==='goes'?'<span class="st err">Goes completely</span>':u.fate==='stays'?'<span class="st ok">Stays as a contact</span>':'<span class="st">Not in Contacts</span>';
+    lines.push(`<span class="mini"><span class="strong" title="${esc(u.email||'')}">${esc(u.name||u.email||'A user')}</span> ${fate}`+
+      `<span class="item-sub wrap">${u.last_sign_in_at?`Last signed in ${esc(day(u.last_sign_in_at))}`:'Never signed in'}. Joined ${esc(day(u.joined_at))}.${u.confirmed?'':' Not confirmed.'}`+
+      `${u.prospect_note?' A prospect note mentions them: read it before removing.':''}</span></span>`);
+  });
+  if(Array.isArray(d.users)&&!d.users.length)lines.push('<span class="muted-t">Nobody is on this account.</span>');
+  const cards=(d.open_cards||[]).length, links=Number(d.consultancy_links||0);
+  if(cards||links)lines.push(`<span class="muted-t">${[cards?plural(cards,'open pipeline card'):'',links?plural(links,'consultancy link'):''].filter(Boolean).join(' and ')} on the company: a reason to keep it.</span>`);
+  return `<span style="display:flex;flex-direction:column;gap:4px">${lines.join('')}</span>`;
+}
+function dormantButtons(o){
+  if(!onCheck(o))return '';
+  const id={'org-id':o.id}, can=!dormantStop(o);
+  return btn('keepDormantOrg','Keep for twelve months','event_repeat',id)
+    +(can&&!o.dormant_notice_at&&!noticeStop(o)?btn('noticeDormantOrg','Email the notice','outgoing_mail',id):'')
+    +(can&&noticeOver(o)?btn('removeDormantOrg','Remove the account','person_off',id,'danger'):'');
+}
+function dormantChoice(o){
+  const id=o.id, name=esc(o.name||'this account'), d=A.dormant[o.id]||{};
+  if(UI.open==='keepd:'+id)return choice(`Keep ${name} for twelve months? The check asks again after that, and any notice already sent no longer counts.`,
+    `<button type="button" class="btn sm primary" id="kdGo" data-act="confirmKeepDormant" data-org-id="${esc(id)}">Keep for twelve months</button>`+cancel());
+  if(UI.open==='noticed:'+id){
+    const to=(d.users||[]).filter(u=>u.confirmed).length;
+    return choice(`Email ${plural(to,'confirmed user')} of ${name} that the account will be removed in 30 days unless they reply? A reply goes to the desk; press Keep if they ask to stay.`,
+      `<button type="button" class="btn sm primary" id="ndGo" data-act="confirmNoticeDormant" data-org-id="${esc(id)}">Email the notice</button>`+cancel());
+  }
+  if(UI.open==='removed:'+id){
+    const goes=fateNames(o,'goes'), stays=fateNames(o,'stays');
+    const who=[goes.length?`${esc(listOf(goes))} ${goes.length===1?'leaves':'leave'} Contacts completely.`:'',
+      stays.length?`${esc(listOf(stays))} ${stays.length===1?'stays':'stay'} as a contact.`:''].filter(Boolean).join(' ');
+    return typed(`Removing ${name} cannot be undone. Every user’s sign-in goes. ${who} The account’s record and its acceptance of our terms are kept for six years, like any deleted account. The company and its filed emails stay. Type the name to confirm.`,
+      input('rdName',o.name||''),`<button type="button" class="btn sm danger" id="rdGo" disabled data-act="confirmRemoveDormant" data-org-id="${esc(id)}">Remove the account</button>`+cancel());
+  }
+  return '';
+}
+
 function accountBlock(o){
   const s=NXCRM.orgState(o), q=pendingByOrg[o.id];
   const kv=rows=>`<dl class="kv">${rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
@@ -547,7 +643,9 @@ function accountBlock(o){
     rows.push(['Reopen','Only by the account holder, from the account page']);
     rows.push(['Fees owed',feesLine(o.id)]);
   }else if(s==='deleted'){
-    rows.push(['Deleted',`${esc(fmt(o.deleted_at))}: kept for its fees and invoices`]);
+    rows.push(o.removed_by==='Three-year check'
+      ?['Removed',`${esc(fmt(o.deleted_at))}: Removed by the three-year check. Its record and its acceptance of our terms are kept.`]
+      :['Deleted',`${esc(fmt(o.deleted_at))}: kept for its fees and invoices`]);
     rows.push(['Fees owed',feesLine(o.id)]);
     if(o.retention_until)rows.push(['Records kept',retentionDue(o)?'<span class="st">Retention period over</span>':`Until ${esc(NXCRM.fmtDate(o.retention_until,new Date(0)))}`]);
   }else{
@@ -555,6 +653,7 @@ function accountBlock(o){
       const who=s==='paused'?o.paused_by:o.removed_by, why=s==='paused'?o.paused_reason:o.removed_reason, when=s==='paused'?o.hidden_at:o.removed_at;
       rows.push([s==='paused'?'Paused':'Removed',`<span style="display:flex;flex-direction:column;gap:2px"><span>${esc(fmt(when))}${who?', by '+esc(NXShell.personOf(who)):''}</span>${why?`<span class="muted-t">${esc(why)}</span>`:''}</span>`]);
     }
+    if(onCheck(o))rows.push(['Three-year check',dormantLines(o)]);
     rows.push(['Listings',listingsLine(o.id)]);
     const reqs=A.requests.filter(r=>r.org_id===o.id);
     if(reqs.length)rows.push(['Requests',requestsLine(reqs)]);
@@ -571,10 +670,11 @@ function accountBlock(o){
   if(s==='on')buttons=btn('pauseOrg','Pause','pause_circle',{'org-id':o.id})+btn('openAuditStrike','Open audit strike','flag',{'org-id':o.id})+btn('removeOrg','Remove from the hub','remove_circle',{'org-id':o.id})+del;
   else if(s==='paused')buttons=btn('resumeOrg','Resume','play_circle',{'org-id':o.id})+btn('openAuditStrike','Open audit strike','flag',{'org-id':o.id})+btn('removeOrg','Remove from the hub','remove_circle',{'org-id':o.id})+del;
   else if(s==='removed')buttons=btn('restoreOrg','Restore to the hub','undo',{'org-id':o.id})+del;
+  if(s==='on'||s==='paused'||s==='removed')buttons=dormantButtons(o)+buttons;
   else if(s==='closed')buttons=del+erase;
   else if(s==='deleted'&&retentionDue(o))buttons=erase;
   if(buttons)h+=`<div class="panel-actions acct-actions"><div class="actions">${manageFor(q,buttons)}</div></div>`;
-  h+=orgChoice(o);
+  h+=orgChoice(o)+dormantChoice(o);
   if(s==='on'||s==='paused')h+='<p class="picker-note">Pausing for strikes is always a person’s decision. Only the day-14 payment hide is automatic.</p>';
   return h;
 }
@@ -585,7 +685,7 @@ function orgChoice(o){
   if(UI.open==='remove:'+id)return choice(`Why is ${name} being removed from the hub? Its people can still sign in to read, and can no longer act; the record is kept and you can restore it.`,input('rm-why','Reason, kept on the account')+btn('confirmRemove','Remove from the hub','',{'org-id':id},'danger')+cancel());
   if(UI.open==='restore:'+id)return choice(`Restore ${name} to the hub? A pause recorded before the removal stands until you resume it.`,btn('confirmRestore','Restore to the hub','',{'org-id':id},'primary')+cancel());
   if(UI.open==='audit:'+id)return choice(`Why is an audit strike being opened against ${name}? Kept on the strike.`,input('au-why','Reason, kept on the strike')+btn('confirmAudit','Open audit strike','',{'org-id':id},'danger')+cancel());
-  if(UI.open==='del:'+id)return typed('Deleting removes every user and cannot be undone. Fees and invoices are kept. Type the name to confirm.',
+  if(UI.open==='del:'+id)return typed('Deleting removes every user and cannot be undone. Fees and invoices are kept. A user who came only from the portal also leaves Contacts; anyone already a contact stays. The company and its filed emails stay. Type the name to confirm.',
     input('delName',o.name||''),`<button type="button" class="btn sm danger" id="delGo" disabled data-act="confirmDelete" data-org-id="${esc(id)}">Delete account</button>`+cancel());
   if(UI.open==='erase:'+id){
     const before=!retentionDue(o);
@@ -604,6 +704,8 @@ const placeOf=()=>{const s=C.sites.find(x=>x.town||x.country);return s?[s.town,s
 const hostOf=w=>String(w||'').replace(/^https?:\/\//i,'').replace(/\/$/,'');
 const lastMail=()=>C.mail.reduce((m,e)=>e.sent_at&&(!m||e.sent_at>m)?e.sent_at:m,null);
 const queueRow=()=>C.queue[0]||null;
+/* Several sectors and company types (plan 083); a row read before 0092 holds one. */
+const heldOf=(q,list,one)=>!q?[]:Array.isArray(q[list])&&q[list].length?q[list]:(q[one]?[q[one]]:[]);
 
 function backLink(){
   let href='contacts.html', label='Contacts';
@@ -618,7 +720,7 @@ function backLink(){
 function headerCard(){
   const c=C.company, kind=NXCRM.kindLabel(c), q=queueRow(), last=lastMail();
   const facts=[placeOf()?`<span>${ms('location_on')}${esc(placeOf())}</span>`:'',
-    q&&q.company_type?`<span>${ms('category')}${esc(q.company_type)}</span>`:'',
+    heldOf(q,'company_types','company_type').length?`<span>${ms('category')}${esc(heldOf(q,'company_types','company_type').join(', '))}</span>`:'',
     /^https?:\/\//i.test(c.website||'')?`<a href="${esc(c.website)}" target="_blank" rel="noopener noreferrer">${ms('language')}${esc(hostOf(c.website))}</a>`:(C.domains[0]?`<span>${ms('language')}${esc(C.domains[0].domain)}</span>`:''),
     `<span>${ms('schedule')}${last?'Last email '+esc(fmt(last)):'No email filed yet'}</span>`].filter(Boolean).join('');
   const pills=A.orgs.map(NXCRM.accountPill).join('')+
@@ -648,7 +750,7 @@ function tagRow(){
   if(q&&q.prospect_type)h+=`<div class="tg"><span class="tg-label">How we know them</span><span class="tg-vals"><span class="tag">${esc(q.prospect_type)}</span></span></div>`;
   h+=`<div class="tg"><span class="tg-label">Fit</span><span class="tg-vals">${fit.map(t=>NXCRM.fitTag(t.label)).join('')}<button type="button" class="tag empty" data-act="openUi" data-ui="fit">${fit.length?'Change':'Add'}</button></span></div>`;
   h+=`<div class="tg"><span class="tg-label">Topics</span><span class="tg-vals">${topics.map(t=>`<span class="tag">${esc(t.label)}<button type="button" class="x" data-act="untag" data-tag="${esc(t.id)}" aria-label="Take off ${esc(t.label)}">${ms('close')}</button></span>`).join('')}<button type="button" class="tag empty" data-act="openUi" data-ui="topic">Add</button></span></div>`;
-  const ro=[q&&q.sector,q&&q.company_type].filter(Boolean);
+  const ro=[...heldOf(q,'sectors','sector'),...heldOf(q,'company_types','company_type')];
   h+=`<div class="tg"><span class="tg-label">Sector and type</span><span class="tg-vals">${ro.length?ro.map(x=>`<span class="tag ro" title="Set on the Prospects page">${esc(x)}</span>`).join(''):'<span class="tag ro">Not set</span>'}</span></div></div>`;
   if(UI.open==='fit'){
     const fits=C.tagList.filter(t=>t.grp==='fit'&&t.active!==false).sort((a,b)=>a.position-b.position), on=new Set(fit.map(t=>t.id));
@@ -722,9 +824,15 @@ function needsYouHtml(){
 /* Plan 054 (D1): the composer is Note or Task, the design's one second-level control. A note is a
    file in the company's folder (add-note), indexed onto the timeline by the next crm-sync; @claude
    in it is answered in the same file. The Task half is plan 072's. A company with no live folder
-   has nowhere for a note to go and is told so here, before anything is queued. */
+   has nowhere for a note to go and is told so here, before anything is queued. Plan 079: with the
+   switch on the note is saved at once and is on the timeline straight away, the file following in
+   minutes, so a live company with no folder can hold one until it has a folder. */
 const NO_FOLDER_NOTE='No workspace folder: accept the company on Prospects, or add it with a folder.';
 const noteFolder=()=>C&&!C.company.archived_at?C.folders.find(f=>f.area==='deals'||f.area==='leads'):null;
+const noteMayWait=()=>C&&!C.company.archived_at&&NXSAVE.direct('add-note');
+const noteHelp=()=>!NXSAVE.direct('add-note')?'Shows on the timeline after the next sync; @claude in it is answered there.'
+  :noteFolder()?'Shows on the timeline at once; @claude in it is answered there.'
+  :'Shows on the timeline at once. This company has no workspace folder yet, so it is filed when it has one.';
 function composerHtml(){
   if(!C||T.missing||T.error)return '';
   const task=UI.composer==='task';
@@ -736,7 +844,7 @@ function composerHtml(){
     half=`${input('cp-title','For example: send the hub pricing')}`+
       `<div class="composer-row"><span class="left"><label class="sr" for="cp-due">Due</label><input class="input" type="date" id="cp-due"><span class="picker-note">Shows under Open tasks here and in the Inbox.</span></span>`+
       `${btn('taskAdd','Add task','',{form:'cp',company:C.id},'primary')}</div>`;
-  }else if(!noteFolder()){
+  }else if(!noteFolder()&&!noteMayWait()){
     half=`<p class="picker-note">${NO_FOLDER_NOTE}</p>`;
   }else{
     const np=noteByCompany[C.id];
@@ -744,7 +852,7 @@ function composerHtml(){
       ?`<div class="fail-line"><span>Failed: ${esc(NXJOBS.sentence(np.result_note))}</span>${btn('retry','Try again','',{intent:np.id},'quiet')}</div>`
       :'<p class="picker-note"><span class="status-line">Note queued.</span> It shows on the timeline after the next sync.</p>';
     half=noteState+`<label class="sr" for="cp-note">The note</label><textarea class="input" id="cp-note" rows="4" placeholder="What happened, or a question for Claude starting @claude"></textarea>`+
-      `<div class="composer-row"><span class="picker-note">Shows on the timeline after the next sync; @claude in it is answered there.</span>`+
+      `<div class="composer-row"><span class="picker-note">${noteHelp()}</span>`+
       `${btn('noteAdd','Add note','',{company:C.id},'primary')}</div>`;
   }
   return `<section class="panel"><div class="composer-row"><h2>Add a note or a task</h2>${seg}</div><div class="composer">${half}</div></section>`;
@@ -790,18 +898,22 @@ function openTasksPanel(){
 }
 /* What jobs.js's panels and decisions are given (see its header). account()
    calls the account panel's own Pause, Remove or Erase and puts the cursor in
-   its choice (D12): one control for one thing on the page. */
-const ACCOUNT_FIELD={pause:'pa-why',remove:'rm-why',erase:'erName'};
+   its choice (D12): one control for one thing on the page. A choice with no
+   field (Keep, Email the notice) is scrolled to by its button instead, or the
+   press from Needs you opens it out of sight and looks dead (9 Nov 2026). */
+const ACCOUNT_FIELD={pause:'pa-why',remove:'rm-why',erase:'erName',removeDormant:'rdName',keepDormant:'kdGo',noticeDormant:'ndGo'};
 function jobCtx(){
   return Object.assign({},J,{rows:jobRows,pending:jobPending,ui:UI,me:me&&me.email,flash:UI.flashDone?null:UI.job,
     tasks:T.rows,companies:C?{[C.id]:{id:C.id,name:C.company.name}}:{},companyList:[],today:NXJOBS.todayIn(),
     raise:(type,payload,spot,verb,toastText)=>raise(type,payload,verb,toastText),val,need,toast:NXShell.toast,
-    retry:id=>{const i=intentById[id];if(i)return raise(i.type,i.payload_json||{},'Tried again');},
+    retry:id=>ACT.retry({dataset:{intent:id}}),
     open:k=>{UI.open=k;render();},close:()=>{UI.open=null;render();},
     account:(what,orgId)=>{
       const fn=ACT[what+'Org'];if(!fn)return;
       fn({dataset:{orgId}});
-      const f=$(ACCOUNT_FIELD[what]);if(f&&f.focus)f.focus();
+      const f=$(ACCOUNT_FIELD[what]);if(!f)return;
+      if(f.scrollIntoView)f.scrollIntoView({block:'center'});
+      if(f.focus)f.focus();
     }});
 }
 /* &job=<item_key> (the Inbox's link): scroll to that job once, and flash it. */
@@ -835,7 +947,7 @@ const clockFor=k=>{if(k.board!=='hub'||k.stage!=='invoiced')return null;const in
 const linkedName=k=>k.linked_card_id&&PL.linked[k.linked_card_id]?(PL.companies[PL.linked[k.linked_card_id]]||{}).name||'':'';
 function pipeFail(q){return q&&q.status==='failed'?`<div class="fail-line"><span>Failed: ${esc(NXJOBS.sentence(q.result_note))}</span></div>`:'';}
 /* The stepper: the stages as one segmented control, Mark as dead beside it, the shared
-   next step, the one line on what moves the card, the clock or the signing state, and
+   next step, the one line on what moves the card, the clock or the agreement link's state, and
    Invite to the portal at Agreed. */
 function stepperHtml(k){
   const stg=PIPE.STAGES[k.board], i=stg.indexOf(k.stage), q=pendingByCard[k.id], last=lastMail();
@@ -855,7 +967,7 @@ function stepperHtml(k){
   if(k.board==='hub'&&k.stage==='agreed'&&!cardOrg(k))h+=UI.open==='invite:'+k.id?inviteChoice(k):`<div>${btn('openUi','Invite to the portal','person_add',{ui:'invite:'+k.id})}</div>`;
   if(k.board==='consultancy'&&k.stage==='conversation'){
     const slug=(C.primary||{}).slug||'';
-    h+=`<div><a class="btn sm" href="consultancy.html?slug=${encodeURIComponent(slug)}&amp;client=${encodeURIComponent(C.company.name)}">${ms('draw','sm')}Make the signing link</a></div>`;
+    h+=`<div><a class="btn sm" href="consultancy.html?slug=${encodeURIComponent(slug)}&amp;client=${encodeURIComponent(C.company.name)}">${ms('draw','sm')}Make the agreement link</a></div>`;
   }
   h+=pipeFail(q)+(q&&q.status!=='failed'?'<span class="status-line">Queued, moments away.</span>':'');
   if(UI.open==='dead:'+k.id)h+=PIPE.deadPicker(k,UI.reason);
@@ -921,6 +1033,7 @@ function offWhy(m){
   else if((x=r.match(/^moved by (\S+)$/i))){who=NXShell.personOf(x[1]);lead='Moved to another campaign';why='';}
   else if((x=r.match(/^returned to prospect by (\S+)$/i))){who=NXShell.personOf(x[1]);lead='Returned to prospect';why='';}
   else if((x=r.match(/^status (.+?) set by (\S+?)(?:: no campaign)?$/i))){who=NXShell.personOf(x[2]);lead=`Status set to ${x[1]}`;why='';}
+  else if(/^finished its emails/i.test(r)){lead='Finished its emails';why='';}
   why=why.replace(ADDRESS,a=>NXShell.personOf(a));
   if(m.status==='remove'){
     const said=why||(lead==='Removed'?'':lead.charAt(0).toLowerCase()+lead.slice(1));
@@ -929,11 +1042,13 @@ function offWhy(m){
   }
   return `${lead}${who?' by '+who:''}${when?', '+when:''}${why?': '+why:''}`;
 }
-/* The live memberships, newest first, then the removed ones in the panel's archive. */
+/* The live memberships, the one on its turn first and then in the order they
+   will go (plan 083), then the removed ones in the panel's archive. A campaign
+   picked on a Prospects row is not on a list, so it is not here until Accept. */
 function campaignsPanel(){
   if(CM.missing)return '<section class="panel"><h2>Campaigns</h2><p class="fact muted">The campaign lists are not there yet: migration 0047 has not been applied.</p></section>';
   if(CM.error)return `<section class="panel"><h2>Campaigns</h2><p class="fact muted">Could not read the campaign lists: ${esc(CM.error)}</p></section>`;
-  const live=CM.rows.filter(m=>!CAMPAIGN_OFF.includes(m.status)), off=CM.rows.filter(m=>CAMPAIGN_OFF.includes(m.status));
+  const live=CM.rows.filter(m=>!CAMPAIGN_OFF.includes(m.status)).sort((a,b)=>(a.status==='waiting')-(b.status==='waiting')||a.id-b.id), off=CM.rows.filter(m=>CAMPAIGN_OFF.includes(m.status));
   const nameOf=m=>(CM.names[m.campaign_id]||{}).name||`Campaign ${m.campaign_id}`;
   const row=m=>{
     const why=(m.status==='waiting'||m.status==='error')&&m.reason?`<span class="item-sub wrap">${esc(m.reason)}</span>`:'';
@@ -944,7 +1059,7 @@ function campaignsPanel(){
   };
   const arch=off.length?`<details class="archive inpanel"><summary>Removed from campaigns (${off.length})</summary><div class="arch-body">${off.map(m=>
     `<div class="arch-row"><span style="font-weight:600;color:var(--fg)">${esc(nameOf(m))}</span><span class="arch-note">${esc(offWhy(m))}</span></div>`).join('')}</div></details>`:'';
-  return `<section class="panel"><h2>Campaigns <span class="n num">${live.length}</span></h2><div>${live.length?live.map(row).join(''):'<p class="fact muted">Not on any campaign.</p>'}</div>${arch}`+
+  return `<section class="panel"><h2>Campaigns <span class="n num">${live.length}</span></h2><div>${live.length?live.map(row).join(''):'<p class="fact muted">Not on any campaign. One picked on the Prospects page joins at Accept.</p>'}</div>${arch}`+
     `<div class="panel-actions"><a class="btn sm" href="marketing-campaigns.html">${ms('campaign','sm')}Open Campaigns</a></div></section>`;
 }
 /* The company's introductions, as either party, with their board stage and the other company. */
@@ -974,7 +1089,8 @@ function jumpToCard(){
 const SOURCE_WORD={folder:'the workspace folder',portal:'a portal account',pipedrive:'Pipedrive',admin:'the admin',profile:'the profile'};
 const FIELD_WORD={name:'Name changed',website:'Website changed'};
 const DONE_WORD={'pause-org':'Paused','resume-org':'Resumed','remove-org':'Removed from the hub','restore-org':'Restored to the hub',
-  'open-audit-strike':'Audit strike opened','cure-strike':'Strike cured','delete-account':'Account deleted','erase-account':'Records erased','delete-user':'User deleted'};
+  'open-audit-strike':'Audit strike opened','cure-strike':'Strike cured','delete-account':'Account deleted','erase-account':'Records erased','delete-user':'User deleted',
+  'keep-dormant-account':'Kept for twelve months (three-year check)','notice-dormant-account':'30 days’ notice emailed (three-year check)','remove-dormant-account':'Account removed (three-year check)'};
 const by=w=>w&&String(w).includes('@')?` By ${NXShell.personOf(w)}.`:'';
 function timelineItems(){
   const out=[], personName=id=>(C.people.find(p=>p.id===id)||{}).name||'A person', siteName=id=>(C.sites.find(s=>s.id===id)||{}).name;
@@ -989,6 +1105,9 @@ function timelineItems(){
   C.notes.forEach(n=>out.push({when:n.dated,cat:'note',icon:'sticky_note_2',cls:'',kind:'Note',title:n.title||n.path.split('/').pop(),
     extra:n.body?`<details class="more"><summary>Read the note</summary><p class="ev-body">${esc(n.body)}</p></details>`:''}));
   C.pnotes.forEach(n=>out.push({when:n.at,cat:'note',icon:'sticky_note_2',cls:'',kind:'Prospects note',title:`Note from ${NXShell.personOf(n.by)}`,body:n.body}));
+  C.newNotes.forEach(n=>out.push({when:n.at,cat:'note',icon:'sticky_note_2',cls:'',kind:'Note',title:`Note from ${NXShell.personOf(n.by)}`,body:n.body,
+    extra:n.file_error?`<div class="fail-line"><span>Could not file it: ${esc(n.file_error)}</span>${btn('retryNote','Try again','',{note:n.id},'quiet')}</div>`
+      :`<span class="picker-note">${noteFolder()?'Filing to the folder.':'Waiting for a workspace folder.'}</span>`}));
   C.events.forEach(e=>{
     const d=e.detail||{};let title='',body='';
     if(e.kind==='imported'||e.kind==='adopted'){title=e.person_id?`${personName(e.person_id)} added`:'Added to Contacts';body=SOURCE_WORD[d.source]?`From ${SOURCE_WORD[d.source]}.`:'';}
@@ -1007,6 +1126,7 @@ function timelineItems(){
     else if(e.kind==='site-edited')title=`Site changed: ${siteName(d.site_id)||'a site'}`;
     else if(e.kind==='profile-written')title='Profile written from Contacts';
     else if(e.kind==='hand-edit-kept')title='A hand edit kept as a note';
+    else if(e.kind==='login-deleted'){title='A portal login was deleted';body={removed:'They came only from the portal, so they left Contacts with their addresses and activity.',kept:`${personName(e.person_id)} was already a contact, so they stay and only their portal activity went.`,'no-person':'They were not in Contacts.'}[d.outcome]||'';}
     else title=e.kind;
     out.push({when:e.at,cat:'change',icon:e.kind==='tagged'||e.kind==='untagged'?'sell':e.kind.startsWith('person')?'person':'edit_note',cls:'chg',kind:'Change',title,body:(body+by(e.by)).trim()});
   });
@@ -1036,7 +1156,8 @@ function accountItems(){
   });
   (A.accepts||[]).forEach(a=>{
     const v=A.versions[a.terms_version_id];if(!v)return;
-    const layer=(TERMS_LAYERS.find(([k])=>k===v.layer)||[v.layer,v.layer])[1];
+    /* The layers 2.0 retired stay here as history (plan 078). */
+    const layer=(TERMS_LAYERS.concat([['introduction','Introduction'],['opportunity','Opportunity']]).find(([k])=>k===v.layer)||[v.layer,v.layer])[1];
     out.push({when:a.accepted_at,cat:'account',icon:'gavel',cls:'portal',kind:'Terms',title:`${layer} terms ${v.version} accepted`,body:userName(a.user_id)?`By ${userName(a.user_id)}.`:''});
   });
   doneOrg.forEach(i=>{
@@ -1084,6 +1205,10 @@ function render(){
    same watch()), closes its choice, and refuses a second press of a job
    or a task while the first is on its way (plan 072). */
 async function raise(type,payload,verb,toastText){
+  if(NXSAVE.direct(type)){
+    const saved=await NXSAVE.press(sb,type,payload,()=>{UI.open=null;UI.edit=null;render();return load();});
+    if(saved!==null)return saved;
+  }
   const temp={id:1e15+(++sendSeq),type,payload_json:payload,status:'pending',requested_at:new Date().toISOString(),requested_by:me.email};
   const k=NXJOBS.TYPES.includes(type)||NXJOBS.TASK_TYPES.includes(type)?NXJOBS.intentKey(temp):null;
   if(k!=null&&jobPending[k]&&jobPending[k].status!=='failed')return false;
@@ -1094,7 +1219,7 @@ async function raise(type,payload,verb,toastText){
     sending=sending.filter(x=>x!==temp);watch(readIntents.concat(sending));render();
     NXShell.toast(`Could not queue it: ${error.message}`);return false;
   }
-  NXShell.toast(toastText||`${verb}, queued. This page updates by itself.`);
+  NXShell.toast(toastText||`${/queued$/i.test(verb)?verb:verb+', queued'}. This page updates by itself.`);
   checkBack.pressed();
   setTimeout(load,1500);
   return true;
@@ -1118,14 +1243,27 @@ const ACT={
   /* plan 054: the composer's Note */
   composerPick(el){UI.composer=el.dataset.pick==='task'?'task':'note';render();},
   async noteAdd(){
-    if(!noteFolder())return need('cp-note',NO_FOLDER_NOTE);
+    if(!noteFolder()&&!noteMayWait())return need('cp-note',NO_FOLDER_NOTE);
     const body=val('cp-note');
     if(!body)return need('cp-note','Type the note first.');
     return raise('add-note',{company_id:C.id,body},'Note added','Note added. It shows on the timeline after the next sync.');
   },
+  async retryNote(el){
+    const saved=await NXSAVE.press(sb,'retry-note',{note_id:Number(el.dataset.note)},load);
+    if(saved===null)NXShell.toast('Not saved: reload the page and try again.');
+  },
   tlFilter(el){UI.tl=el.dataset.f;UI.tlMax=50;render();},
   moreTl(){UI.tlMax+=200;render();},
-  retry(el){const i=intentById[el.dataset.intent];if(i)return raise(i.type,i.payload_json||{},'Tried again');},
+  retry(el){
+    const i=intentById[el.dataset.intent];
+    if(!i)return;
+    /* plan 082: a removal is never replayed from a stored name. The dialog opens and the name is typed again. */
+    if(i.type==='remove-dormant-account'){
+      NXShell.toast('Type the account’s name again to remove it.');
+      return ACT.removeDormantOrg({dataset:{orgId:(i.payload_json||{}).org_id}});
+    }
+    return raise(i.type,i.payload_json||{},'Tried again');
+  },
   /* the company and its tags */
   async saveCompany(){
     const c=C.company, payload={company_id:C.id}, name=val('ec-name'), web=val('ec-web');
@@ -1223,6 +1361,31 @@ const ACT={
   eraseOrg(el){open(el,'erase:'+el.dataset.orgId);},
   cureStrike(el){open(el,'cure:'+el.dataset.strike);},
   deleteUser(el){open(el,'deluser:'+el.dataset.user);},
+  /* plan 082: the three-year check */
+  keepDormantOrg(el){open(el,'keepd:'+el.dataset.orgId);},
+  /* The Needs you card chooses its buttons by stage alone; the panel knows more, and says why. */
+  noticeDormantOrg(el){
+    const o=orgOf(el), stop=!onCheck(o)?'This account is not on the three-year check.':o.dormant_notice_at?'The notice has already been sent.':dormantStop(o)||noticeStop(o);
+    if(stop)return NXShell.toast(stop);
+    open(el,'noticed:'+el.dataset.orgId);
+  },
+  removeDormantOrg(el){
+    const o=orgOf(el), stop=!onCheck(o)?'This account is not on the three-year check.':dormantStop(o)||(noticeOver(o)?'':'The 30 days’ notice has not run yet.');
+    if(stop)return NXShell.toast(stop);
+    open(el,'removed:'+el.dataset.orgId);
+  },
+  async confirmKeepDormant(el){const orgId=el.dataset.orgId;if(await raise('keep-dormant-account',{org_id:orgId},'Kept for twelve months'))render();},
+  async confirmNoticeDormant(el){
+    const orgId=el.dataset.orgId, o=orgOf(el);
+    if(!o||!onCheck(o)||o.dormant_notice_at||dormantStop(o)||noticeStop(o))return NXShell.toast(dormantStop(o)||noticeStop(o)||'The notice cannot be sent for this account as it stands.');
+    if(await raise('notice-dormant-account',{org_id:orgId},'Notice queued'))render();
+  },
+  async confirmRemoveDormant(el){
+    const orgId=el.dataset.orgId, o=orgOf(el), name=val('rdName');
+    if(!o||!onCheck(o)||!noticeOver(o)||dormantStop(o))return NXShell.toast(dormantStop(o)||'This account cannot be removed yet: the 30 days’ notice has not run, or it is no longer due.');
+    if(!delMatches(name,o.name))return need('rdName','Type the account’s name exactly to remove it.');
+    if(await raise('remove-dormant-account',{org_id:orgId,confirm_name:name},'Removal queued'))render();
+  },
   async confirmPause(el){
     const orgId=el.dataset.orgId, reason=val('pa-why');
     if(!reason.trim())return need('pa-why','A pause carries its reason.');
@@ -1298,6 +1461,7 @@ document.addEventListener('click',e=>{
 document.addEventListener('input',e=>{
   if(e.target.id==='erName'||e.target.id==='erWhy')eraseCheck();
   if(e.target.id==='delName'){const go=$('delGo'), o=orgById(go&&go.dataset.orgId);if(go&&o)go.disabled=!delMatches(e.target.value,o.name);}
+  if(e.target.id==='rdName'){const go=$('rdGo'), o=orgById(go&&go.dataset.orgId);if(go&&o)go.disabled=!delMatches(e.target.value,o.name);}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(UI.open||UI.edit)){UI.open=null;UI.edit=null;render();}});
 

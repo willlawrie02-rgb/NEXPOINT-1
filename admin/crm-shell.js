@@ -6,8 +6,10 @@
    Every CRM page loads this after supabase-js and admin-auth.js, keeps its
    own sign-in door and both second-factor gates (the board rules), and once
    the operator is in calls NXShell.mount(sb,user,'<section>') to draw the
-   rail. The rail lists the eight sections in the register's order; the
-   company page counts as Contacts. "Working as" is whoever signed in: notes,
+   rail. The rail lists the register's eight sections in its order, with
+   Consultancy agreements added under Pipelines (Will, 3 November 2026, a
+   knowing reversal of the design's eight) and Projects second, under Inbox,
+   because it is opened daily (Will, 10 November 2026, plan 091); the company page counts as Contacts. "Working as" is whoever signed in: notes,
    tasks and moves are signed with that name.
 
    Reads only, never a write: the counts read the inbox view (its failed-run
@@ -19,8 +21,10 @@
 
   const SECTIONS = [
     { id: 'inbox', label: 'Inbox', icon: 'inbox', href: 'inbox.html' },
+    { id: 'projects', label: 'Projects', icon: 'checklist', href: 'projects.html' },
     { id: 'desk', label: 'Desk', icon: 'forum', href: 'desk.html' },
     { id: 'pipelines', label: 'Pipelines', icon: 'view_kanban', href: 'pipelines.html' },
+    { id: 'consultancy', label: 'Consultancy', icon: 'handshake', href: 'consultancy.html' },
     { id: 'contacts', label: 'Contacts', icon: 'contacts', href: 'contacts.html' },
     { id: 'listings', label: 'Live Listings', icon: 'storefront', href: 'listings.html' },
     { id: 'money', label: 'Money', icon: 'payments', href: 'money.html' },
@@ -46,12 +50,44 @@
         '<span>' + esc(s.label) + '</span>' +
         (n > 0 ? '<span class="count num' + (HOT[s.id] ? ' hot' : '') + '">' + fmtCount(n) + '</span>' : '') + '</a>';
     }).join('');
+    /* The mark, then "CRM" in white: Will took the NexPoint wordmark off the rail on 9 November 2026. */
     return '<a class="brand" href="inbox.html"><img src="nexpoint-mark.png" alt="" width="30" height="26">' +
-      '<span class="wordmark"><span class="nex">Nex</span><span class="pt">Point</span></span></a>' +
+      '<span class="wordmark">CRM</span></a>' +
       '<nav class="nav" aria-label="Sections">' + nav + '</nav>' +
       '<div class="rail-foot"><div class="me"><span>Working as <b>' + esc(personOf(o.email)) + '</b></span>' +
       '<span class="who sr" id="who">' + esc(o.email) + '</span></div>' +
       '<div class="nav"><button type="button" data-act="signout">' + ms('logout', 'sm') + '<span>Sign out</span></button></div></div>';
+  }
+
+  /* A company's tile: its initials on one of six brand shades, chosen from
+     its name, so a company looks the same wherever it is named. */
+  function tileHtml(name, cls) {
+    const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return '';
+    const initials = (words[0][0] + (words[1] ? words[1][0] : (words[0][1] || ''))).toUpperCase();
+    let h = 0;
+    for (const ch of String(name).toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const shade = h - 6 * Math.floor(h / 6);   /* h mod 6, written without the percent sign a test's string formatting trips on */
+    return '<span class="tile t' + shade + (cls ? ' ' + cls : '') + '" aria-hidden="true">' + esc(initials) + '</span>';
+  }
+  /* Every place a page names a company gets its tile: a link to a company
+     page, a company row, a board card and the company page's own title. One
+     rule here, so no page can name a company without one. Display only. */
+  const NAMED = 'a.linkish[href^="company.html"], a.lrow[href^="company.html"] .co-name, .co-title h1, .card .card-title';
+  function tiles(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll(NAMED).forEach((el) => {
+      if (el.getAttribute('data-tile')) return;
+      el.setAttribute('data-tile', '1');
+      const name = String(el.textContent || '').trim();
+      if (name) el.insertAdjacentHTML('afterbegin', tileHtml(name, el.matches('.co-title h1') ? 'lg' : ''));
+    });
+  }
+  function watchTiles() {
+    const page = document.getElementById('page');
+    if (!page || typeof MutationObserver === 'undefined') return;
+    tiles(page);
+    new MutationObserver(() => tiles(page)).observe(page, { childList: true, subtree: true });
   }
 
   /* The title, one short line, and the page's primary action at the right.
@@ -108,6 +144,7 @@
     if (!rail) return;
     const draw = (counts) => { rail.innerHTML = railHtml({ current, counts, email: user && user.email }); };
     draw({});
+    watchTiles();
     rail.addEventListener('click', (e) => {
       if (!e.target.closest('[data-act="signout"]')) return;
       sb.auth.signOut().then(() => location.reload());
@@ -125,5 +162,5 @@
     toastTimer = setTimeout(() => el.classList.remove('show'), 4600);
   }
 
-  window.NXShell = { SECTIONS, esc, ms, personOf, railHtml, headHtml, comingHtml, readCounts, mount, toast };
+  window.NXShell = { SECTIONS, esc, ms, personOf, railHtml, headHtml, comingHtml, tileHtml, readCounts, mount, toast };
 })();

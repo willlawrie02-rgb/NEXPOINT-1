@@ -5,6 +5,7 @@
 import { runInNewContext } from "node:vm";
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
+import vm from "node:vm";
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const PUBLIC_DIRS = ["hub", "printhub", "millhub", "opportunities", "portal", "sign"];
@@ -54,12 +55,16 @@ for (const p of pages) {
   const priv = read("hub/privacy.html");
   if ((priv.match(/hosted in the UK/g) || []).length !== 1) fail('hub/privacy.html: the database line must say "hosted in the UK" exactly once');
   const print = read("printhub/index.html");
-  if (!/Certified labs near your customers print your work\./.test(print)) fail("printhub/index.html: the hero does not lead with local capacity");
+  // Chris's wording of 9 November 2026 (his Word document, applied 9 Nov): the hero
+  // leads with capacity meeting those who need it, never with the cross-border line,
+  // and no page claims certification (it contradicts the Terms).
+  if (!/to connect with those beginning their 3D printing journey/.test(print)) fail("printhub/index.html: the hero does not lead with local capacity meeting those who need it");
+  if (/[Cc]ertif/.test(print.replace(/<!--[\s\S]*?-->/g, ""))) fail("printhub/index.html: claims certification, which contradicts the Terms (Chris, 9 Nov 2026)");
   if (/No freight, no customs, no import taxes/.test(print)) fail("printhub/index.html: the hero still leads with the cross-border line");
   const block = print.slice(print.indexOf('<div class="rows">'));
   const leads = [...block.slice(0, block.indexOf("</section>")).matchAll(/<span class="lead">([^<]*)<\/span>/g)].map((m) => m[1]);
   if (!leads.length) fail("printhub/index.html: the use-case rows were not found");
-  else if (!/^Later, cross-border/.test(leads[leads.length - 1])) fail("printhub/index.html: the cross-border use case is not the last row, softened to the add-on it is");
+  else if (!/^Expand: delivery lead times to other countries/.test(leads[leads.length - 1]) || !/Once global capacity is in place/.test(block)) fail("printhub/index.html: the cross-border use case is not the last row, softened to the add-on it is");
 }
 
 // Plan 045: the listing form's copy as Will and Chris wrote it, and the
@@ -80,7 +85,7 @@ for (const p of pages) {
   // edits as changes (D6), a mixed save waiting in full (P1).
   for (const want of ['hostMembership', 'lcommit', 'billing_period', "pickRadio('billing'", 'Yearly: £1,000 a year',
     'Monthly: £100 a month', 'invoiced in pounds',
-    'shown to seekers who have accepted the introduction terms', 'Save changes', 'goes live when you save it',
+    'shown to seekers who have accepted the Seeker Agreement', 'Save changes', 'goes live when you save it',
     'renderSaved', 'pending_changes', 'Nothing has changed since your listing was last saved']) {
     if (!lf.includes(want)) fail(`hub/assets/listing-form.js: missing "${want}" (plan 068)`);
   }
@@ -209,6 +214,40 @@ for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.htm
         if (lit.includes(" ") && OLD.test(lit)) fail(`${p}: copy says "${lit.match(OLD)[0]}" in ${lit.slice(0, 60)} (${why})`);
       }
     }
+  }
+}
+
+// ---------------------------------------------------------------- what the portal says it does
+// 3 November 2026, before the first launch email: the pages said what the terms
+// no longer do. A host's site name is shown to seekers who have accepted the
+// terms and contact details are released when the host accepts (Host Agreement
+// §2); a hub pick goes straight to the site, with no approval by us; there is no
+// founding offer, no routing and no guaranteed volume; the portal is two hubs, a
+// board and Education. Visible copy, titles and descriptions. The board is left
+// out of the one rule that is true of it: a person does read a board request.
+{
+  const CLAIMS = [
+    [/(?:names|identities)[^.]{0,60}never (?:appear|published)|identit(?:y|ies)[^.]{0,40}held back/i, "names are shown to seekers who have accepted the terms (Host Agreement §2)"],
+    [/\bfirst (?:labs|facilities) to join\b|\bcohort\b/i, "no founding or early-adopter offer (Will, 2 Nov 2026)"],
+    [/routed to (?:you|them) first|contracted volume|contracted book of work/i, "no routing and no revenue guarantee (Host Agreement)"],
+    [/\bFour hubs\b/i, "two hubs, a board and Education"],
+    [/(?<!3D )\bprint capacity\b/i, "say 3D print capacity (Will, 14 Oct 2026)"],
+    [/\bEducation Hub\b/i, "the part is called Education (Will, 14 Oct 2026)"],
+  ];
+  const DESK = /weighs? the fit/i;
+  for (const p of pages) {
+    const raw = read(p);
+    const text = raw
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]*>/g, " ");
+    const attrs = (raw.match(/(?:<title>[^<]*<\/title>|\b(?:content|aria-label|alt|placeholder)="[^"]*")/g) || []).join(" ");
+    for (const [re, why] of CLAIMS) {
+      const m = text.match(re) || attrs.match(re);
+      if (m) fail(`${p}: says "${m[0]}" (${why})`);
+    }
+    if (p !== "opportunities/index.html" && DESK.test(text)) fail(`${p}: says a person weighs the fit (a hub pick goes straight to the site)`);
   }
 }
 
@@ -485,6 +524,41 @@ for (const p of pages) {
   if (!css) fail("hub/index.html: portal.css is not asked for by version (assets/portal.css?v=...)");
   if (!js) fail("hub/index.html: portal.js is not asked for by version (assets/portal.js?v=...)");
   if (css && js && css[1] !== js[1]) fail(`hub/index.html: portal.css is at version ${css[1]} and portal.js at ${js[1]}; they move together`);
+}
+
+// ---------------------------------------------------------------- the film tags (plan 088)
+// Every tag in assets/film-tags.js is held to its film and its page: a time
+// inside the film, words the brand allows, and a link that lands. A tag that
+// outlives the page it points at is the thing this catches.
+{
+  const sandbox = { window: {}, document: { querySelectorAll: () => [] } };
+  vm.runInNewContext(read("assets/film-tags.js"), sandbox);
+  const films = sandbox.window.NP_FILM_TAGS;
+  const FILM_PAGES = { home: "index.html", portal: "hub/index.html", print: "printhub/index.html", mill: "millhub/index.html", opportunities: "opportunities/index.html" };
+  const HOSTS = { "nexpoint.co.uk": "", "printhub.nexpoint.co.uk": "printhub", "millhub.nexpoint.co.uk": "millhub", "opportunities.nexpoint.co.uk": "opportunities" };
+  const landsOn = (page, href) => {
+    const u = new URL(href, `https://nexpoint.co.uk/${page}`);
+    const absolute = /^https:/.test(href);
+    const path = absolute ? join(HOSTS[u.hostname] ?? "?", u.pathname) : u.pathname.slice(1);
+    return href.startsWith("#") ? page : path.endsWith("/") || path === "" || !path.includes(".") ? join(path, "index.html") : path;
+  };
+  for (const [key, page] of Object.entries(FILM_PAGES)) {
+    const film = films[key];
+    if (!film) { fail(`assets/film-tags.js: no tags for ${key}`); continue; }
+    const html = read(page);
+    if (!html.includes(`data-film-tags="${key}"`)) fail(`${page}: its film does not ask for the ${key} tags`);
+    if (!/film-tags\.js\?v=[\w.-]+/.test(html) || !/film-tags\.css\?v=[\w.-]+/.test(html)) fail(`${page}: the film tags' script and sheet are not asked for by version`);
+    for (const t of film.tags) {
+      const end = t.to === undefined ? film.length : t.to;
+      if (!(t.from >= 0 && t.from < end && end <= film.length)) fail(`assets/film-tags.js ${key} "${t.label}": ${t.from} to ${end} is not inside a ${film.length}s film`);
+      if (end - t.from < 3.5) fail(`assets/film-tags.js ${key} "${t.label}": up for ${(end - t.from).toFixed(1)}s, too short to read and press`);
+      if (/learn more|click here|submit/i.test(t.label)) fail(`assets/film-tags.js ${key}: "${t.label}" is not a specific call to action`);
+      const target = landsOn(page, t.href);
+      if (!existsSync(join(ROOT, target))) { fail(`assets/film-tags.js ${key} "${t.label}": ${t.href} lands on ${target}, which is not in the repo`); continue; }
+      const anchor = t.href.includes("#") ? t.href.split("#")[1] : "";
+      if (anchor && !read(target).includes(`id="${anchor}"`)) fail(`assets/film-tags.js ${key} "${t.label}": ${target} has no #${anchor}`);
+    }
+  }
 }
 
 if (fails.length) {

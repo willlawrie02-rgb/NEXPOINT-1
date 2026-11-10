@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
-<link rel="stylesheet" href="crm.css?v=2">
+<link rel="stylesheet" href="crm.css?v=3">
 <style>
   /* Live Listings' own parts, as the design's prototype draws them (plan 075). */
   .opp { display: flex; flex-direction: column; gap: 10px; }
@@ -25,6 +25,7 @@
   .editor .priv { border: 1px dashed var(--border-control); border-radius: var(--radius); padding: 12px; background: var(--bg-alt); }
   .editor .priv > .tg-label { display: block; margin-bottom: 8px; }
   .hosts .tbl td { vertical-align: top; }
+  .hosts .tbl td:first-child { min-width: 150px; }
   .hosts .tbl td small { display: block; color: var(--fg-2); font-size: 12px; }
   .decl { display: flex; gap: 8px; flex-wrap: wrap; }
   .decl span { font-size: 12px; color: var(--fg-2); }
@@ -61,9 +62,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
-<script src="crm-shell.js?v=3"></script>
+<script src="crm-shell.js?v=6"></script>
 <script src="crm.js?v=071"></script>
-<script src="jobs.js?v=088"></script>
+<script src="jobs.js?v=082b"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -450,7 +451,7 @@ function editorHtml(o){
     field('Agreed on',input('f_fee_agreed','Agreed on',v.fee_agreed_at,'date'))+field('Agreement ref (where the written agreement is filed)',input('f_agreement','deals/company/emails/2026-10-20_fee-agreed.md',v.agreement_ref))+
     field('Grounded in (deal slug, comma for several)',input('f_deal','talarmade',dealVal(priv.deal)))+field('Confidentiality',input('f_conf','standard',priv.confidentiality))+
     field('Terms (optional)',input('f_terms','Terms',priv.terms))+field('Products (comma-separated, optional)',input('f_products','Products',priv.products.join(', ')))+'</div></div>'+
-    `<p class="picker-note">${o&&o.status==='draft'?'Never published: Publish sets it live and asks the engine to publish the board; an opportunity goes live only with an owner company.':'Saving queues the change for the engine; a live opportunity’s card changes on the next publish.'}</p>`+
+    `<p class="picker-note">${o&&o.status==='draft'?'Never published: Publish sets it live and asks the engine to publish the board; an opportunity goes live only with an owner company and, if it names its company or is a discount code, an agreed fee.':'Saving queues the change for the engine; a live opportunity’s card changes on the next publish.'}</p>`+
     `<div class="actions">${btn('saveEditor','Save','save',{},'primary')}${o&&o.status==='draft'?btn('publish','Publish','rocket_launch',{opp:o.id}):''}${btn('closeEditor','Cancel','',{},'quiet')}</div></div>`;
 }
 
@@ -553,7 +554,7 @@ function hubTab(hub){
   h+=`<section class="panel hosts"><h2>${ms('storefront')}Hosts on the ${esc(HUB_NAME[hub])} <span class="n num">${live.length}</span></h2>`+
     (live.length?`<div class="tscroll"><table class="tbl"><thead><tr><th>Site</th><th>Machines and materials</th><th class="num">Pairs a month</th><th>Lead time</th><th>Ships to</th><th>Membership</th><th>Declarations</th><th>Strikes</th></tr></thead><tbody>${live.map(l=>hostRow(l,hub)).join('')}</tbody></table></div>`
       :'<div class="empty-state"><p>No live host yet. A host shows here once its listing is approved in the Inbox.</p></div>')+
-    `<p class="note-line">${ms('info')}<span>A seeker sees the three best fits by name once it has accepted the introduction terms for that search; its pick emails that site its offer at once. A provider learns who the seeker is only when it accepts.</span></p></section>`;
+    `<p class="note-line">${ms('info')}<span>A seeker sees the three best fits by name once it has accepted the Seeker Agreement; its pick emails that site its offer at once. A provider learns who the seeker is only when it accepts.</span></p></section>`;
   if(removed.length)h+=`<details class="archive"><summary>Removed hosts (${removed.length})</summary><div class="arch-body">${removed.map(l=>{
     const o=D.orgs[l.org_id]||{}, q=intentByKey['org:'+o.id], why=o.removed_reason||'', when=o.removed_at||o.closed_at||o.deleted_at;
     const restore=o.removed_at&&!o.deleted_at&&!o.erased_at&&!o.closed_at;
@@ -597,7 +598,8 @@ const queued=v=>`${v}, queued. This page updates by itself.`;
 async function setStatus(id,status){
   const {error}=await sb.from('board_opportunities').update({status:status,updated_at:new Date().toISOString()}).eq('id',id);
   if(error){
-    NXShell.toast(/live_needs_owner/.test(error.message||'')?'An opportunity goes live only with an owner company: set it on the card first.'
+    NXShell.toast(/live_needs_fee/.test(error.message||'')?'An opportunity that names its company, and any discount code, goes live only once its fee is agreed: add the date in Edit.'
+      :/live_needs_owner/.test(error.message||'')?'An opportunity goes live only with an owner company: set it on the card first.'
       :/live_code_needs_code/.test(error.message||'')?'A discount-code opportunity goes live only with its code: add it in Edit.'
       :`Could not change the status: ${error.message}`);
     return false;

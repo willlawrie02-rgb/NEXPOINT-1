@@ -4,190 +4,171 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>NexPoint Admin — Consultancy agreements</title>
+<title>NexPoint CRM: Consultancy agreements</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300..500,0..1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="admin.css">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
+<link rel="stylesheet" href="crm.css?v=3">
 <style>
-  .make { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin: 0 0 22px; }
-  .make h2 { font: 700 16px/1.3 var(--font-display); color: var(--fg); margin: 0 0 12px; }
-  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
-  .grid .wide { grid-column: 1 / -1; }
-  .grid .field textarea { min-height: 56px; }
-  .make-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
-  .check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg-2); }
-  .check input { width: auto; }
-  .given { background: var(--info-wash); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; margin: 0 0 22px; }
-  .given .url { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
-  .given .url input { flex: 1 1 320px; min-width: 0; font: 500 13px/1.3 var(--font-body); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 10px; background: var(--surface); color: var(--fg); }
-  .link { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin: 0 0 12px; }
-  .link-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .link-head .company { font: 700 16px/1.2 var(--font-head); }
-  .facts { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 10px 0 0; font-size: 13px; color: var(--fg-2); }
-  .facts b { font-weight: 600; color: var(--fg-1); }
-  .errline { margin: 10px 0 0; font-size: 13px; color: var(--err-ink); background: var(--err-wash); border: 1px solid var(--err-line); border-radius: var(--radius-sm); padding: 8px 10px; }
-  .ctl { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
-  .pill { font: 600 12px/1 var(--font-body); border-radius: 999px; padding: 5px 10px; }
-  .pill.sent { color: var(--cold-ink); background: var(--cold-wash); }
-  .pill.opened { color: var(--info-ink); background: var(--info-wash); }
-  .pill.signed, .pill.invoiced { color: var(--warn-ink); background: var(--warn-wash); }
-  .pill.paid { color: var(--ok-ink); background: var(--ok-wash); }
-  .pill.expired { color: var(--fg-2); background: var(--bg-alt); }
-  .pill.revoked { color: var(--err-ink); background: var(--err-wash); }
-  .pill.test { color: var(--fg-2); background: var(--bg-alt); }
-  @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } }
+  /* The page's own parts (plan 086): the links beside the form that makes one, the form first on a narrow screen. */
+  #banner:empty { display: none; }
+  #given, #make { scroll-margin-top: 16px; }
+  .back { margin-bottom: -10px; }
+  .make-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .make-grid .wide { grid-column: 1 / -1; }
+  .make-grid textarea.input { min-height: 56px; resize: vertical; }
+  .check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg-1); cursor: pointer; }
+  .check input { accent-color: var(--blue); margin: 0; }
+  .url { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 4px 0; }
+  .url .input { flex: 1 1 260px; font-size: 13px; }
+  .link { display: flex; flex-direction: column; gap: 8px; padding: 14px 0; border-top: 1px solid var(--border-faint); min-width: 0; }
+  .link:first-child { border-top: 0; padding-top: 0; }
+  .link:last-child { padding-bottom: 0; }
+  .link-head { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+  .link-head .linkish { font: 600 15px/1.3 var(--font-display); }
+  .link-facts { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--fg-2); overflow-wrap: anywhere; }
+  .link-facts b { font-weight: 600; color: var(--fg-1); }
+  .fail-line { display: flex; gap: 6px; align-items: flex-start; font-size: 12.5px; color: var(--err-ink); overflow-wrap: anywhere; }
+  details.archive .arch-body .link:first-child { border-top: 1px solid var(--border-faint); padding-top: 14px; }
+  @media (max-width: 1080px) { .make-col { order: -1; } }
+  @media (max-width: 860px) { #given, #make { scroll-margin-top: 116px; } }
+  @media (max-width: 560px) { .make-grid { grid-template-columns: minmax(0, 1fr); } }
 </style>
 </head>
 <body>
 <!--
-The Consultancy agreements board. It reads consultancy_links under the admin's own session
-(migration 0066) and writes nothing to Supabase: every create, revoke and
-reissue goes to the portal worker with the session bearer, as Campaigns does.
-The link itself is shown once, in the worker's answer; the table holds only
-its hash.
+The Consultancy agreements page, on the CRM's shell since plan 086, with its own
+place in the rail. The Consultancy board, a company's card and Money's Consultancy
+fees all open it too, and Back returns to them. It reads
+consultancy_links under the admin's own session (migration 0066) and writes
+nothing to Supabase: every create, revoke and reissue goes to the portal worker
+with the session bearer, as Campaigns does. The link itself is shown once, in
+the worker's answer; the table holds only its hash.
 -->
 
 <div id="login" class="door" style="display:none">
-  <img class="door-logo" src="nexpoint-logo.png" alt="NexPoint">
-  <h1>Admin sign in</h1>
-  <p>The opportunity board, leads, tasks and engine health.</p>
+  <span class="brand"><img src="nexpoint-mark.png" alt="" width="30" height="26"><span class="wordmark"><span class="nex">Nex</span><span class="pt">Point</span></span></span>
+  <h1>Sign in to the CRM</h1>
+  <p>For Will and Chris only: the database admits the two of you and nobody else.</p>
   <div class="card">
     <form onsubmit="event.preventDefault();doLogin()">
+      <label class="sr" for="email">Email</label>
       <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <label class="sr" for="pw">Password</label>
       <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
       <button class="btn btn-pri" type="submit">Sign in</button>
     </form>
     <div class="err" id="loginErr" role="alert"></div>
   </div>
-  <div class="hint">Admin access only. The database admits the allowlist and nobody else.</div>
 </div>
 
-<div id="admin" style="display:none">
-  <header class="topbar">
-    <div class="wrap bar">
-      <a class="brandmark" href="inbox.html">
-        <img src="nexpoint-logo.png" alt="NexPoint">
-        <span class="admin-tag">Admin</span>
-      </a>
-      <div class="session">
-        <span class="who" id="who"></span>
-        <button class="btn btn-gh btn-sm" onclick="signOut()">Sign out</button>
+<div id="admin" class="app" style="display:none">
+  <aside class="rail" id="rail" aria-label="Main"></aside>
+  <main class="main" id="main" tabindex="-1"><div class="page" id="page">
+    <a class="btn quiet back" id="back" href="pipelines.html?tab=consultancy" hidden><span class="ms sm" aria-hidden="true">arrow_back</span><span id="back-label"></span></a>
+    <div class="head"><div class="head-text"><h1>Consultancy agreements</h1>
+      <p class="lede">Create a private agreement link for a client who has said yes. Paste it into your own email: nothing is sent from here.</p>
+    </div></div>
+    <div id="banner"></div>
+
+    <div class="banner ok" id="given" hidden>
+      <span class="ms" aria-hidden="true">link</span>
+      <div class="banner-text">
+        <strong id="given-title">Link ready</strong>
+        <div class="url">
+          <input id="given-url" class="input" readonly aria-label="The agreement link">
+          <button class="btn sm primary" type="button" data-act="copyLink">Copy link</button>
+        </div>
+        <span>Copy it now: the link is shown once. Reissue makes a new one.</span>
+        <span class="muted-t" id="given-expires"></span>
       </div>
     </div>
-  </header>
 
-  <main>
-    <div class="wrap">
-      <nav class="boards" aria-label="Admin boards">
-        <span class="navgroup">
-          <a href="inbox.html">Inbox</a>
-          <a href="marketing.html">Prospects</a>
-          <a href="listings.html">Live Listings</a>
-        </span>
-        <span class="navgroup">
-          <a href="contacts.html">Contacts</a>
-          <a href="pipelines.html">Pipelines</a>
-          <a href="orders.html">Orders</a>
-          <a href="money.html">Money</a>
-          <a href="consultancy.html" aria-current="page">Consultancy</a>
-        </span>
-        <span class="navgroup">
-          <a href="system.html">System</a>
-          <a href="marketing-campaigns.html">Campaigns</a>
-          <a href="marketing-finder.html">Finder</a>
-          <a href="marketing-linkedin.html">LinkedIn</a>
-        </span>
-      </nav>
+    <div class="today-grid">
+      <div class="col-stack">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Links <span class="n num" id="count"></span></h2>
+            <label class="check"><input type="checkbox" id="show-test"> Show test links</label>
+          </div>
+          <div id="links"></div>
+        </section>
+        <details class="archive" id="finished" hidden>
+          <summary id="finished-n"></summary>
+          <div class="arch-body" id="finished-body"></div>
+        </details>
+      </div>
 
-      <div class="arrive">
-        <div class="intro">
-          <h1>Consultancy agreements</h1>
-          <span class="count" id="count"></span>
-        </div>
-        <p class="note">
-          Create a private agreement link for a client who has said yes. Paste it into your own email: nothing is sent from here.
-        </p>
-        <div id="banner"></div>
-
-        <form class="make" id="make" onsubmit="event.preventDefault();submitForm()">
+      <div class="col-stack make-col">
+        <form class="panel" id="make" onsubmit="event.preventDefault();submitForm()">
           <h2 id="make-title">New agreement link</h2>
-          <div class="grid">
+          <div class="form-grid make-grid">
             <div class="field wide">
               <label for="f-slug">Company folder</label>
-              <input id="f-slug" list="companies" placeholder="e.g. midlands-3d-printing" autocomplete="off" required>
+              <input id="f-slug" class="input" list="companies" placeholder="e.g. midlands-3d-printing" autocomplete="off" required>
               <datalist id="companies"></datalist>
             </div>
             <div class="field wide">
               <label for="f-client">Client name</label>
-              <input id="f-client" placeholder="As it appears on the agreement, e.g. Midlands 3D Printing Ltd" required>
+              <input id="f-client" class="input" placeholder="As it appears on the agreement, e.g. Midlands 3D Printing Ltd" required>
             </div>
             <div class="field wide">
               <label for="f-address">Client address</label>
-              <textarea id="f-address" required></textarea>
+              <textarea id="f-address" class="input" required></textarea>
             </div>
             <div class="field wide">
               <label for="f-service">Purpose</label>
-              <input id="f-service" value="sales and marketing consultancy" required>
-              <span class="status">What the agreement says NexPoint introduces the client for. The specifics are in the proposal you send with the link.</span>
+              <input id="f-service" class="input" value="sales and marketing consultancy" required>
+              <span class="picker-note">What the agreement says NexPoint introduces the client for. The specifics are in the proposal you send with the link.</span>
             </div>
             <div class="field">
               <label for="f-fee">Fee</label>
-              <input id="f-fee" type="number" min="1" step="0.01" value="5000" required>
+              <input id="f-fee" class="input" type="number" min="1" step="0.01" value="5000" required>
             </div>
             <div class="field">
               <label for="f-currency">Currency</label>
-              <select id="f-currency">
+              <select id="f-currency" class="input">
                 <option value="GBP">GBP</option>
               </select>
-              <span class="status">Every consultancy client is charged in pounds, wherever they are.</span>
             </div>
+            <span class="picker-note wide">Every consultancy client is charged in pounds, wherever they are.</span>
             <div class="field">
               <label for="f-signer">Signer name</label>
-              <input id="f-signer" autocomplete="off" required>
+              <input id="f-signer" class="input" autocomplete="off" required>
             </div>
             <div class="field">
               <label for="f-email">Signer email</label>
-              <input id="f-email" type="email" autocomplete="off" required>
+              <input id="f-email" class="input" type="email" autocomplete="off" required>
             </div>
             <div class="field wide">
               <label for="f-accounts">Accounts email for the invoice (optional)</label>
-              <input id="f-accounts" type="email" autocomplete="off">
-              <span class="status">Offered to the client as the invoice address. Leave it empty to offer the signer's email.</span>
+              <input id="f-accounts" type="email" class="input" autocomplete="off">
+              <span class="picker-note">Offered to the client as the invoice address. Leave it empty to offer the signer's email.</span>
             </div>
           </div>
-          <div class="make-actions">
-            <button class="btn btn-pri" id="f-submit" type="submit">Create agreement link</button>
-            <button class="btn btn-gh" id="f-cancel" type="button" style="display:none" onclick="resetForm()">Cancel reissue</button>
+          <div class="actions">
+            <button class="btn primary" id="f-submit" type="submit">Create agreement link</button>
+            <button class="btn quiet" id="f-cancel" type="button" hidden data-act="resetForm">Cancel reissue</button>
             <label class="check"><input type="checkbox" id="f-test"> Test link (demo only)</label>
-            <span class="status" id="make-status" role="status"></span>
+            <span class="status-line" id="make-status" role="status"></span>
+          </div>
+          <div class="inline-choice" id="make-ask" hidden>
+            <span>Reissue this link? The old link stops working at once and a new one is made.</span>
+            <button class="btn sm primary" type="button" data-act="sendReissue">Reissue link</button>
+            <button class="btn sm quiet" type="button" data-act="closeAsk">Cancel</button>
           </div>
         </form>
-
-        <div class="given" id="given" style="display:none">
-          <strong id="given-title">Link ready</strong>
-          <div class="url">
-            <input id="given-url" readonly aria-label="The agreement link">
-            <button class="btn btn-pri btn-sm" type="button" onclick="copyLink()">Copy link</button>
-          </div>
-          <div class="status">Copy it now: the link is shown once. Reissue makes a new one.</div>
-          <div class="status" id="given-expires"></div>
-        </div>
-
-        <div class="section-title">Links</div>
-        <div class="ctl" style="margin:0 0 14px">
-          <label class="check"><input type="checkbox" id="show-test" onchange="render()"> Show test links</label>
-        </div>
-        <div id="links"></div>
       </div>
     </div>
-  </main>
+  </div></main>
 </div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
+<script src="crm-shell.js?v=6"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -195,10 +176,12 @@ const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a h
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const isAdmin=email=>ADMIN_EMAILS.includes((email||'').toLowerCase());
+const PAGE_SECTION='consultancy';
+const ms=NXShell.ms;
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /* Served locally (the end-to-end test), the board talks to the local worker, as the sign page does. */
 const WORKER=/^(localhost|127\.0\.0\.1)$/.test(location.hostname)?'http://localhost:8787':'https://api.nexpoint.co.uk';
-let links=[],me=null,reissuing=null;
+let links=[],me=null,reissuing=null,asking=null;
 
 async function boot(){
   const {data}=await sb.auth.getSession();
@@ -220,7 +203,15 @@ async function doLogin(){
   showAdmin(data.user);
 }
 async function signOut(){await sb.auth.signOut();location.reload();}
-function showAdmin(user){me=user;$('login').style.display='none';$('admin').style.display='block';$('who').textContent=user.email;prefill();load();loadCompanies();}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,PAGE_SECTION);setBack();prefill();load();loadCompanies();}
+/* Back returns to the page that opened this one; from the rail or an email there is none. */
+const BACK={'pipelines.html':'Pipelines','company.html':'the company','money.html':'Money'};
+function setBack(){
+  try{
+    const r=new URL(document.referrer), page=r.pathname.split('/').pop();
+    if(r.origin===location.origin&&r.pathname.startsWith('/admin/')&&Object.hasOwn(BACK,page)){$('back').href=page+r.search;$('back-label').textContent='Back to '+BACK[page];$('back').hidden=false;}
+  }catch(e){}
+}
 /* Plan 073 (D16): a Consultancy card at In conversation opens this page with
    ?slug=&client= to fill in the company; making the link is what moves the
    card to Agreed. Both fields stay editable. */
@@ -249,8 +240,8 @@ async function load(){
   $('banner').innerHTML='';
   const {data,error}=await sb.from('consultancy_links').select('id,company_slug,client_name,client_address,service,fee_amount,currency,signer_name,signer_email,accounts_email,invoice_email,purchase_order,invoice_emailed_at,created_by,created_at,expires_at,opened_at,signed_at,signed_name,signed_position,invoiced_at,paid_at,revoked_at,reissued_from,xero_invoice_number,xero_due_date,filed_at,last_error,last_error_at,is_test').order('id',{ascending:false}).limit(200);
   if(error){
-    $('banner').innerHTML=`<div class="banner">Could not read the agreement links: ${esc(error.message)}. If this names a missing table, migration 0066 has not been applied yet.</div>`;
-    $('links').innerHTML='';$('count').textContent='';return;
+    $('banner').innerHTML=`<div class="banner err">${ms('error')}<div class="banner-text"><span>Could not read the agreement links: ${esc(error.message)}. If this names a missing table, migration 0066 has not been applied yet.</span></div></div>`;
+    $('links').innerHTML='';$('count').textContent='';$('finished').hidden=true;return;
   }
   links=data||[];
   render();
@@ -276,23 +267,39 @@ const day=t=>t?new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'shor
 const when=t=>t?new Date(t).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
 const fact=(label,value)=>value?`<span><b>${esc(label)}</b> ${esc(value)}</span>`:'';
 
+/* The design's plain pills: blue while it is moving, green when paid, neutral when
+   it simply ended. Red stays for a problem, which here is last_error. */
+const PILL={sent:['','send'],opened:[' info','visibility'],signed:[' info','draw'],invoiced:[' info','receipt_long'],
+  paid:[' ok','check_circle'],expired:['','schedule'],revoked:['','block']};
+/* Paid, revoked and expired links fold into the archive; one with an error stays where it is seen. */
+const finished=(l,now)=>!l.last_error&&['paid','revoked','expired'].includes(statusOf(l,now)[0]);
+
 function render(){
   const showTest=$('show-test').checked;
   const shown=links.filter(l=>showTest||!l.is_test);
-  $('count').textContent=`${shown.length} link${shown.length===1?'':'s'}`;
-  if(!shown.length){$('links').innerHTML='<div class="empty">No agreement links yet.</div>';return;}
   const now=Date.now();
-  $('links').innerHTML=shown.map(l=>{
-    const [cls,label]=statusOf(l,now);
-    const open=!l.signed_at&&!l.revoked_at;
-    const buttons=open
-      ?`<button class="btn btn-danger btn-sm" data-id="${esc(l.id)}" onclick="revoke(this.dataset.id)">Revoke link</button>
-        <button class="btn btn-gh btn-sm" data-id="${esc(l.id)}" onclick="startReissue(this.dataset.id)">Reissue link</button>`:'';
-    return `<div class="link" id="link-${esc(l.id)}">
-      <div class="link-head"><span class="company">${esc(l.client_name)}</span><span class="pill ${cls}">${label}</span>
-        ${l.is_test?'<span class="pill test">Test</span>':''}
-        <span class="status">${esc(l.company_slug)}</span></div>
-      <div class="facts">
+  const done=shown.filter(l=>finished(l,now)), working=shown.filter(l=>!finished(l,now));
+  $('count').textContent=String(working.length);
+  $('links').innerHTML=working.length?working.map(l=>linkHtml(l,now)).join('')
+    :`<div class="empty-state">${ms('draw')}<p>${shown.length?'No links in progress.':'No agreement links yet.'}</p></div>`;
+  $('finished').hidden=!done.length;
+  $('finished-n').textContent=`Finished (${done.length})`;
+  $('finished-body').innerHTML=done.map(l=>linkHtml(l,now)).join('');
+}
+function linkHtml(l,now){
+  const [cls,label]=statusOf(l,now);
+  const open=!l.signed_at&&!l.revoked_at;
+  const buttons=asking===String(l.id)
+    ?`<div class="inline-choice"><span>Revoke this link? The client will no longer be able to open it.</span>
+        <button type="button" class="btn sm danger" data-act="revoke" data-id="${esc(l.id)}">Revoke link</button>
+        <button type="button" class="btn sm quiet" data-act="closeAsk">Cancel</button></div>`
+    :open?`<button type="button" class="btn sm danger" data-act="askRevoke" data-id="${esc(l.id)}">${ms('block','sm')}Revoke link</button>
+        <button type="button" class="btn sm" data-act="startReissue" data-id="${esc(l.id)}">${ms('refresh','sm')}Reissue link</button>`:'';
+  return `<div class="link" id="link-${esc(l.id)}">
+      <div class="link-head"><a class="linkish" href="company.html?slug=${esc(encodeURIComponent(l.company_slug||''))}">${esc(l.client_name)}</a><span class="st${PILL[cls][0]}">${ms(PILL[cls][1])}${label}</span>
+        ${l.is_test?'<span class="st">Test</span>':''}
+        <span class="muted-t">${esc(l.company_slug)}</span></div>
+      <div class="link-facts">
         ${fact('Fee',money(l.fee_amount,l.currency))}
         ${fact('Signer',`${l.signer_name} (${l.signer_email})`)}
         ${fact('Created',`${day(l.created_at)} by ${l.created_by}`)}
@@ -310,10 +317,9 @@ function render(){
         ${fact('Filed',when(l.filed_at))}
         ${l.reissued_from?fact('Reissue of',`link ${l.reissued_from}`):''}
       </div>
-      ${l.last_error?`<div class="errline">${esc(l.last_error)}${l.last_error_at?` (${esc(when(l.last_error_at))})`:''}</div>`:''}
-      ${buttons?`<div class="ctl" id="ctl-${esc(l.id)}">${buttons}</div>`:''}
+      ${l.last_error?`<div class="fail-line">${ms('error','sm')}<span>${esc(l.last_error)}${l.last_error_at?` (${esc(when(l.last_error_at))})`:''}</span></div>`:''}
+      ${buttons?`<div class="actions" id="ctl-${esc(l.id)}">${buttons}</div>`:''}
     </div>`;
-  }).join('');
 }
 
 /* Every change goes to the worker with the admin's own session token, as the
@@ -371,28 +377,33 @@ function formBody(){
     accounts_email:$('f-accounts').value.trim(),
   };
 }
+/* A reissue asks first, in place under the form; a new link goes straight. */
 async function submitForm(){
+  if(reissuing){$('make-ask').hidden=false;return;}
+  await sendForm();
+}
+async function sendForm(){
   const body=formBody();
-  const btn=$('f-submit'),st=$('make-status');
-  st.className='status';
-  if(reissuing){
-    if(!confirm('Reissue this link? The old link stops working at once and a new one is made.'))return;
-    body.id=reissuing;
-  }else if($('f-test').checked)body.is_test=true;
+  const btn=$('f-submit'),st=$('make-status'),again=reissuing;
+  st.className='status-line';
+  $('make-ask').hidden=true;
+  if(again)body.id=again;
+  else if($('f-test').checked)body.is_test=true;
   btn.disabled=true;st.textContent='Sending…';
-  const r=await callWorker(reissuing?'/consultancy/links/reissue':'/consultancy/links',body);
+  const r=await callWorker(again?'/consultancy/links/reissue':'/consultancy/links',body);
   btn.disabled=false;
   if(r.body&&r.body.ok){
     st.textContent='';
-    showGiven(r.body,reissuing?'Link reissued':'Link ready');
+    showGiven(r.body,again?'Link reissued':'Link ready');
     resetForm();
     load();
+    NXShell.toast(again?'Reissued the link':'Created the link');
   }else{
-    st.className='status fail';st.textContent=why(r.body);
+    st.className='status-line fail';st.textContent=why(r.body);
   }
 }
 function showGiven(res,title){
-  $('given').style.display='block';
+  $('given').hidden=false;
   $('given-title').textContent=title;
   $('given-url').value=res.url||'';
   $('given-expires').textContent=res.expires_at?`Works until ${day(res.expires_at)} if unsigned.`:'';
@@ -403,6 +414,7 @@ async function copyLink(){
   try{await navigator.clipboard.writeText(input.value);}
   catch(e){input.select();document.execCommand('copy');}
   $('given-expires').textContent='Copied. '+$('given-expires').textContent.replace(/^Copied\. /,'');
+  NXShell.toast('Copied the link');
 }
 function resetForm(){
   reissuing=null;
@@ -410,7 +422,8 @@ function resetForm(){
   $('f-fee').value='5000';
   $('make-title').textContent='New agreement link';
   $('f-submit').textContent='Create agreement link';
-  $('f-cancel').style.display='none';
+  $('f-cancel').hidden=true;
+  $('make-ask').hidden=true;
   $('f-test').disabled=false;
 }
 function startReissue(id){
@@ -425,18 +438,40 @@ function startReissue(id){
   $('f-accounts').value=l.accounts_email||'';
   $('f-test').checked=!!l.is_test;$('f-test').disabled=true;
   $('f-submit').textContent='Reissue link';
-  $('f-cancel').style.display='';
-  $('given').style.display='none';
+  $('f-cancel').hidden=false;
+  $('make-ask').hidden=true;
+  $('make-status').textContent='';
+  $('given').hidden=true;
   $('make').scrollIntoView({block:'start'});
 }
 async function revoke(id){
-  if(!confirm('Revoke this link? The client will no longer be able to open it.'))return;
+  asking=null;
   const el=$('ctl-'+id);
-  if(el)el.innerHTML='<span class="status">Sending…</span>';
+  if(el)el.innerHTML='<span class="status-line">Sending…</span>';
   const r=await callWorker('/consultancy/links/revoke',{id:Number(id)});
-  if(r.body&&r.body.ok){if(el)el.innerHTML='<span class="status done">Revoked.</span>';setTimeout(load,800);}
-  else{if(el)el.innerHTML=`<span class="status fail">${esc(why(r.body))}</span>`;setTimeout(load,4000);}
+  if(r.body&&r.body.ok){if(el)el.innerHTML='<span class="status-line">Revoked.</span>';NXShell.toast('Revoked the link');setTimeout(load,800);}
+  else{if(el)el.innerHTML=`<span class="status-line fail">${esc(why(r.body))}</span>`;setTimeout(load,4000);}
 }
+
+function closeAsk(){
+  $('make-ask').hidden=true;
+  if(asking!==null){asking=null;render();}
+}
+const ACT={
+  copyLink:()=>copyLink(),
+  resetForm:()=>resetForm(),
+  startReissue:b=>startReissue(b.dataset.id),
+  sendReissue:()=>sendForm(),
+  askRevoke:b=>{asking=String(b.dataset.id);render();},
+  revoke:b=>revoke(b.dataset.id),
+  closeAsk:()=>closeAsk(),
+};
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(b&&ACT[b.dataset.act]){e.preventDefault();return ACT[b.dataset.act](b);}
+});
+document.addEventListener('change',e=>{if(e.target.id==='show-test')render();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAsk();});
 
 boot();
 </script>
