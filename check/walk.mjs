@@ -3542,6 +3542,29 @@ async function walkTerms() {
     return w;
   };
   const card = (n) => `#grid .op[data-ref="BRIEF NX-${n}"]`;
+  {
+    /* A closed account signs in but is served no cards (plan 069). The board says so and
+       where to reopen, rather than standing empty (Will, 9 November 2026). */
+    const world = boardWorld({ closed: { at: "2026-10-22T09:00:00Z" } });
+    world.api["GET /opportunities/briefs"] = (w) => (w.closed ? [403, { error: "account_closed" }] : [200, { ok: true, briefs: BRIEFS }]);
+    const { context, page } = await visit(world);
+    await step("a closed account meets a line saying so and the way to reopen, not an empty board", async () => {
+      await page.goto(`${OPPS}/`);
+      await page.waitForSelector("body[data-np-open]");
+      await page.waitForSelector("#boardClosed:not([hidden])", { timeout: 8000 });
+      has(await page.textContent("#boardClosed"), "This account is closed.", "the line");
+      eq(await page.getAttribute("#boardClosed a", "href"), "https://nexpoint.co.uk/hub/account/", "the way to reopen");
+      eq(await page.locator("#grid .op").count(), 0, "cards");
+      return eq(await page.isVisible("#filters"), false, "the filters");
+    });
+    await step("an open account never sees that line", async () => {
+      world.closed = null;
+      await page.goto(`${OPPS}/`);
+      await page.waitForFunction(() => document.querySelectorAll("#grid .op").length === 5, null, { timeout: 8000 });
+      return eq(await page.isHidden("#boardClosed"), true, "the line");
+    });
+    await context.close();
+  }
   const openPost = async (page) => {
     await openBoard(page);
     await page.click("#post button.btn-primary");
