@@ -251,7 +251,8 @@ async function readHist(id){
 const st=t=>S[t.id]||{};
 const isArchived=t=>!!st(t).archived||!!t.archived_at;
 const isDone=t=>!!st(t).done;
-const top=()=>TASKS.filter(t=>t.parent_id==null);
+/* Never `top`: a browser keeps that name for itself, and a script that declares it does not start. */
+const rootTasks=()=>TASKS.filter(t=>t.parent_id==null);
 const tickOf=(t,person)=>(liveOf[t.id]||[]).find(k=>k.person===person)||null;
 /* For the person looking: a joint task is theirs to do until their own tick is in. */
 const doneFor=(t,person)=>t.owner==='both'?!!tickOf(t,person):isDone(t);
@@ -491,7 +492,7 @@ function fold(key,label,tasks){
 /* ---------- the two views ---------- */
 function mine(){
   const m=meKey();
-  return top().filter(t=>!isArchived(t)&&(t.owner===m||t.owner==='both'));
+  return rootTasks().filter(t=>!isArchived(t)&&(t.owner===m||t.owner==='both'));
 }
 function dayHtml(){
   const m=meKey(), d=todayIso(), sun=sundayOf(d), all=mine();
@@ -511,7 +512,7 @@ function allHtml(){
   const bar=`<div class="toolbar"><div class="seg" role="group" aria-label="Whose tasks">${['all'].concat(PEOPLE).map(w=>
     `<button type="button" data-act="who" data-w="${w}" aria-pressed="${UI.who===w}">${w==='all'?'Everyone':esc(NAME[w])}</button>`).join('')}</div>`+
     `<button type="button" class="opt" data-act="claudeOnly" aria-pressed="${UI.claude}">Only the Claude tag</button></div>`;
-  const live=top().filter(t=>!isArchived(t)&&show(t));
+  const live=rootTasks().filter(t=>!isArchived(t)&&show(t));
   const phases=(P.phases||[]).concat([{key:null,label:'No phase'}]);
   const known=new Set((P.phases||[]).map(p=>p.key));
   const sections=phases.map(p=>{
@@ -524,12 +525,12 @@ function allHtml(){
     return `<section class="pgroup"><div class="phase-head"><span class="pname">${esc(p.label)}</span><span class="pcount num">${done.length} of ${once.length} done</span>${ends}</div>${
       open.length?open.map(taskCard).join(''):muted(tasks.length?'Everything in this phase is done.':'Nothing in this phase.')}${fold('done:'+p.key,'Done',done)}</section>`;
   }).join('');
-  const removed=top().filter(t=>isArchived(t)).sort((a,b)=>String(b.archived_at||'').localeCompare(String(a.archived_at||'')));
+  const removed=rootTasks().filter(t=>isArchived(t)).sort((a,b)=>String(b.archived_at||'').localeCompare(String(a.archived_at||'')));
   return `<div class="pwrap">${bar}${sections}${fold('removed','Removed',removed)}</div>`;
 }
 
 function tiles(){
-  const d=todayIso(), once=top().filter(t=>!isArchived(t)&&t.kind!=='daily');
+  const d=todayIso(), once=rootTasks().filter(t=>!isArchived(t)&&t.kind!=='daily');
   const done=once.filter(isDone).length, late=once.filter(t=>!isDone(t)&&t.due_on&&t.due_on<d).length;
   let h=`<div class="stat"><span class="stat-n num">${done} of ${once.length}</span><span class="stat-l">tasks done</span></div>`+
     `<div class="stat${late?' problem':''}"><span class="stat-n num">${late}</span><span class="stat-l">${late===1?'task is late':'tasks are late'}</span></div>`;
@@ -543,7 +544,7 @@ function tiles(){
 }
 function tabs(){
   const m=meKey(), mineOpen=mine().filter(t=>t.kind!=='daily'&&!doneFor(t,m)).length;
-  const allOpen=top().filter(t=>!isArchived(t)&&t.kind!=='daily'&&!isDone(t)).length;
+  const allOpen=rootTasks().filter(t=>!isArchived(t)&&t.kind!=='daily'&&!isDone(t)).length;
   const tab=(id,icon,label,n)=>`<button type="button" role="tab" data-act="tab" data-t="${id}" aria-selected="${UI.tab===id}">${ms(icon)}${label}<span class="n num">${n}</span></button>`;
   return `<div class="views" role="tablist">${tab('day','today','My day',mineOpen)}${tab('all','checklist','Whole project',allOpen)}</div>`;
 }
