@@ -201,6 +201,9 @@
   .preview-blur{filter:blur(7px);opacity:.4;pointer-events:none;user-select:none}
   .member-strip{display:none;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:rgba(139,197,63,.08);border:1px solid rgba(139,197,63,.3);border-radius:var(--radius-lg);padding:16px 22px;margin-bottom:26px}
   .member-strip .who{font-size:14px;color:var(--on-surface)}
+  .board-closed{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:rgba(245,166,35,.10);border:1px solid rgba(245,166,35,.38);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:24px}
+  .board-closed[hidden]{display:none}
+  .board-closed p{margin:0;font-size:15px;line-height:1.5;color:#0E1626}
   .member-strip .who b{color:var(--green)}
   .member-strip .sub{font-size:12.5px;color:var(--outline);margin-top:2px}
   .matched-home{display:none;margin-bottom:36px}
@@ -686,6 +689,12 @@
       <button class="chip" data-f="equipment">Equipment &amp; Technology</button>
       <button class="chip" data-f="talent">Talent &amp; People</button>
     </div>
+    <!-- A closed account signs in but is served no cards (plan 069): say so, rather than show an
+         empty board that looks broken (Will, 9 November 2026). Shown by loadBriefs. -->
+    <div class="board-closed" id="boardClosed" role="status" hidden>
+      <p><b>This account is closed.</b> Reopen it from your account page to see the board&rsquo;s opportunities.</p>
+      <a class="btn btn-primary" href="https://nexpoint.co.uk/hub/account/">Reopen your account</a>
+    </div>
     <div class="grid preview-blur" id="grid"></div>
   </div>
 </section>
@@ -865,11 +874,18 @@ function render(filter){
 }
 function updateLiveCount(){const el=document.getElementById('statLiveCount');if(el)el.textContent=briefs.length;}
 const HUB_API=/^(localhost|127\.0\.0\.1)$/.test(location.hostname)?'http://localhost:8787':'https://api.nexpoint.co.uk';
+/* The worker serves a closed account no cards (plan 069). The board says why and where to
+   reopen, in the account module's own words, instead of standing empty. */
+function showBoardClosed(){
+  const box=document.getElementById('boardClosed');if(box) box.hidden=false;
+  const f=document.getElementById('filters');if(f) f.style.display='none';
+}
 async function loadBriefs(){
   try{
     const r=await fetch(HUB_API+'/opportunities/briefs',{credentials:'include'});
     const d=await r.json().catch(()=>null);
     if(r.ok&&d&&Array.isArray(d.briefs)) briefs=d.briefs;
+    else if(d&&d.error==='account_closed') showBoardClosed();
   }catch(e){}
   render(document.querySelector('.chip.active')?.dataset.f||'all');updateLiveCount();
 }
