@@ -8,7 +8,8 @@
    the operator is in calls NXShell.mount(sb,user,'<section>') to draw the
    rail. The rail lists the register's eight sections in its order, with
    Consultancy agreements added under Pipelines (Will, 3 November 2026, a
-   knowing reversal of the design's eight); the company page counts as Contacts. "Working as" is whoever signed in: notes,
+   knowing reversal of the design's eight) and Projects second, under Inbox,
+   because it is opened daily (Will, 10 November 2026, plan 091); the company page counts as Contacts. "Working as" is whoever signed in: notes,
    tasks and moves are signed with that name.
 
    Reads only, never a write: the counts read the inbox view (its failed-run
@@ -20,6 +21,7 @@
 
   const SECTIONS = [
     { id: 'inbox', label: 'Inbox', icon: 'inbox', href: 'inbox.html' },
+    { id: 'projects', label: 'Projects', icon: 'checklist', href: 'projects.html' },
     { id: 'desk', label: 'Desk', icon: 'forum', href: 'desk.html' },
     { id: 'pipelines', label: 'Pipelines', icon: 'view_kanban', href: 'pipelines.html' },
     { id: 'consultancy', label: 'Consultancy', icon: 'handshake', href: 'consultancy.html' },
