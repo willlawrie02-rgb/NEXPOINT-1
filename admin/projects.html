@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>NexPoint CRM: Projects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
+<link rel="stylesheet" href="crm.css?v=3">
+<style>
+  /* The page's own parts (plan 091), composed from the shell's tokens: a task's
+     card, its tick boxes, the seven-day marks, the checklist and the notes. */
+  .pwrap { display: flex; flex-direction: column; gap: 24px; max-width: 940px; }
+  #add-task { max-width: 940px; }
+  .pgroup { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .pgroup > .phase-head { padding-bottom: 0; }
+  .pgroup > .muted-t { padding: 0 4px; margin: 0; }
+  .ptask { background: var(--surface); border-radius: var(--radius-big); box-shadow: var(--shadow-card); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .pt-top { display: flex; gap: 14px; align-items: flex-start; min-width: 0; }
+  .pt-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+  .pt-title { font-weight: 600; color: var(--fg); font-size: var(--t-body); overflow-wrap: anywhere; }
+  .ptask.done .pt-title { color: var(--fg-2); text-decoration: line-through; text-decoration-color: var(--border-control); }
+  .pt-meta { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; font-size: var(--t-meta); color: var(--fg-2); }
+  .pt-meta .ms { font-size: 15px; }
+  .pt-body { display: flex; flex-direction: column; gap: 16px; padding-top: 14px; border-top: 1px solid var(--border-faint); }
+  .pt-body h3 { font: 600 var(--t-label)/1.3 var(--font-body); color: var(--fg-2); display: flex; align-items: center; gap: 8px; }
+  .pt-part { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .ticks { display: flex; gap: 10px; flex: none; }
+  .tk { display: flex; flex-direction: column; align-items: center; gap: 4px; font: 600 11px/1 var(--font-body); color: var(--fg-2); min-width: 30px; }
+  button.tick.on { cursor: pointer; }
+  button.tick.on:hover { border-color: var(--fg-2); color: var(--fg-2); }
+  span.tick { cursor: default; border-style: dashed; }
+  span.tick:hover { border-color: var(--border-control); color: transparent; }
+  span.tick.on { border-style: solid; }
+  span.tick.on:hover { border-color: var(--ok-ink); color: var(--ok-ink); }
+  .daily-line { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: var(--t-meta); color: var(--fg-2); }
+  .marks { display: inline-flex; gap: 4px; align-items: center; }
+  .mark { all: unset; box-sizing: border-box; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--border-control); background: var(--surface); }
+  button.mark { cursor: pointer; }
+  button.mark:hover { border-color: var(--ok-ink); }
+  button.mark:focus-visible { box-shadow: var(--ring); }
+  .mark.on { background: var(--green); border-color: var(--ok-ink); }
+  .mark.today { outline: 2px solid var(--info-line); outline-offset: 1px; }
+  .items { display: flex; flex-direction: column; }
+  .items .task-row { padding: 7px 0; }
+  .items .task-text { font-weight: 400; font-size: var(--t-meta); }
+  .items .task-row.done .task-text { color: var(--fg-2); text-decoration: line-through; text-decoration-color: var(--border-control); }
+  .items .task-meta { margin-top: 0; font-size: var(--t-label); }
+  .notes { display: flex; flex-direction: column; gap: 8px; }
+  .note { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--bg); border-radius: var(--radius-card); font-size: var(--t-meta); }
+  .note.reply { margin-left: 22px; background: var(--info-wash); }
+  .note-by { color: var(--fg-2); display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+  .note-by b { color: var(--fg); font-weight: 600; }
+  .note-body { color: var(--fg); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .pform { display: flex; flex-direction: column; gap: 14px; background: var(--bg); border-radius: var(--radius-card); padding: 14px; }
+  .pform .wide { grid-column: 1 / -1; }
+  .pform textarea.input, .composer textarea.input { min-height: 64px; resize: vertical; width: 100%; }
+  .check { display: inline-flex; align-items: center; gap: 8px; font-size: var(--t-meta); color: var(--fg-1); cursor: pointer; }
+  .check input { accent-color: var(--blue); margin: 0; }
+  details.archive .arch-body.cards { gap: 10px; }
+  .stat-n.words { font-size: 20px; line-height: 1.4; }
+  @media (max-width: 560px) { .pt-top { flex-wrap: wrap; } .note.reply { margin-left: 10px; } }
+</style>
+</head>
+<body>
+<div id="login" class="door" style="display:none">
+  <span class="brand"><img src="nexpoint-mark.png" alt="" width="30" height="26"><span class="wordmark"><span class="nex">Nex</span><span class="pt">Point</span></span></span>
+  <h1>Sign in to the CRM</h1>
+  <p>For the two of us only: the database admits two sign-ins and nobody else.</p>
+  <div class="card">
+    <form onsubmit="event.preventDefault();doLogin()">
+      <label class="sr" for="email">Email</label>
+      <input id="email" type="email" placeholder="you@nexpoint.co.uk" autocomplete="username" required>
+      <label class="sr" for="pw">Password</label>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Sign in</button>
+    </form>
+    <div class="err" id="loginErr" role="alert"></div>
+  </div>
+</div>
+
+<div id="admin" class="app" style="display:none">
+  <aside class="rail" id="rail" aria-label="Main"></aside>
+  <main class="main" id="main" tabindex="-1"><div class="page" id="page"></div></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
+        integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script src="admin-auth.js"></script>
+<script src="crm-shell.js?v=6"></script>
+<script src="crm.js?v=071"></script>
+<script>
+const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
+const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
+const ADMIN_EMAILS=['willlawrie@nexpoint.co.uk','chris@nexpoint.co.uk'];  // a hint for which screen to show; the database decides (is_brief_admin, a second factor since plan 035)
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const isAdmin=e=>ADMIN_EMAILS.includes((e||'').toLowerCase());
+const PAGE_SECTION='projects';
+let me=null;
+
+async function boot(){
+  const {data}=await sb.auth.getSession();const s=data&&data.session;
+  if(s&&isAdmin(s.user.email)){if(await NXAdminAuth.requireAal2(sb))showAdmin(s.user);else showLogin(s);}else showLogin(s);
+}
+function showLogin(session){
+  $('login').style.display='block';$('admin').style.display='none';
+  if(session&&!isAdmin(session.user.email))$('loginErr').textContent=`${session.user.email} is signed in but not an admin.`;
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pw').value});
+  if(error){$('loginErr').textContent=error.message;return;}
+  if(!isAdmin(data.user.email)){$('loginErr').textContent='This account is not on the admin allowlist.';await sb.auth.signOut();return;}
+  if(!(await NXAdminAuth.requireAal2(sb)))return;
+  showAdmin(data.user);
+}
+function showAdmin(u){$('login').style.display='none';$('admin').style.display='';me=u;NXShell.mount(sb,u,PAGE_SECTION);render();load();}
+
+/* Projects (plan 091, Part A): the tasks of one project, ticked off each day.
+   Every task, checklist line and note comes from the database (migration
+   0099); this file names no task, no company and no person, because it is
+   copied to the public website repository. A press changes the record at once
+   through one of five functions, each of which logs who and when; this page
+   writes no table and raises no intent. The functions are a second list
+   beside the twenty-two the other pages share: direct only, so with the fast
+   saves switched off, or before the migration, the page saves nothing and
+   says so. */
+const esc=NXShell.esc, ms=NXShell.ms;
+const LEDE='Every task of the project in one list. Tick it off, change it, or put a note on it; each tick, change and note is kept with who and when.';
+/* A literal because the tests read it: boards.PROJECT_RPCS, migration 0099 and this map are held equal. */
+const PROJECT_FUNCTIONS={
+  'project-add-task': 'crm_project_add_task',
+  'project-edit-task': 'crm_project_edit_task',
+  'project-archive-task': 'crm_project_archive_task',
+  'project-tick': 'crm_project_tick',
+  'project-add-note': 'crm_project_add_note',
+};
+const MISSING=['PGRST202','42883'], REFUSAL='P0001', NO_ANSWER_MS=30000;
+const NEEDS_SWITCH='Not saved: the Projects page needs the fast saves switched on';
+/* The two sign-ins, in the order of ADMIN_EMAILS, as the database's own keys; their names come from the shell. */
+const PEOPLE=['will','chris'];
+const WHO={[ADMIN_EMAILS[0]]:PEOPLE[0],[ADMIN_EMAILS[1]]:PEOPLE[1]};
+const NAME={[PEOPLE[0]]:NXShell.personOf(ADMIN_EMAILS[0]),[PEOPLE[1]]:NXShell.personOf(ADMIN_EMAILS[1]),claude:'Claude'};
+const meKey=()=>WHO[String((me&&me.email)||'').toLowerCase()]||null;
+const ownerWords=o=>o==='both'?`${NAME[PEOPLE[0]]} and ${NAME[PEOPLE[1]]}`:(NAME[o]||'');
+const byName=by=>by==='claude'?NAME.claude:/^migration /.test(String(by||''))?'The set-up':NXShell.personOf(by);
+
+const UI={tab:'day',who:'all',claude:false,open:new Set(),hist:new Set(),folds:new Set(),form:null};
+let on=false, busy=false, loaded=false, fatal='', banners=[];
+let P=null, TASKS=[], S={}, TICKS=[], NOTES=[], HIST={};
+let byId={}, kidsOf={}, liveOf={}, dayTicks={}, notesOf={};
+const DROP=new Set();
+
+const isMissing=e=>!!e&&/does not exist|schema cache|Could not find/i.test(e.message||'');
+
+/* ---------- days ---------- */
+function todayIso(){
+  const p={};
+  new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'})
+    .formatToParts(new Date()).forEach(x=>{p[x.type]=x.value;});
+  return `${p.year}-${p.month}-${p.day}`;
+}
+const utc=iso=>{const [y,m,d]=String(iso).slice(0,10).split('-').map(Number);return Date.UTC(y,m-1,d);};
+const addDays=(iso,n)=>new Date(utc(iso)+n*864e5).toISOString().slice(0,10);
+const daysTo=(iso,today)=>Math.round((utc(iso)-utc(today))/864e5);
+const sundayOf=iso=>addDays(iso,(7-new Date(utc(iso)).getUTCDay())%7);
+function fmtDay(iso){
+  if(!iso)return '';
+  const p={};
+  new Intl.DateTimeFormat('en-GB',{timeZone:'UTC',weekday:'short',day:'numeric',month:'short'})
+    .formatToParts(new Date(utc(iso))).forEach(x=>{p[x.type]=x.value;});
+  return `${p.weekday} ${p.day} ${p.month}`;
+}
+/* A moment, as its London day and time. */
+function fmtWhen(ts){
+  if(!ts)return '';
+  const p={};
+  new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false})
+    .formatToParts(new Date(ts)).forEach(x=>{p[x.type]=x.value;});
+  return `${p.day} ${p.month}, ${p.hour}:${p.minute}`;
+}
+const londonDay=ts=>{
+  const p={};
+  new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'})
+    .formatToParts(new Date(ts)).forEach(x=>{p[x.type]=x.value;});
+  return `${p.year}-${p.month}-${p.day}`;
+};
+
+/* ---------- reading ---------- */
+async function load(){
+  banners=[];fatal='';
+  const sw=await sb.from('crm_settings').select('key,value').eq('key','direct_writes');
+  on=((sw&&sw.data)||[]).some(r=>r.key==='direct_writes'&&r.value==='on');
+  const pq=await sb.from('crm_projects').select('id,slug,name,phases,status').order('id',{ascending:true}).limit(50);
+  if(pq.error){
+    fatal=isMissing(pq.error)?'Migration 0099 has not been applied: the Projects page is empty until it is.':`Could not read the project: ${pq.error.message}.`;
+    P=null;loaded=true;render();return;
+  }
+  const want=new URLSearchParams(location.search||'').get('project');
+  const rows=pq.data||[];
+  P=(want&&rows.find(r=>r.slug===want))||rows.find(r=>r.status==='open')||rows[0]||null;
+  if(!P){loaded=true;render();return;}
+  const since=addDays(todayIso(),-13);
+  /* The state is a view (0099), read whole as the Inbox reads its own: task_id, archived, done, done_at, items_total, items_done. */
+  const [tq,sq,kq,dq,nq]=await Promise.all([
+    NXCRM.readAll(()=>sb.from('crm_project_tasks').select('id,project_id,parent_id,title,detail,owner,claude,kind,phase,priority,due_on,position,created_at,created_by,archived_at,archived_by').eq('project_id',P.id).order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_project_task_state').select('*').eq('project_id',P.id).order('task_id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_project_ticks').select('id,task_id,person,day,at,by,link').is('undone_at',null).is('day',null).order('id',{ascending:true})),
+    sb.from('crm_project_ticks').select('id,task_id,person,day,at,by,link').is('undone_at',null).gte('day',since).order('id',{ascending:true}).limit(1000),
+    NXCRM.readAll(()=>sb.from('crm_project_notes').select('id,task_id,body,by,at,reply_to,answered_at,answered_by').order('id',{ascending:true})),
+  ]);
+  const bad=[['the tasks',tq],['where each task stands',sq],['the ticks',kq],['the daily ticks',dq],['the notes',nq]].filter(([,q])=>q.error);
+  if(bad.length){
+    fatal=`Could not read ${bad[0][0]}: ${bad[0][1].error.message}.`;
+    loaded=true;render();return;
+  }
+  TASKS=tq.data||[];TICKS=(kq.data||[]).concat(dq.data||[]);NOTES=nq.data||[];
+  S={};(sq.data||[]).forEach(s=>{S[s.task_id]=s;});
+  index();
+  if(!on)banners.push(['info','The fast saves are switched off, so nothing on this page can be changed until they are switched on. Everything can still be read.']);
+  if(P.status!=='open')banners.push(['info','This project is closed. It can be read, and nothing on it can change.']);
+  /* Whatever History is open is read again, so it shows the press that was just made. */
+  HIST={};
+  for(const id of UI.hist)await readHist(id);
+  loaded=true;
+  render();
+}
+function index(){
+  byId={};kidsOf={};liveOf={};dayTicks={};notesOf={};
+  TASKS.forEach(t=>{byId[t.id]=t;});
+  TASKS.forEach(t=>{if(t.parent_id!=null)(kidsOf[t.parent_id]=kidsOf[t.parent_id]||[]).push(t);});
+  Object.values(kidsOf).forEach(list=>list.sort((a,b)=>(a.position||0)-(b.position||0)||a.id-b.id));
+  TICKS.forEach(k=>{
+    if(k.day)dayTicks[`${k.task_id}|${k.person}|${String(k.day).slice(0,10)}`]=k;
+    else (liveOf[k.task_id]=liveOf[k.task_id]||[]).push(k);
+  });
+  NOTES.forEach(n=>{if(byId[n.task_id])(notesOf[n.task_id]=notesOf[n.task_id]||[]).push(n);});
+}
+async function readHist(id){
+  const ids=[id].concat((kidsOf[id]||[]).map(c=>c.id));
+  const r=await sb.from('crm_project_events').select('id,task_id,kind,detail,by,at').in('task_id',ids).order('id',{ascending:false}).limit(300);
+  HIST[id]=r.error?{error:r.error.message}:{rows:r.data||[]};
+}
+
+/* ---------- where a task stands ---------- */
+const st=t=>S[t.id]||{};
+const isArchived=t=>!!st(t).archived||!!t.archived_at;
+const isDone=t=>!!st(t).done;
+const top=()=>TASKS.filter(t=>t.parent_id==null);
+const tickOf=(t,person)=>(liveOf[t.id]||[]).find(k=>k.person===person)||null;
+/* For the person looking: a joint task is theirs to do until their own tick is in. */
+const doneFor=(t,person)=>t.owner==='both'?!!tickOf(t,person):isDone(t);
+const byDue=(a,b)=>String(a.due_on||'9999').localeCompare(String(b.due_on||'9999'))||(a.priority||9)-(b.priority||9)||(a.position||0)-(b.position||0)||a.id-b.id;
+const phaseLabel=key=>((P&&P.phases||[]).find(p=>p.key===key)||{}).label||'';
+const waiting=t=>(notesOf[t.id]||[]).filter(n=>n.by!=='claude'&&!n.answered_at).length;
+const canChange=()=>!!P&&P.status==='open';
+
+/* ---------- saving: one press at a time, then the page reads again ---------- */
+async function press(type,payload,clear){
+  if(!on){NXShell.toast(NEEDS_SWITCH+'.');return false;}
+  if(busy){NXShell.toast('Still saving the last change; one moment.');return false;}
+  busy=true;
+  try{
+    let answer,timer;
+    try{
+      const late=new Promise(resolve=>{timer=setTimeout(()=>resolve({error:{message:'no answer after 30 seconds'}}),NO_ANSWER_MS);});
+      answer=await Promise.race([sb.rpc(PROJECT_FUNCTIONS[type], { p: payload }),late]);
+    }catch(e){answer={error:{message:String((e&&e.message)||e)}};}
+    clearTimeout(timer);
+    const error=answer.error;
+    if(error){
+      /* No intent stands behind these functions, so a missing one saves nothing. */
+      if(MISSING.includes(error.code)){NXShell.toast(NEEDS_SWITCH+'.');return false;}
+      const said=String(error.message||'no reason given');
+      if(error.code===REFUSAL){
+        NXShell.toast(`Not saved: ${said.replace(/^crm(_[a-z_]+)?: /,'')}.`);
+        /* The other person may have got there first: show where it stands, unless a form holds typed words. */
+        if(!UI.form)await load();
+        return false;
+      }
+      NXShell.toast(`It may not have saved (${said}). Reload the page to see where it stands before pressing again.`);
+      return false;
+    }
+    NXShell.toast('Saved');
+    (clear||[]).forEach(id=>DROP.add(id));
+    if(type!=='project-tick')UI.form=null;
+    await load();
+    return true;
+  }finally{busy=false;}
+}
+
+/* ---------- the parts of a card ---------- */
+const btn=(act,label,icon,data,cls)=>`<button type="button" class="btn sm${cls?' '+cls:''}" data-act="${act}"${Object.entries(data||{}).map(([k,v])=>` data-${k}="${esc(v)}"`).join('')}>${icon?ms(icon,'sm'):''}${esc(label)}</button>`;
+const muted=text=>`<p class="muted-t">${esc(text)}</p>`;
+
+/* A tick box. `mine` is a button: tick, or undo the tick. Otherwise it only shows. */
+function tickBox(t,isOn,mine,label,day){
+  const said=`${isOn?'Undo the tick':'Tick'}: ${t.title}${label?' ('+label+')':''}${day?', '+fmtDay(day):''}`;
+  const box=mine&&canChange()&&!isArchived(t)
+    ?`<button type="button" class="tick${isOn?' on':''}" data-act="tick" data-task="${esc(t.id)}" data-on="${isOn?'0':'1'}"${day?` data-day="${esc(day)}"`:''} aria-pressed="${isOn}" aria-label="${esc(said)}">${ms('check')}</button>`
+    :`<span class="tick${isOn?' on':''}" role="img" aria-label="${esc((isOn?'Ticked':'Not ticked')+(label?' ('+label+')':''))}">${ms('check')}</span>`;
+  return label?`<span class="tk">${box}<span>${esc(label)}</span></span>`:box;
+}
+function ticksHtml(t){
+  if(isArchived(t))return '';
+  const m=meKey();
+  if(t.kind==='daily'){
+    const d=todayIso();
+    return `<div class="ticks">${m?tickBox(t,!!dayTicks[`${t.id}|${m}|${d}`],true,'Today',d):''}</div>`;
+  }
+  if(t.owner==='both')return `<div class="ticks">${PEOPLE.map(p=>tickBox(t,!!tickOf(t,p),p===m,NAME[p])).join('')}</div>`;
+  return `<div class="ticks">${tickBox(t,isDone(t),!!m)}</div>`;
+}
+/* The last seven days of a daily task for one person, oldest first; a mark is a button for the person looking. */
+function marksHtml(t,person){
+  const d=todayIso(), mine=person===meKey()&&canChange()&&!isArchived(t);
+  let h='';
+  for(let n=6;n>=0;n--){
+    const day=addDays(d,-n), isOn=!!dayTicks[`${t.id}|${person}|${day}`], cls=`mark${isOn?' on':''}${n===0?' today':''}`;
+    const said=`${fmtDay(day)}: ${isOn?'ticked':'not ticked'}`;
+    h+=mine?`<button type="button" class="${cls}" data-act="tick" data-task="${esc(t.id)}" data-on="${isOn?'0':'1'}" data-day="${day}" aria-pressed="${isOn}" title="${esc(said)}" aria-label="${esc(said)}"></button>`
+      :`<span class="${cls}" role="img" title="${esc(said)}" aria-label="${esc(said)}"></span>`;
+  }
+  return `<span class="marks">${h}</span>`;
+}
+function metaHtml(t){
+  const s=st(t), d=todayIso(), bits=[];
+  bits.push(`<span class="tag">${ms('person')}${esc(ownerWords(t.owner))}</span>`);
+  if(t.claude)bits.push(`<span class="tag ours">${ms('smart_toy')}Claude</span>`);
+  if(t.kind==='daily')bits.push(`<span class="tag">${ms('event_repeat')}Every day</span>`);
+  if(t.priority)bits.push(`<span class="st${t.priority===1?' info':''}">Priority ${esc(t.priority)}</span>`);
+  if(isArchived(t))bits.push(`<span class="st">Removed${t.archived_at?' by '+esc(byName(t.archived_by))+', '+esc(fmtWhen(t.archived_at)):''}</span>`);
+  else if(s.done)bits.push(`<span class="st ok">${ms('check')}Done ${esc(fmtDay(londonDay(s.done_at)))}</span>`);
+  else if(t.due_on)bits.push(t.due_on<d?`<span class="st err">Late, due ${esc(fmtDay(t.due_on))}</span>`
+    :t.due_on===d?'<span class="st info">Due today</span>':`<span>Due ${esc(fmtDay(t.due_on))}</span>`);
+  if(s.items_total)bits.push(`<span class="st${s.items_done===s.items_total?' ok':''} num">${esc(s.items_done)} of ${esc(s.items_total)}</span>`);
+  const claudeTick=tickOf(t,'claude');
+  if(claudeTick){
+    const href=/^https:\/\//.test(String(claudeTick.link||''))?claudeTick.link:'';
+    bits.push(`<span class="st ok">${ms('smart_toy')}Ticked by Claude</span>`+(href?`<a class="linkish blue" href="${esc(href)}" rel="noopener">See the work</a>`:''));
+  }
+  const n=(notesOf[t.id]||[]).length;
+  if(n)bits.push(`<span>${ms('chat')} ${n} ${n===1?'note':'notes'}</span>`);
+  if(waiting(t))bits.push('<span class="st info">Waiting for Claude</span>');
+  return `<div class="pt-meta">${bits.join('')}</div>`;
+}
+function dailyHtml(t,everyone){
+  const m=meKey(), people=everyone?PEOPLE:PEOPLE.filter(p=>p===m);
+  return people.map(p=>`<div class="daily-line"><span>${esc(everyone?NAME[p]+', the':'The')} last seven days</span>${marksHtml(t,p)}</div>`).join('');
+}
+
+/* One line of a checklist: its tick, its words, who ticked it, and its own small form. */
+function itemRow(c){
+  const parent=byId[c.parent_id], isOn=isDone(c), tick=(liveOf[c.id]||[])[0];
+  const locked=!canChange()||isArchived(parent);
+  const box=locked||!meKey()
+    ?`<span class="tick${isOn?' on':''}" role="img" aria-label="${isOn?'Ticked':'Not ticked'}">${ms('check')}</span>`
+    :`<button type="button" class="tick${isOn?' on':''}" data-act="tick" data-task="${esc(c.id)}" data-on="${isOn?'0':'1'}" aria-pressed="${isOn}" aria-label="${esc((isOn?'Undo the tick: ':'Tick: ')+c.title)}">${ms('check')}</button>`;
+  const who=tick?`<span class="task-meta"><span>${esc(tick.person==='claude'?NAME.claude:NAME[tick.person]||'')}, ${esc(fmtDay(londonDay(tick.at)))}</span></span>`:'';
+  let form='';
+  if(UI.form==='item:'+c.id)form=`<div class="inline-choice"><label class="sr" for="ie-${esc(c.id)}">The line</label><input class="input" id="ie-${esc(c.id)}" maxlength="300" value="${esc(c.title)}"${isOn?' disabled':''}>${
+    isOn?'<span>Untick the line to change its words.</span>':btn('itemSave','Save line','',{task:c.id},'primary')}${btn('form','Remove line','',{f:'itemgo:'+c.id},'danger')}${btn('formClose','Cancel','',{},'quiet')}</div>`;
+  if(UI.form==='itemgo:'+c.id)form=`<div class="inline-choice"><span>Remove this line from the checklist? It moves to Removed lines, under the checklist, where Put back restores it.</span>${
+    btn('archive','Remove line','',{task:c.id,to:'1'},'danger')}${btn('formClose','Cancel','',{},'quiet')}</div>`;
+  const more=locked||form?'':`<button type="button" class="btn quiet sm" data-act="form" data-f="item:${esc(c.id)}" aria-label="${esc('Change this line: '+c.title)}">${ms('more_horiz')}</button>`;
+  return `<div class="task-row${isOn?' done':''}">${box}<div class="task-main"><span class="task-text">${esc(c.title)}</span>${who}${form}</div>${more}</div>`;
+}
+function checklistHtml(t){
+  if(t.kind==='daily')return '';
+  const all=kidsOf[t.id]||[], live=all.filter(c=>!c.archived_at), gone=all.filter(c=>c.archived_at);
+  const closed=!canChange()||isArchived(t);
+  if(!live.length&&!gone.length&&(closed||isDone(t)))return '';
+  const add=closed||isDone(t)?'':`<div class="inline-choice"><label class="sr" for="it-${esc(t.id)}">A new line for the checklist</label><input class="input" id="it-${esc(t.id)}" data-keep="1" data-enter="itemAdd" data-task="${esc(t.id)}" maxlength="300" placeholder="Add a line to the checklist">${btn('itemAdd','Add line','add',{task:t.id})}</div>`;
+  const removed=gone.length?`<details class="archive inpanel"${UI.folds.has('gone:'+t.id)?' open':''}><summary data-act="fold" data-k="gone:${esc(t.id)}">Removed lines (${gone.length})</summary><div class="arch-body">${gone.map(c=>
+    `<div class="arch-row"><span class="arch-note">${esc(c.title)}</span><span class="item-date">${esc(byName(c.archived_by))}, ${esc(fmtWhen(c.archived_at))}</span>${closed?'':btn('archive','Put back','undo',{task:c.id,to:'0'},'quiet')}</div>`).join('')}</div></details>`:'';
+  const s=st(t);
+  return `<div class="pt-part"><h3>Checklist${live.length?` <span class="num">${esc(s.items_done||0)} of ${esc(live.length)}</span>`:''}</h3>${live.length?`<div class="items">${live.map(itemRow).join('')}</div>`:''}${add}${removed}</div>`;
+}
+function noteHtml(n,reply){
+  const wait=!reply&&n.by!=='claude'&&!n.answered_at;
+  return `<div class="note${reply?' reply':''}"><span class="note-by"><b>${esc(byName(n.by))}</b><span>${esc(fmtWhen(n.at))}</span>${wait?'<span class="st info">Waiting for Claude</span>':''}</span><span class="note-body">${esc(n.body)}</span></div>`;
+}
+function notesHtml(t){
+  const all=notesOf[t.id]||[], heads=all.filter(n=>n.reply_to==null||!all.some(x=>x.id===n.reply_to));
+  const thread=heads.map(n=>noteHtml(n,false)+all.filter(r=>r.reply_to===n.id).map(r=>noteHtml(r,true)).join('')).join('');
+  const composer=!canChange()||t.archived_at?'':`<div class="composer"><label class="sr" for="nt-${esc(t.id)}">A note on this task</label><textarea class="input" id="nt-${esc(t.id)}" data-keep="1" maxlength="2000" placeholder="Say what is wrong, thin or missing. A note gets an answer."></textarea><div class="composer-row"><span class="picker-note">A note is kept as written: it is never edited and never deleted.</span>${btn('noteAdd','Add note','add',{task:t.id})}</div></div>`;
+  if(!thread&&!composer)return '';
+  return `<div class="pt-part"><h3>Notes</h3>${thread?`<div class="notes">${thread}</div>`:''}${composer}</div>`;
+}
+
+/* History: that task's events, and its checklist's, newest first: who, what, when. */
+const FIELD={title:'the title',detail:'the detail',owner:'the owner',claude:'the Claude tag',phase:'the phase',priority:'the priority',due_on:'the due date'};
+function showValue(k,v){
+  if(v==null||v==='')return 'none';
+  if(k==='owner')return ownerWords(v);
+  if(k==='phase')return phaseLabel(v)||String(v);
+  if(k==='due_on')return fmtDay(v);
+  if(k==='claude')return v?'on':'off';
+  const text=String(v);
+  return '"'+(text.length>90?text.slice(0,90)+'...':text)+'"';
+}
+function eventWords(e){
+  const d=e.detail||{};
+  switch(e.kind){
+    case 'seed':return 'Loaded from the launch plan'+(d.done&&d.done.on?`, already done on ${fmtDay(d.done.on)}`:'');
+    case 'add':return 'Added';
+    case 'edit':return 'Changed '+Object.entries(d.changed||{}).map(([k,v])=>`${FIELD[k]||k} from ${showValue(k,(v||{}).from)} to ${showValue(k,(v||{}).to)}`).join('; ');
+    case 'archive':return 'Removed';
+    case 'restore':return 'Put back';
+    case 'tick':return 'Ticked'+(d.day?` for ${fmtDay(d.day)}`:'');
+    case 'untick':{
+      const others=(d.of||[]).filter(p=>p!==WHO[String(e.by||'').toLowerCase()]&&p!==e.by);
+      return 'Undid the tick'+(others.length?` of ${others.map(p=>NAME[p]||p).join(' and ')}`:'')+(d.day?` for ${fmtDay(d.day)}`:'');
+    }
+    case 'note':return 'Added a note';
+    case 'reply':return 'Answered a note';
+    default:return String(e.kind||'');
+  }
+}
+function histHtml(t){
+  const h=HIST[t.id];
+  let body;
+  if(!h)body=muted('Reading the history.');
+  else if(h.error)body=muted(`Could not read the history: ${h.error}.`);
+  else if(!h.rows.length)body=muted('Nothing has happened to this task yet.');
+  else body=h.rows.map(e=>{
+    const line=e.task_id!==t.id&&byId[e.task_id]?`Checklist, ${byId[e.task_id].title}: `:'';
+    return `<div class="arch-row"><span class="arch-note" style="color:var(--fg-1)">${esc(line+eventWords(e))}</span><span class="item-date">${esc(byName(e.by))}, ${esc(fmtWhen(e.at))}</span></div>`;
+  }).join('');
+  return `<div class="pt-part"><h3>History</h3><div>${body}</div></div>`;
+}
+
+/* The form that adds a task, and the same form changing one. */
+function taskForm(t){
+  const f=t?'fe'+t.id:'fa', own=t?t.owner:(meKey()||PEOPLE[0]);
+  const option=(v,label,cur)=>`<option value="${esc(v)}"${String(cur==null?'':cur)===String(v)?' selected':''}>${esc(label)}</option>`;
+  const owners=PEOPLE.map(p=>option(p,NAME[p],own)).join('')+option('both',ownerWords('both'),own);
+  const phases=option('','No phase',t?t.phase:'')+(P.phases||[]).map(p=>option(p.key,p.label,t?t.phase:'')).join('');
+  const pri=option('','None',t?t.priority:'')+[1,2,3].map(n=>option(n,String(n),t?t.priority:'')).join('');
+  const daily=t&&t.kind==='daily';
+  return `<div class="pform"><div class="form-grid">
+    <div class="field wide"><label for="${f}-title">Task</label><input class="input" id="${f}-title" data-keep="1" maxlength="300" placeholder="What needs doing" value="${esc(t?t.title:'')}"></div>
+    <div class="field"><label for="${f}-owner">Owner</label><select class="input" id="${f}-owner">${owners}</select></div>
+    ${daily?'':`<div class="field"><label for="${f}-due">Due</label><input class="input" type="date" id="${f}-due" value="${esc(t?t.due_on||'':'')}"></div>`}
+    <div class="field"><label for="${f}-phase">Phase</label><select class="input" id="${f}-phase">${phases}</select></div>
+    <div class="field"><label for="${f}-pri">Priority</label><select class="input" id="${f}-pri">${pri}</select></div>
+    <div class="field wide"><label for="${f}-detail">Detail</label><textarea class="input" id="${f}-detail" data-keep="1" maxlength="2000" placeholder="Anything that helps whoever does it">${esc(t?t.detail||'':'')}</textarea></div>
+    </div><div class="actions"><label class="check"><input type="checkbox" id="${f}-claude"${t&&t.claude?' checked':''}>The work is Claude's</label>${
+      t?'':`<label class="check"><input type="checkbox" id="${f}-daily">Ticked every day, with no due date</label>`}</div>
+    <div class="actions">${t?btn('taskSave','Save task','',{task:t.id},'primary'):btn('taskAdd','Add task','add',{},'primary')}${btn('formClose','Cancel','',{},'quiet')}</div></div>`;
+}
+
+function bodyHtml(t){
+  const arch=isArchived(t), done=isDone(t);
+  let acts='';
+  if(canChange()&&!arch){
+    acts+=done?'<span class="picker-note">Done: untick it to change its words, its date or its owner.</span>':btn('form','Edit task','edit',{f:'edit:'+t.id});
+    acts+=btn('form','Remove task','delete',{f:'remove:'+t.id},'danger');
+  }
+  acts+=btn('hist',UI.hist.has(t.id)?'Hide history':'Show history','history',{task:t.id},'quiet');
+  let form='';
+  if(UI.form==='edit:'+t.id)form=taskForm(t);
+  if(UI.form==='remove:'+t.id)form=`<div class="inline-choice"><span>Remove this task? It moves to Removed, at the foot of the whole project, where Put back restores it with its checklist.</span>${
+    btn('archive','Remove task','',{task:t.id,to:'1'},'danger')}${btn('formClose','Cancel','',{},'quiet')}</div>`;
+  return `<div class="pt-body">${t.detail?`<p class="fact">${esc(t.detail)}</p>`:''}${t.kind==='daily'?`<div class="pt-part">${dailyHtml(t,true)}</div>`:''}${
+    checklistHtml(t)}${notesHtml(t)}<div class="actions">${acts}</div>${form}${UI.hist.has(t.id)?histHtml(t):''}</div>`;
+}
+function taskCard(t){
+  const open=UI.open.has(t.id), arch=isArchived(t);
+  const side=arch&&canChange()?btn('archive','Put back','undo',{task:t.id,to:'0'}):'';
+  const toggle=`<button type="button" class="btn quiet sm" data-act="open" data-task="${esc(t.id)}" aria-expanded="${open}" aria-label="${esc((open?'Close: ':'Open: ')+t.title)}">${open?'Close':'Open'}${ms(open?'expand_less':'expand_more')}</button>`;
+  return `<article class="ptask${isDone(t)?' done':''}" id="task-${esc(t.id)}"><div class="pt-top">${ticksHtml(t)}<div class="pt-main"><span class="pt-title">${esc(t.title)}</span>${metaHtml(t)}${
+    t.kind==='daily'&&!open?dailyHtml(t,false):''}</div><div class="actions">${side}${toggle}</div></div>${open?bodyHtml(t):''}</article>`;
+}
+function group(name,tasks,dot,emptyText,extra){
+  if(!tasks.length&&!emptyText)return '';
+  return `<section class="pgroup"><div class="phase-head">${dot?`<span class="gdot ${dot}"></span>`:''}<span class="pname">${esc(name)}</span><span class="pcount num">${tasks.length}</span>${extra||''}</div>${
+    tasks.length?tasks.map(taskCard).join(''):muted(emptyText)}</section>`;
+}
+function fold(key,label,tasks){
+  if(!tasks.length)return '';
+  return `<details class="archive"${UI.folds.has(key)?' open':''}><summary data-act="fold" data-k="${esc(key)}">${esc(label)} (${tasks.length})</summary><div class="arch-body cards">${
+    UI.folds.has(key)?tasks.map(taskCard).join(''):''}</div></details>`;
+}
+
+/* ---------- the two views ---------- */
+function mine(){
+  const m=meKey();
+  return top().filter(t=>!isArchived(t)&&(t.owner===m||t.owner==='both'));
+}
+function dayHtml(){
+  const m=meKey(), d=todayIso(), sun=sundayOf(d), all=mine();
+  const once=all.filter(t=>t.kind!=='daily'), daily=all.filter(t=>t.kind==='daily').sort(byDue);
+  const open=once.filter(t=>!doneFor(t,m)).sort(byDue);
+  const late=open.filter(t=>t.due_on&&t.due_on<d), today=open.filter(t=>t.due_on===d);
+  const week=open.filter(t=>t.due_on&&t.due_on>d&&t.due_on<=sun), later=open.filter(t=>!t.due_on||t.due_on>sun);
+  const tickedOn=t=>{const k=t.owner==='both'?tickOf(t,m):null;return londonDay((k&&k.at)||st(t).done_at||new Date());};
+  const recent=once.filter(t=>doneFor(t,m)&&tickedOn(t)>=addDays(d,-6)).sort((a,b)=>tickedOn(b).localeCompare(tickedOn(a))||b.id-a.id);
+  if(!all.length)return `<section class="panel"><div class="empty-state">${ms('task_alt')}<span>Nothing here is yours yet. The whole project is on the other tab.</span></div></section>`;
+  return `<div class="pwrap">${group('Late',late,'problem')}${group('Today',today,'approve','Nothing is due today.')}${
+    group('Every day',daily,'waiting')}${group('This week',week,'','')}${fold('later','Later',later)}${fold('recent','Done in the last seven days',recent)}</div>`;
+}
+function allHtml(){
+  const d=todayIso();
+  const show=t=>(UI.who==='all'||t.owner===UI.who||t.owner==='both')&&(!UI.claude||t.claude);
+  const bar=`<div class="toolbar"><div class="seg" role="group" aria-label="Whose tasks">${['all'].concat(PEOPLE).map(w=>
+    `<button type="button" data-act="who" data-w="${w}" aria-pressed="${UI.who===w}">${w==='all'?'Everyone':esc(NAME[w])}</button>`).join('')}</div>`+
+    `<button type="button" class="opt" data-act="claudeOnly" aria-pressed="${UI.claude}">Only the Claude tag</button></div>`;
+  const live=top().filter(t=>!isArchived(t)&&show(t));
+  const phases=(P.phases||[]).concat([{key:null,label:'No phase'}]);
+  const known=new Set((P.phases||[]).map(p=>p.key));
+  const sections=phases.map(p=>{
+    const tasks=live.filter(t=>p.key==null?!known.has(t.phase):t.phase===p.key);
+    if(!tasks.length&&p.key==null)return '';
+    const once=tasks.filter(t=>t.kind!=='daily'), done=once.filter(isDone).sort((a,b)=>String(st(b).done_at||'').localeCompare(String(st(a).done_at||''))||b.id-a.id);
+    const open=tasks.filter(t=>t.kind==='daily'||!isDone(t)).sort(byDue);
+    const n=p.ends_on?daysTo(p.ends_on,d):null;
+    const ends=p.ends_on?`<span class="pcount">ends ${esc(fmtDay(p.ends_on))}${n>0?`, in ${n} ${n===1?'day':'days'}`:n===0?', today':''}</span>`:'';
+    return `<section class="pgroup"><div class="phase-head"><span class="pname">${esc(p.label)}</span><span class="pcount num">${done.length} of ${once.length} done</span>${ends}</div>${
+      open.length?open.map(taskCard).join(''):muted(tasks.length?'Everything in this phase is done.':'Nothing in this phase.')}${fold('done:'+p.key,'Done',done)}</section>`;
+  }).join('');
+  const removed=top().filter(t=>isArchived(t)).sort((a,b)=>String(b.archived_at||'').localeCompare(String(a.archived_at||'')));
+  return `<div class="pwrap">${bar}${sections}${fold('removed','Removed',removed)}</div>`;
+}
+
+function tiles(){
+  const d=todayIso(), once=top().filter(t=>!isArchived(t)&&t.kind!=='daily');
+  const done=once.filter(isDone).length, late=once.filter(t=>!isDone(t)&&t.due_on&&t.due_on<d).length;
+  let h=`<div class="stat"><span class="stat-n num">${done} of ${once.length}</span><span class="stat-l">tasks done</span></div>`+
+    `<div class="stat${late?' problem':''}"><span class="stat-n num">${late}</span><span class="stat-l">${late===1?'task is late':'tasks are late'}</span></div>`;
+  (P.phases||[]).filter(p=>p.ends_on).forEach(p=>{
+    const n=daysTo(p.ends_on,d), label=String(p.label||'');
+    const lower=label.charAt(0).toLowerCase()+label.slice(1);
+    h+=n>0?`<div class="stat"><span class="stat-n num">${n}</span><span class="stat-l">${n===1?'day':'days'} to the ${esc(lower)}</span><span class="stat-s">${esc(fmtDay(p.ends_on))}</span></div>`
+      :`<div class="stat"><span class="stat-n words">${n===0?'Today':esc(fmtDay(p.ends_on))}</span><span class="stat-l">${esc(label)}${n===0?'':', passed'}</span></div>`;
+  });
+  return `<div class="stat-row">${h}</div>`;
+}
+function tabs(){
+  const m=meKey(), mineOpen=mine().filter(t=>t.kind!=='daily'&&!doneFor(t,m)).length;
+  const allOpen=top().filter(t=>!isArchived(t)&&t.kind!=='daily'&&!isDone(t)).length;
+  const tab=(id,icon,label,n)=>`<button type="button" role="tab" data-act="tab" data-t="${id}" aria-selected="${UI.tab===id}">${ms(icon)}${label}<span class="n num">${n}</span></button>`;
+  return `<div class="views" role="tablist">${tab('day','today','My day',mineOpen)}${tab('all','checklist','Whole project',allOpen)}</div>`;
+}
+
+/* What a person has typed and not yet saved survives a redraw (a tick on one line must not lose a note half written). */
+function render(){
+  const page=$('page');
+  const typed={};
+  (document.querySelectorAll('[data-keep]')||[]).forEach(el=>{if(el.id&&el.value&&!DROP.has(el.id))typed[el.id]=el.value;});
+  DROP.clear();
+  const bn=banners.map(([tone,b])=>`<div class="banner${tone==='err'?' err':''}">${ms(tone==='err'?'error':'info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
+  if(!loaded){page.innerHTML=NXShell.headHtml({title:'Projects',lede:LEDE})+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the project.</span></div></section>`;return;}
+  if(fatal){page.innerHTML=NXShell.headHtml({title:'Projects',lede:LEDE})+`<div class="banner err">${ms('error')}<div class="banner-text"><span>${esc(fatal)}</span></div></div>`;return;}
+  if(!P){page.innerHTML=NXShell.headHtml({title:'Projects',lede:LEDE})+`<section class="panel"><div class="empty-state">${ms('checklist')}<h3>No project yet</h3><p>A project shows here once it has been set up.</p></div></section>`;return;}
+  const add=canChange()&&UI.form!=='add'?`<button type="button" class="btn primary" data-act="form" data-f="add">${ms('add')}Add task</button>`:'';
+  page.innerHTML=NXShell.headHtml({title:P.name,lede:LEDE,actions:add})+bn+tiles()+tabs()+
+    (UI.form==='add'?`<section class="panel" id="add-task"><h2>${ms('add_task')}Add a task</h2>${taskForm(null)}</section>`:'')+
+    (UI.tab==='all'?allHtml():dayHtml());
+  Object.entries(typed).forEach(([id,value])=>{const el=document.querySelector('#'+id);if(el)el.value=value;});
+}
+
+/* ---------- pressing ---------- */
+const val=id=>String(($(id)||{}).value||'');
+const need=(id,msg)=>{const f=$(id);if(f&&f.focus)f.focus();NXShell.toast(msg);return false;};
+const flip=(set,key)=>{if(set.has(key))set.delete(key);else set.add(key);};
+function taskFields(f,withDue){
+  const out={title:val(f+'-title').trim(),owner:val(f+'-owner'),phase:val(f+'-phase')||null,
+    priority:val(f+'-pri')?Number(val(f+'-pri')):null,detail:val(f+'-detail').trim()||null,claude:!!($(f+'-claude')||{}).checked};
+  if(withDue)out.due_on=val(f+'-due')||null;
+  return out;
+}
+const ACT={
+  tab(el){UI.tab=el.dataset.t==='all'?'all':'day';render();},
+  who(el){UI.who=el.dataset.w;render();},
+  claudeOnly(){UI.claude=!UI.claude;render();},
+  fold(el){flip(UI.folds,el.dataset.k);render();},
+  open(el){flip(UI.open,Number(el.dataset.task));if(UI.form&&UI.form!=='add')UI.form=null;render();},
+  form(el){
+    UI.form=el.dataset.f;render();
+    setTimeout(()=>{const f=document.querySelector('.pform .input, .inline-choice .input');if(f&&f.focus)f.focus();},0);
+  },
+  formClose(){UI.form=null;render();},
+  async hist(el){
+    const id=Number(el.dataset.task);
+    flip(UI.hist,id);render();
+    if(UI.hist.has(id)&&!HIST[id]){await readHist(id);render();}
+  },
+  tick(el){
+    const p={task_id:Number(el.dataset.task),on:el.dataset.on==='1'};
+    if(el.dataset.day)p.day=el.dataset.day;
+    return press('project-tick',p);
+  },
+  taskAdd(){
+    const p=taskFields('fa',true);
+    if(!p.title)return need('fa-title','Say what needs doing first.');
+    if(($('fa-daily')||{}).checked){
+      if(p.due_on)return need('fa-due','A task ticked every day has no due date; clear the date or untick every day.');
+      p.kind='daily';delete p.due_on;
+    }
+    p.project=P.slug;
+    return press('project-add-task',p,['fa-title','fa-detail']);
+  },
+  taskSave(el){
+    const t=byId[Number(el.dataset.task)];
+    if(!t)return false;
+    const f='fe'+t.id, p=taskFields(f,t.kind!=='daily');
+    if(!p.title)return need(f+'-title','A task needs a title; say what needs doing.');
+    p.task_id=t.id;
+    return press('project-edit-task',p,[f+'-title',f+'-detail']);
+  },
+  itemAdd(el){
+    const id=Number(el.dataset.task), title=val('it-'+id).trim();
+    if(!title)return need('it-'+id,'Type the line first.');
+    return press('project-add-task',{parent_id:id,title},['it-'+id]);
+  },
+  itemSave(el){
+    const id=Number(el.dataset.task), title=val('ie-'+id).trim();
+    if(!title)return need('ie-'+id,'A line needs some words.');
+    return press('project-edit-task',{task_id:id,title});
+  },
+  /* Remove (to=1) and Put back (to=0): the row is kept either way. */
+  archive(el){return press('project-archive-task',{task_id:Number(el.dataset.task),archived:el.dataset.to==='1'});},
+  noteAdd(el){
+    const id=Number(el.dataset.task), body=val('nt-'+id).trim();
+    if(!body)return need('nt-'+id,'Type the note first.');
+    return press('project-add-note',{task_id:id,body},['nt-'+id]);
+  },
+};
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(!b)return;
+  const a=ACT[b.dataset.act];
+  if(a){e.preventDefault();a(b);}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&UI.form){UI.form=null;render();return;}
+  const el=e.target;
+  if(e.key==='Enter'&&el&&el.dataset&&el.dataset.enter&&ACT[el.dataset.enter]){e.preventDefault();ACT[el.dataset.enter](el);}
+});
+/* Coming back to the tab reads the list again, so one person sees what the other has ticked. */
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&loaded&&!UI.form&&!busy)return load();});
+
+boot();
+</script>
+</body>
+</html>
