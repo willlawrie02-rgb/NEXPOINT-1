@@ -132,6 +132,7 @@
   .stats{display:flex;flex-wrap:wrap;gap:clamp(18px,2.5vw,26px) clamp(24px,2.8vw,40px);margin:0}
   .stat{display:flex;align-items:baseline;gap:10px;padding:0;flex:0 1 auto;max-width:255px}
   .stat+.stat{border-left:none}
+  .stat[hidden]{display:none}
   .stat b{flex:0 0 auto;font:700 clamp(21px,1.9vw,27px)/1 var(--font-display);letter-spacing:-.02em;color:#fff}
   .stat b i{font-style:normal}
   .stat span{display:block;margin:0;font-size:12.5px;color:var(--on-surface-var);line-height:1.4}
@@ -204,6 +205,8 @@
   .board-closed{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:rgba(245,166,35,.10);border:1px solid rgba(245,166,35,.38);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:24px}
   .board-closed[hidden]{display:none}
   .board-closed p{margin:0;font-size:15px;line-height:1.5;color:#0E1626}
+  .board-closed p a{color:var(--blue);font-weight:600;text-decoration:underline}
+  .board-closed--plain{background:transparent;border-color:var(--border)}
   .member-strip .who b{color:var(--green)}
   .member-strip .sub{font-size:12.5px;color:var(--outline);margin-top:2px}
   .matched-home{display:none;margin-bottom:36px}
@@ -616,7 +619,9 @@
 <section class="proof">
   <div class="container">
     <div class="stats">
-      <div class="stat"><b id="statLiveCount">13</b><span>opportunities live on the board right now</span></div>
+      <!-- The count is the board's own, so it is not shown until the board has been read, and not at
+           all when the read failed or found nothing (audit of 11 November 2026, finding 10b-04). -->
+      <div class="stat" id="statLive" style="visibility:hidden"><b id="statLiveCount">0</b><span>opportunities live on the board right now</span></div>
       <div class="stat"><b>5</b><span>continents of manufacturers, clinics, distributors &amp; makers</span></div>
       <div class="stat"><b>20+ <i>yrs</i></b><span>of personal industry relationships</span></div>
       <div class="stat"><b>1-to-1</b><span>every introduction made in person</span></div>
@@ -694,6 +699,16 @@
     <div class="board-closed" id="boardClosed" role="status" hidden>
       <p><b>This account is closed.</b> Reopen it from your account page to see the board&rsquo;s opportunities.</p>
       <a class="btn btn-primary" href="https://nexpoint.co.uk/hub/account/">Reopen your account</a>
+    </div>
+    <!-- The cards could not be read (audit of 11 November 2026, finding 10b-04): say so and offer the
+         read again. An empty grid here read as "NexPoint has no opportunities". Shown by loadBriefs. -->
+    <div class="board-closed" id="boardFailed" role="alert" hidden>
+      <p><b>The board did not load.</b> Try again, or email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>
+      <button class="btn btn-primary" type="button" id="boardRetry" onclick="loadBriefs()">Load the board again</button>
+    </div>
+    <!-- The board was read and holds no cards: a different thing, said differently. -->
+    <div class="board-closed board-closed--plain" id="boardEmpty" role="status" hidden>
+      <p><b>No opportunities are on the board just now.</b> We verify each one before it goes on the board.</p>
     </div>
     <div class="grid preview-blur" id="grid"></div>
   </div>
@@ -799,7 +814,6 @@
 
 <script>
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- the questionnaire's site map (plan 046): Leaflet and the map module, from the apex like the account module -->
 <link rel="stylesheet" href="https://nexpoint.co.uk/hub/assets/vendor/leaflet/leaflet.css">
 <script src="https://nexpoint.co.uk/hub/assets/vendor/leaflet/leaflet.js" defer></script>
@@ -872,24 +886,61 @@ function render(filter){
   grid.innerHTML='';
   briefs.filter(b=>filter==='all'?true:b.cat===filter).forEach(b=>grid.appendChild(buildCard(b)));
 }
-function updateLiveCount(){const el=document.getElementById('statLiveCount');if(el)el.textContent=briefs.length;}
 const HUB_API=/^(localhost|127\.0\.0\.1)$/.test(location.hostname)?'http://localhost:8787':'https://api.nexpoint.co.uk';
-/* The worker serves a closed account no cards (plan 069). The board says why and where to
-   reopen, in the account module's own words, instead of standing empty. */
-function showBoardClosed(){
-  const box=document.getElementById('boardClosed');if(box) box.hidden=false;
-  const f=document.getElementById('filters');if(f) f.style.display='none';
+/* What the board's one read came to (audit of 11 November 2026, finding 10b-04). loadBriefs used
+   to swallow a failed read and draw an empty grid, and the proof band then read "0 opportunities
+   live on the board right now": a worker or database fault looked like NexPoint having nothing.
+   Five states, each with its own look:
+     waiting  not read yet: no notice, and the count holds its place unseen
+     ok       cards: the count is shown
+     empty    read, and nothing on it: one plain line, no count
+     failed   not read (no answer, a fault, a lapsed session): a line and a button to read again
+     closed   a closed account is served no cards (plan 069): the line and the way to reopen
+   Every state but ok and waiting hides the filters, which have nothing to filter. unlock() calls
+   this too, so the order the account and the cards arrive in does not matter. */
+let boardState='waiting';
+function showBoardState(){
+  const on=(id,yes)=>{const b=document.getElementById(id);if(b) b.hidden=!yes;};
+  on('boardClosed',boardState==='closed');
+  on('boardFailed',boardState==='failed');
+  on('boardEmpty',boardState==='empty');
+  const cell=document.getElementById('statLive'),num=document.getElementById('statLiveCount');
+  if(cell&&num){
+    if(boardState==='ok') num.textContent=briefs.length;
+    cell.style.visibility=boardState==='ok'?'':'hidden';
+    cell.hidden=boardState!=='ok'&&boardState!=='waiting';
+  }
+  const f=document.getElementById('filters');
+  if(f&&boardState!=='ok'&&boardState!=='waiting') f.style.display='none';
+  else if(f&&boardState==='ok'&&member) f.style.display='flex';
 }
+/* A read that never answers gives up after this long and is a failed read, with its button. */
+const BRIEFS_TIMEOUT_MS=15000;
+let briefsLoading=false;
 async function loadBriefs(){
+  if(briefsLoading) return;
+  briefsLoading=true;
+  const retry=document.getElementById('boardRetry');
+  if(retry){retry.disabled=true;retry.textContent='Loading the board…';}
+  let state='failed',timer=null;
   try{
-    const r=await fetch(HUB_API+'/opportunities/briefs',{credentials:'include'});
+    const opts={credentials:'include'};
+    if(typeof AbortController==='function'){
+      const ctl=new AbortController();opts.signal=ctl.signal;
+      timer=setTimeout(()=>ctl.abort(),BRIEFS_TIMEOUT_MS);
+    }
+    const r=await fetch(HUB_API+'/opportunities/briefs',opts);
     const d=await r.json().catch(()=>null);
-    if(r.ok&&d&&Array.isArray(d.briefs)) briefs=d.briefs;
-    else if(d&&d.error==='account_closed') showBoardClosed();
-  }catch(e){}
-  render(document.querySelector('.chip.active')?.dataset.f||'all');updateLiveCount();
+    if(r.ok&&d&&Array.isArray(d.briefs)){ briefs=d.briefs; state=briefs.length?'ok':'empty'; }
+    else if(d&&d.error==='account_closed') state='closed';
+  }catch(e){ /* no answer, or the read gave up: state stays failed */ }
+  finally{ if(timer) clearTimeout(timer); }
+  briefsLoading=false;
+  if(retry){retry.disabled=false;retry.textContent='Load the board again';}
+  boardState=state;
+  render(document.querySelector('.chip.active')?.dataset.f||'all');showBoardState();
 }
-render('all');updateLiveCount();
+render('all');showBoardState();
 /* Once the hub account is known signed in: the wall has already sent a
    stranger to the door, so this runs for account holders only. */
 if(window.NPAccount&&NPAccount.user) loadBriefs();
@@ -1421,6 +1472,7 @@ function unlock(noScroll){
   closeAll();
   document.getElementById('wall').style.display='none';
   document.getElementById('filters').style.display='flex';
+  showBoardState();   // a board that failed, is empty or is closed keeps its filters hidden
   grid.classList.remove('preview-blur');
   // The header is not rewritten here: the hub account chip in [data-np-account-slot] is the one
   // signed-in header, as on every other hub page (audit plan 009).
@@ -1446,15 +1498,20 @@ function unlock(noScroll){
   if(!noScroll) document.getElementById('briefs').scrollIntoView({behavior:'smooth'});
 }
 
-/* ===== The legacy Supabase client: sign-out only =====
+/* ===== The legacy Supabase session: cleared without the library =====
    Since plan 028 this page creates no Supabase session and reads no Supabase
    table; the hub account (hub-account.js, the worker's /auth routes) is the
-   only authority. The client is kept for one release for the two sign-out
-   calls below, which clear a session this origin may still hold from before.
-   When it goes, the supabase-js script tag in <head> goes with it. */
-const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
-const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
-const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+   only authority. Until 11 November 2026 the page still loaded supabase-js
+   from an outside network for two sign-out calls, and built its client with
+   no guard: where that file was blocked the line threw, nothing after it
+   ran, and a signed-in account saw the board blurred for good (audit of
+   11 November 2026, finding 10b-03). The file and the client are gone. All
+   the two calls were still for is a session this origin's storage may hold
+   from before plan 028, and that is the two keys below, removed directly. */
+const LEGACY_SESSION_KEY='sb-synywukadvjpjjxjylwk-auth-token';
+function clearLegacySession(){
+  try{ localStorage.removeItem(LEGACY_SESSION_KEY); localStorage.removeItem(LEGACY_SESSION_KEY+'-code-verifier'); }catch(e){}
+}
 
 // The product detail the request payload carries. profileMeta() and richMeta()
 // stood beside this until plan 028: they shaped the Supabase user_metadata and
@@ -1536,21 +1593,21 @@ async function doReset(link){
       <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Close</button></div>
     </div>`;
 }
-/* Sign out of BOTH systems, always (audit plan 009): the hub account and the legacy Supabase
-   session this origin may still hold. Before this, NPAccount.signOut() left the legacy session
-   in localStorage and the reload unlocked the board straight back. */
+/* Sign out of the hub account, and clear any legacy Supabase session this origin still holds
+   (audit plan 009). Nothing reads that session any more (plan 028); it is cleared so it does
+   not sit in storage. */
 let relocking=false;
 async function signOut(){
   relocking=true;   // the relock in syncMemberFromAccount stands down: this function finishes the job
   if(window.NPAccount && typeof NPAccount.signOut === 'function'){ await NPAccount.signOut(); }
-  try{ await sb.auth.signOut(); }catch(e){}
+  clearLegacySession();
   location.reload();
 }
 
 /* A legacy Supabase session no longer unlocks this board (audit plan 028). Nothing on
    this page can create one any more, and the hub account is the only authority; a session
    left in this origin's localStorage from before is cleared by signOut() and by the relock
-   in syncMemberFromAccount, both below, which is the only reason the client survives. */
+   in syncMemberFromAccount, both below. */
 
 /* ===== NPAccount — the one hub account, unifying the gate ===== */
 function accountProfile(u){
@@ -1567,7 +1624,7 @@ function syncMemberFromAccount(){
     // The hub account has just signed out here (the header chip's Sign out): clear the legacy
     // session too and reload, so the board locks instead of the old session unlocking it again
     // (audit plan 009). A page that never saw a hub user leaves any legacy session alone.
-    if(hubUserSeen && !relocking){ hubUserSeen=false; relocking=true; sb.auth.signOut().catch(()=>{}).then(()=>location.reload()); }
+    if(hubUserSeen && !relocking){ hubUserSeen=false; relocking=true; clearLegacySession(); location.reload(); }
     return;
   }
   hubUserSeen=true;

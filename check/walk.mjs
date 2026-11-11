@@ -3625,6 +3625,61 @@ async function walkTerms() {
     });
     await context.close();
   }
+  {
+    /* Audit of 11 November 2026, findings 10b-04 and 10b-03. A board that could not be read
+       used to stand empty under "0 opportunities live": it now says so and offers the read
+       again, an empty board says something else, and the count shows only once it is known.
+       The page loads no script from an outside network, and signing out still clears the
+       old session its storage may hold. */
+    const world = boardWorld({ briefsDown: true });
+    world.api["GET /opportunities/briefs"] = (w) => (w.briefsDown ? [502, { error: "briefs unavailable" }]
+      : [200, { ok: true, briefs: w.briefsNone ? [] : BRIEFS }]);
+    const { context, page, errors } = await visit(world);
+    await step("a board that could not be read says so, shows no count and no filters", async () => {
+      await page.goto(`${OPPS}/`);
+      await page.waitForSelector("body[data-np-open]");
+      await page.waitForSelector("#boardFailed:not([hidden])", { timeout: 8000 });
+      has(await page.textContent("#boardFailed"), "The board did not load. Try again, or email hello@nexpoint.co.uk.", "the line");
+      eq((await page.textContent("#boardRetry")).trim(), "Load the board again", "the button");
+      eq(await page.isVisible("#statLive"), false, "the live count");
+      eq(await page.isVisible("#boardEmpty"), false, "the empty-board line");
+      eq(await page.locator("#grid .op").count(), 0, "cards");
+      return eq(await page.isVisible("#filters"), false, "the filters");
+    });
+    await step("the button reads the board again, and the cards, the count and the filters arrive", async () => {
+      world.briefsDown = false;
+      await page.click("#boardRetry");
+      await page.waitForFunction(() => document.querySelectorAll("#grid .op").length === 5, null, { timeout: 8000 });
+      eq(await page.isVisible("#boardFailed"), false, "the line");
+      eq(await page.isVisible("#statLive"), true, "the live count");
+      eq((await page.textContent("#statLiveCount")).trim(), "5", "the number");
+      return eq(await page.isVisible("#filters"), true, "the filters");
+    });
+    await step("a board with nothing on it says that instead, with no count and no button", async () => {
+      world.briefsNone = true;
+      await page.goto(`${OPPS}/`);
+      await page.waitForSelector("#boardEmpty:not([hidden])", { timeout: 8000 });
+      has(await page.textContent("#boardEmpty"), "No opportunities are on the board just now. We verify each one before it goes on the board.", "the line");
+      eq(await page.isVisible("#boardFailed"), false, "the could-not-load line");
+      eq(await page.isVisible("#statLive"), false, "the live count");
+      return eq(await page.isVisible("#filters"), false, "the filters");
+    });
+    await step("the page loads no script from an outside network, and Sign out clears the old session's storage", async () => {
+      eq(await page.locator('script[src*="jsdelivr"], script[src*="supabase"]').count(), 0, "outside script tags");
+      const key = `sb-${DB_HOST.split(".")[0]}-auth-token`;
+      await page.evaluate((k) => localStorage.setItem(k, "{}"), key);
+      await page.click('#memberStrip button[onclick="signOut()"]');
+      /* The wall's move to the door and the page's own reload both start here, so the
+         address is watched rather than one navigation waited for. */
+      await until(() => { try { const u = new URL(page.url()); return u.origin === APEX && u.pathname === "/hub/"; } catch (e) { return false; } },
+        "the door after signing out", 8000);
+      eq(apiCalls(world, "POST /auth/logout").length, 1, "sign-outs sent to the hub account");
+      await page.goto(`${OPPS}/assets/nexpoint-logo.png`);
+      return eq(await page.evaluate((k) => localStorage.getItem(k), key), null, "the old session's key");
+    });
+    clean(world, errors, "the board's read");
+    await context.close();
+  }
   const openPost = async (page) => {
     await openBoard(page);
     await page.click("#post button.btn-primary");
