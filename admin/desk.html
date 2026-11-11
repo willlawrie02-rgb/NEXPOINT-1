@@ -73,6 +73,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=6"></script>
 <script src="crm.js?v=071"></script>
+<script src="jobs.js?v=082b"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -122,6 +123,11 @@ const ORIGIN={'THE PORTAL':"Sent through Talk to the desk on the NexPoint Global
 const STALE_CLAIM=10*60*1000;
 const staleClaim=i=>i.status==='claimed'&&Date.now()-Date.parse(i.requested_at||0)>STALE_CLAIM;
 const UI={filter:'open',open:null};
+/* The page checks back by itself, as the other CRM pages do (jobs.js's poll):
+   a reply the engine could not send says Failed here with nobody reloading.
+   A reload waits while the Add to Contacts choice is open or a box has the
+   cursor; render() keeps what was typed through the redraw. */
+const checkBack=NXJOBS.poll(sb,load,()=>!!UI.open);
 let loaded=false, banners=[], threads=[], newest={}, messages=[], companies={}, people={};
 let base=[], sending=[], sendSeq=0, pending={}, intentById={};
 
@@ -159,6 +165,7 @@ async function load(){
   if(iq.error)banners.push(['info',`Could not read the replies on their way: ${iq.error.message}. A conversation may still show Send for a reply already queued.`]);
   if((iq.data||[]).length===1000)banners.push(['info','Showing the newest 1,000 replies and changes; older ones are not on this page.']);
   sending=[];watch(iq.data||[]);
+  checkBack.watch(iq.data);
 
   messages=[];
   const t=threads.find(x=>x.id===sel);
@@ -313,7 +320,8 @@ async function raise(type,payload,verb,toastText){
     sending=sending.filter(x=>x!==temp);reduce(base.concat(sending));render();
     NXShell.toast(`Could not queue it: ${error.message}`);return false;
   }
-  NXShell.toast(toastText||`${verb}, queued. The engine acts within a minute or two.`);
+  NXShell.toast(toastText||`${verb}, queued. This page updates by itself.`);
+  checkBack.pressed();
   setTimeout(load,1500);
   return true;
 }
