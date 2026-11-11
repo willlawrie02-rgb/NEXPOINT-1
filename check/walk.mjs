@@ -1344,6 +1344,30 @@ async function walkWall() {
     has(await page.textContent("#signContent .np-sign-error"), "don't match", "the refusal");
     return new URL(page.url()).pathname === "/hub/";
   });
+  /* Audit of 11 November 2026, finding 10a-01: the worker answers
+     email_unconfirmed (403) to the right password on an address not yet
+     confirmed, and the box used to say the password was wrong. */
+  await step("an address not yet confirmed is told to confirm first, and can send itself a link", async () => {
+    world.api["POST /auth/login"] = () => [403, { error: "email_unconfirmed" }];
+    await page.fill("#sPass", PASSWORD);
+    await page.click("#signContent button[type=submit]");
+    await page.waitForFunction(() => /Confirm your email first/.test((document.querySelector("#signContent .np-sign-error") || {}).textContent || ""));
+    eq((await page.textContent("#signContent .np-sign-error")).includes("don't match"), false, "the wrong-password words");
+    eq((await page.textContent("#signContent .np-sign-resend button")).trim(), "Send a new confirmation link", "the button");
+    await page.click("#signContent .np-sign-resend button");
+    await page.waitForSelector("#signContent .np-sign-resend [role=status]:visible");
+    has(await page.textContent("#signContent .np-sign-resend"), "If that address still needs confirming, a link is on its way.", "the line after");
+    eq(apiCalls(world, "POST /auth/resend-confirmation").map((c) => c.body.email), [USER.email], "the resend");
+    eq(await page.locator("#signContent .np-sign-resend button").count(), 0, "the button, once used");
+    return eq(await page.locator("#signContent form").count(), 1, "the sign-in form, still there");
+  });
+  await step("a wrong password after that clears the offer of a link", async () => {
+    delete world.api["POST /auth/login"];
+    await page.fill("#sPass", "wrong-password");
+    await page.click("#signContent button[type=submit]");
+    await page.waitForFunction(() => /don't match/.test((document.querySelector("#signContent .np-sign-error") || {}).textContent || ""));
+    return eq(await page.locator("#signContent .np-sign-resend").count(), 0, "the offer");
+  });
   await step("the right password goes back to the page that was asked for, now open", async () => {
     await page.fill("#sPass", PASSWORD);
     await page.click("#signContent button[type=submit]");

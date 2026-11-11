@@ -479,17 +479,71 @@ async function signSubmit(){
         <div class="modal-actions" style="justify-content:center;flex-wrap:wrap"><a class="btn btn-primary" href="https://nexpoint.co.uk/hub/account/">Go to your account</a><button class="btn btn-outline" onclick="closeAll()">Back to the Global Portal</button></div>
       </div>`;
   } else if (err){
+    signResendOffer('');   /* an offer from an earlier attempt goes; this attempt speaks for itself */
+    err.style.display = 'block';
+    /* email_unconfirmed (audit of 11 November 2026, finding 10a-01): the
+       worker says this only when the password was right and the address has
+       not been confirmed. "Don't match" told a new registrant their password
+       was wrong, and "Forgotten your password?" sends an unconfirmed address
+       nothing. So the thing that is missing is named, and a link can be sent
+       from here. The form stays: they sign in with it once they have clicked. */
+    if (d.error === 'email_unconfirmed'){
+      err.textContent = 'Confirm your email first. Open the link we sent when you registered, then sign in here. If it is not in your inbox, check your spam folder or send a new one.';
+      signResendOffer(email.trim());
+      return;
+    }
     /* too_many_attempts (audit plan 010): the worker stops trying an address
        after eight wrong passwords in ten minutes. Saying "don't match" here
        would send someone with the right password round in circles, so the
        wait and the way out are both named. */
-    err.style.display = 'block';
     err.textContent = d.error === 'network'
       ? 'That did not send. Check your connection and try again.'
       : d.error === 'too_many_attempts'
       ? 'Too many attempts on this address. Wait ten minutes, or use "Forgotten your password?" below.'
       : 'That email and password don\'t match an account. Check them, or create your hub account below.';
   }
+}
+/* The button under the sign-in box's "confirm your email first" line. The
+   worker answers a resend the same way whatever the address, and sends
+   nothing inside two minutes of the last one, so the line that replaces the
+   button says only what is true either way: a link is on its way, not a new
+   one. A send that never left this device gives the button back. Called
+   with no email it only clears an earlier offer. */
+function signResendOffer(email){
+  const old = document.querySelector('#signContent .np-sign-resend');
+  if (old) old.remove();
+  const err = document.querySelector('#signContent .np-sign-error');
+  if (!email || !err) return;
+  const LABEL = 'Send a new confirmation link';
+  const row = document.createElement('div');
+  row.className = 'np-sign-resend';
+  row.style.cssText = 'margin-top:12px';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-outline';
+  btn.textContent = LABEL;
+  const note = document.createElement('p');
+  note.setAttribute('role', 'status');
+  note.style.cssText = 'margin:10px 0 0;font-size:13px;line-height:1.4';
+  note.hidden = true;
+  btn.addEventListener('click', async () => {
+    if (btn.disabled) return;
+    btn.disabled = true; btn.textContent = 'Sending…';
+    note.hidden = true;
+    const d = (window.NPAccount && NPAccount.resendConfirmation)
+      ? await NPAccount.resendConfirmation(email) : { error: 'network' };
+    note.hidden = false;
+    if (d && d.error === 'network'){
+      btn.disabled = false; btn.textContent = LABEL;
+      note.textContent = 'That did not send. Check your connection and try again.';
+      return;
+    }
+    note.textContent = 'If that address still needs confirming, a link is on its way.';
+    btn.remove();
+  });
+  row.appendChild(btn);
+  row.appendChild(note);
+  err.insertAdjacentElement('afterend', row);
 }
 /* "Forgotten your password?" in the sign-in modal (audit plan 006). The
    worker answers every address the same way, and so does this: the modal
