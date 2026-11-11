@@ -25,8 +25,26 @@
   function render(html) { body().innerHTML = html; }
   function say(title, line) { render('<h1>' + esc(title) + '</h1><p>' + esc(line) + '</p>'); }
   function $(id) { return document.getElementById(id); }
+  /* A request that has had no whole answer after REQUEST_TIMEOUT_MS is given
+     up and lands in the same place a dropped connection does (audit of
+     11 November 2026, finding 10a-03): before, a link opened on a stalled
+     connection sat on "One moment…" for as long as the browser waited. The
+     body is read inside the limit, and what comes back answers ok, status
+     and json() as the fetch answer did. */
+  var REQUEST_TIMEOUT_MS = 20000;
+  function limited(url, opts) {
+    var ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = ctl ? setTimeout(function () { ctl.abort(); }, REQUEST_TIMEOUT_MS) : null;
+    var stop = function () { if (timer) clearTimeout(timer); };
+    return fetch(url, Object.assign(ctl ? { signal: ctl.signal } : {}, opts)).then(function (r) {
+      return r.text().then(function (text) {
+        stop();
+        return { ok: r.ok, status: r.status, json: function () { return new Promise(function (res) { res(JSON.parse(text)); }); } };
+      });
+    }).catch(function (e) { stop(); throw e; });
+  }
   function call(path, payload, method) {
-    return fetch(API + path, {
+    return limited(API + path, {
       method: method || 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: payload === undefined ? undefined : JSON.stringify(payload),
     }).then(function (r) {

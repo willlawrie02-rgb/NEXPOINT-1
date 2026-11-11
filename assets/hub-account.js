@@ -28,11 +28,17 @@
      walled page's own fallback timer is cleared once this module loads and
      a hang would otherwise leave the page blank. An AbortController with a
      plain timer rather than AbortSignal.timeout: it works in every browser
-     that has fetch, and the walk's fake clock can drive it. */
+     that has fetch, and the walk's fake clock can drive it.
+     Every other call now has a limit too, CALL_TIMEOUT_MS (audit of
+     11 November 2026, finding 10a-03): a sign-in or a registration that
+     never answered left its button disabled for as long as the browser
+     waited. Given up, it reads as the network error each form already has
+     words for. A caller's own timeoutMs wins; 0 switches the limit off. */
+  const CALL_TIMEOUT_MS = 20000;
   async function call(path, opts) {
     let r, timer = null;
     const o = Object.assign({ credentials: 'include' }, opts);
-    const ms = o.timeoutMs;
+    const ms = o.timeoutMs === undefined ? CALL_TIMEOUT_MS : o.timeoutMs;
     delete o.timeoutMs;
     if (ms && typeof AbortController === 'function') {
       const ctl = new AbortController();

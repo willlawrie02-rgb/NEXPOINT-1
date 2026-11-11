@@ -86,15 +86,40 @@ function trapValue(form){
   return t ? t.value : '';
 }
 
+/* ═══════════ a limit on every wait ═══════════
+   Audit of 11 November 2026, finding 10a-03. Only the account module's
+   /auth/me had a time limit; every other call waited for as long as the
+   browser would, so a connection that stalled, or a worker that took a
+   request and never answered, left "Loading your account…", "One moment…"
+   or an undrawn form on screen for minutes with no way on. A dropped
+   connection was handled; a hung one was not.
+   npLimit(ms) hands back a signal for fetch, done() to call once the answer
+   has been read to its end, and fired() to say whether the limit is what
+   ended it. The same shape as the account module's own (an AbortController
+   and a plain timer, which every browser with fetch has and the walk's
+   clock can drive). Twenty seconds: long enough for the slowest thing a
+   page sends (a search that places a town, a listing with its sites), short
+   enough that nobody sits in front of a dead page. */
+const NP_REQUEST_TIMEOUT_MS = 20000;
+function npLimit(ms){
+  if (!ms || typeof AbortController !== 'function') return { signal: undefined, done(){}, fired(){ return false; } };
+  const ctl = new AbortController();
+  let fired = false;
+  const timer = setTimeout(() => { fired = true; ctl.abort(); }, ms);
+  return { signal: ctl.signal, done(){ clearTimeout(timer); }, fired(){ return fired; } };
+}
+
 async function sendRequest(body, onOk, onFail){
+  const limit = npLimit(NP_REQUEST_TIMEOUT_MS);
   try {
     const r = await fetch(CAPTURE_REQUESTS_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', body: JSON.stringify(body),
+      credentials: 'include', body: JSON.stringify(body), signal: limit.signal,
     });
     const data = await r.json().catch(() => ({}));
-    if (r.ok && data.ok) onOk(); else onFail();
+    if (r.ok && data.ok && !limit.fired()) onOk(); else onFail();
   } catch { onFail(); }
+  finally { limit.done(); }
 }
 
 function formSendingState(form){
@@ -139,13 +164,27 @@ function locLabel(l){
    so the caller can put the confirm card up instead of a generic failure.
    An error body also carries http_status, because "this route is not
    deployed yet" (404) and "this route refused me" read the same otherwise,
-   and a page that falls back on 404 has to be able to tell them apart. */
+   and a page that falls back on 404 has to be able to tell them apart.
+   A request that has had no whole answer after NP_REQUEST_TIMEOUT_MS is
+   given up and comes back as the same error value a dropped connection
+   does, with timed_out beside it, so every caller's own words for "that
+   did not send" or "that did not load" are what the visitor reads. A
+   caller may pass timeoutMs of its own; 0 switches the limit off. */
 async function npApi(path, opts){
-  let r;
+  const o = Object.assign({ credentials: 'include' }, opts || {});
+  const limit = npLimit(o.timeoutMs === undefined ? NP_REQUEST_TIMEOUT_MS : o.timeoutMs);
+  delete o.timeoutMs;
+  if (limit.signal && !o.signal) o.signal = limit.signal;
+  let r, d;
   try {
-    r = await fetch(API_BASE + path, Object.assign({ credentials: 'include' }, opts || {}));
-  } catch (e) { return { error: 'network' }; }
-  const d = await r.json().catch(() => ({}));
+    r = await fetch(API_BASE + path, o);
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    return limit.fired() ? { error: 'network', timed_out: true } : { error: 'network' };
+  } finally { limit.done(); }
+  /* The limit can end the read of the body as well as the wait for it; a
+     body cut short must not pass for an empty answer. */
+  if (limit.fired()) return { error: 'network', timed_out: true };
   if (r.ok) return d;
   /* A 401 on a page that believes it is signed in: the session lapsed
      mid-visit. Tell the account module, so the next requireConfirmed() opens
@@ -561,10 +600,12 @@ async function resetRequest(){
   if (window.NPAccount && NPAccount.resetRequest){
     await NPAccount.resetRequest(email);
   } else {
+    const limit = npLimit(NP_REQUEST_TIMEOUT_MS);
     try {
       await fetch(API_BASE + '/auth/reset-request', { method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }), signal: limit.signal });
     } catch (e) { /* the message below is the same for every outcome */ }
+    finally { limit.done(); }
   }
   document.getElementById('signContent').innerHTML = `
     <div class="success">

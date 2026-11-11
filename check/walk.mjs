@@ -1564,6 +1564,82 @@ async function walkDoorReturn() {
   }
 }
 
+// ================================================================ a request that never answers
+/* Audit of 11 November 2026, finding 10a-03: only /auth/me had a time limit,
+   so a worker that took a request and never answered left a loading line or
+   an undrawn form on screen for as long as the browser waited. The shared
+   call, the vocabulary loader and the standalone pages now give up, and the
+   page says what it already says for a dropped connection. The clock is the
+   page's, driven from here, so no step waits the real seconds. */
+async function walkWaits() {
+  area = "A request that never answers (audit of 11 November 2026)";
+  {
+    const world = newWorld({ user: USER, hang: new Set(["GET /vocab", "GET /attributes"]) });
+    const { context, page } = await visit(world);
+    await step("a vocabulary that never answers is given up at 8 s, and the find form is drawn on its own lists", async () => {
+      await page.clock.install();
+      await page.goto(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-open]");
+      await until(() => apiCalls(world, "GET /vocab").length >= 5, "the vocabulary being asked for");
+      await page.clock.runFor(7000);
+      await page.waitForTimeout(200);
+      eq(await page.locator("#findForm").count(), 0, "the form at 7 s");
+      await page.clock.runFor(2000);
+      await page.waitForSelector("#findForm");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER, hang: new Set(["GET /account/summary"]) });
+    const { context, page } = await visit(world);
+    await step("an account summary that never answers is given up at 20 s, and the page says it did not load", async () => {
+      await page.clock.install();
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("body[data-np-open]");
+      await until(() => apiCalls(world, "GET /account/summary").length === 1, "the summary being asked for");
+      await page.clock.runFor(19000);
+      await page.waitForTimeout(200);
+      eq(await page.isVisible("#acctError"), false, "the line at 19 s");
+      await page.clock.runFor(2000);
+      await page.waitForSelector("#acctError:not([hidden])");
+      return has(await page.textContent("#acctError"), "That did not load. Check your connection and try again", "the line");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld({ hang: new Set(["POST /auth/confirm"]) });
+    const { context, page } = await visit(world);
+    await step("a confirmation link whose answer never comes is given up at 20 s, with the way on", async () => {
+      await page.clock.install();
+      await page.goto(`${APEX}/hub/confirm.html?t=walk-token&type=signup`);
+      await until(() => apiCalls(world, "POST /auth/confirm").length === 1, "the link being posted");
+      has(await page.textContent("#confirmBody"), "One moment", "the page while it waits");
+      await page.clock.runFor(21000);
+      await page.waitForFunction(() => document.getElementById("confirmBody").textContent.includes("That did not go through."));
+      return has(await page.textContent("#confirmBody"), "Check your connection and open the link again, or email hello@nexpoint.co.uk.", "the way on");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld({ hang: new Set(["POST /auth/login"]) });
+    const { context, page } = await visit(world);
+    await step("a sign-in that never answers is given up at 20 s, and the button comes back with the reason", async () => {
+      await page.clock.install();
+      await page.goto(`${APEX}/hub/?signin=1`);
+      await page.waitForSelector("#signOverlay.open");
+      await page.fill("#sEmail", USER.email); await page.fill("#sPass", PASSWORD);
+      await page.click("#signContent button[type=submit]");
+      await until(() => apiCalls(world, "POST /auth/login").length === 1, "the sign-in being sent");
+      eq(await page.isDisabled("#signContent button[type=submit]"), true, "the button while it waits");
+      await page.clock.runFor(21000);
+      await page.waitForSelector("#signContent .np-sign-error:visible");
+      has(await page.textContent("#signContent .np-sign-error"), "That did not send. Check your connection and try again.", "the reason");
+      return eq(await page.isDisabled("#signContent button[type=submit]"), false, "the button afterwards");
+    });
+    await context.close();
+  }
+}
+
 async function walkSignedIn() {
   area = "The hub pages (a signed-in account)";
   const pages = [["the door", `${APEX}/hub/`]].concat(WALLED.filter(([n]) => n !== "the account page"));
@@ -5894,6 +5970,8 @@ const started = Date.now();
 const parts = []
   .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkJoin, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkFilmTags, walkLandings, walkSign] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkMovedPages, walkInboxAndSystem, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm, walkBoardAdmin, walkSavesFirst] : []);
+/* The requests that never answer walk straight after the door's own waits. */
+if (ONLY !== "boards") parts.splice(parts.indexOf(walkDoorReturn) + 1, 0, walkWaits);
 /* The settings page's You and Users (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
 /* The Opportunities Board (plan 070) walks straight after the signed-in pages, and its
