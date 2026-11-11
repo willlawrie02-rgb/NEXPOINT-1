@@ -1440,6 +1440,39 @@ async function walkDoorReturn() {
     });
     await context.close();
   }
+  /* Audit of 11 November 2026, finding 10a-02: the worker answers signed_in
+     true with member null when its one read of the profile fails. That is a
+     signed-in visitor, asked about once more, never a stranger. */
+  {
+    const world = newWorld({ user: USER, api: { "GET /auth/me": (w) => {
+      w.meAsked = (w.meAsked || 0) + 1;
+      return w.meAsked === 1 ? [200, { signed_in: true, confirmed: true, member: null, closed: false }]
+        : [200, { ok: true, signed_in: true, member: w.user }];
+    } } });
+    const { context, page } = await visit(world);
+    await step("a first /auth/me that is signed in with no account beside it is asked again, and the name arrives", async () => {
+      await page.goto(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-open]");
+      eq(page.url(), `${PRINT}/find.html`, "the page");
+      eq(apiCalls(world, "GET /auth/me").length, 2, "times /auth/me was asked");
+      return has(await page.textContent(".np-chip__name"), "Walk Tester", "the chip");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER, api: { "GET /auth/me": () => [200, { signed_in: true, confirmed: true, member: null, closed: false }] } });
+    const { context, page, errors } = await visit(world);
+    await step("signed in with no account twice running keeps the page, and is never sent to the door", async () => {
+      await page.goto(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-open]");
+      await page.waitForSelector("#findForm, #findSubmit");
+      eq(page.url(), `${PRINT}/find.html`, "the page");
+      eq(world.calls.filter((c) => c.path === "/auth/me" && c.origin === APEX).length, 0, "asks from the door");
+      return eq((await page.textContent(".np-chip__name")).trim(), "Your account", "the chip, with no name to show");
+    });
+    clean(world, errors, "signed in with no account");
+    await context.close();
+  }
   {
     const world = newWorld({ user: USER, meFailures: 2 });
     const { context, page } = await visit(world);
