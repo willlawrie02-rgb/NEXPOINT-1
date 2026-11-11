@@ -28,11 +28,17 @@
      walled page's own fallback timer is cleared once this module loads and
      a hang would otherwise leave the page blank. An AbortController with a
      plain timer rather than AbortSignal.timeout: it works in every browser
-     that has fetch, and the walk's fake clock can drive it. */
+     that has fetch, and the walk's fake clock can drive it.
+     Every other call now has a limit too, CALL_TIMEOUT_MS (audit of
+     11 November 2026, finding 10a-03): a sign-in or a registration that
+     never answered left its button disabled for as long as the browser
+     waited. Given up, it reads as the network error each form already has
+     words for. A caller's own timeoutMs wins; 0 switches the limit off. */
+  const CALL_TIMEOUT_MS = 20000;
   async function call(path, opts) {
     let r, timer = null;
     const o = Object.assign({ credentials: 'include' }, opts);
-    const ms = o.timeoutMs;
+    const ms = o.timeoutMs === undefined ? CALL_TIMEOUT_MS : o.timeoutMs;
     delete o.timeoutMs;
     if (ms && typeof AbortController === 'function') {
       const ctl = new AbortController();
@@ -70,6 +76,10 @@
     const flag = m.confirmed != null ? m.confirmed : m.email_confirmed;
     m.email_confirmed = flag == null ? true : !!flag;
     return m;
+  }
+
+  function blankMember() {
+    return { name: '', company: '', email: '', region: null, country: null, town: null, interests: [] };
   }
 
   /* Platform Terms (spec §6, layer 1): registration requires a current terms_version_id.
@@ -124,7 +134,11 @@
            (signed_in null: the sign-in service gave no answer), is not
            "signed out". Ask once more after a moment; a second miss falls
            through to the door as before, so nothing loops (plan 052 item 1). */
-        const unsure = (r) => !r || r.error === 'network' || r.signed_in === null;
+        /* So is "signed in" with no account beside it (audit of 11 November
+           2026, finding 10a-02): the worker's one read of the profile
+           failed, and it sends member null while the session is good. */
+        const unsure = (r) => !r || r.error === 'network' || r.signed_in === null ||
+          (r.signed_in === true && !r.member);
         const ask = () => call('/auth/me', { method: 'GET', timeoutMs: 8000 });
         let d = await ask();
         if (unsure(d)) {
@@ -132,7 +146,15 @@
           d = await ask();
         }
         const signedIn = d.signed_in != null ? d.signed_in : !!(d.ok && d.member);
-        A.user = signedIn ? normalise(d.member) : null;
+        /* Still signed in with no account after the second ask: the session
+           is good, so the visitor is signed in. Reading that as signed out
+           sent them to the door on every page until the read recovered, and
+           signing in again led straight back. They keep what this page
+           already knew of them, or a blank account in the shape the
+           worker's own sign-in answer falls back on; the next page load
+           reads the real one. A desk request sent in that state carries no
+           email and the worker refuses it, so nothing blank is stored. */
+        A.user = signedIn ? (normalise(d.member) || A.user || normalise(blankMember())) : null;
         /* Plan 069: a closed account keeps its sign-in for what survives; the
            hub forms read this and show a notice in place of the form. */
         A.closed = !!(signedIn && d.closed);
@@ -280,7 +302,7 @@
          6 October 2026; plan 046). */
       slot.innerHTML = '<span class="np-chip">' +
         '<a class="np-chip__name np-chip__account" href="' + ACCOUNT_URL + '"' +
-        (onAccountPage ? ' aria-current="page"' : '') + '>' + escapeText(A.user.name || A.user.email) + '</a> ' +
+        (onAccountPage ? ' aria-current="page"' : '') + '>' + escapeText(A.user.name || A.user.email || 'Your account') + '</a> ' +
         '<button type="button" class="np-chip__out">Sign out</button>' + fail + '</span>';
       slot.querySelector('.np-chip__out').addEventListener('click', () => A.signOut());
     } else if (window.NP_ACCOUNT_LINKS && typeof window.NP_ACCOUNT_LINKS === 'object') {

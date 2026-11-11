@@ -16,6 +16,9 @@
 //   WALK_BROWSER=/path/to/chrome   uses that browser.
 //   WALK_ONLY=boards (or public)   runs one half; WALK_ONLY=sign runs the
 //       consultancy sign-up page alone, WALK_ONLY=terms every terms screen (plan 078).
+//   WALK_PARTS=walkWall,walkBoard   runs only the parts named (the function
+//       names in this file), for a quick look at one journey while writing a
+//       step. A run for a merge is the whole walk.
 //   WALK_SHOTS=/some/folder   also saves a desktop and a phone picture of each
 //       terms screen there, in the real fonts (the one case that fetches them),
 //       for reading the screens before a switch. Use with WALK_ONLY=terms.
@@ -1341,6 +1344,30 @@ async function walkWall() {
     has(await page.textContent("#signContent .np-sign-error"), "don't match", "the refusal");
     return new URL(page.url()).pathname === "/hub/";
   });
+  /* Audit of 11 November 2026, finding 10a-01: the worker answers
+     email_unconfirmed (403) to the right password on an address not yet
+     confirmed, and the box used to say the password was wrong. */
+  await step("an address not yet confirmed is told to confirm first, and can send itself a link", async () => {
+    world.api["POST /auth/login"] = () => [403, { error: "email_unconfirmed" }];
+    await page.fill("#sPass", PASSWORD);
+    await page.click("#signContent button[type=submit]");
+    await page.waitForFunction(() => /Confirm your email first/.test((document.querySelector("#signContent .np-sign-error") || {}).textContent || ""));
+    eq((await page.textContent("#signContent .np-sign-error")).includes("don't match"), false, "the wrong-password words");
+    eq((await page.textContent("#signContent .np-sign-resend button")).trim(), "Send a new confirmation link", "the button");
+    await page.click("#signContent .np-sign-resend button");
+    await page.waitForSelector("#signContent .np-sign-resend [role=status]:visible");
+    has(await page.textContent("#signContent .np-sign-resend"), "If that address still needs confirming, a link is on its way.", "the line after");
+    eq(apiCalls(world, "POST /auth/resend-confirmation").map((c) => c.body.email), [USER.email], "the resend");
+    eq(await page.locator("#signContent .np-sign-resend button").count(), 0, "the button, once used");
+    return eq(await page.locator("#signContent form").count(), 1, "the sign-in form, still there");
+  });
+  await step("a wrong password after that clears the offer of a link", async () => {
+    delete world.api["POST /auth/login"];
+    await page.fill("#sPass", "wrong-password");
+    await page.click("#signContent button[type=submit]");
+    await page.waitForFunction(() => /don't match/.test((document.querySelector("#signContent .np-sign-error") || {}).textContent || ""));
+    return eq(await page.locator("#signContent .np-sign-resend").count(), 0, "the offer");
+  });
   await step("the right password goes back to the page that was asked for, now open", async () => {
     await page.fill("#sPass", PASSWORD);
     await page.click("#signContent button[type=submit]");
@@ -1411,6 +1438,39 @@ async function walkDoorReturn() {
       eq(page.url(), `${PRINT}/find.html`, "the page");
       eq(apiCalls(world, "GET /auth/me").length, 2, "times /auth/me was asked");
     });
+    await context.close();
+  }
+  /* Audit of 11 November 2026, finding 10a-02: the worker answers signed_in
+     true with member null when its one read of the profile fails. That is a
+     signed-in visitor, asked about once more, never a stranger. */
+  {
+    const world = newWorld({ user: USER, api: { "GET /auth/me": (w) => {
+      w.meAsked = (w.meAsked || 0) + 1;
+      return w.meAsked === 1 ? [200, { signed_in: true, confirmed: true, member: null, closed: false }]
+        : [200, { ok: true, signed_in: true, member: w.user }];
+    } } });
+    const { context, page } = await visit(world);
+    await step("a first /auth/me that is signed in with no account beside it is asked again, and the name arrives", async () => {
+      await page.goto(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-open]");
+      eq(page.url(), `${PRINT}/find.html`, "the page");
+      eq(apiCalls(world, "GET /auth/me").length, 2, "times /auth/me was asked");
+      return has(await page.textContent(".np-chip__name"), "Walk Tester", "the chip");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER, api: { "GET /auth/me": () => [200, { signed_in: true, confirmed: true, member: null, closed: false }] } });
+    const { context, page, errors } = await visit(world);
+    await step("signed in with no account twice running keeps the page, and is never sent to the door", async () => {
+      await page.goto(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-open]");
+      await page.waitForSelector("#findForm, #findSubmit");
+      eq(page.url(), `${PRINT}/find.html`, "the page");
+      eq(world.calls.filter((c) => c.path === "/auth/me" && c.origin === APEX).length, 0, "asks from the door");
+      return eq((await page.textContent(".np-chip__name")).trim(), "Your account", "the chip, with no name to show");
+    });
+    clean(world, errors, "signed in with no account");
     await context.close();
   }
   {
@@ -1499,6 +1559,82 @@ async function walkDoorReturn() {
       eq(new URL(page.url()).hostname, "printhub.nexpoint.co.uk", "the host after 15 s");
       await page.clock.runFor(6000);
       await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/");
+    });
+    await context.close();
+  }
+}
+
+// ================================================================ a request that never answers
+/* Audit of 11 November 2026, finding 10a-03: only /auth/me had a time limit,
+   so a worker that took a request and never answered left a loading line or
+   an undrawn form on screen for as long as the browser waited. The shared
+   call, the vocabulary loader and the standalone pages now give up, and the
+   page says what it already says for a dropped connection. The clock is the
+   page's, driven from here, so no step waits the real seconds. */
+async function walkWaits() {
+  area = "A request that never answers (audit of 11 November 2026)";
+  {
+    const world = newWorld({ user: USER, hang: new Set(["GET /vocab", "GET /attributes"]) });
+    const { context, page } = await visit(world);
+    await step("a vocabulary that never answers is given up at 8 s, and the find form is drawn on its own lists", async () => {
+      await page.clock.install();
+      await page.goto(`${PRINT}/find.html`);
+      await page.waitForSelector("body[data-np-open]");
+      await until(() => apiCalls(world, "GET /vocab").length >= 5, "the vocabulary being asked for");
+      await page.clock.runFor(7000);
+      await page.waitForTimeout(200);
+      eq(await page.locator("#findForm").count(), 0, "the form at 7 s");
+      await page.clock.runFor(2000);
+      await page.waitForSelector("#findForm");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER, hang: new Set(["GET /account/summary"]) });
+    const { context, page } = await visit(world);
+    await step("an account summary that never answers is given up at 20 s, and the page says it did not load", async () => {
+      await page.clock.install();
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("body[data-np-open]");
+      await until(() => apiCalls(world, "GET /account/summary").length === 1, "the summary being asked for");
+      await page.clock.runFor(19000);
+      await page.waitForTimeout(200);
+      eq(await page.isVisible("#acctError"), false, "the line at 19 s");
+      await page.clock.runFor(2000);
+      await page.waitForSelector("#acctError:not([hidden])");
+      return has(await page.textContent("#acctError"), "That did not load. Check your connection and try again", "the line");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld({ hang: new Set(["POST /auth/confirm"]) });
+    const { context, page } = await visit(world);
+    await step("a confirmation link whose answer never comes is given up at 20 s, with the way on", async () => {
+      await page.clock.install();
+      await page.goto(`${APEX}/hub/confirm.html?t=walk-token&type=signup`);
+      await until(() => apiCalls(world, "POST /auth/confirm").length === 1, "the link being posted");
+      has(await page.textContent("#confirmBody"), "One moment", "the page while it waits");
+      await page.clock.runFor(21000);
+      await page.waitForFunction(() => document.getElementById("confirmBody").textContent.includes("That did not go through."));
+      return has(await page.textContent("#confirmBody"), "Check your connection and open the link again, or email hello@nexpoint.co.uk.", "the way on");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld({ hang: new Set(["POST /auth/login"]) });
+    const { context, page } = await visit(world);
+    await step("a sign-in that never answers is given up at 20 s, and the button comes back with the reason", async () => {
+      await page.clock.install();
+      await page.goto(`${APEX}/hub/?signin=1`);
+      await page.waitForSelector("#signOverlay.open");
+      await page.fill("#sEmail", USER.email); await page.fill("#sPass", PASSWORD);
+      await page.click("#signContent button[type=submit]");
+      await until(() => apiCalls(world, "POST /auth/login").length === 1, "the sign-in being sent");
+      eq(await page.isDisabled("#signContent button[type=submit]"), true, "the button while it waits");
+      await page.clock.runFor(21000);
+      await page.waitForSelector("#signContent .np-sign-error:visible");
+      has(await page.textContent("#signContent .np-sign-error"), "That did not send. Check your connection and try again.", "the reason");
+      return eq(await page.isDisabled("#signContent button[type=submit]"), false, "the button afterwards");
     });
     await context.close();
   }
@@ -3563,6 +3699,61 @@ async function walkTerms() {
       await page.waitForFunction(() => document.querySelectorAll("#grid .op").length === 5, null, { timeout: 8000 });
       return eq(await page.isHidden("#boardClosed"), true, "the line");
     });
+    await context.close();
+  }
+  {
+    /* Audit of 11 November 2026, findings 10b-04 and 10b-03. A board that could not be read
+       used to stand empty under "0 opportunities live": it now says so and offers the read
+       again, an empty board says something else, and the count shows only once it is known.
+       The page loads no script from an outside network, and signing out still clears the
+       old session its storage may hold. */
+    const world = boardWorld({ briefsDown: true });
+    world.api["GET /opportunities/briefs"] = (w) => (w.briefsDown ? [502, { error: "briefs unavailable" }]
+      : [200, { ok: true, briefs: w.briefsNone ? [] : BRIEFS }]);
+    const { context, page, errors } = await visit(world);
+    await step("a board that could not be read says so, shows no count and no filters", async () => {
+      await page.goto(`${OPPS}/`);
+      await page.waitForSelector("body[data-np-open]");
+      await page.waitForSelector("#boardFailed:not([hidden])", { timeout: 8000 });
+      has(await page.textContent("#boardFailed"), "The board did not load. Try again, or email hello@nexpoint.co.uk.", "the line");
+      eq((await page.textContent("#boardRetry")).trim(), "Load the board again", "the button");
+      eq(await page.isVisible("#statLive"), false, "the live count");
+      eq(await page.isVisible("#boardEmpty"), false, "the empty-board line");
+      eq(await page.locator("#grid .op").count(), 0, "cards");
+      return eq(await page.isVisible("#filters"), false, "the filters");
+    });
+    await step("the button reads the board again, and the cards, the count and the filters arrive", async () => {
+      world.briefsDown = false;
+      await page.click("#boardRetry");
+      await page.waitForFunction(() => document.querySelectorAll("#grid .op").length === 5, null, { timeout: 8000 });
+      eq(await page.isVisible("#boardFailed"), false, "the line");
+      eq(await page.isVisible("#statLive"), true, "the live count");
+      eq((await page.textContent("#statLiveCount")).trim(), "5", "the number");
+      return eq(await page.isVisible("#filters"), true, "the filters");
+    });
+    await step("a board with nothing on it says that instead, with no count and no button", async () => {
+      world.briefsNone = true;
+      await page.goto(`${OPPS}/`);
+      await page.waitForSelector("#boardEmpty:not([hidden])", { timeout: 8000 });
+      has(await page.textContent("#boardEmpty"), "No opportunities are on the board just now. We verify each one before it goes on the board.", "the line");
+      eq(await page.isVisible("#boardFailed"), false, "the could-not-load line");
+      eq(await page.isVisible("#statLive"), false, "the live count");
+      return eq(await page.isVisible("#filters"), false, "the filters");
+    });
+    await step("the page loads no script from an outside network, and Sign out clears the old session's storage", async () => {
+      eq(await page.locator('script[src*="jsdelivr"], script[src*="supabase"]').count(), 0, "outside script tags");
+      const key = `sb-${DB_HOST.split(".")[0]}-auth-token`;
+      await page.evaluate((k) => localStorage.setItem(k, "{}"), key);
+      await page.click('#memberStrip button[onclick="signOut()"]');
+      /* The wall's move to the door and the page's own reload both start here, so the
+         address is watched rather than one navigation waited for. */
+      await until(() => { try { const u = new URL(page.url()); return u.origin === APEX && u.pathname === "/hub/"; } catch (e) { return false; } },
+        "the door after signing out", 8000);
+      eq(apiCalls(world, "POST /auth/logout").length, 1, "sign-outs sent to the hub account");
+      await page.goto(`${OPPS}/assets/nexpoint-logo.png`);
+      return eq(await page.evaluate((k) => localStorage.getItem(k), key), null, "the old session's key");
+    });
+    clean(world, errors, "the board's read");
     await context.close();
   }
   const openPost = async (page) => {
@@ -5779,6 +5970,8 @@ const started = Date.now();
 const parts = []
   .concat(ONLY !== "boards" ? [walkDoor, walkRegister, walkJoin, walkWall, walkDoorReturn, walkSignedIn, walkFindMap, walkAccount, walkLogo, walkAccountAnswers, walkHomepage, walkFilmTags, walkLandings, walkSign] : [])
   .concat(ONLY !== "public" ? [walkAdminDoor, walkBoards, walkMovedPages, walkInboxAndSystem, walkReviewedBoards, walkOrganisationsNames, walkProspectsCrm, walkBoardAdmin, walkSavesFirst] : []);
+/* The requests that never answer walk straight after the door's own waits. */
+if (ONLY !== "boards") parts.splice(parts.indexOf(walkDoorReturn) + 1, 0, walkWaits);
 /* The settings page's You and Users (plan 052, wave 3) walk straight after the account page. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccount) + 1, 0, walkPeople);
 /* The Opportunities Board (plan 070) walks straight after the signed-in pages, and its
@@ -5800,6 +5993,12 @@ if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountBoard) + 1, 0, walk
 if (ONLY !== "public") parts.splice(parts.indexOf(walkInboxAndSystem) + 1, 0, walkConsultancy);
 if (ONLY === "sign") parts.splice(0, parts.length, walkSign);
 if (ONLY === "terms") parts.splice(0, parts.length, walkTerms);
+if (process.env.WALK_PARTS) {
+  const named = process.env.WALK_PARTS.split(",").map((n) => n.trim()).filter(Boolean);
+  const unknown = named.filter((n) => !parts.some((p) => p.name === n));
+  if (unknown.length) { console.error(`walk: WALK_PARTS names no part called ${unknown.join(", ")}`); await browser.close(); process.exit(2); }
+  parts.splice(0, parts.length, ...parts.filter((p) => named.includes(p.name)));
+}
 try {
   for (const part of parts) {
     try { await part(); } catch (e) {

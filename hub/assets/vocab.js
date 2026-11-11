@@ -125,12 +125,23 @@
     return [];
   }
 
+  /* A read that has had no whole answer after VOCAB_TIMEOUT_MS is given up
+     (audit of 11 November 2026, finding 10a-03). The find form is not drawn
+     until all seven reads settle, so one that never answered left it
+     undrawn; a read given up falls back on the seed, as a failed one does. */
+  const VOCAB_TIMEOUT_MS = 8000;
   async function getJson(path) {
-    let r;
-    try { r = await fetch(API_BASE + path, { credentials: 'include' }); }
-    catch (e) { return null; }
-    if (!r.ok) return null;
-    return r.json().catch(() => null);
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = ctl ? setTimeout(() => ctl.abort(), VOCAB_TIMEOUT_MS) : null;
+    try {
+      const r = await fetch(API_BASE + path, Object.assign({ credentials: 'include' }, ctl ? { signal: ctl.signal } : {}));
+      if (!r.ok) return null;
+      return await r.json().catch(() => null);
+    } catch (e) {
+      return null;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   /* One kind. A list that comes back empty is treated as "not deployed yet"
