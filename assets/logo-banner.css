@@ -1,0 +1,28 @@
+/* The logo banner (plan 088), on the home page and the Global Portal page, drawn by
+   assets/logo-banner.js. Each logo stands straight on the canvas, as its company drew
+   it: no box, card, tile, border or filter, ever. The colours are written out, not
+   taken from a page's tokens, because the two pages name their tokens differently.
+
+   Still: the list in one copy, wrapping and centred. Moving (.logos--moving, set by the
+   script only when one copy is wider than its box and motion is not reduced): one line,
+   the list drawn twice, sliding left by one copy and starting again, so the loop has no
+   seam; the edges fade, and the row pauses under the pointer. */
+.logos { border-bottom: 1px solid #E3E7ED; }
+.logos__inner { max-width: 1360px; margin: 0 auto; padding: clamp(24px, 3.5vh, 40px) clamp(16px, 4.5vw, 64px); }
+.logos__label { margin: 0 0 clamp(16px, 2.2vh, 24px); font: 600 12px/1 'Inter', system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #005CC8; text-align: center; }
+.logos__box { overflow: hidden; }
+.logos__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 20px 58px; margin: 0; padding: 0; list-style: none; }
+.logos__row li { flex: none; display: flex; align-items: center; height: 30px; }
+.logos__row img { display: block; height: 30px; width: auto; max-width: 150px; object-fit: contain; }
+.logos__name { font: 700 16px/1 'Montserrat', system-ui, sans-serif; color: #2C3444; white-space: nowrap; }
+
+.logos--moving .logos__box {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.logos--moving .logos__track { display: flex; width: max-content; animation: logos-slide var(--logos-duration, 30s) linear infinite; }
+/* each copy carries the gap after its last logo, so half the track is exactly one copy */
+.logos--moving .logos__row { flex-wrap: nowrap; justify-content: flex-start; padding-right: 58px; }
+.logos--moving .logos__box:hover .logos__track { animation-play-state: paused; }
+@keyframes logos-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .logos__track { animation: none !important; } }

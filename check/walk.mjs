@@ -4040,11 +4040,12 @@ async function walkHomepage() {
 
 // ================================================================ the logo banner (plan 088)
 /* Every logo on the list, as the list stands: its corners must be clear, because
-   a filled corner is the white box the brand forbids. */
+   a filled corner is the white box the brand forbids. Only the first copy of the
+   row is read; the second is the same list again, drawn for the loop. */
 const logoCorners = (page) => page.evaluate(async () => {
   const out = [];
   for (const shown of document.querySelectorAll("#logoBannerRow img")) {
-    /* the page's own is lazy, so a copy of it, which loads wherever the walk has scrolled */
+    /* a copy of the page's own, which loads wherever the walk has scrolled */
     const img = new Image();
     img.alt = shown.alt;
     img.src = shown.src;
@@ -4058,7 +4059,7 @@ const logoCorners = (page) => page.evaluate(async () => {
   }
   return out;
 });
-const logoBacking = (page) => page.evaluate(() => [...document.querySelectorAll("#logoBannerRow img")].flatMap((img) => {
+const logoBacking = (page) => page.evaluate(() => [...document.querySelectorAll("#logoBanner img, #logoBanner .logos__name")].flatMap((img) => {
   const plain = [];
   for (let e = img; e && !e.classList.contains("logos"); e = e.parentElement) {
     const s = getComputedStyle(e);
@@ -4066,61 +4067,160 @@ const logoBacking = (page) => page.evaluate(() => [...document.querySelectorAll(
   }
   return plain.filter((p) => p.background !== "rgba(0, 0, 0, 0)" || p.border !== "0px" || p.shadow !== "none" || p.filter !== "none");
 }));
+/* What the row is doing: the names in its first copy, whether it is one line,
+   whether it moves and how fast, and whether the page has run wide. */
+const logoRow = (page) => page.evaluate(() => {
+  const section = document.getElementById("logoBanner");
+  const row = document.getElementById("logoBannerRow");
+  const track = section && section.querySelector(".logos__track");
+  const box = section && section.querySelector(".logos__box");
+  const rs = row ? getComputedStyle(row) : {};
+  const ts = track ? getComputedStyle(track) : {};
+  const mask = box ? getComputedStyle(box) : {};
+  return {
+    hidden: section ? section.hidden : null,
+    names: row ? [...row.children].map((li) => (li.querySelector("img") ? li.querySelector("img").alt : li.textContent.trim())) : [],
+    plain: row ? [...row.querySelectorAll("li.logos__name")].map((li) => li.textContent.trim()) : [],
+    copies: track ? [...track.querySelectorAll(":scope > ul")].map((u) => ({ hidden: u.getAttribute("aria-hidden"), items: u.children.length })) : [],
+    wrap: rs.flexWrap, justify: rs.justifyContent,
+    running: track ? track.getAnimations().filter((a) => a.playState === "running").length : 0,
+    animations: track ? track.getAnimations().length : 0,
+    duration: ts.animationDuration, timing: ts.animationTimingFunction,
+    paused: ts.animationPlayState,
+    masked: !!mask && ((mask.maskImage || mask.webkitMaskImage || "none") !== "none"),
+    wide: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  };
+});
 async function walkLogoBanner() {
   area = "The logo banner (plan 088)";
-  {
+  /* The list as it stands is empty, so both pages leave the banner out. */
+  for (const [where, url] of [["the home page", `${APEX}/`], ["the Global Portal page", `${APEX}/hub/`]]) {
     const world = newWorld();
     const { context, page, errors } = await visit(world);
-    await page.goto(`${APEX}/`);
+    await page.goto(url);
     await settled(page);
-    await step("it shows only what is on the confirmed list, and nothing while the list is empty", async () => {
+    await step(`${where}: it shows only what is on the confirmed list, and nothing while the list is empty`, async () => {
       const list = await page.evaluate(() => window.NP_LOGO_BANNER);
-      const got = await page.evaluate(() => ({ hidden: document.getElementById("logoBanner").hidden, names: [...document.querySelectorAll("#logoBannerRow img")].map((i) => i.alt) }));
-      eq(got, { hidden: list.length === 0, names: list.map((c) => c.name) }, "the banner");
+      const got = await logoRow(page);
+      eq({ hidden: got.hidden, names: got.names }, { hidden: list.length === 0, names: list.filter((c) => c.name && c.confirmed).map((c) => c.name) }, "the banner");
       if (!list.length) eq(await page.locator("#logoBanner").isVisible(), false, "an empty banner on screen");
     });
-    await step("every logo on the list stands clear on the canvas, with no box behind it", async () => {
+    await step(`${where}: every logo on the list stands clear on the canvas, with no box behind it`, async () => {
       for (const l of await logoCorners(page)) if (l.corners.some((a) => a !== 0)) throw new Error(`${l.name}: its corners are filled (${l.corners}), so it would arrive in a box; it needs a transparent file`);
       eq(await logoBacking(page), [], "a backing behind a logo");
     });
-    clean(world, errors, "the home page as it stands");
+    clean(world, errors, `${where} as it stands`);
     await context.close();
   }
-  /* The same script with a list the walk supplies, so the banner is walked while the real list is empty. */
+  /* The same script with a list the walk supplies, so the banner is walked while the
+     real list is empty. Invented names and drawn shapes only: this repo is public. */
   const EXAMPLE = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80"><circle cx="150" cy="40" r="30" fill="#005CC8"/></svg>');
   const BOXED = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80"><rect width="300" height="80" fill="#fff"/></svg>');
-  const LIST = [
+  const THREE = [
     { name: "Walk Example One", logo: EXAMPLE, confirmed: "2026-11-03" },
     { name: "Walk Example Two", logo: EXAMPLE, confirmed: "2026-11-03" },
     { name: "Walk Not Confirmed", logo: EXAMPLE },
     { name: "Walk Boxed", logo: BOXED, confirmed: "2026-11-03" },
   ];
-  const world = newWorld();
-  const { context, page, errors } = await visit(world);
-  await page.route("**/assets/logo-banner.js*", (route) => route.fulfill({ contentType: "text/javascript",
-    body: readFileSync(join(ROOT, "assets/logo-banner.js"), "utf8").replace(/window\.NP_LOGO_BANNER = \[[\s\S]*?\];/, `window.NP_LOGO_BANNER = ${JSON.stringify(LIST)};`) }));
-  await page.goto(`${APEX}/`);
-  await settled(page);
-  await step("with names on the list, the confirmed ones show under the numbers and an unconfirmed one does not", async () => {
-    const got = await page.evaluate(() => [...document.querySelectorAll("#logoBannerRow img")].map((i) => i.alt));
-    eq(got, ["Walk Example One", "Walk Example Two", "Walk Boxed"], "the names");
-    eq(await page.evaluate(() => document.querySelector(".proof").nextElementSibling.id), "logoBanner", "where it sits");
-    eq(await page.locator("#logoBanner").isVisible(), true, "on screen");
-  });
-  await step("a logo in a box is caught, and nothing on the page draws a box behind any logo", async () => {
-    const corners = await logoCorners(page);
-    eq(corners.filter((l) => l.corners.some((a) => a !== 0)).map((l) => l.name), ["Walk Boxed"], "the logos caught");
-    eq(await logoBacking(page), [], "a backing behind a logo");
-  });
-  await step("on a phone the logos wrap without running wide", async () => {
-    await page.setViewportSize({ width: 375, height: 812 });
-    await page.waitForTimeout(150);
-    const got = await page.evaluate(() => ({ before: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      out: [...document.querySelectorAll("#logoBannerRow img")].filter((i) => { const r = i.getBoundingClientRect(); return r.left < 0 || r.right > 375; }).length }));
-    eq(got, { before: 0, out: 0 }, "overflow and logos off the screen");
-  });
-  clean(world, errors, "the home page with names on the list");
-  await context.close();
+  const WORDS = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
+  /* twelve, the last with no logo of its own, so it is set in type */
+  const TWELVE = WORDS.map((w, i) => (i === 11 ? { name: `ZZ ${w}`, confirmed: "2026-11-10" } : { name: `ZZ ${w}`, logo: EXAMPLE, confirmed: "2026-11-10" }));
+  const withList = async (list, url, { reduced = false } = {}) => {
+    const world = newWorld();
+    const { context, page, errors } = await visit(world);
+    if (reduced) await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.route("**/assets/logo-banner.js*", (route) => route.fulfill({ contentType: "text/javascript",
+      body: readFileSync(join(ROOT, "assets/logo-banner.js"), "utf8").replace(/window\.NP_LOGO_BANNER = \[[\s\S]*?\];/, `window.NP_LOGO_BANNER = ${JSON.stringify(list)};`) }));
+    await page.goto(url);
+    await settled(page);
+    await page.waitForTimeout(250);
+    return { world, context, page, errors };
+  };
+  {
+    const { world, context, page, errors } = await withList(THREE, `${APEX}/`);
+    await step("with names on the list, the confirmed ones show under the numbers and an unconfirmed one does not", async () => {
+      eq((await logoRow(page)).names, ["Walk Example One", "Walk Example Two", "Walk Boxed"], "the names");
+      eq(await page.evaluate(() => document.querySelector(".proof").nextElementSibling.id), "logoBanner", "where it sits");
+      eq(await page.locator("#logoBanner").isVisible(), true, "on screen");
+    });
+    await step("three logos narrower than the page stand still, centred, in one copy", async () => {
+      const got = await logoRow(page);
+      eq({ animations: got.animations, copies: got.copies.length, justify: got.justify, masked: got.masked }, { animations: 0, copies: 1, justify: "center", masked: false }, "the row");
+    });
+    await step("a logo in a box is caught, and nothing on the page draws a box behind any logo", async () => {
+      const corners = await logoCorners(page);
+      eq(corners.filter((l) => l.corners.some((a) => a !== 0)).map((l) => l.name), ["Walk Boxed"], "the logos caught");
+      eq(await logoBacking(page), [], "a backing behind a logo");
+    });
+    clean(world, errors, "the home page with three names on the list");
+    await context.close();
+  }
+  {
+    const { world, context, page, errors } = await withList(TWELVE, `${APEX}/`);
+    await step("twelve names wider than the page make one line moving slowly sideways, the list drawn twice", async () => {
+      const got = await logoRow(page);
+      eq({ names: got.names.length, wrap: got.wrap, running: got.running, duration: got.duration, timing: got.timing, copies: got.copies, masked: got.masked },
+        { names: 12, wrap: "nowrap", running: 1, duration: "48s", timing: "linear", copies: [{ hidden: null, items: 12 }, { hidden: "true", items: 12 }], masked: true }, "the row");
+    });
+    await step("a name with no logo is set in type", async () => {
+      eq((await logoRow(page)).plain, ["ZZ Twelve"], "the names in type");
+      const s = await page.evaluate(() => { const c = getComputedStyle(document.querySelector("#logoBannerRow li.logos__name")); return { font: c.fontFamily.split(",")[0].replace(/["']/g, ""), weight: c.fontWeight }; });
+      eq(s, { font: "Montserrat", weight: "700" }, "its type");
+    });
+    await step("the row pauses while the pointer is over it, and nothing draws a box behind any logo", async () => {
+      await page.locator("#logoBanner").scrollIntoViewIfNeeded();
+      await page.hover("#logoBanner .logos__box");
+      eq((await logoRow(page)).paused, "paused", "the animation under the pointer");
+      await page.mouse.move(2, 2);
+      eq(await logoBacking(page), [], "a backing behind a logo");
+    });
+    await step("the moving row never runs the page wide, on a desk or a phone", async () => {
+      eq((await logoRow(page)).wide, 0, "the page's overflow at 1280");
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.waitForTimeout(200);
+      eq((await logoRow(page)).wide, 0, "the page's overflow at 375");
+    });
+    clean(world, errors, "the home page with twelve names on the list");
+    await context.close();
+  }
+  {
+    const { world, context, page, errors } = await withList(TWELVE, `${APEX}/`, { reduced: true });
+    await step("with reduced motion the twelve stand still and wrap, centred, in one copy", async () => {
+      const got = await logoRow(page);
+      eq({ animations: got.animations, wrap: got.wrap, justify: got.justify, copies: got.copies.length, wide: got.wide }, { animations: 0, wrap: "wrap", justify: "center", copies: 1, wide: 0 }, "the row");
+    });
+    clean(world, errors, "the home page with twelve names and reduced motion");
+    await context.close();
+  }
+  {
+    const { world, context, page, errors } = await withList(TWELVE, `${APEX}/hub/`);
+    await step("the Global Portal page shows the same row under its hero", async () => {
+      eq(await page.evaluate(() => { const s = document.getElementById("logoBanner"); return !!s && !!s.previousElementSibling && s.previousElementSibling.classList.contains("hub-hero"); }), true, "straight after the hero");
+      eq(await page.locator("#logoBanner").isVisible(), true, "on screen");
+      eq(await page.evaluate(() => document.querySelector("#logoBanner .logos__label").textContent.trim()), "Working with NexPoint", "its label");
+      const got = await logoRow(page);
+      eq({ names: got.names.length, plain: got.plain, wrap: got.wrap, running: got.running, wide: got.wide }, { names: 12, plain: ["ZZ Twelve"], wrap: "nowrap", running: 1, wide: 0 }, "the row");
+    });
+    await step("on the Global Portal page a logo addressed from the site root loads from /hub/ too", async () => {
+      const srcs = await page.evaluate(() => [...document.querySelectorAll("#logoBannerRow img")].map((i) => i.complete && i.naturalWidth > 0));
+      eq(srcs.every(Boolean) && srcs.length === 11, true, "every logo drawn");
+    });
+    clean(world, errors, "the Global Portal page with twelve names on the list");
+    await context.close();
+  }
+  {
+    /* A root-relative address and a bare one, from /hub/: both resolve to the site root, so both reach the file the walk serves. */
+    const ROOTED = [{ name: "ZZ Rooted", logo: "/assets/nexpoint-logo.png", confirmed: "2026-11-10" }, { name: "ZZ Bare", logo: "assets/nexpoint-logo.png", confirmed: "2026-11-10" }, { name: "ZZ Missing", logo: "assets/img/logos/zz-missing.svg", confirmed: "2026-11-10" }];
+    const { world, context, page, errors } = await withList(ROOTED, `${APEX}/hub/`);
+    await step("from /hub/ a logo's address is read from the site root, and one that fails shows its name in type", async () => {
+      const got = await page.evaluate(() => [...document.querySelectorAll("#logoBannerRow li")].map((li) => { const i = li.querySelector("img"); return i ? new URL(i.src).pathname : "type:" + li.textContent.trim(); }));
+      eq(got, ["/assets/nexpoint-logo.png", "/assets/nexpoint-logo.png", "type:ZZ Missing"], "the row");
+    });
+    /* the missing file is the point of the step, so only that one is excused */
+    world.missing = world.missing.filter((m) => !/zz-missing\.svg/.test(m));
+    clean(world, errors.filter((e) => !/zz-missing/.test(e)), "the Global Portal page with a root-relative logo");
+    await context.close();
+  }
 }
 
 async function walkLandings() {
@@ -5887,6 +5987,7 @@ if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountBoard) + 1, 0, walk
 if (ONLY !== "public") parts.splice(parts.indexOf(walkInboxAndSystem) + 1, 0, walkConsultancy);
 if (ONLY === "sign") parts.splice(0, parts.length, walkSign);
 if (ONLY === "terms") parts.splice(0, parts.length, walkTerms);
+if (ONLY === "logos") parts.splice(0, parts.length, walkLogoBanner);
 try {
   for (const part of parts) {
     try { await part(); } catch (e) {

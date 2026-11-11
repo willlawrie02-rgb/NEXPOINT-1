@@ -505,10 +505,18 @@ for (const p of pages) {
   for (const c of sandbox.window.NP_LOGO_BANNER) {
     const what = `assets/logo-banner.js "${c.name}"`;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(c.confirmed || "")) fail(`${what}: no date for the operator's confirmation`);
+    /* a name with no logo is set in type; a logo it has keeps to the rule */
+    if (c.logo === undefined) continue;
     if (!/^assets\/img\/logos\/[\w.-]+\.(svg|png)$/.test(c.logo || "")) fail(`${what}: the logo must be a transparent SVG or PNG in assets/img/logos/`);
     else if (!existsSync(join(ROOT, c.logo))) fail(`${what}: ${c.logo} is not in the repo`);
   }
-  if (!/assets\/logo-banner\.js\?v=[\w.-]+/.test(read("index.html"))) fail("index.html: the logo banner's script is not asked for by version");
+  /* the banner is on the home page and the Global Portal page, its script and sheet each asked for by version */
+  for (const p of ["index.html", "hub/index.html"]) {
+    const html = read(p);
+    if (!/id="logoBanner"/.test(html)) fail(`${p}: the logo banner is not on the page`);
+    if (!/assets\/logo-banner\.js\?v=[\w.-]+/.test(html)) fail(`${p}: the logo banner's script is not asked for by version`);
+    if (!/assets\/logo-banner\.css\?v=[\w.-]+/.test(html)) fail(`${p}: the logo banner's sheet is not asked for by version`);
+  }
 }
 
 // ---------------------------------------------------------------- the door asks for its sheet and script by version
