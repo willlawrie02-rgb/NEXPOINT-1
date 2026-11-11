@@ -16,6 +16,9 @@
 //   WALK_BROWSER=/path/to/chrome   uses that browser.
 //   WALK_ONLY=boards (or public)   runs one half; WALK_ONLY=sign runs the
 //       consultancy sign-up page alone, WALK_ONLY=terms every terms screen (plan 078).
+//   WALK_PARTS=walkWall,walkBoard   runs only the parts named (the function
+//       names in this file), for a quick look at one journey while writing a
+//       step. A run for a merge is the whole walk.
 //   WALK_SHOTS=/some/folder   also saves a desktop and a phone picture of each
 //       terms screen there, in the real fonts (the one case that fetches them),
 //       for reading the screens before a switch. Use with WALK_ONLY=terms.
@@ -5800,6 +5803,12 @@ if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountBoard) + 1, 0, walk
 if (ONLY !== "public") parts.splice(parts.indexOf(walkInboxAndSystem) + 1, 0, walkConsultancy);
 if (ONLY === "sign") parts.splice(0, parts.length, walkSign);
 if (ONLY === "terms") parts.splice(0, parts.length, walkTerms);
+if (process.env.WALK_PARTS) {
+  const named = process.env.WALK_PARTS.split(",").map((n) => n.trim()).filter(Boolean);
+  const unknown = named.filter((n) => !parts.some((p) => p.name === n));
+  if (unknown.length) { console.error(`walk: WALK_PARTS names no part called ${unknown.join(", ")}`); await browser.close(); process.exit(2); }
+  parts.splice(0, parts.length, ...parts.filter((p) => named.includes(p.name)));
+}
 try {
   for (const part of parts) {
     try { await part(); } catch (e) {
