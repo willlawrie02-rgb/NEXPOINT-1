@@ -32,7 +32,7 @@ function groups(results) {
 }
 
 export function writeMarkdown(dir, run) {
-  const { results, byHand, mail, meta } = run;
+  const { results, byHand, mail, meta, invoices = [], left = [] } = run;
   const lines = [`# The full test, ${meta.when}`, "", verdict(results), "",
     `Site build: ${meta.build || "not read"}. Terms live: ${meta.termsVersion || "not read"}. Browser: ${meta.browser || "none"}.`,
     meta.command ? `Command: \`${meta.command}\`` : "", ""];
@@ -48,6 +48,12 @@ export function writeMarkdown(dir, run) {
     lines.push("", "## Waiting: run the test again once these have happened", "");
     for (const r of waiting) lines.push(`- **${r.journey.title}**: ${r.detail}`);
   }
+  lines.push("", "## Xero invoices this test raised", "");
+  if (!invoices.length) lines.push("None.");
+  for (const i of invoices) lines.push(`- ${i.what}${i.number ? `, Xero ${i.number}` : ""}${i.company ? `, ${i.company}` : ""}${i.amount ? `, ${i.amount}` : ""}: ${i.voided ? "voided" : "**not voided yet**"}`);
+  lines.push("", "## Test data this run made", "");
+  if (!left.length) lines.push("Nothing.");
+  for (const x of left) lines.push(`- ${x}`);
   lines.push("", "## For you to do by hand", "");
   for (const h of byHand) lines.push(`- ${h}`);
   if (mail.length) {
@@ -121,6 +127,8 @@ export function writeHtml(dir, run) {
     h.push(`<h2>Waiting: run the test again once these have happened</h2>`);
     for (const r of waiting) h.push(`<div class="card wait"><strong>${esc(r.journey.title)}</strong><div class="detail">${esc(r.detail)}</div></div>`);
   }
+  h.push(`<h2>Xero invoices this test raised</h2><div class="card"><ul>${invoices.length ? invoices.map((i) => `<li>${esc(i.what)}${i.number ? `, Xero ${esc(i.number)}` : ""}${i.company ? `, ${esc(i.company)}` : ""}${i.amount ? `, ${esc(i.amount)}` : ""}: ${i.voided ? "voided" : "<strong>not voided yet</strong>"}</li>`).join("") : "<li>None.</li>"}</ul></div>`);
+  h.push(`<h2>Test data this run made</h2><div class="card"><ul>${left.length ? left.map((x) => `<li>${esc(x)}</li>`).join("") : "<li>Nothing.</li>"}</ul></div>`);
   h.push(`<h2>For you to do by hand</h2><div class="card"><ul>${byHand.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>`);
   if (mail.length) {
     h.push(`<h2>Emails</h2><table><tr><th>Email</th><th>To</th><th>Result</th></tr>`,

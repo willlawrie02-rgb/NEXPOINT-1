@@ -17,11 +17,6 @@
       "company": "",
       "email": "",
       "password": ""
-    },
-    "disposable": {
-      "company": "",
-      "email": "",
-      "password": ""
     }
   },
   "new_account": {
@@ -43,12 +38,15 @@
     "//": "Read-only mailbox checks through Microsoft Graph. Leave blank and every email is listed for you to check by hand.",
     "// secret": "Give client_secret, or client_secret_file: the path of a file that holds it.",
     "// mailboxes": "The mailboxes this app may read. Mail to name+anything@ lands in name@.",
+    "// copied": "The addresses every introduction email must copy in (the worker's DESK_COPY), and the address those emails come from.",
     "tenant_id": "",
     "client_id": "",
     "client_secret": "",
     "client_secret_file": "",
     "mailboxes": [],
     "sent_from": "",
-    "desk": ""
+    "desk": "",
+    "copied": [],
+    "intro_from": ""
   }
 }

@@ -83,6 +83,7 @@ export class Mail {
       const s = String(m.subject || "");
       if (subject instanceof RegExp ? !subject.test(s) : !s.includes(subject)) continue;
       return { id: m.id, subject: s, from: lower(m.from && m.from.emailAddress && m.from.emailAddress.address),
+        cc: (m.ccRecipients || []).map((p) => lower(p.emailAddress && p.emailAddress.address)),
         folder: await this.folderName(box, m.parentFolderId), received: m.receivedDateTime };
     }
     return null;
@@ -102,8 +103,10 @@ export class Mail {
     const links = html.match(/https:\/\/nexpoint\.co\.uk\/[^\s"'<>)]+/g) || [];
     return links.find((l) => l.includes(pathPart)) || "";
   }
-  /* A journey says what email its step should cause. Checked at the end. */
-  expect(what, to, subject) { if (to) this.expected.push({ what, to, subject }); }
+  /* A journey says what email its step should cause. Checked at the end.
+     opts.cc: addresses that must be copied in; opts.from: a sender other
+     than the usual one (the introduction emails come from introductions@). */
+  expect(what, to, subject, opts = {}) { if (to) this.expected.push({ what, to, subject, cc: [].concat(opts.cc || []).map(lower), from: lower(opts.from) }); }
   /* Every expected email: found (who from, which folder) or not. */
   async settle(log = () => {}) {
     const rows = [];
@@ -117,10 +120,13 @@ export class Mail {
           const m = await this.waitFor(box, e, 60000);
           if (!m) row.result = "NOT FOUND in the mailbox";
           else {
-            const fromOk = !this.s.sender || m.from === this.s.sender;
+            const sender = e.from || this.s.sender;
+            const fromOk = !sender || m.from === sender;
             const inboxOk = /^inbox$/i.test(m.folder);
-            row.ok = fromOk && inboxOk;
-            row.result = `arrived: "${m.subject}", from ${m.from}${fromOk ? "" : ` (expected ${this.s.sender})`}, in ${m.folder}${inboxOk ? "" : " (expected Inbox)"}`;
+            const missing = (e.cc || []).filter((a) => !m.cc.includes(a));
+            row.ok = fromOk && inboxOk && !missing.length;
+            row.result = `arrived: "${m.subject}", from ${m.from}${fromOk ? "" : ` (expected ${sender})`}, in ${m.folder}${inboxOk ? "" : " (expected Inbox)"}` +
+              ((e.cc || []).length ? (missing.length ? `; NOT copied to ${missing.join(", ")}` : `; copied to ${e.cc.join(", ")}`) : "");
           }
         } catch (err) { row.result = `could not read the mailbox: ${String(err.message || err).slice(0, 120)}`; row.hand = true; }
       }

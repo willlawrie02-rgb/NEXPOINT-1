@@ -83,8 +83,8 @@ async function openAnswer(ctx, w, id) {
   if (!ctx.world.terms2 && !ticks) differs(`the answer on Terms ${ctx.world.termsVersion}`, "no terms tick", "the terms and a tick");
   return ticks;
 }
-/* Declines, or with --with accept accepts. Accepting sends the introduction
-   email to both sides with Will and Chris copied in. */
+/* Declines or accepts. Accepting sends the introduction email to both sides
+   with Will and Chris copied in (allowed since Will's decisions of 12 November). */
 async function answer(ctx, w, id, { accept, ref, seeker, host }) {
   if (accept) {
     const tick = w.page.locator(`#introTerms-${id} input[type=checkbox]`);
@@ -95,8 +95,12 @@ async function answer(ctx, w, id, { accept, ref, seeker, host }) {
     if (!sent.ok()) differs("accepting", await text(w.page, `#introMsg-${id}`).catch(() => "refused"), "Accepted");
     ctx.did();
     await see(w.page, `#intro-${id}`, "Introduced on", "the row after accepting", 20000);
-    ctx.mail.expect(`The introduction email, ${ref} (to the seeker)`, seeker, `Introduction ${ref}`);
-    ctx.mail.expect(`The introduction email, ${ref} (to the host)`, host, `Introduction ${ref}`);
+    /* The contact-release email copies the two directors in (portal worker,
+       commercial.js DESK_COPY). Their addresses are in the settings
+       (mail.copied), not in this public repository. */
+    const cc = { cc: [].concat((ctx.settings.mail || {}).copied || []), from: (ctx.settings.mail || {}).intro_from || "" };
+    ctx.mail.expect(`The introduction email, ${ref} (to the seeker)`, seeker, `Introduction ${ref}`, cc);
+    ctx.mail.expect(`The introduction email, ${ref} (to the host)`, host, `Introduction ${ref}`, cc);
     return "accepted: the introduction email went to both, with Will and Chris copied in";
   }
   await w.page.click(`[data-act="intro-decline-open"][data-intro="${id}"]`);

@@ -227,6 +227,12 @@ export async function signIn(ctx, role, { leaveGate = false, account } = {}) {
   const w = await windowFor(ctx, role);
   ctx.lastWindow = w;
   if (!w.proved) {
+    /* A confirmation, reset or invitation link signs the window in by itself,
+       and then /hub/?signin=1 never opens the box: ask the site first. */
+    if (!w.signedIn && /nexpoint\.co\.uk/.test(w.page.url())) {
+      const before = await whoAmI(w.page);
+      if (before && before.signed_in !== false && before.member && sameName(before.member.company, a.company)) w.signedIn = true;
+    }
     if (!w.signedIn) {
       await go(w.page, `${APEX}/hub/?signin=1`);
       await w.page.locator("#signOverlay.open").waitFor({ state: "visible" });
@@ -335,9 +341,12 @@ export async function pollUntil(check, { ms = 4 * 60 * 1000, every = 10000 } = {
 }
 /* A real Xero invoice the run raised. Listed in the report; the money.void
    journey stops for the operator to void each one in Xero. */
-export function invoiceRaised(ctx, { what, number = "", company = "", amount = "", table = "" }) {
+export function invoiceRaised(ctx, { what, number = "", company = "", amount = "", table = "", id = "" }) {
   ctx.state.invoices = ctx.state.invoices || [];
-  const row = { what, number, company, amount, table, raised: new Date().toISOString(), run: ctx.stamp };
-  if (!ctx.state.invoices.some((i) => i.number && i.number === number)) ctx.state.invoices.push(row);
+  const row = { what, number, company, amount, table, id, raised: new Date().toISOString(), run: ctx.stamp };
+  const same = (i) => (id && i.table === table && String(i.id) === String(id)) || (number && i.number === number);
+  const known = ctx.state.invoices.find(same);
+  if (known) { if (number && !known.number) known.number = number; return; }
+  ctx.state.invoices.push(row);
   ctx.left.push(`${what}${number ? ` (Xero ${number})` : ""}`);
 }

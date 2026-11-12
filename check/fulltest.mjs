@@ -9,9 +9,10 @@
 // Unlike the scripted walk (check/walk.mjs), nothing here is stubbed: it
 // signs in, searches, posts and saves for real. So it only ever acts on
 // records whose name starts ZZ, then a space or a hyphen, and it refuses to
-// start when it cannot confirm that. It never approves a first listing or
-// signs a consultancy agreement (both raise a Xero invoice), never puts a
-// company on a campaign (Smartlead), and never opens Money. See
+// start when it cannot confirm that. Approving a first listing, signing a
+// consultancy agreement and raising a fee invoice make real Xero invoices
+// (Will, 12 November 2026): each is listed, and the run stops for every one
+// to be voided. It never puts a company on a campaign (Smartlead). See
 // check/fulltest/browser.mjs for the locks and check/fulltest/journeys.mjs
 // for the script.
 //
@@ -92,7 +93,7 @@ async function main() {
   const ctx = {
     args, settings, have, world, state, statePath: STATE_PATH, results, browser, log: console.log,
     stamp: when.replace(/^\d{4}-/, "").replace("_", "-"), shotsDir: join(dir, "shots"),
-    windows: {}, spare: [], blocked: [], quiet: new Set(), acceptNow: false, adminDeclined: false, notes: [], left: [], cache: {}, mailRows: [], lastWindow: null,
+    windows: {}, spare: [], blocked: [], quiet: new Set(), signNow: false, adminDeclined: false, notes: [], left: [], cache: {}, mailRows: [], lastWindow: null,
     mail: new Mail(settings, started), pass: "computer", size: "computer",
   };
   ctx.shot = (name) => shot(ctx, name);
@@ -116,10 +117,9 @@ async function main() {
   const byHand = BY_HAND.slice();
   for (const r of ctx.mailRows.filter((m) => m.hand)) byHand.push(`Email to check: ${r.what}, to ${r.to} (${r.result}).`);
   for (const r of results.filter((x) => x.status === "by hand")) byHand.push(`${r.step.does}: ${r.detail}`);
-  if (ctx.left.length) byHand.push(`Left behind by this run, for the ZZ clear-out: ${[...new Set(ctx.left)].join("; ")}.`);
   for (const n of ctx.notes) byHand.push(`Note: ${n}`);
   if (crashed) byHand.unshift(`The run stopped early (${crashed}); the steps after it were not taken.`);
-  const run = { results, byHand, mail: ctx.mailRows, meta: { when: when.replace("_", " "), build: world.build, termsVersion: world.termsVersion,
+  const run = { results, byHand, mail: ctx.mailRows, invoices: state.invoices || [], left: [...new Set(ctx.left)], meta: { when: when.replace("_", " "), build: world.build, termsVersion: world.termsVersion,
     browser: `Chrome ${browser.version()}${args.headless ? ", no window" : ""}`, command: `npm run fulltest${process.argv.length > 2 ? ` -- ${process.argv.slice(2).join(" ")}` : ""}` } };
   const html = writeHtml(dir, run);
   writeMarkdown(dir, run);

@@ -1,7 +1,7 @@
 // The full test's own checks: the ZZ rule, the settings, and the locks on
 // what a window may send. No browser, no network. Part of `npm run check`.
 import { isZZ, isZZSlug, parseArgs, checkSettings, emptySettings, leftOut, unknownNames } from "./core.mjs";
-import { lockVerdict } from "./browser.mjs";
+import { lockVerdict, allow } from "./browser.mjs";
 import { JOURNEYS } from "./journeys.mjs";
 import { readFileSync } from "node:fs";
 
@@ -27,35 +27,35 @@ ok("the example file is the template", JSON.stringify(JSON.parse(readFileSync(ne
 const v = (kind, method, url, body, opts) => lockVerdict(kind, method, url, body, opts);
 const intent = (type, payload) => ({ type, payload_json: payload, requested_by: "x" });
 ok("reads pass", v("admin", "GET", `${DB}/membership_invoices?select=*`) === "" && v("account", "GET", `${API}/account/summary`) === "");
-ok("signing is stopped everywhere", v("account", "POST", `${API}/signup/accept`) !== "" && v("admin", "POST", `${API}/signup/accept`) !== "");
+ok("signing is stopped outside its own step", v("account", "POST", `${API}/signup/accept`) !== "" && v("admin", "POST", `${API}/signup/accept`) !== ""
+  && v("account", "POST", `${API}/signup/accept`, null, { sign: true }) === "");
 ok("a search passes", v("account", "POST", `${API}/listings/search`) === "");
-ok("closing an account is stopped", v("account", "POST", `${API}/account/close`) !== "");
-ok("accept is stopped unless asked for", v("account", "POST", `${API}/introductions/accept`) !== "" && v("account", "POST", `${API}/introductions/accept`, null, { accept: true }) === "");
+ok("an account path no journey sends is stopped", v("account", "POST", `${API}/account/no-such-path`) !== "" && v("account", "POST", `${API}/orders`) !== "");
+ok("accepting an introduction passes (Will, 12 November)", v("account", "POST", `${API}/introductions/accept`) === "");
 ok("an account window never writes to the database", v("account", "POST", `${DB}/engine_intents`, intent("add-note", {})) !== "");
 ok("a note passes", v("admin", "POST", `${DB}/engine_intents`, intent("add-note", { company_id: 1 })) === "");
-for (const type of ["approve-listing", "approve-listing-revision", "raise-fee-invoice", "invite-to-portal", "delete-account", "erase-account",
-  "rerun-job", "record-sub-paid", "mark-paid", "add-provider", "reissue-acceptance", "defer-membership-billing", "change-campaign", "remove-org", ""]) {
+for (const type of ["add-campaign-member", "change-campaign", "switch-campaign", "link-campaign-version", "approve-template", "delete-campaign",
+  "rerun-job", "reroute-introduction", "mark-paid", "record-fee-paid", "record-sub-paid", "erase-account", "update-linkedin-queue", "set-opportunity",
+  "no-such-intent", ""]) {
   ok(`${type || "an empty type"} is stopped`, v("admin", "POST", `${DB}/engine_intents`, intent(type, {})) !== "");
 }
-ok("delete-user is stopped unless asked for", v("admin", "POST", `${DB}/engine_intents`, intent("delete-user", {})) !== ""
-  && v("admin", "POST", `${DB}/engine_intents`, intent("delete-user", {}), { deleteLogin: true }) === "");
+ok("delete-user passes", v("admin", "POST", `${DB}/engine_intents`, intent("delete-user", {})) === "");
 ok("accept with no campaign passes", v("admin", "POST", `${DB}/engine_intents`, intent("accept-prospect", { campaign_ids: [] })) === "");
 ok("accept onto a campaign is stopped", v("admin", "POST", `${DB}/engine_intents`, intent("accept-prospect", { campaign_ids: [3] })) !== ""
   && v("admin", "POST", `${DB}/engine_intents`, intent("accept-prospect", {})) !== ""
   && v("admin", "POST", `${DB}/engine_intents`, intent("accept-prospect", JSON.stringify({ campaign_ids: [3] }))) !== "");
 ok("a payload sent as text is read", v("admin", "POST", `${DB}/engine_intents`, intent("accept-prospect", JSON.stringify({ campaign_ids: [] }))) === "");
-ok("declining a request is stopped", v("admin", "POST", `${DB}/engine_intents`, intent("review-web-request", { status: "declined" })) !== "");
-ok("one bad row stops the lot", v("admin", "POST", `${DB}/engine_intents`, [intent("add-note", {}), intent("approve-listing", {})]) !== "");
+ok("declining a request passes (the seeker's post, 8.3)", v("admin", "POST", `${DB}/engine_intents`, intent("review-web-request", { status: "declined" })) === "");
+ok("one bad row stops the lot", v("admin", "POST", `${DB}/engine_intents`, [intent("add-note", {}), intent("rerun-job", {})]) !== "");
 ok("a body that cannot be read is stopped", v("admin", "POST", `${DB}/engine_intents`, null) !== "");
 ok("a fast save passes", v("admin", "POST", `${DB}/rpc/crm_add_note`, { p: {} }) === "");
 ok("a campaign change is stopped by the fast route too", v("admin", "POST", `${DB}/rpc/crm_change_campaign`, { p: {} }) !== ""
-  && v("admin", "POST", `${DB}/rpc/crm_edit_person`, { p: {} }) !== "");
+  && v("admin", "POST", `${DB}/rpc/crm_no_such_function`, { p: {} }) !== "");
 ok("a prospect edit passes; one that names a campaign does not", v("admin", "POST", `${DB}/rpc/crm_edit_prospect`, { p: { fields: { sectors: ["a"] } } }) === ""
   && v("admin", "POST", `${DB}/rpc/crm_edit_prospect`, { p: { fields: { campaign_ids: [2] } } }) !== ""
   && v("admin", "POST", `${DB}/rpc/crm_edit_prospect`, { p: {} }) !== ""
   && v("admin", "POST", `${DB}/engine_intents`, intent("edit-prospect", { fields: { campaign_ids: [2] } })) !== ""
   && v("admin", "POST", `${DB}/engine_intents`, intent("edit-prospect", { fields: { sectors: [] } })) === "");
-ok("approving a request with a payload that cannot be read is stopped", v("admin", "POST", `${DB}/engine_intents`, intent("review-web-request", "{")) !== "");
 ok("other hosts take reads only, bar the human check", v("account", "POST", "https://api.web3forms.com/submit") !== ""
   && v("account", "GET", "https://fonts.googleapis.com/css2") === "" && v("account", "POST", "https://challenges.cloudflare.com/cdn-cgi/x") === "");
 ok("the sign-in service: sign-in and the second factor only", v("admin", "PUT", "https://synywukadvjpjjxjylwk.supabase.co/auth/v1/user", {}) !== ""
@@ -68,8 +68,8 @@ ok("publishing passes, other table writes do not", v("admin", "PATCH", `${DB}/bo
   && v("admin", "PATCH", `${DB}/organisations?id=eq.1`, {}) !== "" && v("admin", "DELETE", `${DB}/board_opportunities?id=eq.1`) !== ""
   && v("admin", "POST", `${DB}/crm_settings`, {}) !== "");
 ok("the admin's own sign-in passes", v("admin", "POST", "https://synywukadvjpjjxjylwk.supabase.co/auth/v1/token?grant_type=password", {}) === "");
-ok("a consultancy link and its revoke pass; a reissue does not", v("admin", "POST", `${API}/consultancy/links`) === ""
-  && v("admin", "POST", `${API}/consultancy/links/revoke`) === "" && v("admin", "POST", `${API}/consultancy/links/reissue`) !== ""
+ok("a consultancy link, its reissue and its revoke pass; Smartlead does not", v("admin", "POST", `${API}/consultancy/links`) === ""
+  && v("admin", "POST", `${API}/consultancy/links/revoke`) === "" && v("admin", "POST", `${API}/consultancy/links/reissue`) === ""
   && v("admin", "POST", `${API}/smartlead/control`) !== "");
 
 // The script: every step says what it does and what it should show, and ids are unique.
@@ -84,10 +84,15 @@ for (const j of JOURNEYS) {
 }
 const args = parseArgs([]);
 const off = JOURNEYS.filter((j) => j.optIn);
-ok("journeys that use up an account are off unless named", off.length > 0 && off.every((j) => /uses up an account/.test(leftOut(j, args, {}, { termsVersion: "1.3" }))));
+ok("journeys that are off unless named stay off", off.every((j) => /uses up an account/.test(leftOut(j, args, {}, { termsVersion: "1.3" }))));
 ok("terms journeys are off on 1.3", JOURNEYS.filter((j) => (j.needs || []).includes("terms2")).every((j) => /not switched on/.test(leftOut(j, args, { host: true, seeker: true, veteran: true }, { termsVersion: "1.3", terms2: false }))));
-ok("unknown names are caught", unknownNames(JOURNEYS, ["hubs", "accept", "nonsense"]).join() === "nonsense");
+ok("unknown names are caught", unknownNames(JOURNEYS, ["hubs", "accept", "nonsense"]).join() === "accept,nonsense");
 ok("options", parseArgs(["--dry", "--only", "hubs,board", "--with=accept"]).only.length === 2 && parseArgs(["--with=accept"]).with[0] === "accept");
+
+// allow() refuses the never-list, whatever a journey file asks.
+let refusedNever = false;
+try { allow({ adminIntents: ["change-campaign"] }); } catch { refusedNever = true; }
+ok("allow() refuses a campaign intent", refusedNever);
 
 console.log(failed ? `fulltest selftest: ${failed} failed` : "fulltest-selftest-ok");
 process.exit(failed ? 1 : 0);

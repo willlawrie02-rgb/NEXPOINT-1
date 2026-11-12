@@ -6,7 +6,7 @@ import { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead
 import { WAYS_IN } from "./ways-in.mjs";
 import { HUB_JOURNEYS } from "./hubs.mjs";
 import { BOARD_JOURNEYS } from "./board.mjs";
-import { ADMIN_JOURNEYS } from "./admin.mjs";
+import { ADMIN_JOURNEYS, ADMIN_RESTORE } from "./admin.mjs";
 
 // ================================================================ 7. the phone pass
 const phoneStep = (id, who, pages) => ({ id, does: `As ${who}: ${pages.map((p) => p[2]).join(", ")}, at 390 wide`,
@@ -76,7 +76,7 @@ const mail = [{
   ],
 }];
 
-export const JOURNEYS = [].concat(WAYS_IN, HUB_JOURNEYS, BOARD_JOURNEYS, ADMIN_JOURNEYS, phone, mail);
+export const JOURNEYS = [].concat(ADMIN_RESTORE, WAYS_IN, HUB_JOURNEYS, BOARD_JOURNEYS, ADMIN_JOURNEYS, phone, mail);
 
 /* What the runner cannot judge. Always printed at the foot of the report. */
 export const BY_HAND = [
@@ -86,8 +86,7 @@ export const BY_HAND = [
   "How each screen and each email reads. The runner checks an email arrived, not that it reads well.",
   "Queue CY10b case 3 (a login deleted in the Supabase dashboard) and CY10c (the count, in the SQL editor).",
   "Queue CY11's proof of the fallback: turning fast saves off and on again is a change in the SQL editor.",
-  "The public desk forms (home page, hub door, Education sign-up). The daily canary posts one each morning.",
-  "A discount code shown on the click: there is no ZZ code card.",
+  "The home page's desk form and the Education sign-up. The daily canary posts one each morning.",
   "A monthly declaration, and that the seeker gets no email when a host declares.",
   "Queue DB5, the ZZ clear-out, including what this run left behind (listed below).",
 ];

@@ -50,8 +50,7 @@ export const USAGE = `The full test, on ZZ test accounts only.
   npm run fulltest -- --headless   no window (the admin and anything that needs you is skipped)
   npm run fulltest -- --only hubs,board     run these journeys only (names from --dry)
   npm run fulltest -- --skip admin          leave these out
-  npm run fulltest -- --with delete-login   switch on a journey that uses up an account
-  npm run fulltest -- --with accept         accept the 3D Print Hub introduction (the email copies Chris in)
+  npm run fulltest -- --with <journey>      switch on a journey that is off unless named
   npm run fulltest -- --phone      take the whole script at phone width, not only the phone pass
   npm run fulltest -- --fresh      forget what earlier runs left waiting and start again
   npm run fulltest -- --settings <file>   --report-dir <folder>
@@ -81,12 +80,11 @@ export function parseArgs(argv) {
 // ---------------------------------------------------------------- the settings file
 /* The shape of the settings file. check/fulltest.example.json is this with
    every value empty; --init writes it to SETTINGS_PATH. */
-export const ROLES = ["host", "seeker", "veteran", "disposable"];
+export const ROLES = ["host", "seeker", "veteran"];
 export const ROLE_NOTES = {
   host: "a ZZ account that lists capacity on both hubs and owns the test opportunity",
   seeker: "a ZZ account that searches, picks the ZZ host and asks for introductions",
   veteran: "a ZZ account that accepted Platform Terms 1.3 and has not signed in since Terms 2.0 (the Platform gate, once)",
-  disposable: "a ZZ account the delete-login journey may use up; only read with --with delete-login",
 };
 export function emptySettings() {
   const account = () => ({ company: "", email: "", password: "" });
@@ -103,7 +101,8 @@ export function emptySettings() {
       "//": "Read-only mailbox checks through Microsoft Graph. Leave blank and every email is listed for you to check by hand.",
       "// secret": "Give client_secret, or client_secret_file: the path of a file that holds it.",
       "// mailboxes": "The mailboxes this app may read. Mail to name+anything@ lands in name@.",
-      tenant_id: "", client_id: "", client_secret: "", client_secret_file: "", mailboxes: [], sent_from: "", desk: "",
+      "// copied": "The addresses every introduction email must copy in (the worker's DESK_COPY), and the address those emails come from.",
+      tenant_id: "", client_id: "", client_secret: "", client_secret_file: "", mailboxes: [], sent_from: "", desk: "", copied: [], intro_from: "",
     },
   };
 }
@@ -154,9 +153,6 @@ export function checkSettings(s, { withJourneys = [] } = {}) {
   const folder = String((accounts.host || {}).folder || "").trim();
   if (folder && !isZZSlug(folder)) problems.push("accounts.host.folder is not a ZZ folder name (zz-something)");
   have.admin = !!String(((s && s.admin) || {}).email || "").trim();
-  if (withJourneys.includes("delete-login") && !have.disposable) {
-    problems.push("--with delete-login needs accounts.disposable filled in");
-  }
   return { problems, have };
 }
 export function writeTemplate(path) {
@@ -224,9 +220,9 @@ export function differs(what, got, want) {
 const firstLine = (e) => String(e && e.message ? e.message : e).split("\n")[0].slice(0, 400);
 
 // ---------------------------------------------------------------- choosing journeys
-/* Names --with takes that are not journeys: accept sends the introduction
-   email, which copies Chris in, so it is off unless asked for. */
-export const EXTRAS = ["accept"];
+/* Names --with takes that are not journeys. Accepting is always run now
+   (Will, 12 November 2026): the introduction email copies Will and Chris in. */
+export const EXTRAS = [];
 /* A journey's group is the part of its id before the dot: --only hubs runs
    hubs.print and hubs.mill; --only hubs.print runs that one. */
 const names = (j) => [j.id, j.id.split(".")[0]];
