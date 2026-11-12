@@ -56,9 +56,16 @@ for (const p of pages) {
   const print = read("printhub/index.html");
   // Chris's wording of 9 November 2026 (his Word document, applied 9 Nov): the hero
   // leads with capacity meeting those who need it, never with the cross-border line,
-  // and no page claims certification (it contradicts the Terms).
+  // and the landing says "qualified" and "reviews" where it used to say "certified".
   if (!/to connect with those beginning their 3D printing journey/.test(print)) fail("printhub/index.html: the hero does not lead with local capacity meeting those who need it");
-  if (/[Cc]ertif/.test(print.replace(/<!--[\s\S]*?-->/g, ""))) fail("printhub/index.html: claims certification, which contradicts the Terms (Chris, 9 Nov 2026)");
+  // Will, 12 November 2026 (the code audit's decision D): Chris's wording holds on
+  // every public page, not the landing alone. A lab is "qualified" and NexPoint
+  // "reviews" it; no page says NexPoint certifies. The plural "certifications" is
+  // left alone: it is a host's own (ISO and the like), a field on the listing form.
+  for (const p of pages) {
+    const m = read(p).replace(/<!--[\s\S]*?-->/g, "").match(/\bcertif(?!ications\b)\w*/i);
+    if (m) fail(`${p}: says "${m[0]}"; the public pages say "qualified" and "reviewed by NexPoint", never certified (Chris, 9 Nov 2026; Will, 12 Nov 2026)`);
+  }
   if (/No freight, no customs, no import taxes/.test(print)) fail("printhub/index.html: the hero still leads with the cross-border line");
   const block = print.slice(print.indexOf('<div class="rows">'));
   const leads = [...block.slice(0, block.indexOf("</section>")).matchAll(/<span class="lead">([^<]*)<\/span>/g)].map((m) => m[1]);
