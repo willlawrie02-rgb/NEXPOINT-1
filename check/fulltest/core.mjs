@@ -46,7 +46,8 @@ export const USAGE = `The full test, on ZZ test accounts only.
 
   npm run fulltest                 the whole test, in a Chrome window you can watch
   npm run fulltest -- --dry        list every step it would take; opens nothing
-  npm run fulltest -- --init       write an empty settings file to fill in
+  npm run fulltest -- --setup      answer a few questions; it writes the settings file for you
+  npm run fulltest -- --init       write an empty settings file to fill in by hand
   npm run fulltest -- --headless   no window (the admin and anything that needs you is skipped)
   npm run fulltest -- --only hubs,board     run these journeys only (names from --dry)
   npm run fulltest -- --skip admin          leave these out
@@ -57,9 +58,9 @@ export const USAGE = `The full test, on ZZ test accounts only.
 `;
 const list = (v) => String(v || "").split(",").map((s) => s.trim()).filter(Boolean);
 export function parseArgs(argv) {
-  const a = { dry: false, init: false, headless: false, phone: false, fresh: false, help: false,
+  const a = { dry: false, init: false, setup: false, headless: false, phone: false, fresh: false, help: false,
     only: [], skip: [], with: [], settings: SETTINGS_PATH, reportDir: REPORTS_DIR };
-  const flags = { "--dry": "dry", "--init": "init", "--headless": "headless", "--phone": "phone", "--fresh": "fresh",
+  const flags = { "--dry": "dry", "--init": "init", "--setup": "setup", "--headless": "headless", "--phone": "phone", "--fresh": "fresh",
     "--help": "help", "-h": "help" };
   const values = { "--only": "only", "--skip": "skip", "--with": "with", "--settings": "settings", "--report-dir": "reportDir" };
   for (let i = 0; i < argv.length; i++) {

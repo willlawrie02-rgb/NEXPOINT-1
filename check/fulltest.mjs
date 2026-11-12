@@ -52,6 +52,7 @@ async function readWorld() {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) { console.log(USAGE); return 0; }
+  if (args.setup) { const { runSetup } = await import("./fulltest/setup.mjs"); return runSetup(args.settings); }
   if (args.init) {
     writeTemplate(args.settings);
     console.log(`Wrote an empty settings file to ${args.settings}\nFill it in (every company name starts ZZ), then run: npm run fulltest -- --dry`);
