@@ -1105,7 +1105,7 @@ function timelineItems(){
   });
   C.notes.forEach(n=>out.push({when:n.dated,cat:'note',icon:'sticky_note_2',cls:'',kind:'Note',title:n.title||n.path.split('/').pop(),
     extra:n.body?`<details class="more"><summary>Read the note</summary><p class="ev-body">${esc(n.body)}</p></details>`:''}));
-  C.pnotes.forEach(n=>out.push({when:n.at,cat:'note',icon:'sticky_note_2',cls:'',kind:'Prospects note',title:`Note from ${NXShell.personOf(n.by)}`,body:n.body}));
+  C.pnotes.forEach(n=>out.push({when:n.at,cat:'note',icon:'sticky_note_2',cls:'',kind:'Prospects note',title:n.by==='claude'?'Claude answered a note':`Note from ${NXShell.personOf(n.by)}`,body:n.body}));
   C.newNotes.forEach(n=>out.push({when:n.at,cat:'note',icon:'sticky_note_2',cls:'',kind:'Note',title:`Note from ${NXShell.personOf(n.by)}`,body:n.body,
     extra:n.file_error?`<div class="fail-line"><span>Could not file it: ${esc(n.file_error)}</span>${btn('retryNote','Try again','',{note:n.id},'quiet')}</div>`
       :`<span class="picker-note">${noteFolder()?'Filing to the folder.':'Waiting for a workspace folder.'}</span>`}));

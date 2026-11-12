@@ -27,6 +27,7 @@
   .opps { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12.5px; color: var(--fg-2); }
   .note-item { margin: 0; font-size: 13px; color: var(--fg-1); white-space: pre-wrap; overflow-wrap: anywhere; }
   .notes { display: flex; flex-direction: column; gap: 8px; }
+  .note-item.reply { margin-left: 14px; padding-left: 12px; border-left: 2px solid var(--info-line); }
   .notes textarea { width: 100%; min-height: 56px; resize: vertical; }
   .co-cell { display: flex; flex-direction: column; gap: 2px; min-width: 160px; }
   .co-cell small { font-size: 12px; color: var(--fg-2); }
@@ -524,10 +525,22 @@ function fields(r,isParked){
   </div>`+(ask?`<div class="inline-choice"><span>New ${ask==='sector'?'Sector':'Company type'} option, added for everyone:</span><label class="sr" for="opt-new">New option</label><input class="input" id="opt-new" autocomplete="off">`+
     `<button type="button" class="btn sm primary" data-act="confirmOption" data-id="${esc(id)}" data-f="${ask}">Add the option</button><button type="button" class="btn sm quiet" data-act="closeAsk">Cancel</button></div>`:'');
 }
+/* One note. Claude's answer (plan 091, Part B; migration 0103) is a row of the same table with reply_to set:
+   it sits under the note it answers. A person's note with no answer yet says it waits; before 0103 the
+   column is not there and nothing is said. */
+function noteItem(n,isReply){
+  const mine=n.by==='claude', who=mine?'Claude':NXShell.personOf(n.by);
+  const waits=!mine&&'answered_at' in n&&n.answered_at==null&&n.reply_to==null;
+  return `<p class="note-item${isReply?' reply':''}"><span class="muted-t">${esc(who)}, ${esc(NXCRM.fmtDate(n.at))}</span>${waits?' <span class="st info">Waiting for Claude</span>':''}<br>${esc(n.body)}${n.file_error?`<br><span class="status-line fail">Not in its folder yet: ${esc(n.file_error)}. The engine tries again on its next run.</span>`:''}</p>`;
+}
 function notesBlock(r){
   const list=notes[r.company]||[],q=pendingFor['n'+r.company];
-  return `<details class="archive inpanel"${list.length?' open':''}><summary>Notes (${list.length})</summary><div class="arch-body notes">
-    ${list.map(n=>`<p class="note-item"><span class="muted-t">${esc(NXShell.personOf(n.by))}, ${esc(NXCRM.fmtDate(n.at))}</span><br>${esc(n.body)}${n.file_error?`<br><span class="status-line fail">Not in its folder yet: ${esc(n.file_error)}. The engine tries again on its next run.</span>`:''}</p>`).join('')}
+  const ids=new Set(list.map(n=>n.id)), repliesOf={};
+  list.filter(n=>n.reply_to!=null&&ids.has(n.reply_to)).forEach(n=>{(repliesOf[n.reply_to]=repliesOf[n.reply_to]||[]).push(n);});
+  Object.values(repliesOf).forEach(a=>a.sort((x,y)=>x.id-y.id));
+  const asked=list.filter(n=>!(n.reply_to!=null&&ids.has(n.reply_to)));
+  return `<details class="archive inpanel"${list.length?' open':''}><summary>Notes (${asked.length})</summary><div class="arch-body notes">
+    ${asked.map(n=>noteItem(n)+(repliesOf[n.id]||[]).map(x=>noteItem(x,true)).join('')).join('')}
     ${q&&q.status!=='failed'?'<span class="status-line">A note is queued for the engine.</span>':''}
     ${q&&q.status==='failed'?`<span class="status-line fail">The engine could not save a note: ${esc(q.result_note||'')}</span>`:''}
     <label class="sr" for="note-${esc(r.id)}">New note</label><textarea class="input" id="note-${esc(r.id)}" data-id="${esc(r.id)}" data-draft="1" placeholder="What should the next person know about this company?"${pre0065?' disabled':''}>${esc(drafts[r.id]||'')}</textarea>
