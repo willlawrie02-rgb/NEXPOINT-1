@@ -96,7 +96,7 @@ export function emptySettings() {
       ? { ...account(), "//": "folder is the company's folder name in the workspace (zz-something), for the consultancy link.", folder: "" } : account()])),
     new_account: {
       "//": "Registration and the invitation each make a new person on every run. {stamp} becomes the run's date and time, and both addresses must carry it. Use addresses you can open.",
-      company: "ZZ Full Test {stamp}", name: "ZZ Full Test", email: "", invite_email: "", password: "", town: "", country: "",
+      company: "ZZ Full Test {stamp}", name: "ZZ Full Test", email: "", invite_email: "", change_email: "", password: "", town: "", country: "",
     },
     admin: { "//": "Your admin address, to recognise your session. No password: you sign in yourself, in the window.", email: "" },
     mail: {
@@ -139,7 +139,7 @@ export function checkSettings(s, { withJourneys = [] } = {}) {
   if (have.new_account && !isZZ(String(n.company || "").replace("{stamp}", "1"))) {
     problems.push("new_account.company is not a ZZ test name (ZZ, then a space or a hyphen)");
   }
-  for (const k of ["email", "invite_email"]) {
+  for (const k of ["email", "invite_email", "change_email"]) {
     if (String(n[k] || "").trim() && !String(n[k]).includes("{stamp}")) problems.push(`new_account.${k} must carry {stamp}, so each run uses a new address`);
   }
   if (have.new_account && lower(n.email) === lower(n.invite_email)) problems.push("new_account.email and invite_email must differ");
@@ -172,11 +172,12 @@ export function writeTemplate(path) {
    next run carries on from there. The file holds record numbers and test
    names only: no password, no key, no link that opens anything. */
 export function loadState(path, fresh) {
-  if (fresh || !existsSync(path)) return { made: {}, at: {} };
-  try {
-    const s = JSON.parse(readFileSync(path, "utf8"));
-    return { made: s.made || {}, at: s.at || {} };
-  } catch { return { made: {}, at: {} }; }
+  /* Invoices raised and not yet voided are kept even by --fresh: each one
+     must be voided in Xero whatever the next run does. */
+  let s = {};
+  try { if (existsSync(path)) s = JSON.parse(readFileSync(path, "utf8")); } catch { s = {}; }
+  const invoices = (s.invoices || []).filter((i) => !i.voided);
+  return fresh ? { made: {}, at: {}, invoices } : { made: s.made || {}, at: s.at || {}, invoices };
 }
 export function saveState(path, state) {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });

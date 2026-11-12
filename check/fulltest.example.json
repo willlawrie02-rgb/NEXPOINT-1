@@ -30,6 +30,7 @@
     "name": "ZZ Full Test",
     "email": "",
     "invite_email": "",
+    "change_email": "",
     "password": "",
     "town": "",
     "country": ""

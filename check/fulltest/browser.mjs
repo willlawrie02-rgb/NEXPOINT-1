@@ -26,23 +26,32 @@ export function findBrowser({ headless }) {
 
 // ---------------------------------------------------------------- the locks
 /* What an account's window may send to the API. Everything is a ZZ account's
-   own act on its own records. A path not listed never leaves the browser. */
+   own act on its own records. A path not listed never leaves the browser.
+   Each journey file adds the paths its own steps send, with allow() below,
+   so the list is always exactly what the script is written to do. */
 const ACCOUNT_POSTS = new Set(["/auth/login", "/auth/logout", "/auth/register", "/auth/confirm", "/auth/invite",
   "/auth/register-invited", "/auth/reset-request", "/listings/search", "/seeker-requests", "/listings", "/requests",
   "/introductions/accept", "/introductions/decline", "/account/invites", "/account/users/remove",
   "/terms/platform/accept", "/signup/view"]);
-/* What the admin window may ask the engine to do. Nothing here raises an
-   invoice, approves a listing, invites anyone, or runs a job. */
+/* Paths with an id in them: matched as patterns. */
+const ACCOUNT_POST_PATTERNS = [];
+/* What the admin window may ask the engine to do. Since Will's decisions of
+   12 November this includes approving a first listing (a Xero invoice the
+   run lists for voiding); never a campaign, never re-running a job. */
 const ADMIN_INTENTS = new Set(["add-note", "edit-company", "add-task", "done-task", "add-card", "move-card", "mark-card-dead",
   "add-prospect", "edit-prospect", "add-prospect-note", "accept-prospect", "review-web-request", "save-board-opportunity",
-  "publish-to-live-site", "end-board-opportunity", "introduce-on-board"]);
-const ADMIN_INTENTS_DELETE_LOGIN = new Set(["edit-person", "delete-user"]);
+  "publish-to-live-site", "end-board-opportunity", "introduce-on-board", "edit-person", "delete-user"]);
+/* Never, whatever a journey asks for: Smartlead, re-running a job, money marked paid, erasing. */
+const ADMIN_NEVER = new Set(["add-campaign-member", "remove-campaign-member", "change-campaign", "switch-campaign",
+  "link-campaign-version", "approve-template", "delete-campaign", "campaign-approve-lead", "campaign-exclude-lead",
+  "rerun-job", "reroute-introduction", "mark-paid", "record-fee-paid", "record-sub-paid", "erase-account",
+  "update-linkedin-queue", "set-opportunity"]);
 /* The fast saves (plan 079) the journeys make: database functions that change
    the CRM's own rows. Named one by one, so crm_change_campaign and the rest
    stay shut. */
 const ADMIN_FUNCTIONS = new Set(["crm_add_note", "crm_edit_company", "crm_add_task", "crm_done_task", "crm_add_card", "crm_move_card",
-  "crm_mark_card_dead", "crm_edit_prospect", "crm_add_prospect_note"]);
-const ADMIN_FUNCTIONS_DELETE_LOGIN = new Set(["crm_edit_person"]);
+  "crm_mark_card_dead", "crm_edit_prospect", "crm_add_prospect_note", "crm_edit_person"]);
+const FUNCTIONS_NEVER = new Set(["crm_change_campaign"]);
 /* The admin's own sign-in and second factor, and nothing else of the sign-in service. */
 const ADMIN_AUTH = [/^\/auth\/v1\/token$/, /^\/auth\/v1\/factors\/[^/]+\/(challenge|verify)$/, /^\/auth\/v1\/logout$/];
 /* Other hosts a page may post to: Cloudflare's human check, and nothing else. */
@@ -52,6 +61,14 @@ const asObject = (v) => { if (typeof v === "string") { try { return JSON.parse(v
 const namesCampaign = (fields) => !fields || (Array.isArray(fields.campaign_ids) ? fields.campaign_ids.length > 0 : "campaign_ids" in fields);
 const ADMIN_API_POSTS = new Set(["/consultancy/links", "/consultancy/links/revoke"]);
 const ADMIN_TABLE_WRITES = new Set(["PATCH board_opportunities"]);
+/* A journey file names what its steps send. The never-lists above still win. */
+export function allow({ accountPosts = [], accountPatterns = [], adminIntents = [], adminFunctions = [], adminApi = [] } = {}) {
+  for (const p of accountPosts) ACCOUNT_POSTS.add(p);
+  for (const re of accountPatterns) ACCOUNT_POST_PATTERNS.push(re);
+  for (const t of adminIntents) { if (ADMIN_NEVER.has(t)) throw new Error(`allow(): ${t} is never allowed`); ADMIN_INTENTS.add(t); }
+  for (const f of adminFunctions) { if (FUNCTIONS_NEVER.has(f)) throw new Error(`allow(): ${f} is never allowed`); ADMIN_FUNCTIONS.add(f); }
+  for (const a of adminApi) ADMIN_API_POSTS.add(a);
+}
 
 const bodyOf = (request) => { try { return JSON.parse(request.postData() || "null"); } catch { return null; } };
 /* Why a request is stopped, or "" when it may go. */
@@ -59,12 +76,10 @@ export function lockVerdict(kind, method, url, body, opts = {}) {
   const u = new URL(url);
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") return "";
   if (u.hostname === "api.nexpoint.co.uk") {
-    if (u.pathname === "/signup/accept") return "signing a consultancy agreement (it raises a Xero invoice)";
+    /* Signing raises a Xero invoice: open only while the one step that signs runs. */
+    if (u.pathname === "/signup/accept") return method === "POST" && opts.sign ? "" : "signing a consultancy agreement outside its own step";
     const allowed = kind === "admin" ? ADMIN_API_POSTS : ACCOUNT_POSTS;
-    if (method === "POST" && allowed.has(u.pathname)) {
-      if (u.pathname === "/introductions/accept" && !opts.accept) return "accepting an introduction without --with accept";
-      return "";
-    }
+    if (method === "POST" && (allowed.has(u.pathname) || (kind !== "admin" && ACCOUNT_POST_PATTERNS.some((re) => re.test(u.pathname))))) return "";
     return `${method} ${u.pathname}`;
   }
   if (u.hostname === DB_HOST) {
@@ -76,8 +91,7 @@ export function lockVerdict(kind, method, url, body, opts = {}) {
       if (!rows.length) return "an engine request with no readable body";
       for (const row of rows) {
         const type = String((row && row.type) || "");
-        const ok = ADMIN_INTENTS.has(type) || (opts.deleteLogin && ADMIN_INTENTS_DELETE_LOGIN.has(type));
-        if (!ok) return `the engine request "${type}"`;
+        if (ADMIN_NEVER.has(type) || !ADMIN_INTENTS.has(type)) return `the engine request "${type}"`;
         const p = asObject(row.payload_json);
         if (type === "accept-prospect" && !(p && Array.isArray(p.campaign_ids) && p.campaign_ids.length === 0)) {
           return "accepting a prospect onto a campaign (it goes into Smartlead)";
@@ -85,14 +99,13 @@ export function lockVerdict(kind, method, url, body, opts = {}) {
         if (type === "add-prospect" && p && Array.isArray(p.campaign_ids) && p.campaign_ids.length) {
           return "adding a prospect onto a campaign (it goes into Smartlead)";
         }
-        if (type === "review-web-request" && !(p && p.status === "approved")) return "declining a request (the company is told)";
         if (type === "edit-prospect" && namesCampaign(p && p.fields)) return "putting a prospect onto a campaign (it goes into Smartlead)";
       }
       return "";
     }
     if (method === "POST" && table.startsWith("rpc/")) {
       const fn = table.slice(4);
-      if (!(ADMIN_FUNCTIONS.has(fn) || (opts.deleteLogin && ADMIN_FUNCTIONS_DELETE_LOGIN.has(fn)))) return `the database function ${fn}`;
+      if (FUNCTIONS_NEVER.has(fn) || !ADMIN_FUNCTIONS.has(fn)) return `the database function ${fn}`;
       const p = asObject(body && body.p);
       if (fn === "crm_edit_prospect" && namesCampaign(p && p.fields)) return "putting a prospect onto a campaign (it goes into Smartlead)";
       return "";
@@ -114,7 +127,7 @@ async function lock(context, kind, ctx) {
     const request = route.request();
     if (request.method() === "GET") return route.continue();
     /* Accepting is open only while the one step that is asked to accept runs. */
-    const opts = { accept: !!ctx.acceptNow, deleteLogin: ctx.args.with.includes("delete-login") };
+    const opts = { sign: !!ctx.signNow };
     const why = lockVerdict(kind, request.method(), request.url(), bodyOf(request), opts);
     if (!why) return route.continue();
     /* A stopped save to our API or database fails the step. A post to any
@@ -305,4 +318,26 @@ export async function saveVia(page, press) {
    not wrong, but it is not what those steps describe. */
 export function wantDirect(saved, what) {
   if (!saved.direct) differs(`${what}: fast saves`, `queued for the engine ("${saved.toast}"); the direct_writes switch reads off`, "Saved, straight to the database");
+}
+
+// ---------------------------------------------------------------- waiting on the engine
+/* Polls until check() answers something truthy, or the time is up (then ""
+   or false). Every admin request wakes the engine within about a minute
+   (the worker's /intents/ping), so most waits are a few minutes at most. */
+export async function pollUntil(check, { ms = 4 * 60 * 1000, every = 10000 } = {}) {
+  const until = Date.now() + ms;
+  for (;;) {
+    const got = await check().catch(() => null);
+    if (got) return got;
+    if (Date.now() > until) return null;
+    await new Promise((r) => setTimeout(r, every));
+  }
+}
+/* A real Xero invoice the run raised. Listed in the report; the money.void
+   journey stops for the operator to void each one in Xero. */
+export function invoiceRaised(ctx, { what, number = "", company = "", amount = "", table = "" }) {
+  ctx.state.invoices = ctx.state.invoices || [];
+  const row = { what, number, company, amount, table, raised: new Date().toISOString(), run: ctx.stamp };
+  if (!ctx.state.invoices.some((i) => i.number && i.number === number)) ctx.state.invoices.push(row);
+  ctx.left.push(`${what}${number ? ` (Xero ${number})` : ""}`);
 }
