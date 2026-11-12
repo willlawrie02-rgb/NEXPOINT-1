@@ -157,6 +157,18 @@ export async function windowFor(ctx, role, { fresh = false } = {}) {
   const context = await ctx.browser.newContext({ ...size, locale: "en-GB", timezoneId: "Europe/London", storageState });
   context.setDefaultTimeout(15000);
   await lock(context, role === "admin" ? "admin" : "account", ctx);
+  /* A password box stays dotted in the test's windows even when its "show"
+     eye is pressed, so no screenshot (the runner's or a person's) shows one. */
+  await context.addInitScript(() => {
+    const mask = () => {
+      if (document.getElementById("zzMaskPasswords")) return;
+      const st = document.createElement("style");
+      st.id = "zzMaskPasswords";
+      st.textContent = 'input[type=password],input[id$="Pass"],input[id*="pass" i],input[name*="password" i]{-webkit-text-security:disc !important}';
+      (document.head || document.documentElement).appendChild(st);
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mask); else mask();
+  });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e.message || e).slice(0, 200)));

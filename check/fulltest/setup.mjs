@@ -64,12 +64,17 @@ async function account(label, s, suggestion) {
 
 const madeUp = () => `Zz-${randomBytes(12).toString("base64url")}9a`;
 export async function runSetup(path, auto = null) {
-  /* Start from the file a session prepared (mail and addresses filled in), else the one in use, else the empty template. */
+  /* Start from the settings in use; the first time, from the file a session
+     prepared (mail and addresses filled in); else the empty template. */
   const prepared = join(dirname(path), "full-test.new.json");
   let s = emptySettings(), from = "an empty template";
-  for (const p of [prepared, path]) {
+  for (const p of [path, prepared]) {
     if (!existsSync(p)) continue;
-    try { s = { ...emptySettings(), ...JSON.parse(readFileSync(p, "utf8")) }; from = p; break; } catch { /* try the next */ }
+    try {
+      const got = JSON.parse(readFileSync(p, "utf8"));
+      if (p === path && !String(((got.mail || {}).tenant_id) || "").trim() && existsSync(prepared)) continue;   // an older file with no mail set up
+      s = { ...emptySettings(), ...got }; from = p; break;
+    } catch { /* try the next */ }
   }
   console.log(`The full test's settings. Starting from ${from}.${auto ? "" : "\nPress Return to keep what is shown in [brackets]."}`);
   s.accounts = s.accounts || {};
@@ -81,8 +86,10 @@ export async function runSetup(path, auto = null) {
       const a = s.accounts[role];
       a.company = a.company || name;
       a.email = auto[role];
-      a.password = a.password || madeUp();
+      a.password = auto.renew ? madeUp() : a.password || madeUp();
     }
+    /* Only before the accounts exist: a new password for an account already registered would lock the runner out. */
+    if (auto.renew) s.new_account = { ...(s.new_account || {}), password: "" };
   } else {
     await account("host", s.accounts.host, "ZZ Full Test Host");
     await account("seeker", s.accounts.seeker, "ZZ Full Test Seeker");

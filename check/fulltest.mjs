@@ -55,7 +55,7 @@ async function main() {
   if (args.setup) {
     const { runSetup } = await import("./fulltest/setup.mjs");
     if (!!args.hostEmail !== !!args.seekerEmail) throw new Refused("--host-email and --seeker-email go together");
-    return runSetup(args.settings, args.hostEmail ? { host: args.hostEmail, seeker: args.seekerEmail } : null);
+    return runSetup(args.settings, args.hostEmail ? { host: args.hostEmail, seeker: args.seekerEmail, renew: args.fresh } : null);
   }
   if (args.init) {
     writeTemplate(args.settings);
