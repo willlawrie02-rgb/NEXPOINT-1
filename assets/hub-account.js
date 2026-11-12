@@ -165,7 +165,6 @@
       document.dispatchEvent(new CustomEvent('npaccount:change'));
       renderChip();
       whenDom(enforceDoor);
-      whenDom(openPlatformGate);
       return A.user;
     },
     async signIn(email, password) {
@@ -173,12 +172,10 @@
       if (d.ok) {
         A.user = normalise(d.member);
         /* The sign-in answer does not carry the terms, so they are read again.
-           Nothing waits on it but termsFor and the Platform gate. */
+           Nothing waits on it but termsFor. */
         A.terms = null;
-        platformGateAsked = false;
         termsRead = call('/auth/me', { method: 'GET', timeoutMs: 8000 }).then((m) => {
           A.terms = readTerms(m);
-          whenDom(openPlatformGate);
         });
         document.dispatchEvent(new CustomEvent('npaccount:change'));
         renderChip();
@@ -832,115 +829,10 @@
       ' been updated. Read ' + (layer === 'platform' ? 'them' : 'it') + ' again and tick to accept.';
   };
 
-  /* ── the Platform gate (plan 078) ─────────────────────────────
-     A new version of the Platform Terms, for an account that holds an older
-     one: asked once, on the next page it opens, with no way past but accepting
-     (Platform §9). Its own element and class, not an .overlay: every page's
-     closeAll() shuts those. Its own small stylesheet too, because the main
-     site loads this module without portal.css. A closed account is never asked
-     and the worker sends it no terms; `terms: null` shows nothing. If the words
-     cannot be read the gate does not open, since until it is asked the last
-     accepted version continues. */
-  function gateStyles() {
-    if (document.getElementById('npTermsGateCss')) return;
-    const css = document.createElement('style');
-    css.id = 'npTermsGateCss';
-    css.textContent =
-      '.np-gate{position:fixed;inset:0;z-index:10000;display:flex;padding:16px;overflow-y:auto;background:rgba(14,22,38,.55)}' +
-      '.np-gate__box{margin:auto;box-sizing:border-box;width:100%;max-width:600px;padding:clamp(20px,4vw,32px);border-radius:16px;background:#fff;color:#2C3444;font:400 14.5px/1.55 Inter,system-ui,sans-serif;box-shadow:0 24px 64px rgba(14,22,38,.28)}' +
-      '.np-gate__box h2{margin:0 0 6px;font:600 clamp(20px,3vw,24px)/1.25 Montserrat,Inter,sans-serif;letter-spacing:-.015em;color:#0E1626;outline:none}' +
-      '.np-gate__box p{margin:0 0 10px}' +
-      '.np-gate__box .terms-scroll{max-height:min(42vh,340px);overflow-y:auto;margin:14px 0 10px;padding:14px 16px;border:1px solid #E3E7ED;border-radius:12px;background:#F5F7FA;font-size:13.5px;line-height:1.6;overflow-wrap:anywhere}' +
-      '.np-gate__box .terms-scroll h3,.np-gate__box .terms-scroll h4,.np-gate__box .terms-scroll h5{margin:12px 0 6px;font:600 14.5px/1.3 Montserrat,Inter,sans-serif;color:#0E1626}' +
-      '.np-gate__box .terms-scroll h3:first-child{margin-top:0}' +
-      '.np-gate__box .np-terms-links a{color:#005CC8;font-weight:600}' +
-      '.np-gate__box .np-terms-tick{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:1.4;cursor:pointer}' +
-      '.np-gate__box .np-terms-tick input{margin-top:2px;accent-color:#005CC8}' +
-      '.np-gate__err{color:#C62828;font-size:13.5px}' +
-      '.np-gate__acts{display:flex;justify-content:flex-end;margin-top:16px}' +
-      '.np-gate__go{padding:13px 22px;border:0;border-radius:10px;background:#005CC8;color:#fff;font:600 14px/1.2 Inter,system-ui,sans-serif;cursor:pointer}' +
-      '.np-gate__go:hover{background:#0066DC}.np-gate__go:disabled{opacity:.5;cursor:not-allowed}';
-    document.head.appendChild(css);
-  }
-  function closePlatformGate() {
-    const g = document.getElementById('npTermsGate');
-    if (g) g.remove();
-    document.documentElement.style.overflow = '';
-  }
-  async function drawPlatformGate(note) {
-    const d = await getJson('/terms/current?layer=platform');
-    if (!d || d.error || !d.id || !d.body_md) { closePlatformGate(); return; }
-    gateStyles();
-    let g = document.getElementById('npTermsGate');
-    if (!g) {
-      g = document.createElement('div');
-      g.id = 'npTermsGate';
-      g.className = 'np-gate';
-      document.body.appendChild(g);
-      document.documentElement.style.overflow = 'hidden';
-      /* The dialog holds the keyboard until it is answered. */
-      g.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); return; }
-        if (e.key !== 'Tab') return;
-        const stops = Array.from(g.querySelectorAll('a[href],input,button:not([disabled]),.terms-scroll'));
-        if (!stops.length) return;
-        const first = stops[0], last = stops[stops.length - 1];
-        if (e.shiftKey && (document.activeElement === first || !g.contains(document.activeElement) || document.activeElement.id === 'npGateHead')) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-      });
-    }
-    g.innerHTML = '<div class="np-gate__box" role="dialog" aria-modal="true" aria-labelledby="npGateHead">' +
-      '<h2 id="npGateHead" tabindex="-1">Our Platform Terms have changed</h2>' +
-      '<p>Read the new version and accept it to carry on.</p>' +
-      (note ? '<p class="np-gate__err">' + esc(note) + '</p>' : '') +
-      '<div class="terms-scroll" tabindex="0">' + markdownLite(d.body_md) + '</div>' +
-      '<p class="np-terms-links">' + downloadLink('platform', d.version) + '</p>' +
-      '<label class="np-terms-tick"><input type="checkbox" data-np-gate-tick> <span>' +
-      esc('I accept the Platform Terms, version ' + d.version) + '</span></label>' +
-      '<p class="np-gate__err" data-np-gate-msg role="alert" hidden></p>' +
-      '<div class="np-gate__acts"><button class="np-gate__go" type="button" data-np-gate-go disabled>Accept and continue</button></div>' +
-      '</div>';
-    const tick = g.querySelector('[data-np-gate-tick]');
-    const go = g.querySelector('[data-np-gate-go]');
-    const msg = g.querySelector('[data-np-gate-msg]');
-    tick.addEventListener('change', () => { go.disabled = !tick.checked; });
-    go.addEventListener('click', async () => {
-      if (go.disabled) return;
-      go.disabled = true;
-      go.textContent = 'Saving…';
-      msg.hidden = true;
-      const r = await postJson('/terms/platform/accept', { terms_version_id: d.id });
-      if (r && r.ok) {
-        A.noteAccepted('platform');
-        closePlatformGate();
-        document.dispatchEvent(new CustomEvent('npterms:accepted'));
-        return;
-      }
-      const e = r && r.error;
-      if (e === 'stale_terms') { drawPlatformGate(A.termsMoved('platform')); return; }
-      /* A session that lapsed, or an account closed elsewhere, has nothing to accept here. */
-      if (e === 'sign in required' || e === 'account_closed' || e === 'account_removed' || e === 'email_unconfirmed') {
-        closePlatformGate();
-        return;
-      }
-      go.textContent = 'Accept and continue';
-      go.disabled = !tick.checked;
-      msg.hidden = false;
-      msg.textContent = e === 'network'
-        ? 'That did not go through. Check your connection and try again, or email hello@nexpoint.co.uk.'
-        : 'That did not go through. Try again, or email hello@nexpoint.co.uk.';
-    });
-    const head = g.querySelector('#npGateHead');
-    if (head) head.focus();
-  }
-  let platformGateAsked = false;
-  function openPlatformGate() {
-    if (platformGateAsked || !document.body) return;
-    const p = A.terms && A.terms.platform;
-    if (!A.user || !A.user.email_confirmed || A.closed || !p || p.accepted !== false) return;
-    platformGateAsked = true;
-    drawPlatformGate();
-  }
+  /* No pop-up for a new version of the Platform Terms (Will, 12 November
+     2026): they are accepted when an account is made or joined, and nowhere
+     else. An account that holds an older version carries on under it
+     (Platform §9) until it is asked some other way. */
 
   /* ── the act gate ────────────────────────────────────────── */
   A.gate = function (action) {
