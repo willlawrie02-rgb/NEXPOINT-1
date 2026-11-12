@@ -3495,131 +3495,47 @@ async function walkTerms() {
     await context.close();
   }
 
-  /* ── the Platform gate ── */
-  {
-    const world = termsWorld({ terms: TERMS_STATE({ platform: { id: 10, version: "1.9", accepted: false } }), summary: EMPTY_SUMMARY });
-    world.api["POST /terms/platform/accept"] = (w, req) => {
-      if (w.platformStale) { w.platformStale = false; return [422, { error: "stale_terms", layer: "platform" }]; }
-      w.terms = TERMS_STATE({ platform: HELD(req.body.terms_version_id) });
-      return [200, { ok: true }];
-    };
-    const { context, page, errors } = await visit(world);
-    await step("46 the Platform gate opens when accepted is false, with its words, the document and a copy", async () => {
-      await page.goto(`${APEX}/hub/account/`);
-      await page.waitForSelector("#npTermsGate [data-np-gate-tick]");
-      const text = await page.textContent("#npTermsGate");
-      has(text, "Our Platform Terms have changed", "the heading");
-      has(text, "Read the new version and accept it to carry on.", "the line");
-      has(text, DOC_WORDS.platform, "the document");
-      has(text, "I accept the Platform Terms, version 2.0", "the tick");
-      eq((await page.textContent("[data-np-gate-go]")).trim(), "Accept and continue", "the button");
-      eq(await page.getAttribute("#npTermsGate a.np-terms-dl", "href"), "https://api.nexpoint.co.uk/terms/platform/2.0.pdf", "Download a copy");
-      eq(await page.isDisabled("[data-np-gate-go]"), true, "the button before the tick");
-      await shot(page, "platform-gate");
-    });
-    await step("46 it cannot be closed but by accepting: not Escape, not a click outside, not the page's closeAll", async () => {
-      await page.keyboard.press("Escape");
-      await page.mouse.click(5, 5);
-      await page.evaluate(() => { if (window.closeAll) window.closeAll(); });
-      await page.waitForTimeout(100);
-      eq(await page.locator("#npTermsGate").isVisible(), true, "the gate");
-      eq(apiCalls(world, "POST /terms/platform/accept").length, 0, "accepts sent");
-      for (let n = 0; n < 8; n += 1) await page.keyboard.press("Tab");
-      eq(await page.evaluate(() => !!document.activeElement.closest("#npTermsGate")), true, "the keyboard stays inside");
-    });
-    await step("57 at 375 pixels wide the Platform gate has no sideways scroll and its button can be reached", async () => {
-      await phone(page);
-      await noSideways(page, "the Platform gate");
-      const box = await page.evaluate(() => {
-        const r = document.querySelector("#npTermsGate .np-gate__box").getBoundingClientRect();
-        return { left: r.left, right: r.right };
-      });
-      eq(box.left >= 0 && box.right <= 375, true, "the box inside the window");
-      await page.locator("[data-np-gate-go]").scrollIntoViewIfNeeded();
-      eq(await page.locator("[data-np-gate-go]").isVisible(), true, "the button");
-      await page.setViewportSize({ width: 1280, height: 900 });
-    });
-    await step("46 a version that moved on while it was open draws the new words, unticked, and says why", async () => {
-      world.platformStale = true;
-      await page.check("[data-np-gate-tick]");
-      await page.click("[data-np-gate-go]");
-      await page.waitForFunction(() => /The Platform Terms have been updated/.test(document.getElementById("npTermsGate").textContent));
-      eq(await page.isChecked("[data-np-gate-tick]"), false, "the tick");
-    });
-    await step("46 accepting posts the version, closes the gate, and the next page does not ask", async () => {
-      await page.check("[data-np-gate-tick]");
-      const summaries = apiCalls(world, "GET /account/summary").length;
-      await page.click("[data-np-gate-go]");
-      await until(() => apiCalls(world, "POST /terms/platform/accept").length === 2, "the accept");
-      eq(apiCalls(world, "POST /terms/platform/accept")[1].body, { terms_version_id: TERMS_ID.platform }, "the body");
-      await page.waitForFunction(() => !document.getElementById("npTermsGate"));
-      await until(() => apiCalls(world, "GET /account/summary").length > summaries, "the account page drawing again");
-      await page.reload();
-      await page.waitForSelector("body[data-np-open]");
-      await settled(page);
-      eq(await page.locator("#npTermsGate").count(), 0, "the gate on the next page");
-    });
-    clean(world, errors, "the Platform gate");
-    await context.close();
-  }
-  for (const [what, over] of [
-    ["terms: null", { terms: null }],
-    ["a closed account", { closed: { at: "2026-10-22T09:00:00Z" } }],
-    ["an account holding the version", { terms: TERMS_STATE() }],
+  /* ── no pop-up for a new version of the Platform Terms ──
+     Will, 12 November 2026: the Platform Terms are accepted when an account is
+     made or joined, and nowhere else. An account that holds an older version
+     is not stopped by a pop-up on any page, and nothing reads the document or
+     sends an acceptance by itself. */
+  for (const [what, address, ready] of [
+    ["the account page", `${APEX}/hub/account/`, "body[data-np-open]"],
+    ["the main site", `${APEX}/`, null],
   ]) {
-    const world = termsWorld(Object.assign({ summary: EMPTY_SUMMARY,
-      terms: TERMS_STATE({ platform: { id: 10, version: "1.9", accepted: false } }) }, over));
+    const world = termsWorld({ terms: TERMS_STATE({ platform: { id: 10, version: "1.9", accepted: false } }), summary: EMPTY_SUMMARY });
     const { context, page, errors } = await visit(world);
-    await step(`46 ${what} sees no Platform gate`, async () => {
-      await page.goto(`${APEX}/hub/account/`);
-      await page.waitForSelector("body[data-np-open]");
+    await step(`an account holding an older Platform version sees no pop-up on ${what}`, async () => {
+      await page.goto(address);
+      if (ready) await page.waitForSelector(ready);
+      await page.waitForFunction(() => window.NPAccount && NPAccount.ready);
+      await page.evaluate(() => NPAccount.ready);
       await settled(page);
-      eq(await page.locator("#npTermsGate").count(), 0, "the gate");
+      await page.waitForTimeout(300);
+      eq(await page.locator("#npTermsGate").count(), 0, "the pop-up");
+      eq(await page.evaluate(() => document.documentElement.style.overflow), "", "the page still scrolls");
+      eq(apiCalls(world, "GET /terms/current").filter((c) => c.query.layer === "platform").length, 0, "reads of the Platform Terms");
+      eq(apiCalls(world, "POST /terms/platform/accept").length, 0, "accepts sent");
     });
-    clean(world, errors, `no Platform gate for ${what}`);
-    await context.close();
-  }
-  {
-    const world = termsWorld({ terms: TERMS_STATE({ platform: { id: 10, version: "1.9", accepted: false } }) });
-    world.api["GET /terms/current"] = (w, req) => (req.query.layer === "platform" ? [500, { error: "http_500" }] : docTerms(w, req));
-    const { context, page, errors } = await visit(world);
-    await step("words that cannot be read do not trap anybody: no gate until they can be", async () => {
-      await page.goto(`${APEX}/`);
-      await until(() => apiCalls(world, "GET /terms/current").length > 0, "the read");
-      await settled(page);
-      eq(await page.locator("#npTermsGate").count(), 0, "the gate");
-    });
-    clean(world, errors, "Platform Terms that cannot be read");
-    await context.close();
-  }
-  {
-    const world = termsWorld({ terms: TERMS_STATE({ platform: { id: 10, version: "1.9", accepted: false } }) });
-    const { context, page, errors } = await visit(world);
-    await step("the main site, which has no portal.css, shows the same gate, styled", async () => {
-      await page.goto(`${APEX}/`);
-      await page.waitForSelector("#npTermsGate [data-np-gate-tick]");
-      const look = await page.evaluate(() => ({
-        position: getComputedStyle(document.getElementById("npTermsGate")).position,
-        bg: getComputedStyle(document.querySelector("#npTermsGate .np-gate__box")).backgroundColor,
-        scroll: getComputedStyle(document.querySelector("#npTermsGate .terms-scroll")).overflowY,
-      }));
-      eq(look, { position: "fixed", bg: "rgb(255, 255, 255)", scroll: "auto" }, "the gate's own styles");
-    });
-    clean(world, errors, "the Platform gate on the main site");
+    clean(world, errors, `no Platform pop-up on ${what}`);
     await context.close();
   }
   {
     const world = termsWorld({ user: null, terms: TERMS_STATE({ platform: { id: 10, version: "1.9", accepted: false } }) });
     const { context, page, errors } = await visit(world);
-    await step("signing in reads the terms again, so the Platform gate opens on the page the sign-in was made on", async () => {
+    await step("signing in with an older Platform version opens no pop-up either", async () => {
       await page.goto(`${APEX}/hub/`);
       await page.waitForFunction(() => window.NPAccount && NPAccount.ready);
       await page.evaluate(() => NPAccount.ready);
-      eq(await page.locator("#npTermsGate").count(), 0, "the gate while signed out");
       await page.evaluate(([e, p]) => NPAccount.signIn(e, p), [USER.email, PASSWORD]);
-      await page.waitForSelector("#npTermsGate [data-np-gate-tick]");
+      await until(() => apiCalls(world, "GET /auth/me").length > 1, "the terms read after the sign-in");
+      await settled(page);
+      await page.waitForTimeout(300);
+      eq(await page.locator("#npTermsGate").count(), 0, "the pop-up");
+      eq(apiCalls(world, "POST /terms/platform/accept").length, 0, "accepts sent");
     });
-    clean(world, errors, "the Platform gate after a sign-in");
+    clean(world, errors, "no Platform pop-up after a sign-in");
     await context.close();
   }
 

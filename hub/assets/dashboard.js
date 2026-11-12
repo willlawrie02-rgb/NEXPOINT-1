@@ -1329,7 +1329,6 @@
     window.addEventListener('hashchange', attend);
     if (!window.NPAccount) { showSignedOut(); return; }
     document.addEventListener('npaccount:change', load);
-    document.addEventListener('npterms:accepted', load);
     NPAccount.ready.then(load);
   }
 
