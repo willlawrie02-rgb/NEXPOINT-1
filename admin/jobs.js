@@ -2,7 +2,7 @@
    yields, as the Inbox (inbox.html) and the company page's Needs you
    (company.html) show it and decide it.
 
-   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=088">:
+   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=092">:
    shared admin files are cached in browsers for up to four hours, so bump
    ?v= on every change (and on every page that links it).
 
@@ -182,6 +182,13 @@ const KINDS={
       :`A line on ${whom(r)}’s declaration is disputed${r.ref?` (${r.ref})`:''}`,panel:disputePanel},
   unmatched_email:{group:'problem',icon:'mark_email_unread',label:'Unmatched order email',
     line:r=>`An order email from ${whom(r)} has no INTRO reference`,panel:unmatchedPanel},
+  /* Plan 092 (Will, 12 November 2026): emails the CC inbox matched to an
+     introduction, one card per introduction per month (item_id is
+     "<introduction>:<month>"). A match says only that the email carries the
+     reference, so a person reads it and says whether it shows an order.
+     Until someone answers, nothing happens to the host. */
+  possible_order:{group:'problem',icon:'fact_check',label:'Possible order',
+    line:r=>`Possible order on ${r.ref||'an introduction'}: ${who(r)}, ${monthName(orderKey(r).period)}`,panel:possibleOrderPanel},
   flagged_host:{group:'problem',icon:'flag',label:'Flagged host',notNow:true,
     line:r=>`${who(r)} has ${r.status} unresolved`,panel:flaggedPanel},
   introduction:{group:'problem',icon:'forward_to_inbox',label:'Offer email not sent',notNow:true,
@@ -689,6 +696,55 @@ function emailsBlock(emails,ctx){
     esc([e.from_email,day(e.received_at)].filter(Boolean).join(', '))}</span></span>${outlookButton(e,ctx)}</div>`).join('')}</div>`;
 }
 
+/* Plan 092: a possible order. The card's introduction and month, and the
+   emails it asks about: matched to that introduction in that month, not
+   disputed, and not yet answered. A press answers exactly these. */
+function orderKey(r){
+  const [intro,period]=String((r||{}).item_id||'').split(':');
+  return {intro:Number(intro),period:period||''};
+}
+function orderEmails(r,ctx){
+  const {intro,period}=orderKey(r);
+  return ((ctx&&ctx.evidence)||[]).filter(e=>Number(e.introduction_id)===intro&&e.period===period&&e.status==='matched'
+    &&!e.order_answer&&!e.disputed_at).sort((a,b)=>String(a.received_at||'').localeCompare(String(b.received_at||''))||a.id-b.id);
+}
+/* The filed copy, on the company page of the folder it was filed in, with its
+   Emails timeline open at that email. Only a plain folder name is ever a link. */
+const FILED_COPY=/^(?:deals|leads)\/([a-z0-9][a-z0-9-]*)\/emails\/[^/]+$/i;
+function filedCopyHref(e){
+  for(const path of (e&&e.filed_paths)||[]){
+    const m=FILED_COPY.exec(String(path||''));
+    if(m)return 'company.html?slug='+encodeURIComponent(m[1])+(e.internet_message_id?'&mail='+encodeURIComponent(e.internet_message_id):'');
+  }
+  return null;
+}
+function possibleOrderPanel(r,ctx){
+  const {intro:introId,period}=orderKey(r);
+  const emails=orderEmails(r,ctx);
+  if(!emails.length)return missing('These order emails');
+  const intro=intros.find(i=>Number(i.id)===introId)||{};
+  const named=n=>n&&!PLACEHOLDER.test(n)?n:'';
+  const host=named(orgName(intro.org_a)||orgName(emails[0].org_provider)||r.name)||'the host';
+  const seeker=named(orgName(intro.org_b)||orgName(emails[0].org_seeker))||'the seeker';
+  const ref=introRef(intro)||r.ref||'this introduction', month=monthName(period), k=r.item_key;
+  const rows=emails.map(e=>{
+    const copy=filedCopyHref(e);
+    return `<div class="mini"><span><span class="strong">${esc(e.subject||'(no subject)')}</span><span class="item-sub">${
+      esc([e.from_email,day(e.received_at||e.created_at)].filter(Boolean).join(', '))}</span></span><span class="actions">${
+      copy?link(copy,'Open the filed copy','mail'):'<span class="picker-note">No copy was filed</span>'}${outlookButton(e,ctx)}</span></div>`;
+  }).join('');
+  const open=isOpen(ctx,'order',r)?'order':isOpen(ctx,'notorder',r)?'notorder':null;
+  return {intent:`order:${introId}:${period}`,
+    body:kv([['Host',esc(host)],['Seeker',esc(seeker)],['Introduction',esc([ref,hubName(intro.hub||r.hub),month].filter(Boolean).join(', '))]])
+      +`<div>${rows}</div>`
+      +para(`${emails.length===1?'Does this email show':'Do these emails show'} an order from ${esc(seeker)} to ${esc(host)}? Until someone answers, nothing happens to ${esc(host)}.`),
+    actions:btn('jobOpen','Yes, an order','check',{key:k,ui:'order'},'primary')+btn('jobOpen','No, not an order','',{key:k,ui:'notorder'}),
+    choice:open==='order'?choice(esc(`Confirm this as an order? If ${host}’s declaration for ${month} says nothing or leaves ${ref} out, a strike opens and it is emailed a warning.`),
+        btn('jobOrderAnswer','Yes, it is an order','',{key:k,res:'order'},'primary')+cancel())
+      :open==='notorder'?choice('Mark this as not an order? It stays on the record, never counts towards a strike and is not asked about again.',
+        btn('jobOrderAnswer','No, it is not an order','',{key:k,res:'notorder'},'primary')+cancel()):''};
+}
+
 /* An order email the CC inbox matched to no introduction (register §2):
    match it to one of this company's introductions (every live one when
    there is no company), or mark it not an introduction order. */
@@ -953,6 +1009,15 @@ const ACT={
     const r=rowOf(el,ctx);if(!r)return;
     return ctx.raise('match-order-evidence',{evidence_id:Number(r.item_id),introduction_id:null},spot(r),'Marked not an introduction order');
   },
+  /* Plan 092: Yes or No on a possible order, for exactly the emails the card shows. */
+  jobOrderAnswer(el,ctx){
+    const r=rowOf(el,ctx);if(!r)return;
+    const {intro,period}=orderKey(r);
+    const ids=orderEmails(r,ctx).map(e=>e.id);
+    if(!ids.length)return;
+    const answer=el.dataset.res==='order'?'order':'not_order';
+    return ctx.raise('confirm-order-evidence',{introduction_id:intro,period,evidence_ids:ids,answer},spot(r),answer==='order'?'Confirmed as an order':'Marked not an order');
+  },
   /* Not now (D4): the card leaves the queue for Done today with Put back, and
      comes back by itself when the job changes (its key carries the state). */
   jobNotNow(el,ctx){
@@ -1075,6 +1140,8 @@ Object.assign(ACT,{
 const TYPES=['approve-listing','decline-listing','approve-listing-revision','decline-listing-revision',
   'add-provider','decline-intro-request','reroute-introduction','reissue-acceptance',
   'resolve-dispute','match-order-evidence','dismiss-inbox-item',
+  /* plan 092: a possible order confirmed, or marked not an order */
+  'confirm-order-evidence',
   /* plan 075: the membership jobs' by-hand controls */
   'record-sub-paid','extend-membership-clock'];
 const LISTING_TYPES=TYPES.slice(0,4);
@@ -1087,6 +1154,7 @@ function intentKey(i){
   if(i.type==='reroute-introduction'||i.type==='reissue-acceptance')return 'intro:'+p.introduction_id;
   if(i.type==='resolve-dispute')return `dispute:${p.kind}:${p.id}`;
   if(i.type==='match-order-evidence')return 'evidence:'+p.evidence_id;
+  if(i.type==='confirm-order-evidence')return `order:${p.introduction_id}:${p.period}`;
   if(i.type==='dismiss-inbox-item'||i.type==='restore-inbox-item')return 'nn:'+p.item_key;
   if(i.type==='record-sub-paid'||i.type==='extend-membership-clock')return 'membership:'+p.org_id;
   if(i.type==='edit-task'||i.type==='done-task')return 'task:'+p.task_id;
@@ -1106,6 +1174,7 @@ const DONE_WORDS={
   'reissue-acceptance':['waiting','Offer sent'],
   'resolve-dispute':['problem',p=>p.resolution==='upheld'?'Dispute: the seeker’s figure used':'Dispute: the host’s figure kept'],
   'match-order-evidence':['problem',p=>p.introduction_id==null?'Marked not an introduction order':'Order email matched'],
+  'confirm-order-evidence':['problem',p=>p.answer==='order'?'Order email confirmed as an order':'Order email marked not an order'],
   'dismiss-inbox-item':[p=>(KINDS[p.kind]||{}).group||null,p=>(p.kind==='flagged_host'?'Kept live: ':'Not now: ')+(p.reason||'no reason given')],
   'tick-task':[null,p=>'Workspace task ticked: '+(p.task||'')],
   'done-task':[null,(p,o)=>{const t=o&&o.taskTitle?o.taskTitle(p.task_id):'';return (p.done?'Task done':'Task put back')+(t?': '+t:'');}],
@@ -1142,6 +1211,8 @@ async function read(sb,rows,opt){
   const flagged=uniq(of('flagged_host').map(r=>r.org_id||r.item_id));
   const orgIds=uniq(of('retention').map(r=>r.org_id||r.item_id));
   const invIds=uniq(of('membership_unpaid','listing_hidden','invoice_not_raised').map(r=>Number(r.item_id)));
+  /* plan 092: the introductions behind the possible orders; their emails are read with the disputed lines' */
+  const orderIntroIds=uniq(of('possible_order').map(r=>orderKey(r).intro));
   const words=listingIds.length||reqIds.length||introIds.length;
 
   const [vq,lq,rq,iq,dlq,eq,sq,kq,mq]=await Promise.all([
@@ -1170,7 +1241,7 @@ async function read(sb,rows,opt){
      on those hubs, and the declarations, introductions and order emails
      behind the disputed lines. */
   const allReqIds=uniq([...reqIds,...out.introductions.filter(i=>/^(declined|expired)$/.test(i.stage)).map(i=>i.seeker_request_id)]);
-  const lineIntroIds=uniq(out.lines.map(l=>l.introduction_id));
+  const lineIntroIds=uniq([...out.lines.map(l=>l.introduction_id),...orderIntroIds]);
   const declIds=uniq(out.lines.map(l=>l.declaration_id));
   const moreReqIds=allReqIds.filter(id=>!out.requests.some(r=>r.id===id));
   const [mrq,oiq,dq,liq,leq]=await Promise.all([
