@@ -86,15 +86,40 @@ function trapValue(form){
   return t ? t.value : '';
 }
 
+/* ═══════════ a limit on every wait ═══════════
+   Audit of 11 November 2026, finding 10a-03. Only the account module's
+   /auth/me had a time limit; every other call waited for as long as the
+   browser would, so a connection that stalled, or a worker that took a
+   request and never answered, left "Loading your account…", "One moment…"
+   or an undrawn form on screen for minutes with no way on. A dropped
+   connection was handled; a hung one was not.
+   npLimit(ms) hands back a signal for fetch, done() to call once the answer
+   has been read to its end, and fired() to say whether the limit is what
+   ended it. The same shape as the account module's own (an AbortController
+   and a plain timer, which every browser with fetch has and the walk's
+   clock can drive). Twenty seconds: long enough for the slowest thing a
+   page sends (a search that places a town, a listing with its sites), short
+   enough that nobody sits in front of a dead page. */
+const NP_REQUEST_TIMEOUT_MS = 20000;
+function npLimit(ms){
+  if (!ms || typeof AbortController !== 'function') return { signal: undefined, done(){}, fired(){ return false; } };
+  const ctl = new AbortController();
+  let fired = false;
+  const timer = setTimeout(() => { fired = true; ctl.abort(); }, ms);
+  return { signal: ctl.signal, done(){ clearTimeout(timer); }, fired(){ return fired; } };
+}
+
 async function sendRequest(body, onOk, onFail){
+  const limit = npLimit(NP_REQUEST_TIMEOUT_MS);
   try {
     const r = await fetch(CAPTURE_REQUESTS_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', body: JSON.stringify(body),
+      credentials: 'include', body: JSON.stringify(body), signal: limit.signal,
     });
     const data = await r.json().catch(() => ({}));
-    if (r.ok && data.ok) onOk(); else onFail();
+    if (r.ok && data.ok && !limit.fired()) onOk(); else onFail();
   } catch { onFail(); }
+  finally { limit.done(); }
 }
 
 function formSendingState(form){
@@ -139,13 +164,27 @@ function locLabel(l){
    so the caller can put the confirm card up instead of a generic failure.
    An error body also carries http_status, because "this route is not
    deployed yet" (404) and "this route refused me" read the same otherwise,
-   and a page that falls back on 404 has to be able to tell them apart. */
+   and a page that falls back on 404 has to be able to tell them apart.
+   A request that has had no whole answer after NP_REQUEST_TIMEOUT_MS is
+   given up and comes back as the same error value a dropped connection
+   does, with timed_out beside it, so every caller's own words for "that
+   did not send" or "that did not load" are what the visitor reads. A
+   caller may pass timeoutMs of its own; 0 switches the limit off. */
 async function npApi(path, opts){
-  let r;
+  const o = Object.assign({ credentials: 'include' }, opts || {});
+  const limit = npLimit(o.timeoutMs === undefined ? NP_REQUEST_TIMEOUT_MS : o.timeoutMs);
+  delete o.timeoutMs;
+  if (limit.signal && !o.signal) o.signal = limit.signal;
+  let r, d;
   try {
-    r = await fetch(API_BASE + path, Object.assign({ credentials: 'include' }, opts || {}));
-  } catch (e) { return { error: 'network' }; }
-  const d = await r.json().catch(() => ({}));
+    r = await fetch(API_BASE + path, o);
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    return limit.fired() ? { error: 'network', timed_out: true } : { error: 'network' };
+  } finally { limit.done(); }
+  /* The limit can end the read of the body as well as the wait for it; a
+     body cut short must not pass for an empty answer. */
+  if (limit.fired()) return { error: 'network', timed_out: true };
   if (r.ok) return d;
   /* A 401 on a page that believes it is signed in: the session lapsed
      mid-visit. Tell the account module, so the next requireConfirmed() opens
@@ -479,17 +518,71 @@ async function signSubmit(){
         <div class="modal-actions" style="justify-content:center;flex-wrap:wrap"><a class="btn btn-primary" href="https://nexpoint.co.uk/hub/account/">Go to your account</a><button class="btn btn-outline" onclick="closeAll()">Back to the Global Portal</button></div>
       </div>`;
   } else if (err){
+    signResendOffer('');   /* an offer from an earlier attempt goes; this attempt speaks for itself */
+    err.style.display = 'block';
+    /* email_unconfirmed (audit of 11 November 2026, finding 10a-01): the
+       worker says this only when the password was right and the address has
+       not been confirmed. "Don't match" told a new registrant their password
+       was wrong, and "Forgotten your password?" sends an unconfirmed address
+       nothing. So the thing that is missing is named, and a link can be sent
+       from here. The form stays: they sign in with it once they have clicked. */
+    if (d.error === 'email_unconfirmed'){
+      err.textContent = 'Confirm your email first. Open the link we sent when you registered, then sign in here. If it is not in your inbox, check your spam folder or send a new one.';
+      signResendOffer(email.trim());
+      return;
+    }
     /* too_many_attempts (audit plan 010): the worker stops trying an address
        after eight wrong passwords in ten minutes. Saying "don't match" here
        would send someone with the right password round in circles, so the
        wait and the way out are both named. */
-    err.style.display = 'block';
     err.textContent = d.error === 'network'
       ? 'That did not send. Check your connection and try again.'
       : d.error === 'too_many_attempts'
       ? 'Too many attempts on this address. Wait ten minutes, or use "Forgotten your password?" below.'
       : 'That email and password don\'t match an account. Check them, or create your hub account below.';
   }
+}
+/* The button under the sign-in box's "confirm your email first" line. The
+   worker answers a resend the same way whatever the address, and sends
+   nothing inside two minutes of the last one, so the line that replaces the
+   button says only what is true either way: a link is on its way, not a new
+   one. A send that never left this device gives the button back. Called
+   with no email it only clears an earlier offer. */
+function signResendOffer(email){
+  const old = document.querySelector('#signContent .np-sign-resend');
+  if (old) old.remove();
+  const err = document.querySelector('#signContent .np-sign-error');
+  if (!email || !err) return;
+  const LABEL = 'Send a new confirmation link';
+  const row = document.createElement('div');
+  row.className = 'np-sign-resend';
+  row.style.cssText = 'margin-top:12px';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-outline';
+  btn.textContent = LABEL;
+  const note = document.createElement('p');
+  note.setAttribute('role', 'status');
+  note.style.cssText = 'margin:10px 0 0;font-size:13px;line-height:1.4';
+  note.hidden = true;
+  btn.addEventListener('click', async () => {
+    if (btn.disabled) return;
+    btn.disabled = true; btn.textContent = 'Sending…';
+    note.hidden = true;
+    const d = (window.NPAccount && NPAccount.resendConfirmation)
+      ? await NPAccount.resendConfirmation(email) : { error: 'network' };
+    note.hidden = false;
+    if (d && d.error === 'network'){
+      btn.disabled = false; btn.textContent = LABEL;
+      note.textContent = 'That did not send. Check your connection and try again.';
+      return;
+    }
+    note.textContent = 'If that address still needs confirming, a link is on its way.';
+    btn.remove();
+  });
+  row.appendChild(btn);
+  row.appendChild(note);
+  err.insertAdjacentElement('afterend', row);
 }
 /* "Forgotten your password?" in the sign-in modal (audit plan 006). The
    worker answers every address the same way, and so does this: the modal
@@ -507,10 +600,12 @@ async function resetRequest(){
   if (window.NPAccount && NPAccount.resetRequest){
     await NPAccount.resetRequest(email);
   } else {
+    const limit = npLimit(NP_REQUEST_TIMEOUT_MS);
     try {
       await fetch(API_BASE + '/auth/reset-request', { method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }), signal: limit.signal });
     } catch (e) { /* the message below is the same for every outcome */ }
+    finally { limit.done(); }
   }
   document.getElementById('signContent').innerHTML = `
     <div class="success">

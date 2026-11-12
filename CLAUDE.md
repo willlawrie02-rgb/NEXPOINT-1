@@ -24,7 +24,9 @@ Read this before changing anything. Five load-bearing facts:
 ## Checks
 
 Run `npm run check` before any PR (first time: `npm install`). It chains:
-`check:js` (node --check on every JS module), `check:html` (html-validate;
+`check:js` (node --check on every JS module), `check:inline` (the same
+check on every script written inside a page, lifted out by
+`check/inline.mjs`; audit of 11 November 2026), `check:html` (html-validate;
 `.htmlvalidate.json` relaxes ~11 rules covering 444 pre-existing findings
 from 2026-09-09 — tighten one rule at a time as pages are touched, never
 grow the off-list silently), `check:links` (every relative href/src in

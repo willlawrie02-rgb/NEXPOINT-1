@@ -534,6 +534,30 @@ for (const p of pages) {
   if (css && js && css[1] !== js[1]) fail(`hub/index.html: portal.css is at version ${css[1]} and portal.js at ${js[1]}; they move together`);
 }
 
+// ---------------------------------------------------------------- one version of a shared script on every page
+// 11 November 2026 (the audit's fixes changed hub-account.js, portal.js and
+// vocab.js in one pull request): a shared script asked for by version must be
+// asked for by the SAME version wherever it is, or a bump that misses a page
+// leaves that page running the old file against new ones. hub-account.js
+// carries a version on every page that loads it; vocab.js on the find pages.
+// A page that asks for either with no version is left alone here (tagging
+// every shared file everywhere is the audit's finding 10a-04, after launch).
+{
+  for (const file of ["hub-account.js", "vocab.js"]) {
+    const seen = new Map();
+    for (const p of pages) {
+      const re = new RegExp(file.replace(".", "\\.") + "\\?v=([\\w.-]+)", "g");
+      for (const m of read(p).matchAll(re)) seen.set(m[1], (seen.get(m[1]) || []).concat(p));
+    }
+    if (!seen.size) fail(`${file}: no page asks for it by version (the sweep expected at least one)`);
+    if (seen.size > 1) fail(`${file} is asked for at ${seen.size} versions: ` +
+      [...seen].map(([v, ps]) => `${v} (${[...new Set(ps)].join(", ")})`).join("; ") + ". One version everywhere it is tagged.");
+  }
+  /* comments name the file too, so they are set aside before the look for a bare one */
+  const bare = pages.filter((p) => /hub-account\.js(?!\?v=)/.test(read(p).replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/[^\n]*/g, "$1")));
+  for (const p of bare) fail(`${p}: hub-account.js is asked for with no version`);
+}
+
 // ---------------------------------------------------------------- the film tags (plan 088)
 // Every tag in assets/film-tags.js is held to its film and its page: a time
 // inside the film, words the brand allows, and a link that lands. A tag that
