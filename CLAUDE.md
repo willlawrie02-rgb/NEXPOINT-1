@@ -47,10 +47,15 @@ walk has no stub for fails it: add the stub beside the others.
 `npm run fulltest` is the full test: unlike the walk it drives the **live**
 site, API and database, as the ZZ test accounts, and writes a report outside
 this repo. It acts only on records named ZZ, then a space or a hyphen, and
-`check/fulltest/browser.mjs` holds the locks on what each window may send
-(never a first-listing approval or a consultancy signature, which raise Xero
-invoices; never a campaign, which goes into Smartlead). `npm run fulltest --
---dry` lists every step and opens nothing. Settings (accounts, passwords,
+`check/fulltest/browser.mjs` holds the locks on what each window may send:
+each journey file names the requests its own steps make, and a short
+never-list stays shut whatever a file asks (a campaign, which goes into
+Smartlead; re-running a job; re-routing an introduction; marking anything
+paid; erasing an account). Since Will's decisions of 12 November 2026 it
+approves a first listing, signs a consultancy agreement and raises a fee
+invoice, each a real Xero invoice: the run lists every one and stops for
+Will to void them in Xero. `npm run fulltest -- --dry` lists every step and
+opens nothing. Settings (accounts, passwords,
 keys) live in `~/.nexpoint/full-test.json`; this repo is public and holds
 only the empty template, `check/fulltest.example.json`. `check:fulltest`
 (in `npm run check`) tests the ZZ rule and the locks with no browser. A

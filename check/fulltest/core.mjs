@@ -50,7 +50,7 @@ export const USAGE = `The full test, on ZZ test accounts only.
   npm run fulltest -- --headless   no window (the admin and anything that needs you is skipped)
   npm run fulltest -- --only hubs,board     run these journeys only (names from --dry)
   npm run fulltest -- --skip admin          leave these out
-  npm run fulltest -- --with <journey>      switch on a journey that is off unless named
+  npm run fulltest -- --with <journey>      switch on a journey that is off unless named (none is, at present)
   npm run fulltest -- --phone      take the whole script at phone width, not only the phone pass
   npm run fulltest -- --fresh      forget what earlier runs left waiting and start again
   npm run fulltest -- --settings <file>   --report-dir <folder>

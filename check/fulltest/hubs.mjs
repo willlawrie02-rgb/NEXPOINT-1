@@ -225,8 +225,7 @@ const hubJourney = (h) => {
         const { w, item } = await jobOnCompanyPage(ctx, row);
         const button = item.locator('[data-act="jobApproveListing"]');
         if (!(await button.count())) differs("the listing request's buttons", await item.textContent(), "Approve");
-        await saveVia(w.page, () => button.click());
-        ctx.did();
+        await saveVia(w.page, () => button.click(), ctx);
         const live = await pollUntil(async () => {
           const l = (await dbRead(ctx, "listings", "id,status", [["eq", "id", now.listing.id]]))[0];
           return l && l.status === "live" ? l : null;
@@ -321,8 +320,7 @@ const hubJourney = (h) => {
         const org = await hostOrg(ctx), row = await inboxRow(ctx, "listing_change", b.listing.id);
         if (row.org_id !== org.id) throw new Refused("refused: the listing change is not on the ZZ host's account");
         const { w, item } = await jobOnCompanyPage(ctx, row);
-        await saveVia(w.page, () => item.locator('[data-act="jobApproveChange"]').click());
-        ctx.did();
+        await saveVia(w.page, () => item.locator('[data-act="jobApproveChange"]').click(), ctx);
         const after = await listingBecomes(ctx, h, (x) => x.status === "live");
         if (!after) wait("approved and queued; the engine has not made the change live yet");
         const m = made(ctx).material;
@@ -357,8 +355,7 @@ const hubJourney = (h) => {
         const note = w.page.locator(`#jb-note-${domId(row.item_key)}`);
         await note.waitFor({ state: "visible" }).catch(() => differs("Decline the change", "no note box opened", "the question and a note"));
         await note.fill(`${MARK}: a test change, declined on purpose. Please ignore.`);
-        await saveVia(w.page, () => w.page.locator(`#job-${domId(row.item_key)} [data-act="jobDeclineChange"]`).click());
-        ctx.did();
+        await saveVia(w.page, () => w.page.locator(`#job-${domId(row.item_key)} [data-act="jobDeclineChange"]`).click(), ctx);
         const after = await listingBecomes(ctx, h, (x) => x.status === "live");
         if (!after) wait("declined and queued; the engine has not settled it yet");
         const m = made(ctx).declined;
@@ -396,7 +393,7 @@ const hubJourney = (h) => {
       shows: "\"Thank you.\"; \"We have your request\" to the seeker; \"New introduction for you\" to the host; the desk notice",
       run: async (ctx) => {
         const w = await signIn(ctx, "seeker");
-        const answered = w.page.waitForResponse((r) => r.url() === `${API}/seeker-requests` && r.request().method() === "POST");
+        const answered = w.page.waitForResponse((r) => r.url() === `${API}/seeker-requests` && r.request().method() === "POST", { timeout: 60000 });
         await w.page.click("#requestSubmit");
         const r = await answered, j = await r.json().catch(() => ({}));
         if (!r.ok() || !j.introduction) differs("sending the request", `${r.status()} ${j.error || await text(w.page, "#requestErr").catch(() => "")}`, "an introduction");
@@ -482,8 +479,7 @@ const hubJourney = (h) => {
         await open.click();
         const go2 = w.page.locator(`#job-${domId(row.item_key)} [data-act="jobResend"]`);
         await go2.waitFor({ state: "visible" }).catch(() => differs("Resend to the ZZ host", "no question opened", "Resend the offer"));
-        await saveVia(w.page, () => go2.click());
-        ctx.did();
+        await saveVia(w.page, () => go2.click(), ctx);
         const back = await pollUntil(async () => {
           const i = (await dbRead(ctx, "introductions", "id,stage", [["eq", "id", m.intro]]))[0];
           return i && i.stage === "awaiting_acceptance" ? i : null;
@@ -609,8 +605,7 @@ const declare = {
         await panel.locator(`[data-act="openUi"][data-ui="line:${line.id}"]`).click();
         await w.page.fill(`#el-value-${line.id}`, String(value));
         await w.page.fill(`#el-why-${line.id}`, `${MARK}: a test correction, please ignore.`);
-        await saveVia(w.page, () => w.page.click(`[data-act="saveLine"][data-line="${line.id}"]`));
-        ctx.did();
+        await saveVia(w.page, () => w.page.click(`[data-act="saveLine"][data-line="${line.id}"]`), ctx);
         const moved = await pollUntil(async () => {
           const l = (await dbRead(ctx, "declaration_lines", "id,value", [["eq", "id", line.id]]))[0];
           return l && Number(l.value) === value ? l : null;
@@ -619,7 +614,7 @@ const declare = {
         return `${line.currency || "GBP"} ${line.value} to ${value}`;
       } },
     { id: "raise", once: true, does: "Admin, Money: Raise invoice in Xero (test account) on that statement",
-      shows: "Queued; \"Raised in Xero\"; the fee invoice's number on Xero invoices; the host's statement email. A real Xero invoice, listed for voiding",
+      shows: "Queued; the host's statement email. A real Xero invoice, read back and listed for voiding by the next step",
       run: async (ctx) => {
         if (!adminAvailable(ctx)) skip("the admin is not open on this run");
         const m = made(ctx), org = await hostOrg(ctx);
@@ -634,17 +629,27 @@ const declare = {
         await button.waitFor({ state: "visible", timeout: 20000 }).catch(async () => differs("Raise invoice in Xero", await panel.textContent(), "the button"));
         /* money.html marks a ZZ account's raise as a test (payload.test), and says so on the button. */
         if (!(await button.textContent()).includes("(test account)")) throw new Refused("refused: the button does not say test account, so the raise would not be marked as a test");
-        await saveVia(w.page, () => button.click());
-        ctx.did();
+        await saveVia(w.page, () => button.click(), ctx);
+        ctx.mail.expect(`The statement email, ${m.quarter}`, acct(ctx, "host").email, `Your NexPoint statement for ${m.quarter}`);
+        return `raised on ${org.name}'s statement ${m.quarter}; the next step reads the invoice back`;
+      } },
+    /* Not once: a raise that the engine files late is still read back and
+       listed for voiding on the next run, though the raise itself is done. */
+    { id: "raised", does: "Reads back the fee invoice on that statement, and finds its number on Xero invoices",
+      shows: "The fee invoice, numbered in Xero; listed for voiding at the end",
+      run: async (ctx) => {
+        if (!adminAvailable(ctx)) skip("the admin is not open on this run");
+        const m = made(ctx), org = await hostOrg(ctx);
+        if (!m.statement) skip("no statement was raised");
         const cols = "id,statement_id,org_id,amount,currency,xero_invoice_number,invoiced_at,voided_at,last_error";
+        const read = async () => (await dbRead(ctx, "fee_invoices", cols, [["eq", "statement_id", m.statement]])).filter((f) => !f.voided_at);
         const rows = await pollUntil(async () => {
-          const all = (await dbRead(ctx, "fee_invoices", cols, [["eq", "statement_id", m.statement]])).filter((f) => !f.voided_at);
+          const all = await read();
           return all.length && all.every((f) => f.xero_invoice_number || f.last_error) ? all : null;
-        }, { ms: 7 * 60 * 1000, every: 15000 }) || (await dbRead(ctx, "fee_invoices", cols, [["eq", "statement_id", m.statement]])).filter((f) => !f.voided_at);
-        if (!rows.length) wait("raised and queued; the engine has not filed the fee invoice yet");
+        }, { ms: 7 * 60 * 1000, every: 15000 }) || await read();
         for (const f of rows) recordInvoice(ctx, { what: `Fee invoice for ${org.name}, statement ${m.quarter}`, table: "fee_invoices", id: f.id,
           number: f.xero_invoice_number || "", company: org.name, amount: `${f.currency || "GBP"} ${f.amount}` });
-        ctx.mail.expect(`The statement email, ${m.quarter}`, acct(ctx, "host").email, `Your NexPoint statement for ${m.quarter}`);
+        if (!rows.length) wait("raised and queued; the engine has not filed the fee invoice yet");
         const unnumbered = rows.filter((f) => !f.xero_invoice_number);
         if (unnumbered.length) throw new Soft(`raised, but Xero has not numbered ${unnumbered.length === 1 ? "it" : "them"} yet${unnumbered[0].last_error ? ` (${unnumbered[0].last_error})` : ""}`);
         const xi = await adminGo(ctx, "money.html?tab=invoices");
@@ -676,8 +681,7 @@ const moneyAdmin = {
         await open.click();
         await w.page.fill(`#ex-until-${inv.id}`, until);
         await w.page.fill(`#ex-why-${inv.id}`, `${MARK}: a test extension, please ignore.`);
-        await saveVia(w.page, () => w.page.click(`[data-act="extendClock"][data-invoice="${inv.id}"]`));
-        ctx.did();
+        await saveVia(w.page, () => w.page.click(`[data-act="extendClock"][data-invoice="${inv.id}"]`), ctx);
         const moved = await pollUntil(async () => {
           const r = (await dbRead(ctx, "membership_invoices", "id,extended_to,hide_on", [["eq", "id", inv.id]]))[0];
           return r && String(r.extended_to || "").slice(0, 10) === until ? r : null;
@@ -712,8 +716,7 @@ const moneyAdmin = {
         await open.waitFor({ state: "visible", timeout: 20000 }).catch(() => differs("Open audit strike", "not on the account panel", "the button"));
         await open.click();
         await w.page.locator("#au-why").fill(why);
-        await saveVia(w.page, () => w.page.click(`[data-act="confirmAudit"][data-org-id=${quote(org.id)}]`));
-        ctx.did();
+        await saveVia(w.page, () => w.page.click(`[data-act="confirmAudit"][data-org-id=${quote(org.id)}]`), ctx);
         const s = await pollUntil(async () => (await dbRead(ctx, "strikes", "id,org_id,source,notes,cured_at,cure_by", [["eq", "org_id", org.id], ["eq", "source", "audit"]]))
           .find((x) => !x.cured_at && String(x.notes || "").includes(ctx.stamp)));
         if (!s) wait("opened and queued; the engine has not filed the strike yet");
@@ -733,8 +736,7 @@ const moneyAdmin = {
         if (!(await text(w.page, "#page")).includes(org.name)) throw new Refused(`refused: the company page does not name ${JSON.stringify(org.name)}`);
         await cure.click();
         await w.page.locator("#cu-note").fill(`${MARK}: cured, a test.`);
-        await saveVia(w.page, () => w.page.click(`[data-act="confirmCure"][data-strike="${id}"]`));
-        ctx.did();
+        await saveVia(w.page, () => w.page.click(`[data-act="confirmCure"][data-strike="${id}"]`), ctx);
         const done = await pollUntil(async () => {
           const s = (await dbRead(ctx, "strikes", "id,cured_at", [["eq", "id", id]]))[0];
           return s && s.cured_at ? s : null;
@@ -753,12 +755,31 @@ const moneyAdmin = {
    Xero read-back, every 15 minutes). */
 const VOID_TABLES = new Set(["membership_invoices", "fee_invoices"]);
 const openInvoices = (ctx) => (ctx.state.invoices || []).filter((i) => !i.voided);
+/* Every membership and fee invoice row on the ZZ host not voided, recorded,
+   so one whose own step stopped before reading it back (the engine slow to
+   file it) is still listed here. Only when the admin is open already on
+   this run; it reads as the admin page does, and presses nothing. */
+async function sweepInvoices(ctx) {
+  if (!ctx.have.host || !adminAvailable(ctx) || !Object.values(ctx.windows).some((w) => w.role === "admin" && w.proved)) return;
+  const org = await hostOrg(ctx), money = (r) => `${r.currency || "GBP"} ${r.amount}`;
+  for (const r of (await dbRead(ctx, "membership_invoices", "id,kind,amount,currency,xero_invoice_number,voided_at", [["eq", "org_id", org.id]])).filter((x) => !x.voided_at)) {
+    recordInvoice(ctx, { what: `Membership invoice for ${org.name} (${r.kind || "membership"})`, table: "membership_invoices", id: r.id,
+      number: r.xero_invoice_number || "", company: org.name, amount: money(r) });
+  }
+  for (const f of (await dbRead(ctx, "fee_invoices", "id,amount,currency,xero_invoice_number,voided_at", [["eq", "org_id", org.id]])).filter((x) => !x.voided_at)) {
+    recordInvoice(ctx, { what: `Fee invoice for ${org.name}`, table: "fee_invoices", id: f.id, number: f.xero_invoice_number || "", company: org.name, amount: money(f) });
+  }
+}
 const voidJourney = {
   id: "money.void", title: "Money: every Xero invoice the runs raised, voided", pass: "last", needs: [],
   from: "action list 7.6",
   steps: [
-    { id: "list", does: "Lists every Xero invoice the runs raised that has not been seen voided", shows: "Each with its number, company and amount",
+    { id: "list", does: "Lists every Xero invoice the runs raised that has not been seen voided, and any other open invoice row on the ZZ host",
+      shows: "Each with its number, company and amount",
       run: async (ctx) => {
+        await sweepInvoices(ctx).catch((e) => {
+          if (!(e instanceof Skipped)) ctx.notes.push(`The ZZ host's invoice rows could not be read for voiding (${String(e.message || e).split("\n")[0]}): check Money for any open invoice on it.`);
+        });
         const open = openInvoices(ctx);
         if (!open.length) skip("no invoice is waiting to be voided");
         return open.map(describe).join("; ");

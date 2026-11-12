@@ -38,10 +38,12 @@ function lastQuarter(d = new Date()) {
   return `${y}-Q${q}`;
 }
 const clearToast = (page) => page.evaluate(() => { const t = document.getElementById("toast"); if (t) t.textContent = ""; });
-/* Presses a button and reads the toast the press writes. */
-async function press(page, selector, toast, what) {
+/* Presses a button and reads the toast the press writes. Given the step's
+   ctx, a press that cannot be taken back is marked done as it is made. */
+async function press(page, selector, toast, what, ctx) {
   await clearToast(page);
   await page.click(selector);
+  if (ctx) ctx.did();
   return see(page, "#toast", toast, what, 20000);
 }
 /* Opens the board in an account's window, once the account has unlocked it. */
@@ -112,8 +114,7 @@ async function declineRequest(ctx, id, company, email) {
   if (!row) differs(`${enq(id)} on Live Listings`, "not listed", "the ZZ request, waiting");
   await row.locator(`[data-act="openUi"][data-ui="declinereq:${id}"]`).click();
   await w.page.fill(`#dr-why-${id}`, `${MARK}: test data, declined by the test.`);
-  await press(w.page, `[data-act="declineRequest"][data-req="${id}"]`, /Declined, queued/, "after Decline");
-  ctx.did();
+  await press(w.page, `[data-act="declineRequest"][data-req="${id}"]`, /Declined, queued/, "after Decline", ctx);
 }
 /* An opportunity's card on Live Listings once nothing is queued on it, or null. */
 async function settledCard(ctx, id) {
@@ -225,8 +226,7 @@ async function deskAdd(ctx, id, person, company) {
     if (company) mustBeZZ(company, "the company to add");
     await w.page.fill("#dk-co", company || "");
   }
-  await press(w.page, `[data-act="add"][data-thread="${id}"]`, /Added to Contacts, queued/, "after Add to Contacts");
-  ctx.did();
+  await press(w.page, `[data-act="add"][data-thread="${id}"]`, /Added to Contacts, queued/, "after Add to Contacts", ctx);
 }
 /* What Add to Contacts made: the conversation now names its person, from Contacts. */
 async function deskAdded(ctx, id, person) {
@@ -302,8 +302,7 @@ const door = {
         const m = made(ctx);
         if (!m.thread) skip(isOurs(m.email) ? OURS_WHY : "no conversation to close");
         const w = await deskWhen(ctx, m.thread, has(`[data-act="close"][data-thread="${m.thread}"]`), "the conversation has a change queued; it clears at the engine's next run");
-        await press(w.page, `[data-act="close"][data-thread="${m.thread}"]`, /Closed, queued/, "after Close");
-        ctx.did();
+        await press(w.page, `[data-act="close"][data-thread="${m.thread}"]`, /Closed, queued/, "after Close", ctx);
       } },
   ],
 };
@@ -346,8 +345,7 @@ const card = {
         await w.page.click(`[data-act="openEditor"][data-opp="${id}"]`);
         await w.page.locator("#f_head").waitFor({ state: "visible" });
         await w.page.fill("#f_head", m.head);
-        await press(w.page, '[data-act="saveEditor"]', /Saved .*queued/, "after Save");
-        ctx.did();
+        await press(w.page, '[data-act="saveEditor"]', /Saved .*queued/, "after Save", ctx);
         ctx.left.push(`the board card ${m.ref} (the runner ends it at the last step)`);
       } },
     { id: "publish", once: true, does: "Admin: Review and publish again, once the save has landed; Publish", shows: "The headline as saved; the card reads Live",
@@ -390,8 +388,8 @@ const card = {
         const sells = w.page.locator(`#i-sells-${m.opp}`);
         if (await sells.isEnabled() && !(await sells.inputValue())) await sells.selectOption("owner");
         await w.page.click(form);
-        await see(w.page, "#toast", /Introduced on/, "after Introduce");
         ctx.did();
+        await see(w.page, "#toast", /Introduced on/, "after Introduce");
       } },
     { id: "owner-row", does: "Host opens the introduction on its account page", shows: "\"Opportunity NX-…\", \"Waiting for your answer.\"",
       run: async (ctx) => {
@@ -518,8 +516,7 @@ const code = {
         await w.page.fill("#f_fee_rate", "5");
         await w.page.fill("#f_fee_note", "Test data, no fee");
         await w.page.fill("#f_fee_agreed", today());
-        await press(w.page, '[data-act="saveEditor"]', /New opportunity saved/, "after Save");
-        ctx.did();
+        await press(w.page, '[data-act="saveEditor"]', /New opportunity saved/, "after Save", ctx);
       } },
     { id: "owner", once: true, does: "Admin: Set the owner on the new card to the ZZ host, and its site", shows: "Queued",
       run: async (ctx) => {
@@ -551,8 +548,7 @@ const code = {
           const first = await site.locator("option").evaluateAll((os) => (os.find((o) => o.value) || {}).value || "");
           if (first) await site.selectOption(first);
         }
-        await press(w.page, `[data-act="saveOwner"][data-opp="${m.opp}"]`, /Owner of .* set to/, "after Set the owner");
-        ctx.did();
+        await press(w.page, `[data-act="saveOwner"][data-opp="${m.opp}"]`, /Owner of .* set to/, "after Set the owner", ctx);
       } },
     { id: "publish", once: true, does: "Admin: Review and publish the code card, once its owner is set", shows: "The card reads Live; owner the ZZ host; model Discount code",
       run: async (ctx) => {
@@ -615,8 +611,7 @@ const code = {
         await w.page.fill(`#cs-value-${m.opp}`, "1.00");
         await w.page.fill(`#cs-cur-${m.opp}`, "GBP");
         await w.page.fill(`#cs-note-${m.opp}`, `${MARK}: test data, no sale.`);
-        await press(w.page, `[data-act="recordCode"][data-opp="${m.opp}"]`, /code sales, queued/, "after Record the quarter");
-        ctx.did();
+        await press(w.page, `[data-act="recordCode"][data-opp="${m.opp}"]`, /code sales, queued/, "after Record the quarter", ctx);
         ctx.left.push(`the ${m.quarter} code-sales report on ${m.ref} (never invoiced; Money offers Raise invoice in Xero, which the runner never presses)`);
       } },
     { id: "on-money", does: "Admin, Money: the quarter's code sales", shows: "The quarter, \"GBP 1.00 sold, fee GBP 0.05\", 1 unit",
@@ -676,8 +671,7 @@ const desk = {
         if (!m.thread) skip(isOurs(s.email) ? OURS_WHY : "no conversation to answer");
         const w = await deskWhen(ctx, m.thread, has(`[data-act="send"][data-thread="${m.thread}"]`), "the conversation has a change queued; it clears at the engine's next run");
         await w.page.fill("#dk-reply", `${MARK}: a test reply, please ignore.`);
-        await press(w.page, `[data-act="send"][data-thread="${m.thread}"]`, /Reply queued/, "after Send the reply");
-        ctx.did();
+        await press(w.page, `[data-act="send"][data-thread="${m.thread}"]`, /Reply queued/, "after Send the reply", ctx);
         /* The Desk answers from hello@, never portal@ (desk.js DESK_SENDER_DEFAULT). */
         ctx.mail.expect(`The Desk's reply, ${m.subject}`, s.email, `Re: ${m.subject}`, { from: "hello@nexpoint.co.uk" });
       } },
@@ -689,8 +683,7 @@ const desk = {
           && (await page.locator(".msg.us").count()) > 0 && !(await text(page, ".msgs")).includes("Sending"),
           "the reply goes at the engine's next run");
         await see(w.page, ".msg.us", "Sent by", "our reply, once it has gone");
-        await press(w.page, `[data-act="close"][data-thread="${m.thread}"]`, /Closed, queued/, "after Close");
-        ctx.did();
+        await press(w.page, `[data-act="close"][data-thread="${m.thread}"]`, /Closed, queued/, "after Close", ctx);
       } },
     { id: "reopen", once: true, does: "Admin, Desk: Reopen the conversation", shows: "Closed first; then Queued",
       run: async (ctx) => {
@@ -698,8 +691,7 @@ const desk = {
         if (!m.thread) skip(isOurs(s.email) ? OURS_WHY : "no conversation to reopen");
         const w = await deskWhen(ctx, m.thread, has(`[data-act="reopen"][data-thread="${m.thread}"]`), "the close is made at the engine's next run");
         await see(w.page, ".panel.thread", "This conversation is closed", "the conversation once closed");
-        await press(w.page, `[data-act="reopen"][data-thread="${m.thread}"]`, /Reopened, queued/, "after Reopen");
-        ctx.did();
+        await press(w.page, `[data-act="reopen"][data-thread="${m.thread}"]`, /Reopened, queued/, "after Reopen", ctx);
       } },
     { id: "add", once: true, does: "Admin, Desk: Add to Contacts, with a ZZ name and no company", shows: "Queued, or no button when the address is already in Contacts",
       run: async (ctx) => {

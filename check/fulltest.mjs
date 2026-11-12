@@ -75,7 +75,8 @@ async function main() {
     const world = { build: "", termsVersion: null, terms2: false };
     console.log("The full test: every step it would take. Nothing is opened and nothing is sent.");
     const n = dryList(JOURNEYS, args, have, world);
-    console.log(`\n${n} steps in ${JOURNEYS.length} journeys. Journeys marked [uses up an account] run only when named with --with.`);
+    console.log(`\n${n} steps in ${JOURNEYS.length} journeys, listed in script order; a run takes them by pass (computer, then phone, then last).`);
+    if (JOURNEYS.some((j) => j.optIn)) console.log("Journeys marked [uses up an account] run only when named with --with.");
     console.log("Terms 2.0 journeys (terms.*) are skipped until the live site reports version 2.0.");
     return 0;
   }
@@ -131,6 +132,13 @@ async function main() {
   }
   return crashed || results.some((r) => r.status === "differed" || r.status === "refused") ? 1 : 0;
 }
+
+/* A step waits for a response before it presses; when the press fails, that
+   wait fails later with nobody listening. Node would end the run there, with
+   no report: the step has already been recorded, so it is only noted. */
+process.on("unhandledRejection", (e) => {
+  console.log(`  (a wait the step had already given up on: ${String(e && e.message ? e.message : e).split("\n")[0].slice(0, 160)})`);
+});
 
 main().then((code) => process.exit(code), (e) => {
   console.error(e instanceof Refused ? `fulltest: ${e.message}` : e);

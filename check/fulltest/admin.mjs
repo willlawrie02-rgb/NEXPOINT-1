@@ -66,7 +66,8 @@ function runCompanies(ctx) {
   const out = [];
   for (const role of ["host", "seeker"]) if (ctx.have[role]) out.push(acct(ctx, role).company);
   if (ctx.have.new_account) {
-    const n = ctx.settings.new_account, stamp = String((ctx.state.made["in.register"] || {}).stamp || ctx.stamp);
+    /* in.register's stamp from this run first: a journey that finished clears what it kept. */
+    const n = ctx.settings.new_account, stamp = String(ctx.cache.newcomerStamp || (ctx.state.made["in.register"] || {}).stamp || ctx.stamp);
     out.push(String(n.company || "ZZ Full Test {stamp}").replace("{stamp}", stamp));
   }
   return [...new Set(out)].filter(isZZ);
@@ -197,8 +198,7 @@ async function addProspect(ctx, name) {
   await p.w.page.click('.head [data-act="toggleAdd"]');
   await p.w.page.fill("#add-name", name);
   await p.w.page.selectOption("#add-type", { label: "Known contact" });
-  await saveVia(p.w.page, () => p.w.page.click("#add-go"));
-  ctx.did();
+  await saveVia(p.w.page, () => p.w.page.click("#add-go"), ctx);
   ctx.left.push(`the prospect ${name}`);
   return "";
 }
@@ -231,9 +231,10 @@ async function makeLink(ctx) {
   await w.page.fill("#f-signer", "ZZ Full Test");
   await w.page.fill("#f-email", ctx.settings.admin.email);
   if (await w.page.locator("#f-test").isChecked()) await w.page.uncheck("#f-test");
+  const sent = w.page.waitForResponse((r) => r.url() === `${API}/consultancy/links` && r.request().method() === "POST", { timeout: 30000 });
   await w.page.click("#f-submit");
+  if ((await sent).ok()) ctx.did();
   await see(w.page, "#given-title", "Link ready", "after making the link", 30000);
-  ctx.did();
   const url = await w.page.inputValue("#given-url");
   if (!/^https:\/\/nexpoint\.co\.uk\/sign\/\?t=[0-9a-f]{64}$/.test(url)) differs("the link", url.replace(/[0-9a-f]{56}$/, "…"), `${APEX}/sign/?t=…`);
   await w.page.waitForFunction((n) => document.querySelectorAll('[id^="link-"]').length > n, before.length, { timeout: 15000 }).catch(() => {});
@@ -488,8 +489,7 @@ const admin = [{
         await w.page.fill("#as-name", name);
         await w.page.fill("#as-town", "Leeds");
         await w.page.fill("#as-country", "United Kingdom");
-        const saved = await saveVia(w.page, () => w.page.click('[data-act="confirmAddSite"]'));
-        ctx.did();
+        const saved = await saveVia(w.page, () => w.page.click('[data-act="confirmAddSite"]'), ctx);
         ctx.left.push(`the site ${name} on ${company}`);
         if (!saved.direct) wait(`the site was queued for the engine ("${saved.toast}"): fast saves read off`);
         const after = await companyPage(ctx, company);
@@ -535,8 +535,7 @@ const admin = [{
           const opt = await w.page.locator("#ap-site option", { hasText: siteName(ctx) }).first().getAttribute("value").catch(() => "");
           if (opt) await w.page.selectOption("#ap-site", opt);
         }
-        const saved = await saveVia(w.page, () => w.page.click('[data-act="confirmAddPerson"]'));
-        ctx.did();
+        const saved = await saveVia(w.page, () => w.page.click('[data-act="confirmAddPerson"]'), ctx);
         ctx.left.push(`the person ${name} on ${company}`);
         if (!saved.direct) wait(`the person was queued for the engine ("${saved.toast}"): fast saves read off`);
         await see(w.page, ".people", name, "the new person");
@@ -607,8 +606,7 @@ const admin = [{
         /* The run's site if it is offered (it has no account, so the invitation can follow); else a new one named after the company. */
         const site = await w.page.locator("#ac-site option", { hasText: siteName(ctx) }).first().getAttribute("value").catch(() => "");
         if (site) await w.page.selectOption("#ac-site", site);
-        const saved = await saveVia(w.page, () => w.page.click('[data-act="confirmAdd"]'));
-        ctx.did();
+        const saved = await saveVia(w.page, () => w.page.click('[data-act="confirmAdd"]'), ctx);
         ctx.left.push(`a pipeline card for ${company}, ended dead`);
         return (site ? "" : "the run's site was not offered, so the card has a new site named after the company. ") +
           (saved.direct ? "" : `Queued for the engine ("${saved.toast}"): fast saves read off, so the card shows after the next run`);
@@ -664,8 +662,7 @@ const admin = [{
         await w.page.click(`#card-${id} [data-act="openUi"][data-ui="invite:${id}"]`);
         await w.page.fill("#inv-email", j.email);
         await w.page.fill("#inv-name", j.name);
-        await saveVia(w.page, () => w.page.click(`[data-act="confirmInvite"][data-card="${id}"]`));
-        ctx.did();
+        await saveVia(w.page, () => w.page.click(`[data-act="confirmInvite"][data-card="${id}"]`), ctx);
         ctx.mail.expect("The portal invitation", j.email, "Your invitation to the NexPoint Global Portal");
         ctx.left.push(`a portal invitation to ${j.email}`);
       } },
@@ -770,8 +767,7 @@ const admin = [{
         mustBeZZ(user.name, "the user to delete");
         await w.page.click(`[data-act="deleteUser"][data-user="${user.id}"]`);
         await see(w.page, ".inline-choice", "Delete", "the question under the user");
-        await saveVia(w.page, () => w.page.click(`[data-act="confirmDeleteUser"][data-user="${user.id}"]`));
-        ctx.did();
+        await saveVia(w.page, () => w.page.click(`[data-act="confirmDeleteUser"][data-user="${user.id}"]`), ctx);
       } },
     { id: "kept", does: "Opens the company page again", shows: "The person stays, with no Portal user tag; the timeline says a login was deleted",
       run: async (ctx) => {
@@ -946,7 +942,13 @@ const admin = [{
         const w = await adminGo(ctx, "inbox.html"), names = runCompanies(ctx);
         let key = "";
         for (const name of names) {
-          const toggles = await w.page.locator(".qitem", { has: w.page.locator(".qco", { hasText: name }) }).locator('[data-act="toggleRow"]').evaluateAll((els) => els.map((e) => e.dataset.key));
+          /* The row's own company name, exactly (its tile's initials left out), not a name that merely contains it. */
+          mustBeZZ(name, "the job's company");
+          const toggles = await w.page.locator(".qitem").evaluateAll((els, want) => els.map((e) => {
+            const q = e.querySelector(".qco:not(.none)"), b = e.querySelector('[data-act="toggleRow"]');
+            const own = q ? [...q.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim().toLowerCase() : "";
+            return b && own === want ? b.dataset.key : "";
+          }).filter(Boolean), name.trim().toLowerCase());
           for (const k of toggles) {
             await w.page.click(`[data-act="toggleRow"][data-key="${k}"]`);
             if (await shows(w.page, `[data-act="jobOpen"][data-ui="nn"][data-key="${k}"]`, 1500)) { key = k; mustBeZZ(name, "the job's company"); break; }
@@ -958,8 +960,7 @@ const admin = [{
         made(ctx).key = key;
         await w.page.click(`[data-act="jobOpen"][data-ui="nn"][data-key="${key}"]`);
         await w.page.locator(".inline-choice .input").first().fill(`${MARK} ${ctx.stamp}: set aside by the full test, put back at once`);
-        await saveVia(w.page, () => w.page.click(`[data-act="jobNotNow"][data-key="${key}"]`));
-        ctx.did();
+        await saveVia(w.page, () => w.page.click(`[data-act="jobNotNow"][data-key="${key}"]`), ctx);
         const set = await pollUntil(async () => {
           const p = await adminGo(ctx, "inbox.html");
           return (await p.page.locator(`[data-act="putBack"][data-key="${key}"]`).count()) ? p : null;

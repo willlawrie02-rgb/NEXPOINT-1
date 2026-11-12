@@ -45,7 +45,7 @@ const ADMIN_INTENTS = new Set(["add-note", "edit-company", "add-task", "done-tas
 const ADMIN_NEVER = new Set(["add-campaign-member", "remove-campaign-member", "change-campaign", "switch-campaign",
   "link-campaign-version", "approve-template", "delete-campaign", "campaign-approve-lead", "campaign-exclude-lead",
   "rerun-job", "reroute-introduction", "mark-paid", "record-fee-paid", "record-sub-paid", "erase-account",
-  "update-linkedin-queue", "set-opportunity"]);
+  "update-linkedin-queue", "set-opportunity", "delete-account", "remove-dormant-account"]);
 /* The fast saves (plan 079) the journeys make: database functions that change
    the CRM's own rows. Named one by one, so crm_change_campaign and the rest
    stay shut. */
@@ -129,7 +129,11 @@ async function lock(context, kind, ctx) {
     /* Accepting is open only while the one step that is asked to accept runs. */
     const opts = { sign: !!ctx.signNow };
     const why = lockVerdict(kind, request.method(), request.url(), bodyOf(request), opts);
-    if (!why) return route.continue();
+    if (!why) {
+      /* One signing request per opening of the lock: it shuts as this one goes. */
+      if (opts.sign && new URL(request.url()).pathname === "/signup/accept") ctx.signNow = false;
+      return route.continue();
+    }
     /* A stopped save to our API or database fails the step. A post to any
        other host (a page's visitor counter, say) is stopped quietly. */
     const ours = ["api.nexpoint.co.uk", DB_HOST].includes(new URL(request.url()).hostname);
@@ -307,13 +311,16 @@ export async function adminGo(ctx, file) {
 }
 /* The toast after a save, and which route the save took: straight to the
    database (fast saves on) or queued for the engine. */
-export async function saveVia(page, press) {
+export async function saveVia(page, press, ctx) {
   /* The page says how the save went in its toast, once the save has come
      back: exactly "Saved" for a fast save (admin/save.js), its own words
      ending "queued" for the engine's route, and a sentence when it failed.
      A missing database function falls back to the engine by itself. */
   await page.evaluate(() => { const t = document.getElementById("toast"); if (t) t.textContent = ""; });
   await press();
+  /* Given the step's ctx, a press that cannot be taken back is marked done
+     the moment it is made, so a toast that never comes cannot send it twice. */
+  if (ctx) ctx.did();
   await page.waitForFunction(() => { const t = document.getElementById("toast"); return !!t && t.textContent.trim() !== ""; }, null, { timeout: 35000 })
     .catch(() => { throw new Error("the save showed no result"); });
   const toast = await text(page, "#toast");

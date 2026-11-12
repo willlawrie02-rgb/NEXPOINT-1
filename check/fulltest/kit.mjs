@@ -89,7 +89,7 @@ async function answer(ctx, w, id, { accept, ref, seeker, host }) {
   if (accept) {
     const tick = w.page.locator(`#introTerms-${id} input[type=checkbox]`);
     if (await tick.count()) await tick.first().check();
-    const done = w.page.waitForResponse((r) => r.url() === `${API}/introductions/accept` && r.request().method() === "POST");
+    const done = w.page.waitForResponse((r) => r.url() === `${API}/introductions/accept` && r.request().method() === "POST", { timeout: 60000 });
     await w.page.click(`[data-act="intro-accept-send"][data-intro="${id}"]`);
     const sent = await done;
     if (!sent.ok()) differs("accepting", await text(w.page, `#introMsg-${id}`).catch(() => "refused"), "Accepted");
@@ -105,14 +105,14 @@ async function answer(ctx, w, id, { accept, ref, seeker, host }) {
   }
   await w.page.click(`[data-act="intro-decline-open"][data-intro="${id}"]`);
   await w.page.fill(`#introReason-${id}`, `${MARK}: a test, please ignore.`);
-  const done = w.page.waitForResponse((r) => r.url() === `${API}/introductions/decline` && r.request().method() === "POST");
+  const done = w.page.waitForResponse((r) => r.url() === `${API}/introductions/decline` && r.request().method() === "POST", { timeout: 60000 });
   await w.page.click(`[data-act="intro-decline-send"][data-intro="${id}"]`);
   if (!(await done).ok()) differs("declining", await text(w.page, `#introMsg-${id}`).catch(() => "refused"), "Declined");
   ctx.did();
   await w.page.locator(`[data-act="intro-accept-open"][data-intro="${id}"]`).waitFor({ state: "detached", timeout: 20000 })
     .catch(() => differs("the row after declining", "can still be answered", "closed"));
   ctx.mail.expect(`Declined, ${ref}`, seeker, "An update on");
-  return "declined (the default; --with accept sends the introduction email)";
+  return "declined: the seeker is told";
 }
 async function findForm(w, h) {
   await go(w.page, `${h.base}/find.html`);

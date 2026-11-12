@@ -81,7 +81,7 @@ export const JOURNEYS = [].concat(ADMIN_RESTORE, WAYS_IN, HUB_JOURNEYS, BOARD_JO
 /* What the runner cannot judge. Always printed at the foot of the report. */
 export const BY_HAND = [
   "A real phone: the phone pass is Chrome at phone width, not a phone.",
-  "Money: approving a first listing and its Xero invoice, a card payment, statements, anything in Xero.",
+  "Money: voiding in Xero each invoice the run raised (listed below), a card payment, and how each invoice and statement reads in Xero.",
   "Smartlead: accepting a prospect onto one or two campaigns, and the turn passing between them (queue DA9).",
   "How each screen and each email reads. The runner checks an email arrived, not that it reads well.",
   "Queue CY10b case 3 (a login deleted in the Supabase dashboard) and CY10c (the count, in the SQL editor).",

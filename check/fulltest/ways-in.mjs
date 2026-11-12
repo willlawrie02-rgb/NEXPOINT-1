@@ -309,6 +309,7 @@ const registering = {
         /* Kept for the next step in this run only: a link is never written to the state file. */
         const link = ctx.cache.confirmLink = await emailLink(ctx, { to: n.email, subject: "Confirm your email", part: "/hub/confirm.html", what: "the newest confirmation email" });
         await go(w.page, link);
+        ctx.did();
         await see(w.page, "#confirmBody", /You.re confirmed/, "the confirmation page", 30000);
         ctx.mail.expect("Your account is ready", n.email, "Your NexPoint hub account is ready");
         if (ctx.mail.s.desk) ctx.mail.expect("Desk notice: account created", ctx.mail.s.desk, "Account created:");
@@ -581,6 +582,7 @@ const joining = {
       run: async (ctx) => {
         const n = invitee(ctx), w = ctx.lastWindow = await windowFor(ctx, "joiner");
         await go(w.page, await emailLink(ctx, { to: n.email, subject: "Confirm your email", part: "/hub/confirm.html", what: "the invited user's confirmation email" }));
+        ctx.did();
         await see(w.page, "#confirmBody", /You.re confirmed/, "the confirmation page", 30000);
       } },
 
@@ -632,7 +634,7 @@ const joining = {
       } },
 
     // ---------------------------------------------------------------- 4.6 the host removes the user
-    { id: "remove", does: "The host removes that user again", shows: "\"<name> has been removed.\"",
+    { id: "remove", once: true, does: "The host removes that user again (its login is deleted)", shows: "\"<name> has been removed.\"",
       run: async (ctx) => {
         const name = joinerName(ctx), w = await signIn(ctx, "host");
         mustBeZZ(name, "the user to remove");
@@ -641,7 +643,10 @@ const joining = {
         await w.page.waitForLoadState("networkidle").catch(() => {});
         const user = await nearest(w.page, '#users [data-act="user-remove"]', name, "user");
         if (!user) differs("the invited user on Settings", "not listed with a Remove button", name);
+        const sent = posted(w.page, "/account/users/remove");
         await w.page.click(`#users [data-act="user-remove"][data-user="${user}"]`);
+        if (!(await sent).ok()) differs("removing the user", await text(w.page, "#usersMsg").catch(() => "refused"), "removed");
+        ctx.did();
         await see(w.page, "#usersMsg", "has been removed", "after removing the user");
       } },
   ],
@@ -664,7 +669,7 @@ const terms = [{
         await w.page.mouse.click(4, 4);
         if (!(await shows(w.page, "#npTermsGate", 1500))) differs("the box after Escape and a click outside", "closed", "still open");
       } },
-    { id: "accept", does: "Downloads the copy; ticks; Accept and continue", shows: "A PDF; the box goes",
+    { id: "accept", once: true, does: "Downloads the copy; ticks; Accept and continue", shows: "A PDF; the box goes",
       run: async (ctx) => {
         const w = await signIn(ctx, "veteran", { leaveGate: true });
         if (!(await shows(w.page, "#npTermsGate", 3000))) skip("no box is showing");
@@ -672,6 +677,7 @@ const terms = [{
         if (!(await w.page.locator("#npTermsGate [data-np-gate-go]").isDisabled())) differs("Accept and continue before the tick", "can be pressed", "greyed out");
         await w.page.check("#npTermsGate input[data-np-gate-tick]");
         await w.page.click("#npTermsGate [data-np-gate-go]");
+        ctx.did();
         await w.page.locator("#npTermsGate").waitFor({ state: "detached", timeout: 20000 });
       } },
     { id: "never-again", does: "Reloads, then signs out and in", shows: "No box, either time",

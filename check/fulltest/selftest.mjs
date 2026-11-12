@@ -35,7 +35,8 @@ ok("accepting an introduction passes (Will, 12 November)", v("account", "POST", 
 ok("an account window never writes to the database", v("account", "POST", `${DB}/engine_intents`, intent("add-note", {})) !== "");
 ok("a note passes", v("admin", "POST", `${DB}/engine_intents`, intent("add-note", { company_id: 1 })) === "");
 for (const type of ["add-campaign-member", "change-campaign", "switch-campaign", "link-campaign-version", "approve-template", "delete-campaign",
-  "rerun-job", "reroute-introduction", "mark-paid", "record-fee-paid", "record-sub-paid", "erase-account", "update-linkedin-queue", "set-opportunity",
+  "rerun-job", "reroute-introduction", "mark-paid", "record-fee-paid", "record-sub-paid", "erase-account", "delete-account", "remove-dormant-account",
+  "update-linkedin-queue", "set-opportunity",
   "no-such-intent", ""]) {
   ok(`${type || "an empty type"} is stopped`, v("admin", "POST", `${DB}/engine_intents`, intent(type, {})) !== "");
 }
