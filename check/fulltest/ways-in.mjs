@@ -631,39 +631,32 @@ const waysIn = [signingIn, registering, settings, joining, inContacts];
 
 // ================================================================ 10. Terms 2.0
 const terms = [{
-  id: "terms.platform", title: "Terms 2.0: the Platform Terms, once", pass: "computer", needs: ["terms2", "veteran"],
-  from: "plan 078, W5 (queue DH9)",
+  /* Will, 12 November 2026 (the code audit's decision B; website #226): the
+     box "Our Platform Terms have changed" is gone. The Platform Terms are
+     accepted when an account is made or joined by invitation, and nowhere
+     else, so an account still on 1.3 signs in and meets nothing. Until that
+     day this journey waited for the box, accepted it once and looked for it
+     never to come back. */
+  id: "terms.platform", title: "Terms 2.0: no box for the Platform Terms at sign-in", pass: "computer", needs: ["terms2", "veteran"],
+  from: "plan 078, W5 (queue DH9); Will's decision B of 12 November 2026",
   steps: [
-    { id: "gate", does: "Veteran signs in", shows: "\"Our Platform Terms have changed\", with no way to close it",
+    { id: "no-box", does: "Veteran signs in", shows: "No \"Our Platform Terms have changed\" box",
       run: async (ctx) => {
-        const w = await signIn(ctx, "veteran", { leaveGate: true });
+        const w = await signIn(ctx, "veteran");
+        if (await shows(w.page, "#npTermsGate", 4000)) differs("signing in on the veteran account", "the box \"Our Platform Terms have changed\"", "no box");
         const t = await termsOf(w, "platform");
-        if (t && t.accepted) skip("this account has already accepted Platform Terms 2.0; the once-only check needs an account still on 1.3");
-        await see(w.page, "#npTermsGate #npGateHead", "Our Platform Terms have changed", "the box at sign-in");
-        await w.page.keyboard.press("Escape");
-        await w.page.mouse.click(4, 4);
-        if (!(await shows(w.page, "#npTermsGate", 1500))) differs("the box after Escape and a click outside", "closed", "still open");
-      } },
-    { id: "accept", once: true, does: "Downloads the copy; ticks; Accept and continue", shows: "A PDF; the box goes",
-      run: async (ctx) => {
-        const w = await signIn(ctx, "veteran", { leaveGate: true });
-        if (!(await shows(w.page, "#npTermsGate", 3000))) skip("no box is showing");
-        await pdfOk(ctx, w, await w.page.getAttribute("#npTermsGate a.np-terms-dl", "href"), "the Platform Terms");
-        if (!(await w.page.locator("#npTermsGate [data-np-gate-go]").isDisabled())) differs("Accept and continue before the tick", "can be pressed", "greyed out");
-        await w.page.check("#npTermsGate input[data-np-gate-tick]");
-        await w.page.click("#npTermsGate [data-np-gate-go]");
-        ctx.did();
-        await w.page.locator("#npTermsGate").waitFor({ state: "detached", timeout: 20000 });
+        return t && t.accepted ? "no box (this account already holds Platform Terms 2.0, so the check proves less than it would on 1.3)"
+          : "no box, on an account that has not accepted Platform Terms 2.0";
       } },
     { id: "never-again", does: "Reloads, then signs out and in", shows: "No box, either time",
       run: async (ctx) => {
-        const w = await signIn(ctx, "veteran", { leaveGate: true });
+        const w = await signIn(ctx, "veteran");
         await go(w.page, `${APEX}/hub/account/`);
         await w.page.locator("body[data-np-open]").waitFor({ state: "attached", timeout: 25000 });
-        if (await shows(w.page, "#npTermsGate", 4000)) differs("after a reload", "the box again", "no box");
+        if (await shows(w.page, "#npTermsGate", 4000)) differs("after a reload", "the box", "no box");
         await signOut(w);
-        await signIn(ctx, "veteran", { leaveGate: true });
-        if (await shows(w.page, "#npTermsGate", 4000)) differs("after signing in again", "the box again", "no box");
+        await signIn(ctx, "veteran");
+        if (await shows(w.page, "#npTermsGate", 4000)) differs("after signing in again", "the box", "no box");
       } },
   ],
 }, {

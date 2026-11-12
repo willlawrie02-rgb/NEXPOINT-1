@@ -237,7 +237,7 @@ export async function apiGet(page, path) {
 const sameName = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 /* Signs the role's ZZ account in, in its own window, and proves the live
    site agrees it is that ZZ company before anything else happens there. */
-export async function signIn(ctx, role, { leaveGate = false, account } = {}) {
+export async function signIn(ctx, role, { account } = {}) {
   const a = account || ctx.settings.accounts[role];
   mustBeZZ(a.company, `the ${role} account in the settings`);
   const w = await windowFor(ctx, role);
@@ -267,22 +267,11 @@ export async function signIn(ctx, role, { leaveGate = false, account } = {}) {
     }
     w.signedIn = true; w.proved = true; w.me = me;
   }
-  if (!leaveGate) await passPlatformGate(ctx, w, role);
+  /* No Platform Terms box to get past (Will, 12 November 2026; website #226):
+     no page asks an existing account to accept a new version, so nothing is
+     waited for or ticked here. The terms.platform journey checks that the box
+     stays away. */
   return w;
-}
-/* After the switch to Terms 2.0 an account that has not accepted the new
-   Platform Terms meets a box it cannot close. Every role but the veteran
-   accepts it here, once, so its journeys can run; the veteran's box is the
-   thing its own journey tests. */
-export async function passPlatformGate(ctx, w, role) {
-  if (!ctx.world.terms2 || w.gatePassed) return;
-  if (await shows(w.page, "#npTermsGate", 2500)) {
-    await w.page.check("#npTermsGate input[data-np-gate-tick]");
-    await w.page.click("#npTermsGate [data-np-gate-go]");
-    await w.page.locator("#npTermsGate").waitFor({ state: "detached" });
-    ctx.notes.push(`The ${role} account met the Platform Terms box at sign-in and accepted it, so its journeys could run.`);
-  }
-  w.gatePassed = true;
 }
 export async function signOut(w) {
   await w.page.click(".np-chip__out");

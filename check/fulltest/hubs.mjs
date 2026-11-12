@@ -201,7 +201,7 @@ const hubJourney = (h) => {
         return "\"still applies\" and the membership already held; no second agreement";
       } },
     { id: "approve", once: true,
-      does: "Admin: opens the listing request from the Inbox on the host's company page and presses Approve",
+      does: "Admin: opens the listing request from the Inbox on the host's company page, presses Approve, then \"Yes, approve it\"",
       shows: print ? "Queued, then the listing is live; this raises a real membership invoice in Xero"
         : "Queued, then the listing is live; no new invoice (one membership covers both hubs)",
       run: async (ctx) => {
@@ -223,8 +223,18 @@ const hubJourney = (h) => {
         if (row.org_id !== org.id) throw new Refused("refused: the listing request is not on the ZZ host's account");
         made(ctx).invoicesBefore = (await dbRead(ctx, "membership_invoices", "id", [["eq", "org_id", org.id]])).length;
         const { w, item } = await jobOnCompanyPage(ctx, row);
-        const button = item.locator('[data-act="jobApproveListing"]');
-        if (!(await button.count())) differs("the listing request's buttons", await item.textContent(), "Approve");
+        /* Will, 12 November 2026 (the code audit's decision C): Approve asks
+           once more before it acts, and says what the approval does to the
+           money. The first press only opens the question on the card; the
+           second, "Yes, approve it", is the approval. */
+        const open = item.locator('[data-act="jobOpen"][data-ui="approve"]');
+        if (!(await open.count())) differs("the listing request's buttons", await item.textContent(), "Approve");
+        await open.click();
+        const button = w.page.locator(`#job-${domId(row.item_key)} [data-act="jobApproveListing"]`);
+        await button.waitFor({ state: "visible" }).catch(() => differs("Approve", "no question opened", "\"Approve this listing?\" and \"Yes, approve it\""));
+        await see(w.page, `#job-${domId(row.item_key)} .inline-choice`, "Approve this listing?", "the question under Approve");
+        await see(w.page, `#job-${domId(row.item_key)} .inline-choice`,
+          print ? "the first membership invoice is raised in Xero" : "with no new invoice", "what the question says about the invoice");
         await saveVia(w.page, () => button.click(), ctx);
         const live = await pollUntil(async () => {
           const l = (await dbRead(ctx, "listings", "id,status", [["eq", "id", now.listing.id]]))[0];

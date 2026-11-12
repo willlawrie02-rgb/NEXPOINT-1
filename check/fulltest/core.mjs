@@ -86,7 +86,7 @@ export const ROLES = ["host", "seeker", "veteran"];
 export const ROLE_NOTES = {
   host: "a ZZ account that lists capacity on both hubs and owns the test opportunity",
   seeker: "a ZZ account that searches, picks the ZZ host and asks for introductions",
-  veteran: "a ZZ account that accepted Platform Terms 1.3 and has not signed in since Terms 2.0 (the Platform gate, once)",
+  veteran: "a ZZ account that accepted Platform Terms 1.3 and never 2.0 (it signs in and meets no Platform Terms box)",
 };
 export function emptySettings() {
   const account = () => ({ company: "", email: "", password: "" });
