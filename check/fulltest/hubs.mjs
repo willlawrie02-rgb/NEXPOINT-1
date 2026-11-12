@@ -200,6 +200,57 @@ const hubJourney = (h) => {
         if (!billed) throw new Soft("the Mill Hub's form did not say the site already has a membership (was the 3D Print Hub listing approved first?)");
         return "\"still applies\" and the membership already held; no second agreement";
       } },
+    /* Will, 12 November 2026: a first listing is approved after a call with
+       the host, so its card has "Ask for a call", which emails the host and
+       leaves the listing waiting (engine #237, website #227; queue step DQ6).
+       Pressed once a host, on the 3D Print Hub listing: one email is enough.
+       The same step takes the code audit's one look (row 23 of its launch
+       list, finding 07b-05): whether the Inbox holds a second card for the
+       waiting listing, a "wrote to the desk" card that opens a page which
+       cannot decide it. Seen or not, it goes in the report's notes. */
+    ...(print ? [{ id: "ask-call", once: true,
+      does: "Admin: on the listing request's card, presses Ask for a call, then \"Send the email\"",
+      shows: `Queued; the listing still waits; the card says "Call asked for on" today; "A call about your ${h.name} listing" reaches the host`,
+      run: async (ctx) => {
+        const now = await mine(ctx, h);
+        if (now.status === "live" || now.status === "live_pending_edit") skip("the listing is live already, so its card has gone");
+        if (now.status !== "pending") differs("the listing before asking for a call", now.status, "pending");
+        if (!adminAvailable(ctx)) wait(`asking the ZZ host for a call waits: ${NO_ADMIN}`);
+        let org;
+        try { org = await hostOrg(ctx); } catch (e) {
+          if (e instanceof Skipped) wait(`asking the ZZ host for a call waits: ${e.message}`);
+          throw e;
+        }
+        const row = await inboxRow(ctx, "listing", now.listing.id);
+        if (row.org_id !== org.id) throw new Refused("refused: the listing request is not on the ZZ host's account");
+        const twins = (await dbRead(ctx, "inbox", "kind,ref,name,hub,board", [["eq", "kind", "enquiry"]]))
+          .filter((r) => same(r.name, org.name) && r.hub === h.key && /-hub\.html$/.test(String(r.board || "")));
+        ctx.notes.push(twins.length
+          ? `The Inbox holds ${twins.length === 1 ? "a second card" : `${twins.length} more cards`} for the ZZ host's waiting ${h.name} listing (${twins.map((r) => `${r.ref}, which opens ${r.board}`).join("; ")}): the code audit's finding 07b-05, a card no page can decide (a finding for Will).`
+          : `The Inbox holds one card for the ZZ host's waiting ${h.name} listing and no second "wrote to the desk" card (the code audit's finding 07b-05 did not show).`);
+        const { w, item } = await jobOnCompanyPage(ctx, row);
+        const open = item.locator('[data-act="jobOpen"][data-ui="call"]');
+        if (!(await open.count())) differs("the listing request's buttons", await item.textContent(), "Ask for a call");
+        if (/again/i.test(await open.textContent())) skip("this host was asked for a call on an earlier run; asking again would send a second email");
+        await open.click();
+        const send = w.page.locator(`#job-${domId(row.item_key)} [data-act="jobAskCall"]`);
+        await send.waitFor({ state: "visible" }).catch(() => differs("Ask for a call", "no question opened", "\"Email the host to ask for a call?\" and \"Send the email\""));
+        await see(w.page, `#job-${domId(row.item_key)} .inline-choice`, "Email the host to ask for a call?", "the question under Ask for a call");
+        await saveVia(w.page, () => send.click(), ctx);
+        const asked = await pollUntil(async () => {
+          const l = (await dbRead(ctx, "listings", "id,status,call_asked_at", [["eq", "id", now.listing.id]]))[0];
+          return l && l.call_asked_at ? l : null;
+        });
+        if (!asked) wait("asked and queued; the engine has not sent the email yet (it wakes within about a minute)");
+        if (asked.status !== "pending") differs("the listing after asking for a call", asked.status, "still pending");
+        ctx.mail.expect(`A call asked for, ${h.name}: the listing still waits`, acct(ctx, "host").email, `A call about your ${h.name} listing`);
+        /* The card says when it was asked, once the page has read the listing again. */
+        const after = await jobOnCompanyPage(ctx, row);
+        await see(after.w.page, `#job-${domId(row.item_key)}`, "Call asked for on", "the card after the email went", 20000)
+          .catch((e) => { throw new Soft(String(e.message || e)); });
+        return twins.length ? "asked, and the listing still waits; the Inbox shows a second card for it (see the notes)"
+          : "asked, and the listing still waits; one card for it in the Inbox";
+      } }] : []),
     { id: "approve", once: true,
       does: "Admin: opens the listing request from the Inbox on the host's company page, presses Approve, then \"Yes, approve it\"",
       shows: print ? "Queued, then the listing is live; this raises a real membership invoice in Xero"
@@ -514,9 +565,9 @@ const hubJourney = (h) => {
       } },
   ];
   return {
-    id: `hubs.${h.key}`, title: `The ${h.name}: list, approve, ${print ? "change, " : ""}search, pick, ${print ? "accept" : "decline, offer again"}`,
+    id: `hubs.${h.key}`, title: `The ${h.name}: list, ${print ? "ask for a call, " : ""}approve, ${print ? "change, " : ""}search, pick, ${print ? "accept" : "decline, offer again"}`,
     pass: "computer", needs: ["host", "seeker"],
-    from: print ? "action list 5.1, 5.2, 5.5 to 5.7, 6.1 to 6.6" : "action list 5.3, 5.4, 6.7, 6.8",
+    from: print ? "action list 5.1, 5.2, 5.5 to 5.7, 6.1 to 6.6; Ask for a call added at Will's word, 12 November 2026 (queue step DQ6)" : "action list 5.3, 5.4, 6.7, 6.8",
     steps: [].concat(listingSteps, changeSteps, seekSteps, resendStep, answerSteps, reissueSteps, lastSteps),
   };
 };
