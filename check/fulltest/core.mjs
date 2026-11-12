@@ -59,10 +59,11 @@ export const USAGE = `The full test, on ZZ test accounts only.
 const list = (v) => String(v || "").split(",").map((s) => s.trim()).filter(Boolean);
 export function parseArgs(argv) {
   const a = { dry: false, init: false, setup: false, headless: false, phone: false, fresh: false, help: false,
-    only: [], skip: [], with: [], settings: SETTINGS_PATH, reportDir: REPORTS_DIR };
+    only: [], skip: [], with: [], settings: SETTINGS_PATH, reportDir: REPORTS_DIR, hostEmail: "", seekerEmail: "" };
   const flags = { "--dry": "dry", "--init": "init", "--setup": "setup", "--headless": "headless", "--phone": "phone", "--fresh": "fresh",
     "--help": "help", "-h": "help" };
-  const values = { "--only": "only", "--skip": "skip", "--with": "with", "--settings": "settings", "--report-dir": "reportDir" };
+  const values = { "--only": "only", "--skip": "skip", "--with": "with", "--settings": "settings", "--report-dir": "reportDir",
+    "--host-email": "hostEmail", "--seeker-email": "seekerEmail" };
   for (let i = 0; i < argv.length; i++) {
     const [key, inline] = argv[i].split(/=(.*)/s);
     if (flags[key]) { a[flags[key]] = true; continue; }
@@ -70,7 +71,7 @@ export function parseArgs(argv) {
       const v = inline !== undefined ? inline : argv[++i];
       if (v === undefined || String(v).startsWith("--")) throw new Refused(`${key} needs a value`);
       const name = values[key];
-      a[name] = Array.isArray(a[name]) ? a[name].concat(list(v)) : resolve(String(v).replace(/^~(?=\/)/, homedir()));
+      a[name] = Array.isArray(a[name]) ? a[name].concat(list(v)) : /Email$/.test(name) ? String(v).trim() : resolve(String(v).replace(/^~(?=\/)/, homedir()));
       continue;
     }
     throw new Refused(`unknown option ${argv[i]}`);

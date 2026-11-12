@@ -62,7 +62,8 @@ async function account(label, s, suggestion) {
   }
 }
 
-export async function runSetup(path) {
+const madeUp = () => `Zz-${randomBytes(12).toString("base64url")}9a`;
+export async function runSetup(path, auto = null) {
   /* Start from the file a session prepared (mail and addresses filled in), else the one in use, else the empty template. */
   const prepared = join(dirname(path), "full-test.new.json");
   let s = emptySettings(), from = "an empty template";
@@ -70,15 +71,26 @@ export async function runSetup(path) {
     if (!existsSync(p)) continue;
     try { s = { ...emptySettings(), ...JSON.parse(readFileSync(p, "utf8")) }; from = p; break; } catch { /* try the next */ }
   }
-  console.log(`The full test's settings. Starting from ${from}.\nPress Return to keep what is shown in [brackets].`);
+  console.log(`The full test's settings. Starting from ${from}.${auto ? "" : "\nPress Return to keep what is shown in [brackets]."}`);
   s.accounts = s.accounts || {};
   for (const role of ["host", "seeker"]) s.accounts[role] = { company: "", email: "", password: "", ...(s.accounts[role] || {}) };
-  await account("host", s.accounts.host, "ZZ Full Test Host");
-  await account("seeker", s.accounts.seeker, "ZZ Full Test Seeker");
+  if (auto) {
+    /* No questions: the runner registers both accounts itself on its first
+       run, so their passwords are made here and never shown to anyone. */
+    for (const [role, name] of [["host", "ZZ Full Test Host"], ["seeker", "ZZ Full Test Seeker"]]) {
+      const a = s.accounts[role];
+      a.company = a.company || name;
+      a.email = auto[role];
+      a.password = a.password || madeUp();
+    }
+  } else {
+    await account("host", s.accounts.host, "ZZ Full Test Host");
+    await account("seeker", s.accounts.seeker, "ZZ Full Test Seeker");
+  }
   s.new_account = s.new_account || {};
   if (!String(s.new_account.password || "").trim()) {
     /* The runner's own account, registered fresh each run: its password is made here and never shown. */
-    s.new_account.password = `Zz-${randomBytes(12).toString("base64url")}9a`;
+    s.new_account.password = madeUp();
     console.log("\nA password was made for the account the test registers by itself each run.");
   }
   const { problems } = checkSettings(s);
