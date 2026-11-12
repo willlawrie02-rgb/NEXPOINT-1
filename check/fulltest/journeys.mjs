@@ -81,6 +81,7 @@ export const JOURNEYS = [].concat(ACCOUNT_JOURNEYS, ADMIN_RESTORE, WAYS_IN, HUB_
 
 /* What the runner cannot judge. Always printed at the foot of the report. */
 export const BY_HAND = [
+  "Registering: the site's human check refuses an automated browser, so each new account is registered by you, in your own Chrome, with details the runner hands you.",
   "A real phone: the phone pass is Chrome at phone width, not a phone.",
   "Money: voiding in Xero each invoice the run raised (listed below), a card payment, and how each invoice and statement reads in Xero.",
   "Smartlead: accepting a prospect onto one or two campaigns, and the turn passing between them (queue DA9).",

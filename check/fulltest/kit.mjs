@@ -1,6 +1,7 @@
 // The full test's shared step helpers: names, mail links, the find form, the
 // introduction answer, the admin company page. Every journey file uses these.
 import { APEX, PRINT, MILL, OPPS, API, Refused, Soft, mustBeZZ, isZZ, isZZSlug, differs, wait, skip, hand, askEnter, askLine } from "./core.mjs";
+import { spawnSync } from "node:child_process";
 import { windowFor, go, see, shows, text, whoAmI, apiGet, signIn, signOut, adminWindow, adminGo, saveVia, wantDirect, ADMIN, allow, pollUntil, invoiceRaised } from "./browser.mjs";
 
 const same = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
@@ -200,4 +201,25 @@ async function fits(w, url, main) {
   if (!box || box.x < -1 || box.x + box.width > wide + 1) differs(`${url} at phone width`, "the main part is cut off", "inside the screen");
 }
 
-export { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits };
+/* Registering is a person's act. The site's human check (Cloudflare's)
+   refuses an automated browser, as it should, and the runner never tries to
+   pass it. So the runner stops, opens the page in a private window of the
+   operator's own Chrome, puts the account's password on the clipboard (it is
+   never shown) and waits while the person registers. */
+async function registerByHand(ctx, { url, what, fields, password }) {
+  if (ctx.args.headless) skip(`${what} is registered by a person, in a Chrome window`);
+  if (process.platform !== "darwin") hand(`${what}: register it by hand; the runner can only hand over the password on a Mac`);
+  const clip = (text) => spawnSync("pbcopy", [], { input: text });
+  clip(password);
+  spawnSync("open", ["-na", "Google Chrome", "--args", "--incognito", url]);
+  const list = fields.map(([k, v]) => `      ${k}: ${v}`).join("\n");
+  const went = await askEnter(`Register ${what} yourself, in the private Chrome window that just opened (not the test's own window).\n` +
+    `    Type these in:\n${list}\n      Password: press Cmd+V (it is on your clipboard)\n` +
+    `    Tick the terms, wait for the "are you human" tick, and create the account.\n` +
+    `    When it says "Check your inbox", close that window and come back here.` +
+    (/[0-9a-f]{32}/.test(url) ? "" : `\n    (If no window opened, open a private Chrome window yourself at ${url})`));
+  clip("");
+  if (!went) skip(`${what} was not registered`);
+}
+
+export { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits, registerByHand };

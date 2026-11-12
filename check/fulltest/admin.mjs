@@ -1,7 +1,7 @@
 // The full test: the consultancy sign-up and the admin boards.
 import { APEX, PRINT, MILL, OPPS, API, Refused, Soft, mustBeZZ, isZZ, isZZSlug, differs, wait, skip, hand, askEnter, askLine } from "./core.mjs";
 import { windowFor, go, see, shows, text, whoAmI, apiGet, signIn, signOut, adminWindow, adminGo, saveVia, wantDirect, ADMIN, allow, pollUntil, invoiceRaised } from "./browser.mjs";
-import { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits } from "./kit.mjs";
+import { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits, registerByHand } from "./kit.mjs";
 
 /* What these journeys send, beyond what browser.mjs opens for every run. The
    never-lists there still win: no campaign, no re-run, nothing marked paid,
@@ -127,30 +127,6 @@ async function hostInSearch(ctx) {
   return { shown: names.some((n) => same(n, host)), names };
 }
 /* The door's Create account form, as in.register fills it. Answers when "Check your inbox" shows. */
-async function doorRegister(ctx, w, p) {
-  await w.page.fill("#qName", p.name);
-  if (p.company) await w.page.fill("#qCompany", p.company);
-  await w.page.locator("#qPass").pressSequentially(p.password);
-  await w.page.click("#npAccountContent button[type=submit]");
-  await w.page.locator('form[data-np-step="2"]').waitFor({ state: "visible" });
-  await w.page.fill("#qCountry", p.country);
-  await w.page.fill("#qTown", p.town);
-  await w.page.locator("#qTerms").waitFor({ state: "visible" });
-  await w.page.check("#qTerms");
-  const ready = 'form[data-np-step="2"] button[type=submit]:not([disabled])';
-  if (!(await shows(w.page, ready, 45000))) {
-    await w.page.bringToFront().catch(() => {});
-    if (!(await askEnter("The \"are you human\" check has not cleared. Complete it in the Chrome window."))) skip("the human check was left");
-    await w.page.locator(ready).waitFor({ state: "visible", timeout: 5 * 60 * 1000 });
-  }
-  const sent = w.page.waitForResponse((r) => r.url() === `${API}/auth/register`, { timeout: 30000 });
-  await w.page.click(ready);
-  const res = await sent;
-  if (!res.ok()) differs("registering", await text(w.page, "#npAccountContent .np-sign-error").catch(() => `${res.status()}`), "Check your inbox");
-  ctx.did();
-  await see(w.page, "#npAccountContent .success", "Check your inbox", "after registering", 30000);
-}
-
 // ---------------------------------------------------------------- the Prospects page
 const PROSPECT_TABS = ["prospects", "parked", "leads"];
 /* Where a prospect stands: its tab (prospects, parked, leads), or the Declined
@@ -684,7 +660,11 @@ const admin = [{
         if (!same(filled, company)) throw new Refused("refused: the invitation is not for the ZZ host");
         if (!same(await w.page.inputValue("#qEmail"), j.email)) differs("the address on the form", await w.page.inputValue("#qEmail"), j.email);
         const n = ctx.settings.new_account;
-        await doorRegister(ctx, w, { name: j.name, password: n.password, town: n.town || "Leeds", country: n.country || "United Kingdom" });
+        /* The runner has read the form; a person now registers through the same link. */
+        await registerByHand(ctx, { url: link, what: `the invited account (${filled})`, password: n.password, fields: [
+          ["Your name", j.name], ["Company", "already filled in"], ["Email", "already filled in"],
+          ["Country", n.country || "United Kingdom"], ["Town", n.town || "Leeds"]] });
+        ctx.did();
         ctx.left.push(`the account made through the invitation (${filled}, ${j.email}); its login is deleted by delete-login`);
         ctx.mail.expect("Confirm your email (the invited account)", j.email, "Confirm your email");
       } },

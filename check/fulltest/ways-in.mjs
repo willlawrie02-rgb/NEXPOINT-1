@@ -4,7 +4,7 @@
 import { randomBytes } from "node:crypto";
 import { APEX, PRINT, MILL, OPPS, API, Refused, Soft, mustBeZZ, isZZ, isZZSlug, differs, wait, skip, hand, askEnter, askLine } from "./core.mjs";
 import { windowFor, go, see, shows, text, whoAmI, apiGet, signIn, signOut, adminWindow, adminGo, saveVia, wantDirect, ADMIN, allow, pollUntil, invoiceRaised } from "./browser.mjs";
-import { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits } from "./kit.mjs";
+import { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits, registerByHand } from "./kit.mjs";
 
 /* What these journeys send, beyond the runner's own list (browser.mjs). */
 allow({
@@ -229,40 +229,15 @@ const signingIn = {
 const registering = {
   id: REG, title: "Every way in: registering, closing and reopening, and a new password", pass: "computer", needs: ["new_account", "window"],
   steps: [
-    { id: "register", once: true, does: "Registers a new ZZ account (waits for the human check; asks you if it does not clear)",
-      shows: "\"Check your inbox\"; nobody is signed in yet",
+    { id: "register", once: true, does: "You register a new ZZ account in your own Chrome (the human check refuses an automated browser); the runner hands you the details",
+      shows: "\"Check your inbox\"; the confirmation email arrives",
       run: async (ctx) => {
-        const n = newcomer(ctx), w = ctx.lastWindow = await windowFor(ctx, "newcomer");
-        await go(w.page, `${APEX}/hub/?join=1`);
-        await w.page.locator('form[data-np-step="1"]').waitFor({ state: "visible" });
-        await w.page.fill("#qName", n.name);
-        await w.page.fill("#qCompany", n.company);
-        await w.page.fill("#qEmail", n.email);
-        await w.page.locator("#qPass").pressSequentially(n.password);
-        await w.page.click("#npAccountContent button[type=submit]");
-        await w.page.locator('form[data-np-step="2"]').waitFor({ state: "visible" });
-        await w.page.fill("#qCountry", n.country);
-        await w.page.fill("#qTown", n.town);
-        await w.page.locator("#qTerms").waitFor({ state: "visible" });
-        await w.page.check("#qTerms");
-        /* The human check is Cloudflare's. The runner never touches it: it
-           waits for it to clear, and asks the person at the keyboard if not. */
-        const ready = 'form[data-np-step="2"] button[type=submit]:not([disabled])';
-        if (!(await shows(w.page, ready, 45000))) {
-          await w.page.bringToFront().catch(() => {});
-          if (!(await askEnter("The \"are you human\" check has not cleared. Complete it in the Chrome window."))) skip("the human check was left");
-          await w.page.locator(ready).waitFor({ state: "visible", timeout: 5 * 60 * 1000 });
-        }
-        const sent = posted(w.page, "/auth/register");
-        await w.page.click(ready);
-        if ((await sent).ok()) {
-          made(ctx).registeredAt = new Date().toISOString();
-          ctx.cache.newcomerStamp = stampOf(ctx);
-          ctx.did();
-        }
-        await see(w.page, "#npAccountContent .success", "Check your inbox", "after registering", 30000);
-        const me = await whoAmI(w.page);
-        if (me && me.signed_in) differs("before confirming", "signed in already", "nobody signed in");
+        const n = newcomer(ctx);
+        await registerByHand(ctx, { url: `${APEX}/hub/?join=1`, what: `a new ZZ account, ${n.company}`, password: n.password, fields: [
+          ["Your name", n.name], ["Company", n.company], ["Email", n.email], ["Country", n.country], ["Town", n.town]] });
+        made(ctx).registeredAt = new Date().toISOString();
+        ctx.cache.newcomerStamp = stampOf(ctx);
+        ctx.did();
         ctx.mail.expect("Confirm your email (registration)", n.email, "Confirm your email");
         ctx.left.push(`the account ${n.company} (${n.email})`);
       } },
