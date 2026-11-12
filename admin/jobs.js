@@ -2,7 +2,7 @@
    yields, as the Inbox (inbox.html) and the company page's Needs you
    (company.html) show it and decide it.
 
-   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=092">:
+   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=092b">:
    shared admin files are cached in browsers for up to four hours, so bump
    ?v= on every change (and on every page that links it).
 
@@ -518,8 +518,15 @@ const QUEUED='<span class="status-line">'+ms('schedule','sm')+'Queued, moments a
 /* ── The deciding panels ──────────────────────────────────────────────── */
 
 /* A first listing (068, register D5): the whole submission and the period
-   the host chose. Approve is one click; the board never chooses the period,
-   so a submission with none, on a site not yet billed, is withheld (P8). */
+   the host chose. The board never chooses the period, so a submission with
+   none, on a site not yet billed, is withheld (P8).
+   Will, 12 November 2026 (the code audit's decision C): Approve asks once
+   more in place, saying what this approval does to the money, because it
+   puts the listing live, raises a real invoice and emails the host, and
+   nothing un-approves. A first listing is approved after a call with the
+   host, so the card also offers Ask for a call, which emails the host and
+   leaves the listing waiting; the listing keeps when it was asked and by
+   whom (migration 0102). */
 function listingPanel(r,ctx){
   const l=listingById(r.item_id);
   if(!l)return missing('This listing');
@@ -534,14 +541,27 @@ function listingPanel(r,ctx){
   const period=chosen?(pending.billing_period==='monthly'?'Monthly, £100 a month, chosen by the host':'Yearly, £1,000 a year, chosen by the host')
     :billed?'Already billed: one membership covers both hubs':'';
   const k=r.item_key;
+  const may=billed||chosen;
+  /* What this approval does to the money: the engine's three cases (_make_host). */
+  const money=billed?'It goes live and the host is emailed. The membership it already has carries on, with no new invoice.'
+    :org.billing_from==='first_introduction'?'It goes live and the host is emailed. This site is invoiced at its first introduction, not now.'
+    :'It goes live, the first membership invoice is raised in Xero and the host is emailed.';
+  const askedOn=l.call_asked_at?day(l.call_asked_at):'';
   return {intent:'listing:'+l.id,
-    body:para(`Submitted ${esc(day(rev.submitted_at||l.created_at))}. Approving puts it live and starts the membership; the host is emailed once.`)
+    body:para(`Submitted ${esc(day(rev.submitted_at||l.created_at))}. Approving puts it live and starts the membership; the host is emailed once. Approve after the call with the host.`)
+      +(askedOn?para(esc(`Call asked for on ${askedOn}${l.call_asked_by?' by '+l.call_asked_by:''}.`)):'')
       +kv(submittedTable(rev).concat(period?[['Membership',esc(period)]]:[]))
-      +(billed||chosen?'':`<div class="hint">${ms('info')}<span>No billing period on this submission: the host chooses yearly or monthly on the listing form. Decline with a note asking them to choose.</span></div>`),
-    actions:((billed||chosen)?btn('jobApproveListing','Approve','check',{key:k},'primary'):'')
+      +(may?'':`<div class="hint">${ms('info')}<span>No billing period on this submission: the host chooses yearly or monthly on the listing form. Decline with a note asking them to choose.</span></div>`),
+    actions:(may?btn('jobOpen','Approve','check',{key:k,ui:'approve'},'primary'):'')
+      +btn('jobOpen',askedOn?'Ask for a call again':'Ask for a call','call',{key:k,ui:'call'})
       +btn('jobOpen','Decline with a note','',{key:k,ui:'decline'}),
-    choice:isOpen(ctx,'decline',r)?choice('What needs changing before this listing can go live? The host is sent this note.',
-      input(fid('jb-note',r),'What needs changing')+btn('jobDeclineListing','Decline the listing','',{key:k},'danger')+cancel()):''};
+    choice:may&&isOpen(ctx,'approve',r)?choice(esc(`Approve this listing? ${money} There is no un-approve.`),
+        btn('jobApproveListing','Yes, approve it','',{key:k},'primary')+cancel())
+      :isOpen(ctx,'call',r)?choice(esc(askedOn?`Email the host again to ask for a call? It was last asked on ${askedOn}. The listing stays waiting until it is approved.`
+          :'Email the host to ask for a call? The listing stays waiting until it is approved.'),
+        btn('jobAskCall','Send the email','',{key:k},'primary')+cancel())
+      :isOpen(ctx,'decline',r)?choice('What needs changing before this listing can go live? The host is sent this note.',
+        input(fid('jb-note',r),'What needs changing')+btn('jobDeclineListing','Decline the listing','',{key:k},'danger')+cancel()):''};
 }
 
 /* A change to a live listing (068 D6): field by field and machine by
@@ -945,6 +965,11 @@ const ACT={
     const r=rowOf(el,ctx);if(!r)return;
     return ctx.raise('approve-listing',{listing_id:r.item_id},spot(r),'Approved');
   },
+  /* Will, 12 November 2026: the email that asks a new host for a call. */
+  jobAskCall(el,ctx){
+    const r=rowOf(el,ctx);if(!r)return;
+    return ctx.raise('ask-listing-call',{listing_id:r.item_id},spot(r),'Call asked for');
+  },
   jobDeclineListing(el,ctx){
     const r=rowOf(el,ctx);if(!r)return;
     const note=ctx.val(fid('jb-note',r)).trim();
@@ -1143,8 +1168,10 @@ const TYPES=['approve-listing','decline-listing','approve-listing-revision','dec
   /* plan 092: a possible order confirmed, or marked not an order */
   'confirm-order-evidence',
   /* plan 075: the membership jobs' by-hand controls */
-  'record-sub-paid','extend-membership-clock'];
-const LISTING_TYPES=TYPES.slice(0,4);
+  'record-sub-paid','extend-membership-clock',
+  /* Will, 12 November 2026: a new host asked for a call, from the listing's card */
+  'ask-listing-call'];
+const LISTING_TYPES=TYPES.slice(0,4).concat('ask-listing-call');
 /* The key a job looks its newest open intent up by (the page reduces the
    intents newest-wins, then calls this for each). */
 function intentKey(i){
@@ -1168,6 +1195,7 @@ const DONE_WORDS={
   'decline-listing':['approve','Listing declined'],
   'approve-listing-revision':['approve','Listing change approved'],
   'decline-listing-revision':['approve','Listing change declined'],
+  'ask-listing-call':['approve','Call asked for'],
   'add-provider':['waiting','Introduced by hand'],
   'decline-intro-request':['waiting','Request declined'],
   'reroute-introduction':['waiting','Offer re-routed'],
@@ -1285,7 +1313,7 @@ async function read(sb,rows,opt){
   const [rvq,mcq,orq,xq]=await Promise.all([
     revIds.length?sb.from('listing_revisions').select('*').in('id',revIds):none,
     revIds.length?sb.from('listing_machines').select('*').in('revision_id',revIds).order('position',{ascending:true}):none,
-    allOrgs.length?sb.from('organisations').select('id,name,hidden_at,removed_at,sub_status,sub_period,sub_due_at,sub_rate_gbp').in('id',allOrgs):none,
+    allOrgs.length?sb.from('organisations').select('id,name,hidden_at,removed_at,sub_status,sub_period,sub_due_at,sub_rate_gbp,billing_from').in('id',allOrgs):none,
     msgIds.length?sb.from('crm_email_index').select('internet_message_id,web_links').in('internet_message_id',msgIds):none,
   ]);
   got('the listing revisions',rvq).forEach(r=>{out.revisions[r.id]=r;});
