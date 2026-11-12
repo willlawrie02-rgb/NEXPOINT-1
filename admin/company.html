@@ -76,7 +76,7 @@
 <script src="crm-shell.js?v=6"></script>
 <script src="crm.js?v=071"></script>
 <script src="save.js?v=0794"></script>
-<script src="jobs.js?v=082b"></script>
+<script src="jobs.js?v=092"></script>
 <script src="pipelines.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -169,7 +169,7 @@ const none=Promise.resolve({data:[],error:null});
 const todayIso=()=>new Date().toISOString().slice(0,10);
 const fmt=v=>NXCRM.fmtDate(v);
 
-const UI={open:null,edit:null,tl:'all',tlMax:50,job:null,flashDone:false,card:null,cardDone:false,reason:null,composer:'note'};
+const UI={open:null,edit:null,tl:'all',tlMax:50,job:null,flashDone:false,card:null,cardDone:false,mail:null,mailSet:false,mailDone:false,reason:null,composer:'note'};
 /* A half-typed note or task in the composer is on no form UI knows of. */
 const checkBack=NXJOBS.poll(sb,load,()=>!!(UI.open||UI.edit||val('cp-note')||val('cp-title')));
 let state='loading', problem='', banners=[];
@@ -196,7 +196,7 @@ async function load(){
   banners=[];
   const q=new URLSearchParams(location.search);
   const key={id:q.get('id'),slug:q.get('slug'),org:q.get('org'),person:q.get('person')};
-  UI.job=q.get('job');UI.card=q.get('card');
+  UI.job=q.get('job');UI.card=q.get('card');UI.mail=q.get('mail');
   const st=await sb.from('crm_settings').select('key,value');
   NXSAVE.use(st.data);
   const missing=!!st.error&&/crm_/.test(st.error.message||'');
@@ -1100,7 +1100,8 @@ function timelineItems(){
       :`<span class="picker-note">${m.internet_message_id?'No Outlook link yet':'Filed by hand: no Outlook link'}</span>`;
     out.push({when:m.sent_at,cat:'email',icon:m.direction==='outbound'?'call_made':'call_received',cls:'in',
       kind:m.direction==='outbound'?'Email out':m.direction==='inbound'?'Email in':'Email',title:m.subject||m.path.split('/').pop(),
-      body:m.from_text?(m.direction==='outbound'?'Sent by ':'From ')+m.from_text:'',extra});
+      body:m.from_text?(m.direction==='outbound'?'Sent by ':'From ')+m.from_text:'',extra,
+      mid:m.internet_message_id||null,dom:m.internet_message_id?mailDom(m.internet_message_id):null});
   });
   C.notes.forEach(n=>out.push({when:n.dated,cat:'note',icon:'sticky_note_2',cls:'',kind:'Note',title:n.title||n.path.split('/').pop(),
     extra:n.body?`<details class="more"><summary>Read the note</summary><p class="ev-body">${esc(n.body)}</p></details>`:''}));
@@ -1168,13 +1169,31 @@ function accountItems(){
   });
   return out;
 }
+/* &mail=<message id> (plan 092, the Inbox's "Open the filed copy"): the
+   timeline opens on Emails with that email in view, however far down it is,
+   then scrolls to it once. An id that is not on file changes nothing. */
+const mailDom=id=>'mail-'+NXJOBS.domId(id);
+function aimAtMail(all){
+  if(!UI.mail||UI.mailSet)return;
+  UI.mailSet=true;
+  const at=all.filter(i=>i.cat==='email').findIndex(i=>i.mid===UI.mail);
+  if(at<0){UI.mail=null;return;}
+  UI.tl='email';UI.tlMax=Math.max(UI.tlMax,at+1);
+}
+function jumpToMail(){
+  if(!UI.mail||UI.mailDone)return;
+  const el=$(mailDom(UI.mail));
+  if(el&&el.scrollIntoView){el.scrollIntoView({block:'center'});UI.mailDone=true;}
+}
 function timelinePanel(){
-  const all=timelineItems(), shown=all.filter(i=>UI.tl==='all'||i.cat===UI.tl);
+  const all=timelineItems();
+  aimAtMail(all);
+  const shown=all.filter(i=>UI.tl==='all'||i.cat===UI.tl), marked=i=>!!UI.mail&&!UI.mailDone&&i.mid===UI.mail;
   const kinds=[['all','All'],['email','Emails'],['note','Notes'],['change','Changes'],['account','Account']];
   const capped=C.capped.length?`<p class="picker-note">Showing the newest 500 ${esc(C.capped.join(', the newest 500 '))}; older ones are in the workspace folder.</p>`:'';
   return `<section class="panel"><div class="composer-row"><h2>Timeline <span class="n num">${all.length}</span></h2><div class="filters-mini" role="group" aria-label="Show on the timeline">`+
     kinds.map(([f,l])=>`<button type="button" class="opt" data-act="tlFilter" data-f="${f}" aria-pressed="${UI.tl===f}">${l}</button>`).join('')+'</div></div>'+capped+
-    (shown.length?'<div class="tl">'+shown.slice(0,UI.tlMax).map(i=>`<div class="ev ${i.cls}"><span class="ev-icon">${ms(i.icon)}</span><div class="ev-main"><span class="ev-kind">${esc(i.kind)}</span>`+
+    (shown.length?'<div class="tl">'+shown.slice(0,UI.tlMax).map(i=>`<div class="ev ${i.cls}${marked(i)?' focus" style="animation:flash 1.4s var(--ease)':''}"${i.dom?` id="${esc(i.dom)}"`:''}><span class="ev-icon">${ms(i.icon)}</span><div class="ev-main"><span class="ev-kind">${esc(i.kind)}</span>`+
       `<span class="ev-title">${esc(i.title)}</span>${i.body?`<span class="ev-body">${esc(i.body)}</span>`:''}${i.extra||''}</div><span class="ev-date num">${esc(fmt(i.when))}</span></div>`).join('')+'</div>'+
       (shown.length>UI.tlMax?`<div>${btn('moreTl',`Show more (${shown.length-UI.tlMax})`,'expand_more',{},'quiet')}</div>`:'')
       :`<div class="empty-state">${ms('history')}<span>${UI.tl==='email'?'No emails filed yet. The engine files every email to and from this company here.':'Nothing of this kind yet.'}</span></div>`)+'</section>';
@@ -1197,7 +1216,7 @@ function render(){
   document.title=`NexPoint CRM: ${C.company.name}`;
   page.innerHTML=backLink()+bn+headerCard()+`<div class="co-body"><div class="facts co-side">${aboutPanel()}${peoplePanel()}${sitesPanel()}${pipelinesPanel()}${campaignsPanel()}${introPanel()}${deskPanel()}${openTasksPanel()}</div>`+
     `<div class="facts co-main">${needsYouHtml()}${composerHtml()}${timelinePanel()}</div></div>`;
-  jumpToJob();jumpToCard();
+  jumpToJob();jumpToCard();jumpToMail();
 }
 
 /* ---------- raising ---------- */
