@@ -154,6 +154,8 @@ const UI={tab:'day',who:'all',claude:false,open:new Set(),hist:new Set(),folds:n
 let on=false, busy=false, loaded=false, fatal='', banners=[];
 let P=null, TASKS=[], S={}, TICKS=[], NOTES=[], HIST={};
 let byId={}, kidsOf={}, liveOf={}, dayTicks={}, notesOf={};
+/* Whether a task can name what finishes it: the column of migration 0101. Without it the page opens as before. */
+let canFinish=false;
 const DROP=new Set();
 
 const isMissing=e=>!!e&&/does not exist|schema cache|Could not find/i.test(e.message||'');
@@ -207,13 +209,17 @@ async function load(){
   if(!P){loaded=true;render();return;}
   const since=addDays(todayIso(),-13);
   /* The state is a view (0099), read whole as the Inbox reads its own: task_id, archived, done, done_at, items_total, items_done. */
-  const [tq,sq,kq,dq,nq]=await Promise.all([
-    NXCRM.readAll(()=>sb.from('crm_project_tasks').select('id,project_id,parent_id,title,detail,owner,claude,kind,phase,priority,due_on,position,created_at,created_by,archived_at,archived_by').eq('project_id',P.id).order('id',{ascending:true})),
+  const TASK_COLS='id,project_id,parent_id,title,detail,owner,claude,kind,phase,priority,due_on,position,created_at,created_by,archived_at,archived_by';
+  const readTasks=cols=>NXCRM.readAll(()=>sb.from('crm_project_tasks').select(cols).eq('project_id',P.id).order('id',{ascending:true}));
+  let [tq,sq,kq,dq,nq]=await Promise.all([
+    readTasks(TASK_COLS+',finished_by'),
     NXCRM.readAll(()=>sb.from('crm_project_task_state').select('*').eq('project_id',P.id).order('task_id',{ascending:true})),
     NXCRM.readAll(()=>sb.from('crm_project_ticks').select('id,task_id,person,day,at,by,link').is('undone_at',null).is('day',null).order('id',{ascending:true})),
     sb.from('crm_project_ticks').select('id,task_id,person,day,at,by,link').is('undone_at',null).gte('day',since).order('id',{ascending:true}).limit(1000),
     NXCRM.readAll(()=>sb.from('crm_project_notes').select('id,task_id,body,by,at,reply_to,answered_at,answered_by').order('id',{ascending:true})),
   ]);
+  canFinish=!tq.error;
+  if(tq.error&&/finished_by/.test(tq.error.message||''))tq=await readTasks(TASK_COLS);
   const bad=[['the tasks',tq],['where each task stands',sq],['the ticks',kq],['the daily ticks',dq],['the notes',nq]].filter(([,q])=>q.error);
   if(bad.length){
     fatal=`Could not read ${bad[0][0]}: ${bad[0][1].error.message}.`;
@@ -340,6 +346,7 @@ function metaHtml(t){
   else if(t.due_on)bits.push(t.due_on<d?`<span class="st err">Late, due ${esc(fmtDay(t.due_on))}</span>`
     :t.due_on===d?'<span class="st info">Due today</span>':`<span>Due ${esc(fmtDay(t.due_on))}</span>`);
   if(s.items_total)bits.push(`<span class="st${s.items_done===s.items_total?' ok':''} num">${esc(s.items_done)} of ${esc(s.items_total)}</span>`);
+  if(t.finished_by&&!s.done&&!isArchived(t))bits.push(`<span class="tag">${ms('bolt')}Ticks itself when ${esc(finishWords(t.finished_by))}</span>`);
   const claudeTick=tickOf(t,'claude');
   if(claudeTick){
     const href=/^https:\/\//.test(String(claudeTick.link||''))?claudeTick.link:'';
@@ -362,7 +369,8 @@ function itemRow(c){
   const box=locked||!meKey()
     ?`<span class="tick${isOn?' on':''}" role="img" aria-label="${isOn?'Ticked':'Not ticked'}">${ms('check')}</span>`
     :`<button type="button" class="tick${isOn?' on':''}" data-act="tick" data-task="${esc(c.id)}" data-on="${isOn?'0':'1'}" aria-pressed="${isOn}" aria-label="${esc((isOn?'Undo the tick: ':'Tick: ')+c.title)}">${ms('check')}</button>`;
-  const who=tick?`<span class="task-meta"><span>${esc(tick.person==='claude'?NAME.claude:NAME[tick.person]||'')}, ${esc(fmtDay(londonDay(tick.at)))}</span></span>`:'';
+  const who=tick?`<span class="task-meta"><span>${esc(tick.person==='claude'?NAME.claude:NAME[tick.person]||'')}, ${esc(fmtDay(londonDay(tick.at)))}</span></span>`
+    :c.finished_by?`<span class="task-meta"><span>Ticks itself when ${esc(finishWords(c.finished_by))}</span></span>`:'';
   let form='';
   if(UI.form==='item:'+c.id)form=`<div class="inline-choice"><label class="sr" for="ie-${esc(c.id)}">The line</label><input class="input" id="ie-${esc(c.id)}" maxlength="300" value="${esc(c.title)}"${isOn?' disabled':''}>${
     isOn?'<span>Untick the line to change its words.</span>':btn('itemSave','Save line','',{task:c.id},'primary')}${btn('form','Remove line','',{f:'itemgo:'+c.id},'danger')}${btn('formClose','Cancel','',{},'quiet')}</div>`;
@@ -395,9 +403,15 @@ function notesHtml(t){
 }
 
 /* History: that task's events, and its checklist's, newest first: who, what, when. */
-const FIELD={title:'the title',detail:'the detail',owner:'the owner',claude:'the Claude tag',phase:'the phase',priority:'the priority',due_on:'the due date'};
+const FIELD={title:'the title',detail:'the detail',owner:'the owner',claude:'the Claude tag',phase:'the phase',priority:'the priority',due_on:'the due date',finished_by:'what finishes it'};
+/* What finishes a task, in words: a pull request by its number, a queue step by its name. */
+function finishWords(v){
+  const pr=/^https:\/\/github\.com\/[^/]+\/([^/]+)\/pull\/(\d+)$/.exec(String(v||''));
+  return pr?`pull request ${pr[2]} in ${pr[1]} merges`:`queue step ${v} is done`;
+}
 function showValue(k,v){
   if(v==null||v==='')return 'none';
+  if(k==='finished_by')return finishWords(v).replace(/ (merges|is done)$/,'');
   if(k==='owner')return ownerWords(v);
   if(k==='phase')return phaseLabel(v)||String(v);
   if(k==='due_on')return fmtDay(v);
@@ -413,7 +427,7 @@ function eventWords(e){
     case 'edit':return 'Changed '+Object.entries(d.changed||{}).map(([k,v])=>`${FIELD[k]||k} from ${showValue(k,(v||{}).from)} to ${showValue(k,(v||{}).to)}`).join('; ');
     case 'archive':return 'Removed';
     case 'restore':return 'Put back';
-    case 'tick':return 'Ticked'+(d.day?` for ${fmtDay(d.day)}`:'');
+    case 'tick':return (d.auto?`Ticked by itself: ${d.auto}`:'Ticked')+(d.day?` for ${fmtDay(d.day)}`:'');
     case 'untick':{
       const others=(d.of||[]).filter(p=>p!==WHO[String(e.by||'').toLowerCase()]&&p!==e.by);
       return 'Undid the tick'+(others.length?` of ${others.map(p=>NAME[p]||p).join(' and ')}`:'')+(d.day?` for ${fmtDay(d.day)}`:'');
@@ -450,6 +464,7 @@ function taskForm(t){
     ${daily?'':`<div class="field"><label for="${f}-due">Due</label><input class="input" type="date" id="${f}-due" value="${esc(t?t.due_on||'':'')}"></div>`}
     <div class="field"><label for="${f}-phase">Phase</label><select class="input" id="${f}-phase">${phases}</select></div>
     <div class="field"><label for="${f}-pri">Priority</label><select class="input" id="${f}-pri">${pri}</select></div>
+    ${canFinish?`<div class="field wide"><label for="${f}-finish">Finished by</label><input class="input" id="${f}-finish" data-keep="1" maxlength="300" placeholder="A pull request link, or a queue step such as DN2. The task then ticks itself" value="${esc(t?t.finished_by||'':'')}"></div>`:''}
     <div class="field wide"><label for="${f}-detail">Detail</label><textarea class="input" id="${f}-detail" data-keep="1" maxlength="2000" placeholder="Anything that helps whoever does it">${esc(t?t.detail||'':'')}</textarea></div>
     </div><div class="actions"><label class="check"><input type="checkbox" id="${f}-claude"${t&&t.claude?' checked':''}>The work is Claude's</label>${
       t?'':`<label class="check"><input type="checkbox" id="${f}-daily">Ticked every day, with no due date</label>`}</div>
@@ -494,6 +509,40 @@ function mine(){
   const m=meKey();
   return rootTasks().filter(t=>!isArchived(t)&&(t.owner===m||t.owner==='both'));
 }
+/* Since yesterday (D21): what was ticked, added and noted on the whole project from the start of yesterday,
+   by anyone, Claude included. Read from what the page already holds; nothing here can be pressed. */
+function sinceRows(){
+  const from=addDays(todayIso(),-1), rows=[];
+  const name=t=>{const par=t&&t.parent_id!=null?byId[t.parent_id]:null;return t?(par?`${t.title} (${par.title})`:t.title):'';};
+  TICKS.forEach(k=>{
+    const t=byId[k.task_id];
+    if(k.day||!t||isArchived(t)||!k.at||londonDay(k.at)<from)return;
+    const href=k.person==='claude'&&/^https:\/\//.test(String(k.link||''))?k.link:'';
+    rows.push({at:k.at,kind:'tick',icon:'check',who:NAME[k.person]||'',verb:'ticked',text:name(t),href});
+  });
+  TASKS.forEach(t=>{
+    if(isArchived(t)||!t.created_at||londonDay(t.created_at)<from||/^migration /.test(String(t.created_by||'')))return;
+    rows.push({at:t.created_at,kind:'add',icon:'add',who:byName(t.created_by),verb:t.parent_id!=null?'added the line':'added',text:name(t)});
+  });
+  NOTES.forEach(n=>{
+    const t=byId[n.task_id];
+    if(!t||!n.at||londonDay(n.at)<from)return;
+    rows.push({at:n.at,kind:'note',icon:'chat',who:byName(n.by),verb:n.reply_to?'answered a note on':'put a note on',text:name(t)});
+  });
+  return rows.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+}
+function sinceHtml(){
+  const rows=sinceRows();
+  if(!rows.length)return '';
+  const n=k=>rows.filter(r=>r.kind===k).length, parts=[];
+  if(n('tick'))parts.push(`${n('tick')} ticked`);
+  if(n('add'))parts.push(`${n('add')} added`);
+  if(n('note'))parts.push(`${n('note')} ${n('note')===1?'note':'notes'}`);
+  const open=UI.folds.has('since'), shown=rows.slice(0,40);
+  return `<details class="archive since"${open?' open':''}><summary data-act="fold" data-k="since">Since yesterday: ${esc(parts.join(', '))}</summary><div class="arch-body">${
+    open?shown.map(r=>`<div class="task-row"><span class="tick on" role="img" aria-label="${esc(r.verb)}">${ms(r.icon)}</span><div class="task-main"><span class="task-text">${esc(r.who)} ${esc(r.verb)}: ${esc(r.text)}</span><span class="task-meta"><span>${esc(fmtWhen(r.at))}</span>${
+      r.href?`<a class="linkish blue" href="${esc(r.href)}" rel="noopener">See the work</a>`:''}</span></div></div>`).join('')+(rows.length>shown.length?muted(`And ${rows.length-shown.length} more.`):''):''}</div></details>`;
+}
 function dayHtml(){
   const m=meKey(), d=todayIso(), sun=sundayOf(d), all=mine();
   const once=all.filter(t=>t.kind!=='daily'), daily=all.filter(t=>t.kind==='daily').sort(byDue);
@@ -503,7 +552,7 @@ function dayHtml(){
   const tickedOn=t=>{const k=t.owner==='both'?tickOf(t,m):null;return londonDay((k&&k.at)||st(t).done_at||new Date());};
   const recent=once.filter(t=>doneFor(t,m)&&tickedOn(t)>=addDays(d,-6)).sort((a,b)=>tickedOn(b).localeCompare(tickedOn(a))||b.id-a.id);
   if(!all.length)return `<section class="panel"><div class="empty-state">${ms('task_alt')}<span>Nothing here is yours yet. The whole project is on the other tab.</span></div></section>`;
-  return `<div class="pwrap">${group('Late',late,'problem')}${group('Today',today,'approve','Nothing is due today.')}${
+  return `<div class="pwrap">${sinceHtml()}${group('Late',late,'problem')}${group('Today',today,'approve','Nothing is due today.')}${
     group('Every day',daily,'waiting')}${group('This week',week,'','')}${fold('later','Later',later)}${fold('recent','Done in the last seven days',recent)}</div>`;
 }
 function allHtml(){
@@ -574,6 +623,7 @@ function taskFields(f,withDue){
   const out={title:val(f+'-title').trim(),owner:val(f+'-owner'),phase:val(f+'-phase')||null,
     priority:val(f+'-pri')?Number(val(f+'-pri')):null,detail:val(f+'-detail').trim()||null,claude:!!($(f+'-claude')||{}).checked};
   if(withDue)out.due_on=val(f+'-due')||null;
+  if(canFinish)out.finished_by=val(f+'-finish').trim()||null;
   return out;
 }
 const ACT={
@@ -605,7 +655,7 @@ const ACT={
       p.kind='daily';delete p.due_on;
     }
     p.project=P.slug;
-    return press('project-add-task',p,['fa-title','fa-detail']);
+    return press('project-add-task',p,['fa-title','fa-detail','fa-finish']);
   },
   taskSave(el){
     const t=byId[Number(el.dataset.task)];
@@ -613,7 +663,7 @@ const ACT={
     const f='fe'+t.id, p=taskFields(f,t.kind!=='daily');
     if(!p.title)return need(f+'-title','A task needs a title; say what needs doing.');
     p.task_id=t.id;
-    return press('project-edit-task',p,[f+'-title',f+'-detail']);
+    return press('project-edit-task',p,[f+'-title',f+'-detail',f+'-finish']);
   },
   itemAdd(el){
     const id=Number(el.dataset.task), title=val('it-'+id).trim();
