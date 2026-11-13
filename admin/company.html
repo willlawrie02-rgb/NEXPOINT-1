@@ -1110,6 +1110,7 @@ function timelineItems(){
     extra:n.file_error?`<div class="fail-line"><span>Could not file it: ${esc(n.file_error)}</span>${btn('retryNote','Try again','',{note:n.id},'quiet')}</div>`
       :`<span class="picker-note">${noteFolder()?'Filing to the folder.':'Waiting for a workspace folder.'}</span>`}));
   C.events.forEach(e=>{
+    if(e.kind==='profile-written')return; // the profile writer's own line, not a change (Will, 13 Nov 2026; migration 0104)
     const d=e.detail||{};let title='',body='';
     if(e.kind==='imported'||e.kind==='adopted'){title=e.person_id?`${personName(e.person_id)} added`:'Added to Contacts';body=SOURCE_WORD[d.source]?`From ${SOURCE_WORD[d.source]}.`:'';}
     else if(e.kind==='company-edited'){
@@ -1125,7 +1126,6 @@ function timelineItems(){
     else if(e.kind==='person-restored')title=`${personName(e.person_id)} restored`;
     else if(e.kind==='site-added')title=`Site added: ${d.name||siteName(d.site_id)||'a site'}`;
     else if(e.kind==='site-edited')title=`Site changed: ${siteName(d.site_id)||'a site'}`;
-    else if(e.kind==='profile-written')title='Profile written from Contacts';
     else if(e.kind==='hand-edit-kept')title='A hand edit kept as a note';
     else if(e.kind==='login-deleted'){title='A portal login was deleted';body={removed:'They came only from the portal, so they left Contacts with their addresses and activity.',kept:`${personName(e.person_id)} was already a contact, so they stay and only their portal activity went.`,'no-person':'They were not in Contacts.'}[d.outcome]||'';}
     else title=e.kind;
