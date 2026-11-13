@@ -299,6 +299,17 @@ up in order, a beat apart; the dead hold at the end is shorter.
     </div>
   </div>
 </section>
+<!-- The logo banner (plan 088), under the hero, as on the home page: drawn by
+     assets/logo-banner.js from its confirmed list, and hidden while that list is empty.
+     In the stage swap it lifts and fades with the hero. -->
+<section class="logos" id="logoBanner" aria-label="Companies working with NexPoint" hidden>
+  <link rel="stylesheet" href="../assets/logo-banner.css?v=2">
+  <div class="logos__inner">
+    <p class="logos__label">Working with NexPoint</p>
+    <div class="logos__box"><div class="logos__track"><ul class="logos__row" id="logoBannerRow"></ul></div></div>
+  </div>
+</section>
+<script src="../assets/logo-banner.js?v=2" defer></script>
 </div>
 
 <!-- THE FOUR DOORS - image-buttons, the second panel of the stage. -->
@@ -540,6 +551,9 @@ up in order, a beat apart; the dead hold at the end is shorter.
     parts.forEach((el, i) => LIFT.push(piece(el, 0.10 + 0.025 * i, 0.30 + 0.03 * i, { rise: 36 - 8 * i })));
     copy.querySelectorAll('.hero-join').forEach((el) => LIFT.push(piece(el, 0.18, 0.39, { rise: 12 })));
   }
+  /* the logo banner (plan 088) sits under the hero in its panel: it goes with the buttons */
+  const banner = heroPanel.querySelector('#logoBanner');
+  if (banner) LIFT.push(piece(banner, 0.18, 0.39, { rise: 12 }));
   const filmPlane = heroSection.querySelector('.hero-reveal');
   if (filmPlane) LIFT.push(piece(filmPlane, 0.13, 0.42, { rise: -40, film: true }));
   LIFT.forEach((l) => { l.el.setAttribute('data-np-lift', ''); l.el.style.setProperty('--np-rise', l.rise + 'px'); });
@@ -557,7 +571,8 @@ up in order, a beat apart; the dead hold at the end is shorter.
   const scrollFor = (p) => track.getBoundingClientRect().top + window.scrollY - headH() + p * travel();
   function fits(){
     const room = window.innerHeight - headH() - 24;   // a little air above and below
-    return wide.matches && heroSection.offsetHeight <= room && doorsSection.offsetHeight <= room;
+    const heroH = heroSection.offsetHeight + (banner ? banner.offsetHeight : 0);   // a hidden banner is nought
+    return wide.matches && heroH <= room && doorsSection.offsetHeight <= room;
   }
 
   function write(p){
