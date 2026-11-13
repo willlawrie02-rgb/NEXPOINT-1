@@ -104,7 +104,9 @@ details{margin:0 0 10px}summary{cursor:pointer;font:600 16px/1.4 "Montserrat",sy
 `;
 
 export function writeHtml(dir, run) {
-  const { results, byHand, mail, meta } = run;
+  /* invoices and left were read here and never taken from the run: the first live run
+     (13 November) ended on "invoices is not defined" and wrote no report. */
+  const { results, byHand, mail, meta, invoices = [], left = [] } = run;
   const t = tally(results);
   const pill = (s) => `<span class="pill s-${s.replace(/ /g, "-")}">${LABEL[s]}</span>`;
   const wrong = results.filter((r) => r.status === "differed" || r.status === "refused");

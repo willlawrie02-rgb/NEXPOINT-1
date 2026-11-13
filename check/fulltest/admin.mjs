@@ -377,11 +377,11 @@ const PAUSE_WHY = (ctx) => `${MARK} ${ctx.stamp}: a test pause, resumed at once`
 const admin = [{
   id: "admin.door", title: "The admin: signing in", pass: "computer", needs: ["admin", "window"],
   steps: [
-    { id: "door", does: "Opens the admin and waits for you to sign in", shows: "The side menu with nine items; \"Working as …\" with your address",
+    { id: "door", does: "Opens the admin and waits for you to sign in", shows: "The side menu with ten items (Projects since 10 November); \"Working as …\" with your address",
       run: async (ctx) => {
         const w = await adminWindow(ctx);
         const n = await w.page.locator(".rail .nav a").count();
-        if (n !== 9) differs("the side menu", `${n} items`, "nine");
+        if (n !== 10) differs("the side menu", `${n} items`, "ten");
       } },
   ],
 }, {
@@ -1070,7 +1070,10 @@ async function orgPress(ctx, org, name, act, field, confirm) {
   const w = await adminGo(ctx, `company.html?org=${encodeURIComponent(org)}`);
   const sel = `[data-act="${act}"][data-org-id="${org}"]`;
   await w.page.locator(sel).first().waitFor({ state: "visible", timeout: 20000 }).catch(() => differs(`${name}'s company page`, `no ${act} button`, act));
-  const heading = await text(w.page, "#page h1").catch(() => "");
+  /* The company's own heading. "#page h1" read "ZFZZ Full Test Host" on the first live run
+     (13 November): the page puts the initials badge beside the name, and the runner then
+     refused to take its own ZZ accounts off the hub. */
+  const heading = await text(w.page, ".co-name-row h1").catch(() => "");
   mustBeZZ(heading, "the company page");
   await w.page.click(sel);
   if (field) await w.page.fill(field, `${MARK} ${ctx.stamp}: removed at the end of the full test, so no ZZ site stays in front of seekers`);

@@ -18,6 +18,7 @@ allow({
   accountPatterns: [/^\/introductions\/\d+\/resend$/],
   adminIntents: [
     "approve-listing",              // a first listing (raises the membership invoice in Xero)
+    "ask-listing-call",             // Ask for a call on the ZZ host's first listing: one email, to the ZZ host's own address
     "approve-listing-revision", "decline-listing-revision",
     "reissue-acceptance",           // Resend to <host> on a declined offer; never re-route
     "extend-membership-clock",

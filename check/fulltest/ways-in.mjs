@@ -691,6 +691,10 @@ const terms = [{
           await go(w.page, `${h.base}/offer.html`);
           await w.page.locator("#hostTermsBlock").waitFor({ state: "visible", timeout: 25000 })
             .catch(() => differs(`the ${h.name} listing form`, "no terms block (is the listing under review?)", "the Host Agreement line"));
+          /* A host that has not listed yet is shown the tick, not the line: it accepts at its
+             first listing (hubs.print), so on a first run this step waits for the next one. */
+          if (!(await shows(w.page, "#hostTermsBlock .np-terms-held", 4000)) && (await shows(w.page, "#hostTick", 1500)))
+            wait(`the ${h.name} form still shows the tick: the ZZ host accepts the Host Agreement at its first listing (hubs.print)`);
           await see(w.page, "#hostTermsBlock .np-terms-held", "still applies", `the ${h.name} listing form`);
           await pdfOk(ctx, w, await w.page.getAttribute("#hostTermsBlock a.np-terms-dl", "href"), "the Host Agreement");
         }
