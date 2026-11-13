@@ -59,15 +59,22 @@
   .hub-hero .door h3 { font-weight: 700; }
 
   /* The choice cards' pictures (Will, 30 Oct 2026): the work you receive and the machine you
-     own, in a panel on the right that fades in from the card's white. Hidden on phones, where
-     the card is the full width and the words need it. */
+     own, in a panel on the right that fades in from the card's white. On phones the picture
+     sits above the words as a band that fades down into the card's white (Will, 13 Nov 2026:
+     the cards had no picture on a phone). */
   .door--pic { flex-direction: row; }
   .door--pic .door__body { flex: 1 1 0; min-width: 0; }
   .door--pic .door__media { position: relative; flex: 0 0 36%; }
   .door--pic .door__media img { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; object-position: 58% 50%; }
   .door--pic .door__media::after { content: ""; position: absolute; inset: 0; pointer-events: none;
     background: linear-gradient(90deg, var(--surface) 0%, rgba(255, 255, 255, .55) 22%, rgba(255, 255, 255, 0) 50%); }
-  @media (max-width: 640px) { .door--pic .door__media { display: none; } }
+  @media (max-width: 640px) {
+    .door--pic { flex-direction: column-reverse; }
+    .door--pic .door__body { flex: 1 1 auto; }
+    .door--pic .door__media { flex: 0 0 auto; height: clamp(190px, 56vw, 240px); }
+    .door--pic .door__media img { object-position: 50% 50%; }
+    .door--pic .door__media::after { background: linear-gradient(0deg, var(--surface) 0%, rgba(255, 255, 255, .55) 20%, rgba(255, 255, 255, 0) 46%); }
+  }
 
   /* the proof band: a hairline grid with the numerals at full strength */
   .net-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0; padding: 0; }
