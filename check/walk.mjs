@@ -4385,16 +4385,24 @@ async function walkLandings() {
     clean(world, errors, "the confirmation page, a used link");
     await context.close();
   }
-  {
-    /* The first press reached the worker and its answer was lost: the
-       address is confirmed and the device signed in, but the page never
-       heard. The second press finds the link spent, so the password goes up
-       once more on the session alone. */
+  /* The first press reached the worker and its answer was lost: the address
+     is confirmed and the device signed in, but the page never heard. The
+     second press finds the link spent. The worker signs the device in only
+     once the link has been posted, so /auth/me says nobody until then. */
+  const signedInOnceConfirmed = (who = USER) => (w) =>
+    (apiCalls(w, "POST /auth/confirm").length
+      ? [200, { ok: true, signed_in: true, confirmed: true, member: who }]
+      : [200, { ok: true, signed_in: false }]);
+  const lostAnswerWorld = (resetAnswer) => {
     const world = newWorld();
     world.dropOnce = new Set(["POST /auth/confirm"]);
     world.api["POST /auth/confirm"] = () => [401, { error: "invalid_or_expired" }];
-    world.api["GET /auth/me"] = () => [200, { ok: true, signed_in: true, confirmed: true, member: USER }];
-    world.api["POST /auth/reset-confirm"] = () => [200, { ok: true, member: USER }];
+    world.api["GET /auth/me"] = signedInOnceConfirmed();
+    world.api["POST /auth/reset-confirm"] = resetAnswer;
+    return world;
+  };
+  {
+    const world = lostAnswerWorld(() => [200, { ok: true, member: USER }]);
     const { context, page } = await visit(world);
     await step("a press whose answer was lost: the next press sets the password on the session and ends on You're confirmed", async () => {
       await openAndPress(page);
@@ -4405,14 +4413,90 @@ async function walkLandings() {
       eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ password: PASSWORD }], "the password sent on the session");
       return eq((await page.textContent("#confirmBody")).includes("If your password does not work next time"), false, "the caution line");
     });
+    await context.close();
+  }
+  {
+    const world = lostAnswerWorld(() => [400, { error: "current_password_required" }]);
+    const { context, page } = await visit(world);
     await step("and when that last send is refused, it says where to choose a password next time", async () => {
-      world.dropOnce = new Set(["POST /auth/confirm"]);
-      world.api["POST /auth/reset-confirm"] = () => [400, { error: "current_password_required" }];
       await openAndPress(page);
       await errShows(page, "That did not send.");
       await page.click("#setBtn");
       await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/reset-confirm").length, 1, "passwords sent on the session");
       return has(await page.textContent("#confirmBody"), "If your password does not work next time, use Forgotten your password on the sign-in box.", "the caution line");
+    });
+    await context.close();
+  }
+  /* Plan 093 review: a device already signed in to an account when the link
+     was opened must never have that account's password changed by the
+     retry. Who was signed in is read once, before the form is shown. */
+  {
+    const world = lostAnswerWorld(() => [200, { ok: true, member: USER }]);
+    world.api["GET /auth/me"] = () => [200, { ok: true, signed_in: true, confirmed: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    await step("a device signed in as the same account at load sends no password on the session, and says where to choose one", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/confirm").length, 2, "times the link was posted");
+      eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session");
+      return has(await page.textContent("#confirmBody"), "If your password does not work next time, use Forgotten your password on the sign-in box.", "the caution line");
+    });
+    /* The browser's own line for the press the walk dropped on purpose is
+       left out; anything the page itself threw still counts. */
+    clean(world, errors.filter((e) => !/net::ERR_FAILED/.test(e)), "the confirmation page, signed in at load");
+    await context.close();
+  }
+  {
+    /* Signed in as another account at load; the lost press then signed the
+       device in as the link's own address, so the retry is this page's. */
+    const OTHER = Object.assign({}, USER, { email: "other.member@example.com", name: "Other Member" });
+    const world = lostAnswerWorld(() => [200, { ok: true, member: USER }]);
+    world.api["GET /auth/me"] = (w) => (apiCalls(w, "POST /auth/confirm").length
+      ? [200, { ok: true, signed_in: true, confirmed: true, member: USER }]
+      : [200, { ok: true, signed_in: true, confirmed: true, member: OTHER }]);
+    const { context, page } = await visit(world);
+    await step("a device signed in as another account at load still finishes the link's own account", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ password: PASSWORD }], "the password sent on the session");
+    });
+    await context.close();
+  }
+  {
+    /* Signed in as another account at load, and the first press never
+       reached the worker: the session is still that other account's, so
+       nothing is sent on it. */
+    const OTHER = Object.assign({}, USER, { email: "other.member@example.com", name: "Other Member" });
+    const world = lostAnswerWorld(() => [200, { ok: true, member: OTHER }]);
+    world.api["GET /auth/me"] = () => [200, { ok: true, signed_in: true, confirmed: true, member: OTHER }];
+    const { context, page } = await visit(world);
+    await step("a device signed in as another account whose press never arrived leaves that account's password alone", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session");
+      return has(await page.textContent("#confirmBody"), "If your password does not work next time", "the caution line");
+    });
+    await context.close();
+  }
+  {
+    /* Who was signed in could not be read at load: nobody can say whose
+       session it is, so nothing is sent on it. */
+    const world = lostAnswerWorld(() => [200, { ok: true, member: USER }]);
+    world.meFailures = 1;
+    const { context, page } = await visit(world);
+    await step("a device that could not say who was signed in at load sends no password on the session", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session");
     });
     await context.close();
   }

@@ -105,6 +105,13 @@ let tried = false;
 let linkUsed = false;
 /* The address the worker named when it confirmed, for the last card. */
 let confirmedEmail = '';
+/* Who this device was signed in as when the page loaded, read once before
+   the form is shown (plan 093 review): null for nobody, the address for
+   someone, undefined when the read failed and nobody can say. The lost-answer
+   retry below sends a password on the session alone only when that session
+   is plainly the one this page's own press made, so a device already signed
+   in to another account never has that account's password changed. */
+let loadedAs;
 
 function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
@@ -389,9 +396,16 @@ async function confirm(token, type){
       /* An earlier press on this page probably reached the worker and its
          answer was lost: the address is confirmed and the device signed in,
          but this page never heard whether the password was set. It is sent
-         once more, on the session alone. */
+         once more, on the session alone, but only when that session is new
+         since the page loaded: nobody was signed in then, or someone else
+         was. A device that was already signed in as this same address, or
+         that could not say who it was, is left alone. */
+      const now = (email || '').toLowerCase();
+      const ours = loadedAs === null || (typeof loadedAs === 'string' && loadedAs !== now);
       let again = null;
-      try { again = await postJson('/auth/reset-confirm', { password: p1 }); } catch (e) { /* said below */ }
+      if (ours){
+        try { again = await postJson('/auth/reset-confirm', { password: p1 }); } catch (e) { /* said below */ }
+      }
       renderConfirmed(email);
       if (!(again && again.r.ok && again.d && again.d.ok))
         body().insertAdjacentHTML('beforeend',
@@ -443,7 +457,7 @@ async function setOnSession(password, back){
 }
 
 /* ── boot ────────────────────────────────────────────────────────── */
-(function boot(){
+(async function boot(){
   const q = new URLSearchParams(location.search);
   const token = q.get('t');
   const type = q.get('type');
@@ -451,6 +465,11 @@ async function setOnSession(password, back){
     say('Link incomplete.', 'This link is missing information. Use the link from your email, or email hello@nexpoint.co.uk.');
     return;
   }
+  /* Who is signed in on this device now, before anything is pressed (see
+     loadedAs). A read, never a write: the link is untouched. */
+  const me = await whoAmI();
+  loadedAs = !me ? undefined
+    : me.signed_in ? String((me.member && me.member.email) || '').toLowerCase() : null;
   /* Nothing is posted yet: the link is spent only when the button is pressed. */
   renderForm(token, type);
 })();
