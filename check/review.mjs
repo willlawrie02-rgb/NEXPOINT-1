@@ -280,6 +280,8 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
   if (!dash.includes('data-act="decl-nil-confirm"')) fail(`${FILE}: the nil return has no confirm button (plan 098)`);
   if (!dash.includes("nothing_for: answers.nothingFor")) fail(`${FILE}: the declaration does not send nothing_for (plan 098)`);
   if (!dash.includes('data-act="decl-change"')) fail(`${FILE}: a sent declaration has no Change this declaration button (plan 098)`);
+  if (!dash.includes('data-act="decl-keep"') || !/act === 'decl-keep'\) \{ declReopen = null;/.test(dash))
+    fail(`${FILE}: a reopened declaration has no Keep what I sent way back (plan 098)`);
   // A host on two hubs declares each on its own form, so a nil month says which hub it covers.
   for (const [what, re] of [
     ["the nil-return question", /no orders came through any of your ' \+ \(declHubName\(hub\)/],
@@ -309,6 +311,7 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
     "One introduction has both figures and a Nothing tick. Clear one of them and send again.",
     // Step 6: a sent declaration can be changed until its month is on a statement.
     "Change this declaration",
+    "Keep what I sent",
     "You are changing your declaration for ",
     ". What you send now replaces what you sent before, so answer every introduction again.",
     "Sent. Your declaration for ",

@@ -4141,6 +4141,7 @@ async function walkTerms() {
       await page.waitForSelector('[data-act="decl-submit"]');
       await settled(page);
       eq(await page.locator("#declTerms .terms-scroll, #declTerms [data-np-terms-tick]").count(), 0, "a terms block");
+      eq(await page.locator('[data-act="decl-keep"]').count(), 0, "Keep what I sent on a month not yet sent");
       await page.fill("#decl-2026-10-7-value", "120");
       await page.click('[data-act="decl-submit"]');
       await until(() => apiCalls(world, "POST /declarations").length === 1, "the declaration");
@@ -4219,6 +4220,7 @@ async function walkTerms() {
       eq(/Open now|Overdue|sent a reminder/.test(text), false, "a due line on a month that is being changed");
       eq(await page.inputValue("#decl-2026-10-7-value"), "", "the value the form opens with");
       eq(await page.isChecked("#decl-2026-10-7-nothing"), false, "the Nothing tick the form opens with");
+      eq((await page.textContent('#declSend-2026-10 [data-act="decl-keep"]')).trim(), "Keep what I sent", "the way back");
       await shot(page, "declaration-being-changed", "#declarations");
       await page.click('[data-act="decl-submit"]');
       await page.waitForFunction(() => /Answer INTRO-0007/.test(document.getElementById("declMsg-2026-10").textContent));
@@ -4247,6 +4249,21 @@ async function walkTerms() {
       await page.waitForFunction(() => /already on a statement/.test(document.getElementById("declMsg-2026-10").textContent));
       eq(await page.textContent("#declMsg-2026-10"), "That month is already on a statement and cannot be changed. Email hello@nexpoint.co.uk if something is wrong.", "the refusal");
       eq(await page.inputValue("#decl-2026-10-7-value"), "50", "the value after the refusal");
+    });
+    await step("Keep what I sent leaves a reopened form, after a refusal too, sends nothing, and the sent line returns", async () => {
+      const before = apiCalls(world, "POST /declarations").length;
+      await page.click('[data-act="decl-keep"]');
+      await page.waitForSelector('[data-act="decl-change"]');
+      has(await page.textContent("#declarations"), "Declared for October 2026. Nothing else to send.", "the sent line");
+      eq(await page.locator('[data-act="decl-submit"], [data-act="decl-keep"]').count(), 0, "a form after Keep what I sent");
+      eq(apiCalls(world, "POST /declarations").length, before, "declarations from Keep what I sent");
+      /* And straight back without a send: Change, then Keep. */
+      await page.click('[data-act="decl-change"]');
+      await page.waitForSelector('[data-act="decl-keep"]');
+      await page.click('[data-act="decl-keep"]');
+      await page.waitForSelector('[data-act="decl-change"]');
+      eq(await page.locator('[data-act="decl-submit"]').count(), 0, "a form after Change then Keep");
+      eq(apiCalls(world, "POST /declarations").length, before, "declarations from Change then Keep");
     });
     clean(world, errors, "changing a sent declaration");
     await context.close();

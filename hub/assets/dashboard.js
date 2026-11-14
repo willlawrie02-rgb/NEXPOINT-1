@@ -753,6 +753,11 @@
       '<div class="modal-actions" id="declSend-' + esc(period) + '">' +
         '<button class="btn btn-primary" type="button" id="declSubmit-' + esc(period) + '" data-act="decl-submit" ' +
           'data-period="' + esc(period) + '" data-hub="' + esc(hub) + '">Send this declaration</button>' +
+        /* A sent month that is being changed has a way back that sends
+           nothing: the "Declared for ..." line returns (plan 098). */
+        (dec.due_state === 'submitted'
+          ? '<button class="btn btn-outline" type="button" data-act="decl-keep" data-period="' + esc(period) + '">Keep what I sent</button>'
+          : '') +
       '</div>' +
       /* A month with no orders at all is asked once more before it goes
          (plan 098): these two take the Send button's place until it is
@@ -1502,6 +1507,7 @@
     if (act === 'decl-nil-confirm') { gate(function () { submitDeclaration(btn, true); }); return; }
     if (act === 'decl-nil-back') { declNilBack(btn.getAttribute('data-period') || ''); return; }
     if (act === 'decl-change') { declReopen = btn.getAttribute('data-period') || null; load(); return; }
+    if (act === 'decl-keep') { declReopen = null; load(); return; }
     if (act === 'intro-resend') { gate(function () { resendIntro(btn); }); return; }
     if (act === 'intro-accept-open') { openAnswer(btn, 'accept'); return; }
     if (act === 'intro-decline-open') { openAnswer(btn, 'decline'); return; }
