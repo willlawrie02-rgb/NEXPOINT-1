@@ -280,17 +280,31 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
   if (!dash.includes('data-act="decl-nil-confirm"')) fail(`${FILE}: the nil return has no confirm button (plan 098)`);
   if (!dash.includes("nothing_for: answers.nothingFor")) fail(`${FILE}: the declaration does not send nothing_for (plan 098)`);
   if (!dash.includes('data-act="decl-change"')) fail(`${FILE}: a sent declaration has no Change this declaration button (plan 098)`);
+  // A host on two hubs declares each on its own form, so a nil month says which hub it covers.
+  for (const [what, re] of [
+    ["the nil-return question", /no orders came through any of your ' \+ \(declHubName\(hub\)/],
+    ["the confirm button", /'">Confirm no orders' \+ \(declHubName\(hub\)/],
+    ["the words after a nil return", /'Sent\. No orders declared' \+ \(declHubName\(hub\)/],
+  ]) {
+    if (!re.test(dash)) fail(`${FILE}: ${what} does not name the hub (plan 098)`);
+  }
+  const hubNames = (dash.match(/var HUB_LABEL = (\{[^}]*\})/) || [])[1] || "";
+  for (const want of ["print: '3D Print Hub'", "mill: 'Mill Hub'"]) {
+    if (!hubNames.includes(want)) fail(`${FILE}: HUB_LABEL does not give ${want} for the declaration words (plan 098)`);
+  }
 
   // The plan's words, each one present and none on a line with an em-dash.
   const WORDS = [
     "One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.",
     ": enter a value, or tick Nothing if no orders came through.",
     " has figures and a Nothing tick. Clear the figures or untick Nothing.",
-    "You are declaring that no orders came through any of your introductions in ",
+    // The nil-return words name the hub the form covers (follow-up of 14 November).
+    "You are declaring that no orders came through any of your ",
+    "introductions in ",
     ". Your declaration is the record. Confirm it, or go back and enter what came through.",
-    "Confirm no orders in ",
+    "Confirm no orders",
     "Go back to the form",
-    "Sent. No orders declared for ",
+    "Sent. No orders declared",
     "Every introduction needs an answer: a value, or a tick under Nothing. If you have answered them all, reload the page and declare again.",
     "One introduction has both figures and a Nothing tick. Clear one of them and send again.",
     // Step 6: a sent declaration can be changed until its month is on a statement.

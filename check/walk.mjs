@@ -4112,8 +4112,8 @@ async function walkTerms() {
       await page.check("#declTerms [data-np-terms-tick]");
       await page.click('[data-act="decl-submit"]');
       await page.waitForSelector("#declNil-2026-10:not([hidden])");
-      eq(await page.textContent("#declMsg-2026-10"), "You are declaring that no orders came through any of your introductions in October 2026. Your declaration is the record. Confirm it, or go back and enter what came through.", "the question");
-      eq((await page.textContent('#declNil-2026-10 [data-act="decl-nil-confirm"]')).trim(), "Confirm no orders in October 2026", "the confirm button");
+      eq(await page.textContent("#declMsg-2026-10"), "You are declaring that no orders came through any of your 3D Print Hub introductions in October 2026. Your declaration is the record. Confirm it, or go back and enter what came through.", "the question");
+      eq((await page.textContent('#declNil-2026-10 [data-act="decl-nil-confirm"]')).trim(), "Confirm no orders on the 3D Print Hub in October 2026", "the confirm button");
       eq((await page.textContent('#declNil-2026-10 [data-act="decl-nil-back"]')).trim(), "Go back to the form", "the way back");
       eq(await page.isVisible("#declSubmit-2026-10"), false, "the Send button while the question shows");
       eq(apiCalls(world, "POST /declarations").length, 0, "declarations before the nil return is confirmed");
@@ -4126,7 +4126,7 @@ async function walkTerms() {
       eq(sent.lines, [], "the lines");
       eq(sent.nothing_for, [7], "the introductions ticked Nothing");
       await page.waitForFunction(() => /^Sent\./.test(document.getElementById("declMsg-2026-10").textContent));
-      eq(await page.textContent("#declMsg-2026-10"), "Sent. No orders declared for October 2026.", "the words after a nil return");
+      eq(await page.textContent("#declMsg-2026-10"), "Sent. No orders declared on the 3D Print Hub for October 2026.", "the words after a nil return");
     });
     clean(world, errors, "a declaration while holding nothing");
     await context.close();
@@ -4158,7 +4158,8 @@ async function walkTerms() {
   {
     /* Plan 098: the way back from the nil-return question, and a row that
        carries both figures and a Nothing tick. */
-    const decl = { due_state: "due", period_open: "2026-10", hub: "print", history: [], items: [{ introduction_id: 7, ref: "INTRO-0007" }] };
+    /* On the Mill Hub, so the nil-return words are seen naming the other hub. */
+    const decl = { due_state: "due", period_open: "2026-10", hub: "mill", history: [], items: [{ introduction_id: 7, ref: "INTRO-0007" }] };
     const world = termsWorld({ terms: TERMS_STATE({ host: HELD(TERMS_ID.host) }), summary: Object.assign({}, EMPTY_SUMMARY, hostOrg, { declarations: decl }) });
     world.api["POST /declarations"] = () => [200, { ok: true }];
     const { context, page, errors } = await visit(world);
@@ -4169,6 +4170,8 @@ async function walkTerms() {
       await page.check("#decl-2026-10-7-nothing");
       await page.click('[data-act="decl-submit"]');
       await page.waitForSelector("#declNil-2026-10:not([hidden])");
+      eq(await page.textContent("#declMsg-2026-10"), "You are declaring that no orders came through any of your Mill Hub introductions in October 2026. Your declaration is the record. Confirm it, or go back and enter what came through.", "the question on the Mill Hub");
+      eq((await page.textContent('#declNil-2026-10 [data-act="decl-nil-confirm"]')).trim(), "Confirm no orders on the Mill Hub in October 2026", "the confirm button on the Mill Hub");
       eq(await page.isVisible("#declSubmit-2026-10"), false, "the Send button while the question shows");
       await page.click('[data-act="decl-nil-back"]');
       await page.waitForSelector("#declSend-2026-10:not([hidden])");
@@ -4186,6 +4189,7 @@ async function walkTerms() {
       await until(() => apiCalls(world, "POST /declarations").length === 1, "the declaration");
       const sent = apiCalls(world, "POST /declarations")[0].body;
       eq(sent.nothing_this_month, false, "the nil flag");
+      eq(sent.hub, "mill", "the hub");
       eq(sent.lines, [{ introduction_id: 7, units: null, value: 250, currency: "GBP" }], "the lines");
       eq(sent.nothing_for, [], "the introductions ticked Nothing");
     });

@@ -713,6 +713,12 @@
     return 'Open now.';
   }
 
+  /* The hub a declaration form is for, by its proper name (plan 098). Each
+     form covers one hub, so a host on two hubs declares each on its own, and
+     a month with no orders names the hub it covers. A hub this page does not
+     know keeps the words without one. */
+  function declHubName(hub) { return HUB_LABEL[hub] || ''; }
+
   function declCard(dec, hub) {
     var period = dec.period_open || '';
     var items = Array.isArray(dec.items) ? dec.items : [];
@@ -753,7 +759,7 @@
          confirmed or the host goes back. */
       '<div class="modal-actions" id="declNil-' + esc(period) + '" hidden>' +
         '<button class="btn btn-primary" type="button" data-act="decl-nil-confirm" ' +
-          'data-period="' + esc(period) + '" data-hub="' + esc(hub) + '">Confirm no orders in ' + esc(fmtPeriod(period)) + '</button>' +
+          'data-period="' + esc(period) + '" data-hub="' + esc(hub) + '">Confirm no orders' + (declHubName(hub) ? ' on the ' + esc(declHubName(hub)) : '') + ' in ' + esc(fmtPeriod(period)) + '</button>' +
         '<button class="btn btn-outline" type="button" data-act="decl-nil-back" ' +
           'data-period="' + esc(period) + '">Go back to the form</button>' +
       '</div>' +
@@ -1315,7 +1321,8 @@
        with at least one value goes on the first press: ticking a row is
        already the deliberate act. */
     if (nil && !confirmed) {
-      say(msg, 'You are declaring that no orders came through any of your introductions in ' + fmtPeriod(period) +
+      say(msg, 'You are declaring that no orders came through any of your ' + (declHubName(hub) ? declHubName(hub) + ' ' : '') +
+        'introductions in ' + fmtPeriod(period) +
         '. Your declaration is the record. Confirm it, or go back and enter what came through.');
       var sendRow = el('declSend-' + period), nilRow = el('declNil-' + period);
       if (sendRow) sendRow.hidden = true;
@@ -1333,7 +1340,8 @@
           if (body.terms_version_id) NPAccount.noteAccepted(sentLayer);
           var changed = declReopen === period;
           say(msg, changed ? 'Sent. Your declaration for ' + fmtPeriod(period) + ' has been replaced.'
-            : nil ? 'Sent. No orders declared for ' + fmtPeriod(period) + '.' : 'Sent. Thank you.');
+            : nil ? 'Sent. No orders declared' + (declHubName(hub) ? ' on the ' + declHubName(hub) : '') + ' for ' + fmtPeriod(period) + '.'
+            : 'Sent. Thank you.');
           if (changed) declReopen = null;
           reload();
           return;
