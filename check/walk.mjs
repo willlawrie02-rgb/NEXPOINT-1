@@ -2793,6 +2793,22 @@ async function walkAccount() {
       await context.close();
     }
     {
+      // Follow-up of 14 November: a pay link that is not on the API address the
+      // page talks to draws no button, though its path and token look right.
+      const world = hostWith({ paused: true, paused_by_desk: false, hidden_unpaid: true, sub_status: "hidden" },
+        { membership_invoice: { ...invoice, pay_url: "https://elsewhere.example/membership/pay/" + "ab".repeat(32) } });
+      world.summary.org.sub_status = "hidden";
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a pay link on another address draws no Pay the invoice button", async () => {
+        await page.waitForSelector("#profile .acct-notice");
+        has(await page.textContent("#profile .acct-notice"), "membership invoice INV-0042 for £1,000 is unpaid", "the notice");
+        eq(await page.locator("#profile a", { hasText: "Pay the invoice" }).count(), 0, "Pay the invoice buttons");
+      });
+      clean(world, errors, "the unpaid host's page with a pay link elsewhere");
+      await context.close();
+    }
+    {
       // A worker from before plan 095: paused is true for either reason, and
       // there are no new keys. The page works the pause out from what it has.
       const world = hostWith({ paused: true });

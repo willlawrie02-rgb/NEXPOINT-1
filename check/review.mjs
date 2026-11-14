@@ -191,13 +191,15 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
   if (!m) fail("hub/assets/dashboard.js: listingNotice was not found");
   else {
     const HELLO = "hello@nexpoint.co.uk";
-    const notice = new Function("esc", "fmtDate", "isHost", "HELLO", `${m[0]}; return listingNotice;`)(
+    const API_BASE = "https://api.nexpoint.co.uk";
+    const notice = new Function("esc", "fmtDate", "isHost", "HELLO", "API_BASE", `${m[0]}; return listingNotice;`)(
       (x) => String(x == null ? "" : x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"),
       (iso) => ({ "2099-12-01": "1 Dec 2099", "2020-01-15": "15 Jan 2020" })[iso] || String(iso),
       (s) => !!s.host,
       HELLO,
+      API_BASE,
     );
-    const payUrl = "https://portal.example/membership/pay/" + "ab".repeat(32);
+    const payUrl = `${API_BASE}/membership/pay/` + "ab".repeat(32);
     // A due day far ahead, so the case reads "is due by" whatever day the check runs.
     const inv = { number: "INV-0042", amount_text: "£1,000", due_on: "2099-12-01", pay_url: payUrl };
     const words = (html) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -224,6 +226,12 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
       ["an invoice that is due, with no date", { host: true, pausedByDesk: false, hiddenUnpaid: false, invoice: { ...inv, due_on: null } },
         "Membership invoice INV-0042 for £1,000 is waiting to be paid. Pay the invoice", true, false],
       ["a pay link that is not one", { host: true, pausedByDesk: false, hiddenUnpaid: true, invoice: { ...inv, pay_url: "javascript:alert(1)" } },
+        "Your listing is hidden from the hubs because membership invoice INV-0042 for £1,000 is unpaid. Nothing has been deleted, and your listing comes back once the payment reaches us.", false, true],
+      // Follow-up of 14 November: the right path and token on another address draws no button.
+      ...["https://elsewhere.example", "https://api.nexpoint.co.uk.elsewhere.example", "http://api.nexpoint.co.uk"].map((origin) =>
+        [`a pay link on ${origin}`, { host: true, pausedByDesk: false, hiddenUnpaid: true, invoice: { ...inv, pay_url: `${origin}/membership/pay/` + "ab".repeat(32) } },
+          "Your listing is hidden from the hubs because membership invoice INV-0042 for £1,000 is unpaid. Nothing has been deleted, and your listing comes back once the payment reaches us.", false, true]),
+      ["a pay link with more after the token", { host: true, pausedByDesk: false, hiddenUnpaid: true, invoice: { ...inv, pay_url: payUrl + "/x" } },
         "Your listing is hidden from the hubs because membership invoice INV-0042 for £1,000 is unpaid. Nothing has been deleted, and your listing comes back once the payment reaches us.", false, true],
       ["nothing wrong and no invoice", { host: true, pausedByDesk: false, hiddenUnpaid: false, invoice: null }, "", false, false],
       ["not a host", { host: false, pausedByDesk: true, hiddenUnpaid: true, invoice: inv }, "", false, false],

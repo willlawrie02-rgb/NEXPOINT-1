@@ -34,6 +34,12 @@
 
   var CURRENCIES = ['GBP', 'EUR', 'USD'];
 
+  /* The API address the page talks to, by portal.js's own rule (listing-form.js
+     and find.js keep the same copy). Plan 095: the Pay the invoice button is
+     drawn only for a pay link on this address. */
+  var API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+    ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
+
   /* ── small helpers ──────────────────────────────────────────────── */
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -243,15 +249,17 @@
      can hold at once: paying lifts the second and never the first, so each
      has its own words. The page never says who paused a listing or why;
      those stay with NexPoint. The button is the link the invoice email
-     carries, drawn only when it has the shape of one.
-     Uses only esc, fmtDate, isHost and HELLO, so check/review.mjs can lift it
-     out and run every row of the plan's table. */
+     carries, drawn only when it has the shape of one and is on the API
+     address this page talks to (API_BASE).
+     Uses only esc, fmtDate, isHost, HELLO and API_BASE, so check/review.mjs
+     can lift it out and run every row of the plan's table. */
   function listingNotice(s) {
     if (s.closed || !isHost(s)) return '';
     var inv = s.invoice && s.invoice.number && s.invoice.amount_text ? s.invoice : null;
     var bill = inv ? 'invoice ' + esc(inv.number) + ' for ' + esc(inv.amount_text) : '';
-    var payUrl = inv && typeof inv.pay_url === 'string' &&
-      /^https?:\/\/[^\/\s]+\/membership\/pay\/[0-9a-f]{64}$/.test(inv.pay_url) ? inv.pay_url : '';
+    var payPrefix = API_BASE + '/membership/pay/';
+    var payUrl = inv && typeof inv.pay_url === 'string' && inv.pay_url.indexOf(payPrefix) === 0 &&
+      /^[0-9a-f]{64}$/.test(inv.pay_url.slice(payPrefix.length)) ? inv.pay_url : '';
     var words;
     var alarm = true;
     var payable = true;
