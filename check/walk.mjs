@@ -2692,6 +2692,184 @@ async function walkAccount() {
     clean(world, errors, "the page with an introduction to answer");
     await context.close();
   }
+
+  area = "The account page (a listing that is not showing, plan 095)";
+  {
+    // The audit of 14 November 2026: a paused host read "Live since" with a
+    // green dot, and a host hidden for an unpaid membership invoice was told
+    // to email and "we will put it back". The page now tells the two apart.
+    const hostWith = (site, extra) => newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+      org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "active", host_print: "approved", host_mill: "none" },
+      site: Object.assign({ org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
+        sub_status: "active", verified: true }, site),
+      listings: [{ hub: "print", status: "live", live: { approved_at: "2026-10-01T09:00:00Z" } }],
+      hubs_used: ["print"],
+    }, extra || {}) });
+    const payUrl = "https://api.nexpoint.co.uk/membership/pay/" + "ab".repeat(32);
+    const invoice = { number: "INV-0042", amount_text: "£1,000", due_on: "2026-11-18", pay_url: payUrl };
+    const PAUSED = "NexPoint has paused your listing, so nobody searching the hubs can see it. Email hello@nexpoint.co.uk and we will tell you why and what happens next.";
+    const notShown = async (page) => {
+      const row = await page.textContent("#profile .acct-list");
+      eq(row.includes("Live since"), false, "the listing row reads Live since");
+      has(row, "Approved 1 Oct 2026. Hidden from seekers for now.", "the listing row");
+      eq(await page.locator("#profile .acct-dot.is-live").count(), 0, "green dots");
+    };
+
+    {
+      const world = hostWith({ paused: true, paused_by_desk: true, hidden_unpaid: false });
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a host NexPoint has paused reads the paused words, and its listing does not read as live", async () => {
+        await page.waitForSelector("#profile .acct-notice");
+        eq((await page.textContent("#profile .acct-notice")).trim(), PAUSED, "the notice");
+        eq(await page.getAttribute("#profile .acct-notice a", "href"), "mailto:hello@nexpoint.co.uk", "the address is a link");
+        eq(await page.locator("#profile a", { hasText: "Pay the invoice" }).count(), 0, "Pay the invoice buttons");
+        eq((await page.textContent("#profile")).includes("we will put it back"), false, "the old advice");
+        await notShown(page);
+      });
+      clean(world, errors, "the paused host's page");
+      await context.close();
+    }
+    {
+      const world = hostWith({ paused: true, paused_by_desk: false, hidden_unpaid: true, sub_status: "hidden" }, { membership_invoice: invoice });
+      world.summary.org.sub_status = "hidden";
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a host hidden for an unpaid membership invoice reads the invoice, and Pay the invoice goes to the link the worker sent", async () => {
+        await page.waitForSelector("#profile .acct-notice");
+        eq((await page.textContent("#profile .acct-notice")).trim(),
+          "Your listing is hidden from the hubs because membership invoice INV-0042 for £1,000 is unpaid. Nothing has been deleted, and your listing comes back once the payment reaches us.", "the notice");
+        const pay = page.locator("#profile a", { hasText: "Pay the invoice" });
+        eq(await pay.count(), 1, "Pay the invoice buttons");
+        eq(await pay.getAttribute("href"), payUrl, "where the button goes");
+        eq(await pay.getAttribute("target"), "_blank", "the button opens a new tab");
+        has(await page.textContent("#profile"), "Paid already? A payment can take a few working days to reach us.", "the line under the button");
+        eq((await page.textContent("#profile")).includes("we will put it back"), false, "the old advice");
+        await notShown(page);
+      });
+      clean(world, errors, "the unpaid host's page");
+      await context.close();
+    }
+    {
+      // A worker from before plan 095: paused is true for either reason, and
+      // there are no new keys. The page works the pause out from what it has.
+      const world = hostWith({ paused: true });
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("with a worker from before plan 095 (paused, no new keys), the paused words still show", async () => {
+        await page.waitForSelector("#profile .acct-notice");
+        eq((await page.textContent("#profile .acct-notice")).trim(), PAUSED, "the notice");
+        await notShown(page);
+      });
+      clean(world, errors, "the paused host's page on an old worker");
+      await context.close();
+    }
+    {
+      const world = hostWith({ paused: false, paused_by_desk: false, hidden_unpaid: false });
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a host with nothing wrong reads no notice, and its listing reads Live since", async () => {
+        await page.waitForSelector("#profile .acct-list");
+        eq(await page.locator("#profile .acct-notice").count(), 0, "notices");
+        has(await page.textContent("#profile .acct-list"), "Live since 1 Oct 2026", "the listing row");
+        eq(await page.locator("#profile .acct-dot.is-live").count(), 1, "green dots");
+      });
+      clean(world, errors, "the live host's page");
+      await context.close();
+    }
+  }
+
+  area = "The account page (the introduction email that did not go, plan 095)";
+  {
+    // The worker's summary says whether the email that gives both sides each
+    // other's details went. Only the host's route can send it again.
+    const INBOX = "The introduction is in your inbox; reply to all to carry on.";
+    const hostRow = (release) => {
+      const intro = { id: 12, ref: "INTRO-0012", hub: "print", stage: "introduced", seeker_request_id: 3, accepted_a_at: "2026-11-10T09:00:00Z",
+        accepted_b_at: "2026-11-10T10:00:00Z", acceptance_expires_at: null, declined_at: null, created_at: "2026-11-09T09:00:00Z", role: "provider",
+        introduced_at: "2026-11-10T10:00:00Z" };
+      if (release !== undefined) intro.release = release;
+      return newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+        org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "active", host_print: "approved", host_mill: "none" },
+        site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none", verified: true },
+        introductions: [intro],
+        hubs_used: ["print"],
+      }) });
+    };
+    {
+      const world = hostRow("failed");
+      world.api["POST /introductions/:id/resend"] = () => [200, { ok: true }];
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      const button = '#intro-12 [data-act="intro-resend"][data-intro="12"]';
+      await step("a host whose introduction email did not go is told so, and offered Send the introduction email again", async () => {
+        await page.waitForSelector("#intro-12");
+        const row = await page.textContent("#intro-12");
+        eq(row.includes("is in your inbox"), false, "the row says the email is in the inbox");
+        has(row, "The email that gives you both each other's details did not go. Send it again with the button here, or email hello@nexpoint.co.uk and we will send it by hand.", "the row");
+        eq(await page.locator(button).count(), 1, "buttons");
+        eq((await page.textContent(button)).trim(), "Send the introduction email again", "the button");
+      });
+      await step("pressing it posts the resend for that introduction and says Sent again", async () => {
+        await page.click(button);
+        await page.waitForFunction(() => /Sent again/.test(document.getElementById("introMsg-12").textContent));
+        eq(apiCalls(world, "POST /introductions/12/resend").length, 1, "resends sent");
+        eq(await page.isDisabled(button), true, "the button is spent");
+      });
+      clean(world, errors, "the host's page with an email that did not go");
+      await context.close();
+    }
+    for (const [what, release] of [["went", "sent"], ["is not reported (a worker from before plan 095)", undefined]]) {
+      const world = hostRow(release);
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step(`a host whose introduction email ${what} reads the inbox line as before, with no button`, async () => {
+        await page.waitForSelector("#intro-12");
+        has(await page.textContent("#intro-12"), INBOX, "the row");
+        eq(await page.locator('#intro-12 [data-act="intro-resend"]').count(), 0, "buttons");
+      });
+      clean(world, errors, `the host's page with an email that ${what}`);
+      await context.close();
+    }
+    {
+      const world = hostRow("waiting");
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a host whose introduction email is still on its way reads that, with no button", async () => {
+        await page.waitForSelector("#intro-12");
+        const row = await page.textContent("#intro-12");
+        has(row, "The introduction email is on its way.", "the row");
+        eq(row.includes("is in your inbox"), false, "the row says the email is in the inbox");
+        eq(await page.locator('#intro-12 [data-act="intro-resend"]').count(), 0, "buttons");
+      });
+      clean(world, errors, "the host's page with an email on its way");
+      await context.close();
+    }
+    {
+      // The seeker's side (decision D5): told the truth, with no button.
+      const world = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+        org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "none", host_print: "none", host_mill: "none" },
+        introductions: [{ id: 9, ref: "INTRO-0009", hub: "print", stage: "introduced", seeker_request_id: 3, accepted_a_at: "2026-11-10T09:00:00Z",
+          accepted_b_at: "2026-11-10T10:00:00Z", acceptance_expires_at: null, declined_at: null, created_at: "2026-11-09T09:00:00Z", role: "seeker",
+          introduced_at: "2026-11-10T10:00:00Z", release: "failed" }],
+        requests: [{ id: 3, ref: "PS-0050", hub: "print", material: "pa12_nylon12", quantity: 10, cadence: "once", status: "picked",
+          created_at: "2026-11-09T09:00:00Z", no_match: false,
+          picks: [{ introduction_id: 9, ref: "INTRO-0009", stage: "introduced", card: { town: "Derby", country: "United Kingdom", materials: ["pa12_nylon12"] } }] }],
+        hubs_used: ["print"],
+      }) });
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("the seeker of an introduction whose email did not go is told NexPoint will send it, and has no button", async () => {
+        await page.waitForSelector("#introductions .acct-pick");
+        const text = await page.textContent("#introductions");
+        has(text, "The email with each other's details has not gone yet. NexPoint has been told and will send it.", "the pick");
+        eq(text.includes("is in your inbox"), false, "the page says the email is in the inbox");
+        eq(await page.locator('#introductions [data-act="intro-resend"]').count(), 0, "buttons");
+      });
+      clean(world, errors, "the seeker's page with an email that did not go");
+      await context.close();
+    }
+  }
 }
 
 /* The account's logo (plan 055, decision 25; once the profile picture of plan
