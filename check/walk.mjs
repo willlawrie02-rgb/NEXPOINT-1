@@ -4117,6 +4117,7 @@ async function walkTerms() {
       eq((await page.textContent('#declNil-2026-10 [data-act="decl-nil-back"]')).trim(), "Go back to the form", "the way back");
       eq(await page.isVisible("#declSubmit-2026-10"), false, "the Send button while the question shows");
       eq(apiCalls(world, "POST /declarations").length, 0, "declarations before the nil return is confirmed");
+      await shot(page, "declaration-nil-question", "#declarations");
       await page.click('[data-act="decl-nil-confirm"]');
       await until(() => apiCalls(world, "POST /declarations").length === 1, "the declaration");
       const sent = apiCalls(world, "POST /declarations")[0].body;
