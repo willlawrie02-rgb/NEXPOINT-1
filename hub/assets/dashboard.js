@@ -735,16 +735,25 @@
 
     return '<div class="acct-card">' +
       '<h3>' + esc(fmtPeriod(period)) + '</h3>' +
-      '<p class="hint">' + esc(dueLine(dec.due_state)) + ' One line per introduction. Tick the last column where nothing came through.</p>' +
+      '<p class="hint">' + esc(dueLine(dec.due_state)) + ' One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.</p>' +
       '<div class="acct-scroll"><table class="decl-table">' +
         '<thead><tr><th>Introduction</th><th>Units</th><th>Value</th><th>Currency</th><th>Nothing</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
       '</table></div>' +
       '<div class="acct-answer__terms" id="declTerms"></div>' +
       '<p class="acct-msg" id="declMsg-' + esc(period) + '" hidden></p>' +
-      '<div class="modal-actions">' +
+      '<div class="modal-actions" id="declSend-' + esc(period) + '">' +
         '<button class="btn btn-primary" type="button" id="declSubmit-' + esc(period) + '" data-act="decl-submit" ' +
           'data-period="' + esc(period) + '" data-hub="' + esc(hub) + '">Send this declaration</button>' +
+      '</div>' +
+      /* A month with no orders at all is asked once more before it goes
+         (plan 098): these two take the Send button's place until it is
+         confirmed or the host goes back. */
+      '<div class="modal-actions" id="declNil-' + esc(period) + '" hidden>' +
+        '<button class="btn btn-primary" type="button" data-act="decl-nil-confirm" ' +
+          'data-period="' + esc(period) + '" data-hub="' + esc(hub) + '">Confirm no orders in ' + esc(fmtPeriod(period)) + '</button>' +
+        '<button class="btn btn-outline" type="button" data-act="decl-nil-back" ' +
+          'data-period="' + esc(period) + '">Go back to the form</button>' +
       '</div>' +
     '</div>';
   }
@@ -1171,6 +1180,8 @@
     period_out_of_range: 'That month is not open for declarations.',
     statement_issued: 'That month is already on a statement and cannot be changed. Email hello@nexpoint.co.uk if something is wrong.',
     nothing_or_lines: 'Either tick Nothing for every introduction or enter at least one line.',
+    introduction_unanswered: 'Every introduction needs an answer: a value, or a tick under Nothing. If you have answered them all, reload the page and declare again.',
+    line_and_nothing: 'One introduction has both figures and a Nothing tick. Clear one of them and send again.',
   };
   function declError(code) { return DECL_ERRORS[code] || GENERIC_ERROR; }
 
@@ -1210,7 +1221,18 @@
     return { lines: lines, nothingFor: nothingFor, blocked: blocked };
   }
 
-  function submitDeclaration(btn) {
+  /* The way back from the nil-return question: the Send button returns and
+     the question's words go. */
+  function declNilBack(period) {
+    var nil = el('declNil-' + period), send = el('declSend-' + period), msg = el('declMsg-' + period);
+    if (nil) nil.hidden = true;
+    if (send) send.hidden = false;
+    if (msg) msg.hidden = true;
+  }
+
+  /* confirmed is true only off the "Confirm no orders" button. Either press
+     reads the form afresh, so what is sent is what the form says now. */
+  function submitDeclaration(btn, confirmed) {
     var period = btn.getAttribute('data-period') || '';
     var hub = btn.getAttribute('data-hub') || '';
     var msg = el('declMsg-' + period);
@@ -1243,6 +1265,9 @@
     var answers = declAnswers(rows);
     if (answers.blocked) {
       var b = answers.blocked;
+      /* A row changed while the nil-return question was showing: the form
+         is no longer a nil return, so the Send button comes back. */
+      declNilBack(period);
       say(msg, b.why === 'both' ? b.ref + ' has figures and a Nothing tick. Clear the figures or untick Nothing.'
         : b.why === 'value' ? 'Enter a value for ' + b.ref + ', or tick Nothing.'
         : 'Answer ' + b.ref + ': enter a value, or tick Nothing if no orders came through.', true);
@@ -1250,7 +1275,12 @@
       if (fix) fix.focus();
       return;
     }
-    var body = { hub: hub, period: period, nothing_this_month: answers.lines.length === 0, lines: answers.lines };
+    /* The nil answer is said, never worked out from an empty form: every row
+       ticked Nothing is named in nothing_for, and the worker refuses a
+       declaration that leaves an open introduction unanswered. */
+    var nil = answers.lines.length === 0;
+    var body = { hub: hub, period: period, nothing_this_month: nil,
+      lines: answers.lines, nothing_for: answers.nothingFor };
     var tick = document.querySelector('#declTerms [data-np-terms-tick]');
     if (tick) {
       if (!tick.checked) {
@@ -1260,12 +1290,27 @@
       }
       if (declTerms) { body.terms_version_id = declTerms.id; var sentLayer = declTerms.layer; }
     }
+    /* A month with no orders at all asks once more before it is sent. A form
+       with at least one value goes on the first press: ticking a row is
+       already the deliberate act. */
+    if (nil && !confirmed) {
+      say(msg, 'You are declaring that no orders came through any of your introductions in ' + fmtPeriod(period) +
+        '. Your declaration is the record. Confirm it, or go back and enter what came through.');
+      var sendRow = el('declSend-' + period), nilRow = el('declNil-' + period);
+      if (sendRow) sendRow.hidden = true;
+      if (nilRow) {
+        nilRow.hidden = false;
+        var confirmBtn = nilRow.querySelector('[data-act="decl-nil-confirm"]');
+        if (confirmBtn) confirmBtn.focus();
+      }
+      return;
+    }
     var done = busy(btn, 'Sending…');
     post('/declarations', body)
       .then(function (d) {
         if (d && d.ok) {
           if (body.terms_version_id) NPAccount.noteAccepted(sentLayer);
-          say(msg, 'Sent. Thank you.');
+          say(msg, nil ? 'Sent. No orders declared for ' + fmtPeriod(period) + '.' : 'Sent. Thank you.');
           reload();
           return;
         }
@@ -1422,6 +1467,8 @@
     if (act === 'education') { if (window.openEducationList) openEducationList(); return; }
     if (act === 'reopen') { reopenAccount(); return; }
     if (act === 'decl-submit') { gate(function () { submitDeclaration(btn); }); return; }
+    if (act === 'decl-nil-confirm') { gate(function () { submitDeclaration(btn, true); }); return; }
+    if (act === 'decl-nil-back') { declNilBack(btn.getAttribute('data-period') || ''); return; }
     if (act === 'intro-resend') { gate(function () { resendIntro(btn); }); return; }
     if (act === 'intro-accept-open') { openAnswer(btn, 'accept'); return; }
     if (act === 'intro-decline-open') { openAnswer(btn, 'decline'); return; }
