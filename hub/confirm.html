@@ -8,8 +8,10 @@
 <link rel="icon" href="../assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet">
 <style>
-  :root{--canvas:#F5F7FA;--ink:#0E1626;--muted:#5A6B84;--blue:#005CC8;--blue-hover:#0066DC;--green:#8BC53F;--border:#E3E8EF}
+  :root{--canvas:#F5F7FA;--ink:#0E1626;--muted:#5A6B84;--blue:#005CC8;--blue-hover:#0066DC;--green:#8BC53F;--border:#E3E8EF;--red:#B3261E}
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:var(--canvas);color:var(--ink);font:400 16px/1.6 'Inter',system-ui,sans-serif;
        min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -24,15 +26,24 @@
   button,.btn{font:600 14px/1 'Inter',sans-serif;padding:13px 22px;border-radius:4px;border:none;cursor:pointer;display:inline-flex;align-items:center;text-decoration:none}
   .yes{background:var(--blue);color:#fff}
   .yes:hover{background:var(--blue-hover)}
+  .yes[disabled]{opacity:.6;cursor:default}
   .quiet{background:transparent;color:var(--blue);border:1px solid var(--blue)}
   .quiet:hover{background:rgba(0,92,200,.08)}
   :is(a,button,input):focus-visible{outline:2px solid #3D8EEB;outline-offset:3px}
   .panel{margin-top:26px;padding:22px;background:#fff;border:1px solid var(--border);border-radius:8px;text-align:left}
   .panel .actions{justify-content:flex-start;margin-top:18px}
+  .panel .field+.field{margin-top:14px}
   label{display:block;font:600 12px/1 'Inter',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
   input{width:100%;background:#fff;border:1px solid rgba(14,22,38,.18);border-radius:4px;color:var(--ink);
         font:400 14.5px/1.4 'Inter',sans-serif;padding:12px 14px;outline:none}
   input:focus{border-color:var(--blue)}
+  /* show-password (plan 046): the eye sits inside the field, after the text */
+  .np-eye{position:relative;display:block}
+  .np-eye input{padding-right:44px}
+  .np-eye__btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;padding:6px;color:var(--muted);cursor:pointer;border-radius:4px;display:inline-flex}
+  .np-eye__btn:hover{color:var(--blue)}
+  .np-eye__btn .material-symbols-outlined{font-size:20px;display:block}
+  .err{display:none;margin-top:12px;color:var(--red);font-size:14px}
   .aside{margin-top:22px;font-size:14px}
   button.linkish{background:none;border:none;padding:0;display:inline;color:var(--blue);font:600 14px/1.6 'Inter',sans-serif;text-decoration:underline;text-underline-offset:3px}
   .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
@@ -45,7 +56,6 @@
     <div class="rule"></div>
     <div id="confirmBody">
       <h1>One moment…</h1>
-      <p>Confirming your email.</p>
     </div>
     <div class="foot">NexPoint, the commercial bridge for Orthotics &amp; Prosthetics worldwide.<br>
       Stuck? Email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</div>
@@ -55,6 +65,14 @@
 /* Confirmation landing. The link in the email carries a one-time token; posting
    it back is what wakes the account up and sets the session cookie, so this is
    the only page where a hub account starts being able to act.
+
+   It is also where the account's password is chosen (plan 093, 14 November
+   2026). Nobody types a password on the registration form or the invitation
+   page any more: one typed there was chosen before anyone had shown they
+   held the inbox. This page asks for it, and posts it WITH the token when
+   the button is pressed, so the password an account has is the one chosen
+   by the person who opened the link. Nothing is posted when the page loads:
+   a mail scanner that opens the link can no longer use it up.
 
    It is deliberately standalone, like the confirmation and reset pages: someone arriving here has
    just come from an email client and may have no session, no portal.css cached
@@ -74,6 +92,19 @@ const ACCOUNT_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
   ? 'https://nexpoint.co.uk/hub/account/' : '/hub/account/';
 const DOOR_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
   ? 'https://nexpoint.co.uk/hub/' : '/hub/';
+
+/* One minimum on every page and in the worker (auth.js PASSWORD_MIN). */
+const MIN_LENGTH = 12;
+/* Set when a press on this page has posted the link. If the link is then
+   refused, that press probably reached the worker and its answer was lost. */
+let tried = false;
+/* Set once the worker has confirmed the address but could not set the
+   password (it answers `confirmed: true`). The link is spent and the device
+   is signed in on its session, so further presses go up on the session
+   alone, the way reset.html's do. */
+let linkUsed = false;
+/* The address the worker named when it confirmed, for the last card. */
+let confirmedEmail = '';
 
 function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
@@ -143,6 +174,17 @@ async function whoAmI(){
     const d = await r.json().catch(() => null);
     return r.ok && d ? d : null;
   } catch (e) { return null; }
+}
+
+/* One POST to the worker, inside the same limit. Throws on a dropped
+   connection or the limit, like the fetch it wraps. */
+async function postJson(path, payload){
+  const r = await limited(API + path, {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const d = await r.json().catch(() => ({}));
+  return { r, d };
 }
 
 /* ── the states ──────────────────────────────────────────────────── */
@@ -217,32 +259,115 @@ async function resend(){
   } catch (e) { /* the worker answers every address the same way; so does this */ }
   /* It sends nothing to a confirmed address (audit plan 029), so the way on
      for that address is named too. */
-  render(`<h1>Check your inbox…</h1><p>If that address still needs confirming, a fresh link is on its way. If it is already confirmed, sign in instead.</p>` +
+  /* Nor inside two minutes of the last one (plan 093): this page cannot know
+     when that was, so the line is true either way. */
+  render(`<h1>Check your inbox…</h1><p>If that address still needs confirming, a fresh link is on its way; if one was sent in the last two minutes, use that one. If it is already confirmed, sign in instead.</p>` +
     actionLink('Sign in', signInHref()));
 }
 
-/* ── boot ────────────────────────────────────────────────────────── */
-(async function boot(){
-  const q = new URLSearchParams(location.search);
-  const token = q.get('t');
-  const type = q.get('type');
-  if (!token){
-    say('Link incomplete.', 'This link is missing information. Use the link from your email, or email hello@nexpoint.co.uk.');
-    return;
-  }
+/* ── the password form (plan 093) ────────────────────────────────── */
+
+function renderForm(token, type){
+  render(`
+    <h1>Choose your password.</h1>
+    <p>You are one step from your hub account. Choose a password of at least ${MIN_LENGTH} characters. We then confirm your email and sign you in on this device.</p>
+    <div class="panel">
+      <div class="field">
+        <label for="pass1">Password</label>
+        <input id="pass1" type="password" autocomplete="new-password" minlength="${MIN_LENGTH}">
+      </div>
+      <div class="field">
+        <label for="pass2">Repeat it</label>
+        <input id="pass2" type="password" autocomplete="new-password" minlength="${MIN_LENGTH}">
+      </div>
+      <p class="err" id="formErr"></p>
+      <div class="actions"><button class="yes" type="button" id="setBtn">Confirm and sign in</button></div>
+    </div>`);
+  passwordEye(document.getElementById('pass1'));
+  passwordEye(document.getElementById('pass2'));
+  const submit = () => confirm(token, type);
+  document.getElementById('setBtn').addEventListener('click', submit);
+  document.getElementById('pass2').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  document.getElementById('pass1').focus();
+}
+
+/* Show-password (plan 046): the same eye hub-account.js gives every other
+   password field, inlined because this page loads no shared script. */
+function passwordEye(input){
+  if (!input || input.dataset.npEye) return;
+  input.dataset.npEye = '1';
+  const wrap = document.createElement('div');
+  wrap.className = 'np-eye';
+  input.parentNode.insertBefore(wrap, input);
+  wrap.appendChild(input);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'np-eye__btn';
+  btn.setAttribute('aria-label', 'Show password');
+  btn.setAttribute('aria-pressed', 'false');
+  btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">visibility</span>';
+  btn.addEventListener('click', () => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+    btn.firstChild.textContent = show ? 'visibility_off' : 'visibility';
+    input.focus();
+  });
+  wrap.appendChild(btn);
+}
+
+function showError(text){
+  const el = document.getElementById('formErr');
+  if (!el) return;
+  el.textContent = text;
+  el.style.display = text ? 'block' : 'none';
+}
+
+const TOO_SHORT = `Use at least ${MIN_LENGTH} characters.`;
+const TOO_LONG = 'Use 72 characters or fewer.';
+const NOT_SENT = 'That did not send. Check your connection and try again.';
+const NOT_SAVED = 'Your email is confirmed, but the password did not save. Try again.';
+const weakLine = (detail) => 'That password does not meet the rules for hub passwords.' + (detail ? ' ' + detail : '');
+
+/* The address is confirmed but this page can no longer set the password:
+   the fifteen minutes the worker allows a link's session have passed, or
+   the session went. A reset is the way on, and it works because the address
+   is confirmed. */
+function renderUseReset(){
+  render(`<h1>Your email is confirmed.</h1><p>To choose your password, use Forgotten your password on the sign-in box.</p>` +
+    actionLink('Sign in', signInHref()));
+}
+
+/* The press. The link is posted with the password, so the worker checks the
+   password's shape before it spends the link, and sets it the moment the
+   link has proved the inbox. */
+async function confirm(token, type){
+  const btn = document.getElementById('setBtn');
+  if (!btn || btn.disabled) return;
+  const p1 = document.getElementById('pass1').value;
+  const p2 = document.getElementById('pass2').value;
+  if (p1.length < MIN_LENGTH){ showError(TOO_SHORT); return; }
+  if (p1.length > 72){ showError(TOO_LONG); return; }
+  if (p1 !== p2){ showError('The two passwords do not match.'); return; }
+  showError('');
+  btn.disabled = true; btn.textContent = 'Confirming…';
+  const back = () => { btn.disabled = false; btn.textContent = 'Confirm and sign in'; };
+
+  if (linkUsed){ await setOnSession(p1, back); return; }
 
   const payload = { token_hash: token };
   if (type) payload.type = type;
-
+  payload.password = p1;
+  const triedBefore = tried;
+  tried = true;
   let r, d;
   try {
-    r = await limited(API + '/auth/confirm', {
-      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    d = await r.json().catch(() => ({}));
+    ({ r, d } = await postJson('/auth/confirm', payload));
   } catch (e) {
-    say('That did not go through.', 'Check your connection and open the link again, or email hello@nexpoint.co.uk.');
+    /* A dropped connection or the 20 second limit. The link may well be
+       untouched, so the next press posts it again. */
+    back();
+    showError(NOT_SENT);
     return;
   }
 
@@ -252,17 +377,82 @@ async function resend(){
     renderConfirmed(d.member && d.member.email);
     return;
   }
-  /* A refused token: used already (a second open, a reload, a mail scanner
-     that opened it first) or expired. A device signed in to a confirmed
-     account most likely made the first click itself, so it hears that,
-     with the account named; anyone else gets both ways on. */
+  /* A refused token: used already (a second open, a reload) or expired. A
+     device signed in to a confirmed account most likely made the first
+     click itself, so it hears that, with the account named; anyone else
+     gets both ways on. */
   if (r.status === 401 || (d && d.error === 'invalid_or_expired')){
     const me = await whoAmI();
-    if (me && me.signed_in && me.confirmed){ renderConfirmed(me.member && me.member.email, true); return; }
+    if (me && me.signed_in && me.confirmed){
+      const email = me.member && me.member.email;
+      if (!triedBefore){ renderConfirmed(email, true); return; }
+      /* An earlier press on this page probably reached the worker and its
+         answer was lost: the address is confirmed and the device signed in,
+         but this page never heard whether the password was set. It is sent
+         once more, on the session alone. */
+      let again = null;
+      try { again = await postJson('/auth/reset-confirm', { password: p1 }); } catch (e) { /* said below */ }
+      renderConfirmed(email);
+      if (!(again && again.r.ok && again.d && again.d.ok))
+        body().insertAdjacentHTML('beforeend',
+          '<p class="aside">If your password does not work next time, use Forgotten your password on the sign-in box.</p>');
+      return;
+    }
     renderUsed();
     return;
   }
+  /* The password's shape, refused before the link was spent. */
+  if (d && (d.error === 'password_too_short' || d.error === 'password_required')){ back(); showError(TOO_SHORT); return; }
+  if (d && d.error === 'password_too_long'){ back(); showError(TOO_LONG); return; }
+  /* The address is confirmed and the device signed in, but the password was
+     not set: the sign-in service refused it, or could not be reached. The
+     link is spent, so the next press goes up on the session alone. */
+  if (d && (d.error === 'weak_password' || d.error === 'password_not_set')){
+    linkUsed = true;
+    confirmedEmail = (d.member && d.member.email) || '';
+    back();
+    showError(d.error === 'weak_password' ? weakLine(d.detail) : NOT_SAVED);
+    return;
+  }
   say('That did not go through.', 'Open the link from your email again, or email hello@nexpoint.co.uk and we will sort it out.');
+}
+
+/* Another password, after the link is spent: the worker's reset route, on
+   the session the link made (it allows that for fifteen minutes). */
+async function setOnSession(password, back){
+  let out;
+  try {
+    out = await postJson('/auth/reset-confirm', { password });
+  } catch (e) {
+    back();
+    showError(NOT_SENT);
+    return;
+  }
+  const { r, d } = out;
+  /* same_password: the account already holds exactly this password. */
+  if ((r.ok && d && d.ok) || (d && d.error === 'same_password')){
+    renderConfirmed((d && d.member && d.member.email) || confirmedEmail);
+    return;
+  }
+  if (d && d.error === 'weak_password'){ back(); showError(weakLine(d.detail)); return; }
+  if (d && d.error === 'password_too_short'){ back(); showError(TOO_SHORT); return; }
+  if (d && d.error === 'password_too_long'){ back(); showError(TOO_LONG); return; }
+  if (d && (d.error === 'current_password_required' || d.error === 'reset_invalid')){ renderUseReset(); return; }
+  back();
+  showError(NOT_SAVED);
+}
+
+/* ── boot ────────────────────────────────────────────────────────── */
+(function boot(){
+  const q = new URLSearchParams(location.search);
+  const token = q.get('t');
+  const type = q.get('type');
+  if (!token){
+    say('Link incomplete.', 'This link is missing information. Use the link from your email, or email hello@nexpoint.co.uk.');
+    return;
+  }
+  /* Nothing is posted yet: the link is spent only when the button is pressed. */
+  renderForm(token, type);
 })();
 </script>
 </body>
