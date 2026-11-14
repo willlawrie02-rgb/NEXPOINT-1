@@ -1187,12 +1187,34 @@
     return function () { btn.disabled = false; btn.textContent = orig; };
   }
 
+  /* What the declaration form says, row by row (plan 098). Pure: no page and
+     no network, so check/review.mjs can run it. Every row is answered: a
+     value, or its Nothing tick. A blank row, a row with units and no value,
+     and a row with figures and a tick are each refused, the first one found. */
+  function declAnswers(rows) {
+    var lines = [], nothingFor = [], blocked = null;
+    rows.forEach(function (r) {
+      if (blocked) return;
+      var hasUnits = r.units !== '' && r.units != null;
+      var hasValue = r.value !== '' && r.value != null;
+      if (r.nothing) {
+        if (hasUnits || hasValue) { blocked = { id: r.id, ref: r.ref, why: 'both' }; return; }
+        nothingFor.push(r.id);
+        return;
+      }
+      if (!hasUnits && !hasValue) { blocked = { id: r.id, ref: r.ref, why: 'blank' }; return; }
+      if (!hasValue) { blocked = { id: r.id, ref: r.ref, why: 'value' }; return; }
+      lines.push({ introduction_id: r.id, units: hasUnits ? Number(r.units) : null,
+        value: Number(r.value), currency: r.currency || 'GBP' });
+    });
+    return { lines: lines, nothingFor: nothingFor, blocked: blocked };
+  }
+
   function submitDeclaration(btn) {
     var period = btn.getAttribute('data-period') || '';
     var hub = btn.getAttribute('data-hub') || '';
     var msg = el('declMsg-' + period);
-    var lines = [];
-    var blocked = null;
+    var rows = [];
     var prefix = 'decl-' + period + '-';
     var table = btn.closest('.acct-card');
     if (table) {
@@ -1201,35 +1223,34 @@
          selector. The ids it is compared against below go through el(), a
          plain getElementById lookup that needs no escaping of its own. */
       Array.prototype.forEach.call(table.querySelectorAll('input[id^="' + CSS.escape(prefix) + '"][id$="-units"]'), function (u) {
-        if (blocked) return;
         var introId = u.id.slice(prefix.length, u.id.length - '-units'.length);
         var nothing = el(prefix + introId + '-nothing');
-        if (nothing && nothing.checked) return;
         var value = el(prefix + introId + '-value');
         var currency = el(prefix + introId + '-currency');
-        var units = u.value === '' ? null : Number(u.value);
-        var val = (!value || value.value === '') ? null : Number(value.value);
-        if (units == null && val == null) return;
-        /* Units typed but no value: the worker refuses the whole submission
-           for this (line_value_required), so catch it here and point at the
-           one row that needs fixing instead of sending it. A value with no
-           units is fine - units are optional. */
-        if (units != null && val == null) {
-          var row = u.closest('tr');
-          var ref = (row && row.getAttribute('data-ref')) || introId;
-          blocked = { input: value, ref: ref };
-          return;
-        }
-        lines.push({ introduction_id: /^\d+$/.test(introId) ? Number(introId) : introId,
-          units: units, value: val, currency: currency ? currency.value : 'GBP' });
+        var row = u.closest('tr');
+        rows.push({ id: /^\d+$/.test(introId) ? Number(introId) : introId,
+          ref: (row && row.getAttribute('data-ref')) || introId,
+          units: u.value, value: value ? value.value : '',
+          currency: currency ? currency.value : 'GBP',
+          nothing: !!(nothing && nothing.checked) });
       });
     }
-    if (blocked) {
-      say(msg, 'Enter a value for ' + blocked.ref + ', or tick Nothing.', true);
-      if (blocked.input) blocked.input.focus();
+    /* Every row is answered before anything is sent (plan 098): a blank row is
+       not a nil answer, units need a value (the worker refuses the whole
+       submission for that, line_value_required; a value with no units is
+       fine), and figures beside a Nothing tick are never thrown away. The
+       words name the one row that needs fixing. */
+    var answers = declAnswers(rows);
+    if (answers.blocked) {
+      var b = answers.blocked;
+      say(msg, b.why === 'both' ? b.ref + ' has figures and a Nothing tick. Clear the figures or untick Nothing.'
+        : b.why === 'value' ? 'Enter a value for ' + b.ref + ', or tick Nothing.'
+        : 'Answer ' + b.ref + ': enter a value, or tick Nothing if no orders came through.', true);
+      var fix = el(prefix + b.id + '-value');
+      if (fix) fix.focus();
       return;
     }
-    var body = { hub: hub, period: period, nothing_this_month: lines.length === 0, lines: lines };
+    var body = { hub: hub, period: period, nothing_this_month: answers.lines.length === 0, lines: answers.lines };
     var tick = document.querySelector('#declTerms [data-np-terms-tick]');
     if (tick) {
       if (!tick.checked) {
