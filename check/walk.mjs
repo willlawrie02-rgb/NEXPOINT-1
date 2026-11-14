@@ -1199,8 +1199,9 @@ async function walkRegister() {
      confirmation emails to one address inside two minutes, and the card
      appears the moment registration has sent one: a press on Resend then
      said a new link was on its way when nothing had gone, and the button
-     left the card. It now waits the two minutes out, counting down, and
-     stays. The clock is the walk's, so the two minutes take no time. */
+     left the card. It now waits the two minutes out, and ten seconds more
+     because the worker's clock starts a moment later, counting down, and
+     stays. The clock is the walk's, so the wait takes no time. */
   area = "Create an account (the Resend button on Check your inbox)";
   {
     const world = newWorld();
@@ -1222,15 +1223,18 @@ async function walkRegister() {
     await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
     await page.click("#npAccountContent button[type=submit]");
     await page.waitForSelector("#npAccountContent .success");
-    await step("the Resend button starts disabled, counting down from two minutes", async () => {
-      eq(await label(), "Resend the email in 2:00", "the button");
+    await step("the Resend button starts disabled, counting down from 2:10", async () => {
+      eq(await label(), "Resend the email in 2:10", "the button");
       eq(await page.isDisabled(resend), true, "the button is disabled");
       await page.clock.runFor(61000);
-      eq(await label(), "Resend the email in 0:59", "the button a minute on");
+      eq(await label(), "Resend the email in 1:09", "the button a minute on");
+      await page.clock.runFor(59000);
+      eq(await label(), "Resend the email in 0:10", "the button at the worker's two minutes");
+      eq(await page.isDisabled(resend), true, "the button is disabled at two minutes");
       return eq(apiCalls(world, "POST /auth/resend-confirmation").length, 0, "resends sent");
     });
-    await step("after two minutes it can be pressed", async () => {
-      await page.clock.runFor(59000);
+    await step("after 2:10 it can be pressed", async () => {
+      await page.clock.runFor(10000);
       eq(await label(), "Resend the email", "the button");
       return eq(await page.isDisabled(resend), false, "the button is disabled");
     });
@@ -1241,11 +1245,11 @@ async function walkRegister() {
       has(await page.textContent("#npAccountContent [data-np-resend-note]"),
         "If that address still needs confirming, a new link is on its way. It can take a minute to arrive, and it may be in your junk folder.", "the line");
       eq(await page.locator(resend).count(), 1, "Resend buttons on the card");
-      eq(await label(), "Resend the email in 2:00", "the button");
+      eq(await label(), "Resend the email in 2:10", "the button");
       return eq(await page.isDisabled(resend), true, "the button is disabled");
     });
     await step("a send that never left the device says so, and gives the button back at once", async () => {
-      await page.clock.runFor(120000);
+      await page.clock.runFor(130000);
       world.dropOnce = new Set(["POST /auth/resend-confirmation"]);
       await page.click(resend);
       await page.waitForFunction(() => /That did not send/.test((document.querySelector("#npAccountContent [data-np-resend-note]") || {}).textContent || ""));
@@ -1256,10 +1260,10 @@ async function walkRegister() {
     });
     await step("closing the card stops the countdown, and nothing throws afterwards", async () => {
       await page.click(resend);
-      await page.waitForFunction((sel) => /in 2:00/.test(document.querySelector(sel).textContent), resend);
+      await page.waitForFunction((sel) => /in 2:10/.test(document.querySelector(sel).textContent), resend);
       await page.click("#npAccountContent [data-np-done]");
-      await page.clock.runFor(130000);
-      return eq(await label(), "Resend the email in 2:00", "the button, left where it was");
+      await page.clock.runFor(140000);
+      return eq(await label(), "Resend the email in 2:10", "the button, left where it was");
     });
     /* The browser logs a line of its own for the send the walk dropped on
        purpose; anything the page itself threw still counts. */

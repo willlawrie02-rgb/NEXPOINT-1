@@ -670,8 +670,14 @@
      one. A press in those two minutes used to say a new link was on its way
      when nothing had gone, and the button then left the card (audit of 14
      November 2026, item 8; plan 093). So the button waits the two minutes
-     out, counting down, and stays for another try after each send. */
-  const RESEND_WAIT_S = 120; /* the worker's CONFIRM_RESEND_COOLDOWN_MS (auth.js), in seconds */
+     out (and a little more, see RESEND_WAIT_S), counting down, and stays for
+     another try after each send. */
+  /* The worker's CONFIRM_RESEND_COOLDOWN_MS (auth.js) is 120 seconds, but its
+     clock starts when the email log row is written after the send, a second
+     or two after this card appears. Counting exactly 120 from here would end
+     inside the worker's window: nothing sent, and the card saying a link is
+     on its way. So ten seconds more. */
+  const RESEND_WAIT_S = 130;
   const RESEND_LABEL = 'Resend the email';
   function wireResend(btn, email) {
     if (!btn) return;
