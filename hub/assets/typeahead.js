@@ -190,9 +190,8 @@
        picking anything left `chosen` pointing at the old value while the
        input showed whatever the host had typed. Blur is the one moment a
        single-select's text is final: reconcile there, so what leaves the
-       field is always what the field displays. Multi-select chips do not
-       go through this: a multi input is always cleared after each pick, so
-       there is nothing of its own left to commit on blur. */
+       field is always what the field displays. A multi-select settles its
+       own typed words in commitMultiOnBlur, below. */
     function commitSingleOnBlur() {
       if (multi) return;
       const raw = input.value.trim();
@@ -205,11 +204,29 @@
       input.value = currentLabel;
     }
 
+    /* A multi-select's typed words used to be dropped when the field was left
+       without Enter or a click (audit of 14 November 2026): value() returns
+       chips only. Leaving the field now turns them into a chip where the field
+       takes typed words, or where they name something on the list. On a fixed
+       list, words that are not on it stay in the box, and pending() names them
+       so the form can say so. */
+    function commitMultiOnBlur() {
+      if (!multi) return;
+      const raw = input.value.trim();
+      if (!raw) return;
+      const exact = options.find((o) => o.label.toLowerCase() === raw.toLowerCase());
+      const option = exact || (allowFree ? { term: raw, label: raw, free: true } : null);
+      if (!option) return;
+      if (has(option.term)) { input.value = ''; closeList(); return; }
+      add(option);
+      closeList();
+    }
+
     input.addEventListener('input', renderList);
     input.addEventListener('focus', renderList);
     /* a click into a field that already has focus reopens the list too */
     input.addEventListener('click', () => { if (!open) renderList(); });
-    input.addEventListener('blur', () => { commitSingleOnBlur(); setTimeout(closeList, 120); });
+    input.addEventListener('blur', () => { commitSingleOnBlur(); commitMultiOnBlur(); setTimeout(closeList, 120); });
 
     input.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowDown') { e.preventDefault(); move(1); return; }
@@ -236,6 +253,11 @@
         return input.value.trim() ? (values()[0] || null) : null;
       },
       chosen: function () { return chosen.slice(); },
+      /* Settle whatever is typed, as leaving the field would. A form calls this
+         before it reads, so a read never depends on a blur having happened. */
+      commit: function () { commitSingleOnBlur(); commitMultiOnBlur(); return api; },
+      /* Words still in a multi-select's box after commit(): not on a fixed list. */
+      pending: function () { return multi ? input.value.trim() : ''; },
       set: function (v) {
         const wanted = normalise(Array.isArray(v) ? v : (v ? [v] : []));
         chosen = wanted.map((w) => options.find((o) => o.term === w.term) || w);

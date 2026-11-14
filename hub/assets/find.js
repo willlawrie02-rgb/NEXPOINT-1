@@ -266,9 +266,13 @@
         services.map((s) => pickChip('service', s.term, s.label, false, 'checkbox')).join('') +
         '</div></div>' +
 
-        '<div class="field full"><label for="fNotes">Anything else we should know? (optional)</label>' +
+        /* Plan 095 (decision D4, choice A): the worker holds these words back
+           from the site or cell until it accepts, so the box says who reads
+           it and when. */
+        '<div class="field full"><label for="fNotes">Anything else the ' + esc(siteNoun()) + ' should know? (optional)</label>' +
         '<textarea id="fNotes" placeholder="Three-quarter or full foot, tolerances, finishing, the deadline behind the deadline">' +
-        '</textarea></div>' +
+        '</textarea>' +
+        '<span class="np-hint">NexPoint reads this straight away. The ' + esc(siteNoun()) + ' reads it only once it accepts, so leave out your name and your contact details: the introduction shares those.</span></div>' +
 
       '</div>' +
       '<p class="np-sign-error" id="findErr" style="display:none"></p>' +
