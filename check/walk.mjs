@@ -1725,6 +1725,12 @@ async function walkFindMap() {
     eq(order, true, "Is this a one off? sits above How many");
     return has(await page.textContent("#fCadenceLabel"), "one off", "the cadence question");
   });
+  await step("the last box says who reads it and when: NexPoint straight away, the site only once it accepts (plan 095)", async () => {
+    eq((await page.textContent('label[for="fNotes"]')).trim(), "Anything else the site should know? (optional)", "the label");
+    eq((await page.textContent("#fNotes ~ .np-hint")).trim(),
+      "NexPoint reads this straight away. The site reads it only once it accepts, so leave out your name and your contact details: the introduction shares those.", "the hint");
+    return has(await page.getAttribute("#fNotes", "placeholder"), "Three-quarter or full foot", "the placeholder stays");
+  });
   await step("A first search opens the Seeker Agreement: no search, no card, before the tick", async () => {
     has(await page.textContent("#findSubmit"), "Find the sites that fit", "the button");
     await page.click(deviceBox("rigid"));
@@ -2369,6 +2375,42 @@ async function walkOfferCommit() {
       return eq(text.split("1 Works Road").length - 1, 1, "the address printed once, under Live now");
     });
     clean(world, errors, "the pending edit");
+    await context.close();
+  }
+
+  // 6. words typed and not clicked (plan 095; audit of 14 November 2026)
+  {
+    const { world, context, page, errors } = await open(MINE_LIVE);
+    world.api["POST /listings"] = () => [200, { ok: true, listing_id: "listing-1", revision_id: 3, live_revision_id: 2, revision_no: 3, status: "pending", geocoded: true,
+      live_now: [], waiting: [] }];
+    await step("the certifications box is a fixed list, so it does not invite typing", async () => {
+      await page.waitForSelector("#attr-certifications");
+      return eq(await page.getAttribute("#attr-certifications", "placeholder"), "Select from the list", "the placeholder");
+    });
+    await step("a certification typed that is not on the list is refused in words, and nothing is posted", async () => {
+      await page.fill("#attr-certifications", "ISO 14001");
+      await page.click("#listingSubmit");
+      await page.waitForSelector("#listingErr:not([style*='display: none'])");
+      eq((await page.textContent("#listingErr")).trim(),
+        '"ISO 14001" is not on the certifications list. Choose from the list, or clear the box and name it under Quality systems and standards.', "the error line");
+      eq(await page.inputValue("#attr-certifications"), "ISO 14001", "the words stay in the box");
+      return eq(posted(world).length, 0, "posts");
+    });
+    await step("a certification typed that is on the list becomes a chip when the box is left", async () => {
+      await page.fill("#attr-certifications", "iso 9001");
+      await page.click("#siteTown");
+      await page.waitForFunction(() => /ISO 9001/.test(document.getElementById("attr-certifications").closest(".field").textContent));
+      return eq(await page.inputValue("#attr-certifications"), "", "the box is empty again");
+    });
+    await step("a material typed and not clicked is sent with the listing: no Enter, straight to the send button", async () => {
+      await page.fill("#m-1-materials", "TPU 95A");
+      await page.click("#listingSubmit");
+      await until(() => posted(world).length > 0, "the POST");
+      const body = posted(world)[0].body;
+      eq(body.machines[0].materials, ["pa12_nylon12", "TPU 95A"], "the materials sent");
+      return eq(body.attributes.certifications, ["ISO 9001"], "the certifications sent");
+    });
+    clean(world, errors, "the form with words typed and not clicked");
     await context.close();
   }
 }
