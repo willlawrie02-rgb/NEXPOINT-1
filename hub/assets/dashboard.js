@@ -378,10 +378,21 @@
   /* The one line an introduced row ends on (plan 052 item 26). The other
      side's details travel in the plain-text introduction email only, so the
      page says where it is and how to carry on, and shows no address. */
-  function inboxLine(ref, date) {
+  /* Plan 095: the line no longer says "in your inbox" when the worker says
+     the email with each other's details did not go, or is still on its way.
+     state is 'failed-host' (the side that can send it again), 'failed-other',
+     'waiting', or anything else for the line as it always read. */
+  function inboxLine(ref, date, state) {
+    var tail = state === 'failed-host'
+      ? 'The email that gives you both each other\'s details did not go. Send it again with the button here, or email hello@nexpoint.co.uk and we will send it by hand.'
+      : state === 'failed-other'
+        ? 'The email with each other\'s details has not gone yet. NexPoint has been told and will send it.'
+        : state === 'waiting'
+          ? 'The introduction email is on its way.'
+          : 'The introduction is in your inbox; reply to all to carry on.';
     return '<div class="acct-released"><span>' + esc(
       (date ? 'Introduced on ' + fmtDate(date) + ', ref ' + ref + '. ' : 'Introduced, ref ' + ref + '. ') +
-      'The introduction is in your inbox; reply to all to carry on.') + '</span></div>';
+      tail) + '</span></div>';
   }
 
   function pickBlock(p, intro, hub) {
@@ -409,7 +420,9 @@
         return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>';
       }).join('') + '</dl>' : '') +
       statusChain(p.stage) +
-      (accepted ? inboxLine(p.ref || (intro && intro.ref) || '', introDate(intro)) : '') +
+      (accepted ? inboxLine(p.ref || (intro && intro.ref) || '', introDate(intro),
+        intro && intro.stage === 'introduced' && intro.release === 'failed' ? 'failed-other'
+          : (intro && intro.stage === 'introduced' && intro.release === 'waiting' ? 'waiting' : '')) : '') +
     '</div>';
   }
 
@@ -592,6 +605,12 @@
     if (i.stage === 'awaiting_acceptance' && i.acceptance_expires_at) extra.push('Open until ' + fmtDate(i.acceptance_expires_at) + '.');
     var accepted = acceptedStage(i.stage);
     var canAnswer = showResend && answerable(i);
+    /* Plan 095: the worker says whether the email that gives both sides each
+       other's details went. Only the answering side can send it again. */
+    var releaseFailed = i.stage === 'introduced' && i.release === 'failed';
+    var canResendRelease = showResend && releaseFailed;
+    var releaseState = releaseFailed ? (showResend ? 'failed-host' : 'failed-other')
+      : (i.stage === 'introduced' && i.release === 'waiting' ? 'waiting' : '');
     return '<div class="acct-row" id="intro-' + esc(i.id) + '">' +
       '<div class="acct-row__meta">' +
         '<b>' + refLine(i.ref, i.hub) + tagHtml(tag) + '</b>' +
@@ -599,7 +618,7 @@
         extra.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') +
         pairMapBox(i, offer) +
         statusChain(i.stage) +
-        (accepted ? inboxLine(i.ref || '', introDate(i)) : '') +
+        (accepted ? inboxLine(i.ref || '', introDate(i), releaseState) : '') +
         (canAnswer ? answerPanel(i) : '') +
       '</div>' +
       '<div class="acct-row__actions">' +
@@ -610,7 +629,10 @@
         (showResend && i.stage === 'awaiting_acceptance'
           ? '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Send the email again</button>'
           : '') +
-        (showResend && i.stage === 'awaiting_acceptance'
+        (canResendRelease
+          ? '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Send the introduction email again</button>'
+          : '') +
+        (showResend && (i.stage === 'awaiting_acceptance' || canResendRelease)
           ? '<span class="acct-msg" id="introMsg-' + esc(i.id) + '" hidden></span>'
           : '') +
       '</div>' +
@@ -1257,6 +1279,10 @@
          2026). The worker counts the attempt towards its two-minute wait,
          so the advice is a few minutes, not "try again" at once. */
       if (code === 'send_failed') { say(msg, 'We could not send that just now. Try again in a few minutes, or email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
+      /* Plan 095: the two answers the button for the introduction email can
+         also meet. The first is not a failure: the email has gone. */
+      if (code === 'this introduction has already been answered') { say(msg, 'This introduction has already been answered and its email has gone. Check your inbox and your spam folder, or email hello@nexpoint.co.uk.'); return; }
+      if (code === 'email log unavailable') { say(msg, 'We could not check that just now. Try again in a few minutes, or email hello@nexpoint.co.uk.', true); return; }
       say(msg, 'That did not go through. Try again, or email hello@nexpoint.co.uk.', true);
     });
   }
