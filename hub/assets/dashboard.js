@@ -735,7 +735,9 @@
 
     return '<div class="acct-card">' +
       '<h3>' + esc(fmtPeriod(period)) + '</h3>' +
-      '<p class="hint">' + esc(dueLine(dec.due_state)) + ' One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.</p>' +
+      /* A sent month that is being changed (plan 098) has no due line: it is
+         not open, overdue or reminded, it is being replaced. */
+      '<p class="hint">' + (dec.due_state === 'submitted' ? '' : esc(dueLine(dec.due_state)) + ' ') + 'One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.</p>' +
       '<div class="acct-scroll"><table class="decl-table">' +
         '<thead><tr><th>Introduction</th><th>Units</th><th>Value</th><th>Currency</th><th>Nothing</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
@@ -774,7 +776,24 @@
     var dec = d.declarations;
     var body;
     if (!dec) body = empty('Declarations open soon.', 'event_upcoming');
-    else if (dec.due_state === 'submitted') body = empty('Declared for ' + (fmtPeriod(dec.period_open) || 'this period') + '. Nothing else to send.', 'task_alt');
+    else if (dec.due_state === 'submitted') {
+      /* A sent declaration can be changed until its month is on a statement
+         (plan 098, decision 4): the worker supersedes the earlier lines, and
+         refuses with words of its own once a statement holds them. The form
+         opens empty and what is sent replaces the whole month. */
+      var canChange = Array.isArray(dec.items) && dec.items.length > 0;
+      if (canChange && declReopen && declReopen === dec.period_open) {
+        body = '<p class="hint">You are changing your declaration for ' + esc(fmtPeriod(dec.period_open)) +
+          '. What you send now replaces what you sent before, so answer every introduction again.</p>' +
+          declCard(dec, declHubOf(dec, byId) || hostHubs(s)[0] || '');
+      } else {
+        body = empty('Declared for ' + (fmtPeriod(dec.period_open) || 'this period') + '. Nothing else to send.', 'task_alt') +
+          (canChange
+            ? '<div class="modal-actions" style="margin-top:14px"><button class="btn btn-outline acct-btn-sm" type="button" ' +
+              'data-act="decl-change" data-period="' + esc(dec.period_open) + '">Change this declaration</button></div>'
+            : '');
+      }
+    }
     else if (dec.due_state === 'due' || dec.due_state === 'reminder' || dec.due_state === 'overdue') {
       body = declCard(dec, declHubOf(dec, byId) || hostHubs(s)[0] || '');
     } else body = empty(isHost(s) || closedHost(d, s)
@@ -796,6 +815,8 @@
     }
   }
   var declTerms = null;
+  /* The month whose sent declaration the host has asked to change, or null. */
+  var declReopen = null;
   function drawDeclTerms(layer, note, fresh) {
     return NPAccount.termsBlock(el('declTerms'), layer || 'host', { note: note, fresh: fresh }).then(function (t) {
       declTerms = t && t.ok && !t.held ? Object.assign({ layer: layer || 'host' }, t) : null;
@@ -1310,7 +1331,10 @@
       .then(function (d) {
         if (d && d.ok) {
           if (body.terms_version_id) NPAccount.noteAccepted(sentLayer);
-          say(msg, nil ? 'Sent. No orders declared for ' + fmtPeriod(period) + '.' : 'Sent. Thank you.');
+          var changed = declReopen === period;
+          say(msg, changed ? 'Sent. Your declaration for ' + fmtPeriod(period) + ' has been replaced.'
+            : nil ? 'Sent. No orders declared for ' + fmtPeriod(period) + '.' : 'Sent. Thank you.');
+          if (changed) declReopen = null;
           reload();
           return;
         }
@@ -1469,6 +1493,7 @@
     if (act === 'decl-submit') { gate(function () { submitDeclaration(btn); }); return; }
     if (act === 'decl-nil-confirm') { gate(function () { submitDeclaration(btn, true); }); return; }
     if (act === 'decl-nil-back') { declNilBack(btn.getAttribute('data-period') || ''); return; }
+    if (act === 'decl-change') { declReopen = btn.getAttribute('data-period') || null; load(); return; }
     if (act === 'intro-resend') { gate(function () { resendIntro(btn); }); return; }
     if (act === 'intro-accept-open') { openAnswer(btn, 'accept'); return; }
     if (act === 'intro-decline-open') { openAnswer(btn, 'decline'); return; }

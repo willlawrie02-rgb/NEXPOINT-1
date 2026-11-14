@@ -279,6 +279,7 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
   if (dash.includes("nothing_this_month: lines.length === 0")) fail(`${FILE}: the nil flag is still worked out from an empty form (plan 098)`);
   if (!dash.includes('data-act="decl-nil-confirm"')) fail(`${FILE}: the nil return has no confirm button (plan 098)`);
   if (!dash.includes("nothing_for: answers.nothingFor")) fail(`${FILE}: the declaration does not send nothing_for (plan 098)`);
+  if (!dash.includes('data-act="decl-change"')) fail(`${FILE}: a sent declaration has no Change this declaration button (plan 098)`);
 
   // The plan's words, each one present and none on a line with an em-dash.
   const WORDS = [
@@ -292,6 +293,12 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
     "Sent. No orders declared for ",
     "Every introduction needs an answer: a value, or a tick under Nothing. If you have answered them all, reload the page and declare again.",
     "One introduction has both figures and a Nothing tick. Clear one of them and send again.",
+    // Step 6: a sent declaration can be changed until its month is on a statement.
+    "Change this declaration",
+    "You are changing your declaration for ",
+    ". What you send now replaces what you sent before, so answer every introduction again.",
+    "Sent. Your declaration for ",
+    " has been replaced.",
   ];
   for (const want of WORDS) {
     if (!dash.includes(want)) fail(`${FILE}: missing "${want}" (plan 098)`);

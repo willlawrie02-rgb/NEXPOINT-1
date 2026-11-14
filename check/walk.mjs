@@ -4192,6 +4192,61 @@ async function walkTerms() {
     await context.close();
   }
   {
+    /* Plan 098, decision 4: a sent declaration can be changed. The form opens
+       empty under a note that says what a second send does. */
+    const decl = { due_state: "submitted", period_open: "2026-10", hub: "print", history: [{ period: "2026-10", hub: "print", status: "nothing", submitted_at: "2026-11-02T09:00:00Z" }],
+      items: [{ introduction_id: 7, ref: "INTRO-0007", seeker_town: "Bristol", seeker_country: "United Kingdom" }] };
+    const world = termsWorld({ terms: TERMS_STATE({ host: HELD(TERMS_ID.host) }), summary: Object.assign({}, EMPTY_SUMMARY, hostOrg, { declarations: decl }) });
+    world.api["POST /declarations"] = () => [200, { ok: true }];
+    const { context, page, errors } = await visit(world);
+    await step("a sent declaration offers Change this declaration; the form opens empty with the replace note, and what is sent replaces the month", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector('[data-act="decl-change"]');
+      await settled(page);
+      has(await page.textContent("#declarations"), "Declared for October 2026. Nothing else to send.", "the sent line");
+      eq((await page.textContent('[data-act="decl-change"]')).trim(), "Change this declaration", "the button");
+      eq(await page.locator('[data-act="decl-submit"]').count(), 0, "a form before it is asked for");
+      await shot(page, "declaration-sent-change", "#declarations");
+      await page.click('[data-act="decl-change"]');
+      await page.waitForSelector('[data-act="decl-submit"]');
+      const text = await page.textContent("#declarations");
+      has(text, "You are changing your declaration for October 2026. What you send now replaces what you sent before, so answer every introduction again.", "the replace note");
+      eq(/Open now|Overdue|sent a reminder/.test(text), false, "a due line on a month that is being changed");
+      eq(await page.inputValue("#decl-2026-10-7-value"), "", "the value the form opens with");
+      eq(await page.isChecked("#decl-2026-10-7-nothing"), false, "the Nothing tick the form opens with");
+      await shot(page, "declaration-being-changed", "#declarations");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /Answer INTRO-0007/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations from the empty reopened form");
+      await page.fill("#decl-2026-10-7-units", "4");
+      await page.fill("#decl-2026-10-7-value", "980.50");
+      await page.click('[data-act="decl-submit"]');
+      await until(() => apiCalls(world, "POST /declarations").length === 1, "the changed declaration");
+      const sent = apiCalls(world, "POST /declarations")[0].body;
+      eq(sent.period, "2026-10", "the month");
+      eq(sent.nothing_this_month, false, "the nil flag");
+      eq(sent.lines, [{ introduction_id: 7, units: 4, value: 980.5, currency: "GBP" }], "the lines");
+      eq(sent.nothing_for, [], "the introductions ticked Nothing");
+      await page.waitForFunction(() => /^Sent\./.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "Sent. Your declaration for October 2026 has been replaced.", "the words after a change");
+      /* The page reloads the summary: the sent line and the button return. */
+      await page.waitForSelector('[data-act="decl-change"]');
+      eq(await page.locator('[data-act="decl-submit"]').count(), 0, "a form after the change is sent");
+    });
+    await step("a month already on a statement says so when a change is sent, and keeps the form", async () => {
+      world.api["POST /declarations"] = () => [409, { error: "statement_issued" }];
+      await page.click('[data-act="decl-change"]');
+      await page.waitForSelector('[data-act="decl-submit"]');
+      await page.fill("#decl-2026-10-7-value", "50");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /already on a statement/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "That month is already on a statement and cannot be changed. Email hello@nexpoint.co.uk if something is wrong.", "the refusal");
+      eq(await page.inputValue("#decl-2026-10-7-value"), "50", "the value after the refusal");
+    });
+    clean(world, errors, "changing a sent declaration");
+    await context.close();
+  }
+  {
     const rows = [
       { layer: "platform", title: "Platform Terms", current_version: "2.0", accepted_version: "2.0", accepted_at: "2026-11-04T09:00:00Z", stale: false, pdf_path: "/terms/platform/2.0.pdf" },
       { layer: "host", title: "Host Agreement", current_version: "2.0", accepted_version: "1.3", accepted_at: "2026-10-01T09:00:00Z", stale: true, pdf_path: "/terms/host/1.3.pdf" },
