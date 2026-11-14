@@ -2919,6 +2919,44 @@ async function walkAccount() {
       clean(world, errors, "the seeker's page with an email that did not go");
       await context.close();
     }
+    {
+      // Follow-up of 14 November: "unrecorded" is no attempt on the log at all,
+      // so nothing says NexPoint was told. The host can still send it again;
+      // the seeker keeps the line it read before, with no such claim.
+      const world = hostRow("unrecorded");
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a host whose introduction email has no record of a send is offered Send the introduction email again", async () => {
+        await page.waitForSelector("#intro-12");
+        eq(await page.locator('#intro-12 [data-act="intro-resend"][data-kind="release"]').count(), 1, "buttons");
+        eq((await page.textContent("#intro-12")).includes("is in your inbox"), false, "the row says the email is in the inbox");
+      });
+      clean(world, errors, "the host's page with an email that has no record");
+      await context.close();
+    }
+    {
+      const world = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+        org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "none", host_print: "none", host_mill: "none" },
+        introductions: [{ id: 9, ref: "INTRO-0009", hub: "print", stage: "introduced", seeker_request_id: 3, accepted_a_at: "2026-11-10T09:00:00Z",
+          accepted_b_at: "2026-11-10T10:00:00Z", acceptance_expires_at: null, declined_at: null, created_at: "2026-11-09T09:00:00Z", role: "seeker",
+          introduced_at: "2026-11-10T10:00:00Z", release: "unrecorded" }],
+        requests: [{ id: 3, ref: "PS-0050", hub: "print", material: "pa12_nylon12", quantity: 10, cadence: "once", status: "picked",
+          created_at: "2026-11-09T09:00:00Z", no_match: false,
+          picks: [{ introduction_id: 9, ref: "INTRO-0009", stage: "introduced", card: { town: "Derby", country: "United Kingdom", materials: ["pa12_nylon12"] } }] }],
+        hubs_used: ["print"],
+      }) });
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("the seeker of an introduction with no record of a send keeps its earlier line, and is never told NexPoint has been told", async () => {
+        await page.waitForSelector("#introductions .acct-pick");
+        const text = await page.textContent("#introductions");
+        has(text, INBOX, "the pick");
+        eq(text.includes("NexPoint has been told"), false, "the page says NexPoint has been told");
+        eq(await page.locator('#introductions [data-act="intro-resend"]').count(), 0, "buttons");
+      });
+      clean(world, errors, "the seeker's page with an email that has no record");
+      await context.close();
+    }
   }
 }
 

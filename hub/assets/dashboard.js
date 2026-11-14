@@ -606,10 +606,12 @@
     var accepted = acceptedStage(i.stage);
     var canAnswer = showResend && answerable(i);
     /* Plan 095: the worker says whether the email that gives both sides each
-       other's details went. Only the answering side can send it again. */
-    var releaseFailed = i.stage === 'introduced' && i.release === 'failed';
+       other's details went. Only the answering side can send it again.
+       'unrecorded' (no attempt on the log at all) can be sent again too, but
+       the other side is not told NexPoint knows: nothing says it was told. */
+    var releaseFailed = i.stage === 'introduced' && (i.release === 'failed' || i.release === 'unrecorded');
     var canResendRelease = showResend && releaseFailed;
-    var releaseState = releaseFailed ? (showResend ? 'failed-host' : 'failed-other')
+    var releaseState = releaseFailed ? (showResend ? 'failed-host' : i.release === 'failed' ? 'failed-other' : '')
       : (i.stage === 'introduced' && i.release === 'waiting' ? 'waiting' : '');
     return '<div class="acct-row" id="intro-' + esc(i.id) + '">' +
       '<div class="acct-row__meta">' +
