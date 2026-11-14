@@ -4091,18 +4091,42 @@ async function walkTerms() {
     const world = termsWorld({ summary: Object.assign({}, EMPTY_SUMMARY, hostOrg, { declarations: decl }) });
     world.api["POST /declarations"] = () => [200, { ok: true }];
     const { context, page, errors } = await visit(world);
-    await step("31 a declaration by a seller holding nothing shows the Host Agreement, and the tick goes with it, nil return or not", async () => {
+    /* Plan 098: an untouched form is not a nil return. The row is answered
+       first, then the Host Agreement, then a month with no orders asks once
+       more; only the confirm press sends it. */
+    await step("31 a declaration by a seller holding nothing shows the Host Agreement; an untouched form sends nothing; a nil return is asked once more, and the tick goes with it", async () => {
       await page.goto(`${APEX}/hub/account/`);
       await page.waitForSelector("#declTerms [data-np-terms-tick]");
       has(await page.textContent("#declTerms"), DOC_WORDS.host, "the document");
+      has(await page.textContent("#declarations .acct-card"), "One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.", "the hint");
       await shot(page, "declaration-host-agreement", "#declTerms");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /Answer INTRO-0007/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "Answer INTRO-0007: enter a value, or tick Nothing if no orders came through.", "the blank row's words");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.id), "decl-2026-10-7-value", "the focus");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations from an untouched form");
+      await page.check("#decl-2026-10-7-nothing");
       await page.click('[data-act="decl-submit"]');
       await page.waitForFunction(() => /tick to accept it/.test(document.getElementById("declMsg-2026-10").textContent));
       eq(apiCalls(world, "POST /declarations").length, 0, "declarations unticked");
       await page.check("#declTerms [data-np-terms-tick]");
       await page.click('[data-act="decl-submit"]');
+      await page.waitForSelector("#declNil-2026-10:not([hidden])");
+      eq(await page.textContent("#declMsg-2026-10"), "You are declaring that no orders came through any of your introductions in October 2026. Your declaration is the record. Confirm it, or go back and enter what came through.", "the question");
+      eq((await page.textContent('#declNil-2026-10 [data-act="decl-nil-confirm"]')).trim(), "Confirm no orders in October 2026", "the confirm button");
+      eq((await page.textContent('#declNil-2026-10 [data-act="decl-nil-back"]')).trim(), "Go back to the form", "the way back");
+      eq(await page.isVisible("#declSubmit-2026-10"), false, "the Send button while the question shows");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations before the nil return is confirmed");
+      await shot(page, "declaration-nil-question", "#declarations");
+      await page.click('[data-act="decl-nil-confirm"]');
       await until(() => apiCalls(world, "POST /declarations").length === 1, "the declaration");
-      eq(apiCalls(world, "POST /declarations")[0].body.terms_version_id, TERMS_ID.host, "the version");
+      const sent = apiCalls(world, "POST /declarations")[0].body;
+      eq(sent.terms_version_id, TERMS_ID.host, "the version");
+      eq(sent.nothing_this_month, true, "the nil flag");
+      eq(sent.lines, [], "the lines");
+      eq(sent.nothing_for, [7], "the introductions ticked Nothing");
+      await page.waitForFunction(() => /^Sent\./.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "Sent. No orders declared for October 2026.", "the words after a nil return");
     });
     clean(world, errors, "a declaration while holding nothing");
     await context.close();
@@ -4112,16 +4136,115 @@ async function walkTerms() {
     const world = termsWorld({ terms: TERMS_STATE({ host: HELD(TERMS_ID.host) }), summary: Object.assign({}, EMPTY_SUMMARY, hostOrg, { declarations: decl }) });
     world.api["POST /declarations"] = () => [200, { ok: true }];
     const { context, page, errors } = await visit(world);
-    await step("a declaration by a host holding the version shows no block and sends no version", async () => {
+    await step("a declaration by a host holding the version shows no block and sends no version; a value goes on the first press", async () => {
       await page.goto(`${APEX}/hub/account/`);
       await page.waitForSelector('[data-act="decl-submit"]');
       await settled(page);
       eq(await page.locator("#declTerms .terms-scroll, #declTerms [data-np-terms-tick]").count(), 0, "a terms block");
+      await page.fill("#decl-2026-10-7-value", "120");
       await page.click('[data-act="decl-submit"]');
       await until(() => apiCalls(world, "POST /declarations").length === 1, "the declaration");
-      eq("terms_version_id" in apiCalls(world, "POST /declarations")[0].body, false, "a version");
+      const sent = apiCalls(world, "POST /declarations")[0].body;
+      eq("terms_version_id" in sent, false, "a version");
+      eq(sent.nothing_this_month, false, "the nil flag");
+      eq(sent.lines, [{ introduction_id: 7, units: null, value: 120, currency: "GBP" }], "the lines");
+      eq(sent.nothing_for, [], "the introductions ticked Nothing");
+      await page.waitForFunction(() => /^Sent\./.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "Sent. Thank you.", "the words after a declaration with lines");
     });
     clean(world, errors, "a declaration while holding the version");
+    await context.close();
+  }
+  {
+    /* Plan 098: the way back from the nil-return question, and a row that
+       carries both figures and a Nothing tick. */
+    const decl = { due_state: "due", period_open: "2026-10", hub: "print", history: [], items: [{ introduction_id: 7, ref: "INTRO-0007" }] };
+    const world = termsWorld({ terms: TERMS_STATE({ host: HELD(TERMS_ID.host) }), summary: Object.assign({}, EMPTY_SUMMARY, hostOrg, { declarations: decl }) });
+    world.api["POST /declarations"] = () => [200, { ok: true }];
+    const { context, page, errors } = await visit(world);
+    await step("a nil return can be stepped back from: Go back to the form returns the Send button and sends nothing; figures beside a Nothing tick are refused; the value then goes as a line", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector('[data-act="decl-submit"]');
+      await settled(page);
+      await page.check("#decl-2026-10-7-nothing");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForSelector("#declNil-2026-10:not([hidden])");
+      eq(await page.isVisible("#declSubmit-2026-10"), false, "the Send button while the question shows");
+      await page.click('[data-act="decl-nil-back"]');
+      await page.waitForSelector("#declSend-2026-10:not([hidden])");
+      eq(await page.isVisible("#declSubmit-2026-10"), true, "the Send button after going back");
+      eq(await page.isVisible("#declNil-2026-10"), false, "the confirm buttons after going back");
+      eq(await page.isVisible("#declMsg-2026-10"), false, "the question after going back");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations after going back");
+      await page.fill("#decl-2026-10-7-value", "250");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /Nothing tick/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "INTRO-0007 has figures and a Nothing tick. Clear the figures or untick Nothing.", "the words for figures beside a tick");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations with figures beside a tick");
+      await page.uncheck("#decl-2026-10-7-nothing");
+      await page.click('[data-act="decl-submit"]');
+      await until(() => apiCalls(world, "POST /declarations").length === 1, "the declaration");
+      const sent = apiCalls(world, "POST /declarations")[0].body;
+      eq(sent.nothing_this_month, false, "the nil flag");
+      eq(sent.lines, [{ introduction_id: 7, units: null, value: 250, currency: "GBP" }], "the lines");
+      eq(sent.nothing_for, [], "the introductions ticked Nothing");
+    });
+    clean(world, errors, "a nil return stepped back from");
+    await context.close();
+  }
+  {
+    /* Plan 098, decision 4: a sent declaration can be changed. The form opens
+       empty under a note that says what a second send does. */
+    const decl = { due_state: "submitted", period_open: "2026-10", hub: "print", history: [{ period: "2026-10", hub: "print", status: "nothing", submitted_at: "2026-11-02T09:00:00Z" }],
+      items: [{ introduction_id: 7, ref: "INTRO-0007", seeker_town: "Bristol", seeker_country: "United Kingdom" }] };
+    const world = termsWorld({ terms: TERMS_STATE({ host: HELD(TERMS_ID.host) }), summary: Object.assign({}, EMPTY_SUMMARY, hostOrg, { declarations: decl }) });
+    world.api["POST /declarations"] = () => [200, { ok: true }];
+    const { context, page, errors } = await visit(world);
+    await step("a sent declaration offers Change this declaration; the form opens empty with the replace note, and what is sent replaces the month", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector('[data-act="decl-change"]');
+      await settled(page);
+      has(await page.textContent("#declarations"), "Declared for October 2026. Nothing else to send.", "the sent line");
+      eq((await page.textContent('[data-act="decl-change"]')).trim(), "Change this declaration", "the button");
+      eq(await page.locator('[data-act="decl-submit"]').count(), 0, "a form before it is asked for");
+      await shot(page, "declaration-sent-change", "#declarations");
+      await page.click('[data-act="decl-change"]');
+      await page.waitForSelector('[data-act="decl-submit"]');
+      const text = await page.textContent("#declarations");
+      has(text, "You are changing your declaration for October 2026. What you send now replaces what you sent before, so answer every introduction again.", "the replace note");
+      eq(/Open now|Overdue|sent a reminder/.test(text), false, "a due line on a month that is being changed");
+      eq(await page.inputValue("#decl-2026-10-7-value"), "", "the value the form opens with");
+      eq(await page.isChecked("#decl-2026-10-7-nothing"), false, "the Nothing tick the form opens with");
+      await shot(page, "declaration-being-changed", "#declarations");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /Answer INTRO-0007/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations from the empty reopened form");
+      await page.fill("#decl-2026-10-7-units", "4");
+      await page.fill("#decl-2026-10-7-value", "980.50");
+      await page.click('[data-act="decl-submit"]');
+      await until(() => apiCalls(world, "POST /declarations").length === 1, "the changed declaration");
+      const sent = apiCalls(world, "POST /declarations")[0].body;
+      eq(sent.period, "2026-10", "the month");
+      eq(sent.nothing_this_month, false, "the nil flag");
+      eq(sent.lines, [{ introduction_id: 7, units: 4, value: 980.5, currency: "GBP" }], "the lines");
+      eq(sent.nothing_for, [], "the introductions ticked Nothing");
+      await page.waitForFunction(() => /^Sent\./.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "Sent. Your declaration for October 2026 has been replaced.", "the words after a change");
+      /* The page reloads the summary: the sent line and the button return. */
+      await page.waitForSelector('[data-act="decl-change"]');
+      eq(await page.locator('[data-act="decl-submit"]').count(), 0, "a form after the change is sent");
+    });
+    await step("a month already on a statement says so when a change is sent, and keeps the form", async () => {
+      world.api["POST /declarations"] = () => [409, { error: "statement_issued" }];
+      await page.click('[data-act="decl-change"]');
+      await page.waitForSelector('[data-act="decl-submit"]');
+      await page.fill("#decl-2026-10-7-value", "50");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /already on a statement/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "That month is already on a statement and cannot be changed. Email hello@nexpoint.co.uk if something is wrong.", "the refusal");
+      eq(await page.inputValue("#decl-2026-10-7-value"), "50", "the value after the refusal");
+    });
+    clean(world, errors, "changing a sent declaration");
     await context.close();
   }
   {

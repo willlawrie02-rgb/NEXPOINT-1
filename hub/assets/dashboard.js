@@ -735,16 +735,27 @@
 
     return '<div class="acct-card">' +
       '<h3>' + esc(fmtPeriod(period)) + '</h3>' +
-      '<p class="hint">' + esc(dueLine(dec.due_state)) + ' One line per introduction. Tick the last column where nothing came through.</p>' +
+      /* A sent month that is being changed (plan 098) has no due line: it is
+         not open, overdue or reminded, it is being replaced. */
+      '<p class="hint">' + (dec.due_state === 'submitted' ? '' : esc(dueLine(dec.due_state)) + ' ') + 'One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.</p>' +
       '<div class="acct-scroll"><table class="decl-table">' +
         '<thead><tr><th>Introduction</th><th>Units</th><th>Value</th><th>Currency</th><th>Nothing</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
       '</table></div>' +
       '<div class="acct-answer__terms" id="declTerms"></div>' +
       '<p class="acct-msg" id="declMsg-' + esc(period) + '" hidden></p>' +
-      '<div class="modal-actions">' +
+      '<div class="modal-actions" id="declSend-' + esc(period) + '">' +
         '<button class="btn btn-primary" type="button" id="declSubmit-' + esc(period) + '" data-act="decl-submit" ' +
           'data-period="' + esc(period) + '" data-hub="' + esc(hub) + '">Send this declaration</button>' +
+      '</div>' +
+      /* A month with no orders at all is asked once more before it goes
+         (plan 098): these two take the Send button's place until it is
+         confirmed or the host goes back. */
+      '<div class="modal-actions" id="declNil-' + esc(period) + '" hidden>' +
+        '<button class="btn btn-primary" type="button" data-act="decl-nil-confirm" ' +
+          'data-period="' + esc(period) + '" data-hub="' + esc(hub) + '">Confirm no orders in ' + esc(fmtPeriod(period)) + '</button>' +
+        '<button class="btn btn-outline" type="button" data-act="decl-nil-back" ' +
+          'data-period="' + esc(period) + '">Go back to the form</button>' +
       '</div>' +
     '</div>';
   }
@@ -765,7 +776,24 @@
     var dec = d.declarations;
     var body;
     if (!dec) body = empty('Declarations open soon.', 'event_upcoming');
-    else if (dec.due_state === 'submitted') body = empty('Declared for ' + (fmtPeriod(dec.period_open) || 'this period') + '. Nothing else to send.', 'task_alt');
+    else if (dec.due_state === 'submitted') {
+      /* A sent declaration can be changed until its month is on a statement
+         (plan 098, decision 4): the worker supersedes the earlier lines, and
+         refuses with words of its own once a statement holds them. The form
+         opens empty and what is sent replaces the whole month. */
+      var canChange = Array.isArray(dec.items) && dec.items.length > 0;
+      if (canChange && declReopen && declReopen === dec.period_open) {
+        body = '<p class="hint">You are changing your declaration for ' + esc(fmtPeriod(dec.period_open)) +
+          '. What you send now replaces what you sent before, so answer every introduction again.</p>' +
+          declCard(dec, declHubOf(dec, byId) || hostHubs(s)[0] || '');
+      } else {
+        body = empty('Declared for ' + (fmtPeriod(dec.period_open) || 'this period') + '. Nothing else to send.', 'task_alt') +
+          (canChange
+            ? '<div class="modal-actions" style="margin-top:14px"><button class="btn btn-outline acct-btn-sm" type="button" ' +
+              'data-act="decl-change" data-period="' + esc(dec.period_open) + '">Change this declaration</button></div>'
+            : '');
+      }
+    }
     else if (dec.due_state === 'due' || dec.due_state === 'reminder' || dec.due_state === 'overdue') {
       body = declCard(dec, declHubOf(dec, byId) || hostHubs(s)[0] || '');
     } else body = empty(isHost(s) || closedHost(d, s)
@@ -787,6 +815,8 @@
     }
   }
   var declTerms = null;
+  /* The month whose sent declaration the host has asked to change, or null. */
+  var declReopen = null;
   function drawDeclTerms(layer, note, fresh) {
     return NPAccount.termsBlock(el('declTerms'), layer || 'host', { note: note, fresh: fresh }).then(function (t) {
       declTerms = t && t.ok && !t.held ? Object.assign({ layer: layer || 'host' }, t) : null;
@@ -1171,6 +1201,8 @@
     period_out_of_range: 'That month is not open for declarations.',
     statement_issued: 'That month is already on a statement and cannot be changed. Email hello@nexpoint.co.uk if something is wrong.',
     nothing_or_lines: 'Either tick Nothing for every introduction or enter at least one line.',
+    introduction_unanswered: 'Every introduction needs an answer: a value, or a tick under Nothing. If you have answered them all, reload the page and declare again.',
+    line_and_nothing: 'One introduction has both figures and a Nothing tick. Clear one of them and send again.',
   };
   function declError(code) { return DECL_ERRORS[code] || GENERIC_ERROR; }
 
@@ -1187,12 +1219,45 @@
     return function () { btn.disabled = false; btn.textContent = orig; };
   }
 
-  function submitDeclaration(btn) {
+  /* What the declaration form says, row by row (plan 098). Pure: no page and
+     no network, so check/review.mjs can run it. Every row is answered: a
+     value, or its Nothing tick. A blank row, a row with units and no value,
+     and a row with figures and a tick are each refused, the first one found. */
+  function declAnswers(rows) {
+    var lines = [], nothingFor = [], blocked = null;
+    rows.forEach(function (r) {
+      if (blocked) return;
+      var hasUnits = r.units !== '' && r.units != null;
+      var hasValue = r.value !== '' && r.value != null;
+      if (r.nothing) {
+        if (hasUnits || hasValue) { blocked = { id: r.id, ref: r.ref, why: 'both' }; return; }
+        nothingFor.push(r.id);
+        return;
+      }
+      if (!hasUnits && !hasValue) { blocked = { id: r.id, ref: r.ref, why: 'blank' }; return; }
+      if (!hasValue) { blocked = { id: r.id, ref: r.ref, why: 'value' }; return; }
+      lines.push({ introduction_id: r.id, units: hasUnits ? Number(r.units) : null,
+        value: Number(r.value), currency: r.currency || 'GBP' });
+    });
+    return { lines: lines, nothingFor: nothingFor, blocked: blocked };
+  }
+
+  /* The way back from the nil-return question: the Send button returns and
+     the question's words go. */
+  function declNilBack(period) {
+    var nil = el('declNil-' + period), send = el('declSend-' + period), msg = el('declMsg-' + period);
+    if (nil) nil.hidden = true;
+    if (send) send.hidden = false;
+    if (msg) msg.hidden = true;
+  }
+
+  /* confirmed is true only off the "Confirm no orders" button. Either press
+     reads the form afresh, so what is sent is what the form says now. */
+  function submitDeclaration(btn, confirmed) {
     var period = btn.getAttribute('data-period') || '';
     var hub = btn.getAttribute('data-hub') || '';
     var msg = el('declMsg-' + period);
-    var lines = [];
-    var blocked = null;
+    var rows = [];
     var prefix = 'decl-' + period + '-';
     var table = btn.closest('.acct-card');
     if (table) {
@@ -1201,35 +1266,42 @@
          selector. The ids it is compared against below go through el(), a
          plain getElementById lookup that needs no escaping of its own. */
       Array.prototype.forEach.call(table.querySelectorAll('input[id^="' + CSS.escape(prefix) + '"][id$="-units"]'), function (u) {
-        if (blocked) return;
         var introId = u.id.slice(prefix.length, u.id.length - '-units'.length);
         var nothing = el(prefix + introId + '-nothing');
-        if (nothing && nothing.checked) return;
         var value = el(prefix + introId + '-value');
         var currency = el(prefix + introId + '-currency');
-        var units = u.value === '' ? null : Number(u.value);
-        var val = (!value || value.value === '') ? null : Number(value.value);
-        if (units == null && val == null) return;
-        /* Units typed but no value: the worker refuses the whole submission
-           for this (line_value_required), so catch it here and point at the
-           one row that needs fixing instead of sending it. A value with no
-           units is fine - units are optional. */
-        if (units != null && val == null) {
-          var row = u.closest('tr');
-          var ref = (row && row.getAttribute('data-ref')) || introId;
-          blocked = { input: value, ref: ref };
-          return;
-        }
-        lines.push({ introduction_id: /^\d+$/.test(introId) ? Number(introId) : introId,
-          units: units, value: val, currency: currency ? currency.value : 'GBP' });
+        var row = u.closest('tr');
+        rows.push({ id: /^\d+$/.test(introId) ? Number(introId) : introId,
+          ref: (row && row.getAttribute('data-ref')) || introId,
+          units: u.value, value: value ? value.value : '',
+          currency: currency ? currency.value : 'GBP',
+          nothing: !!(nothing && nothing.checked) });
       });
     }
-    if (blocked) {
-      say(msg, 'Enter a value for ' + blocked.ref + ', or tick Nothing.', true);
-      if (blocked.input) blocked.input.focus();
+    /* Every row is answered before anything is sent (plan 098): a blank row is
+       not a nil answer, units need a value (the worker refuses the whole
+       submission for that, line_value_required; a value with no units is
+       fine), and figures beside a Nothing tick are never thrown away. The
+       words name the one row that needs fixing. */
+    var answers = declAnswers(rows);
+    if (answers.blocked) {
+      var b = answers.blocked;
+      /* A row changed while the nil-return question was showing: the form
+         is no longer a nil return, so the Send button comes back. */
+      declNilBack(period);
+      say(msg, b.why === 'both' ? b.ref + ' has figures and a Nothing tick. Clear the figures or untick Nothing.'
+        : b.why === 'value' ? 'Enter a value for ' + b.ref + ', or tick Nothing.'
+        : 'Answer ' + b.ref + ': enter a value, or tick Nothing if no orders came through.', true);
+      var fix = el(prefix + b.id + '-value');
+      if (fix) fix.focus();
       return;
     }
-    var body = { hub: hub, period: period, nothing_this_month: lines.length === 0, lines: lines };
+    /* The nil answer is said, never worked out from an empty form: every row
+       ticked Nothing is named in nothing_for, and the worker refuses a
+       declaration that leaves an open introduction unanswered. */
+    var nil = answers.lines.length === 0;
+    var body = { hub: hub, period: period, nothing_this_month: nil,
+      lines: answers.lines, nothing_for: answers.nothingFor };
     var tick = document.querySelector('#declTerms [data-np-terms-tick]');
     if (tick) {
       if (!tick.checked) {
@@ -1239,12 +1311,30 @@
       }
       if (declTerms) { body.terms_version_id = declTerms.id; var sentLayer = declTerms.layer; }
     }
+    /* A month with no orders at all asks once more before it is sent. A form
+       with at least one value goes on the first press: ticking a row is
+       already the deliberate act. */
+    if (nil && !confirmed) {
+      say(msg, 'You are declaring that no orders came through any of your introductions in ' + fmtPeriod(period) +
+        '. Your declaration is the record. Confirm it, or go back and enter what came through.');
+      var sendRow = el('declSend-' + period), nilRow = el('declNil-' + period);
+      if (sendRow) sendRow.hidden = true;
+      if (nilRow) {
+        nilRow.hidden = false;
+        var confirmBtn = nilRow.querySelector('[data-act="decl-nil-confirm"]');
+        if (confirmBtn) confirmBtn.focus();
+      }
+      return;
+    }
     var done = busy(btn, 'Sending…');
     post('/declarations', body)
       .then(function (d) {
         if (d && d.ok) {
           if (body.terms_version_id) NPAccount.noteAccepted(sentLayer);
-          say(msg, 'Sent. Thank you.');
+          var changed = declReopen === period;
+          say(msg, changed ? 'Sent. Your declaration for ' + fmtPeriod(period) + ' has been replaced.'
+            : nil ? 'Sent. No orders declared for ' + fmtPeriod(period) + '.' : 'Sent. Thank you.');
+          if (changed) declReopen = null;
           reload();
           return;
         }
@@ -1401,6 +1491,9 @@
     if (act === 'education') { if (window.openEducationList) openEducationList(); return; }
     if (act === 'reopen') { reopenAccount(); return; }
     if (act === 'decl-submit') { gate(function () { submitDeclaration(btn); }); return; }
+    if (act === 'decl-nil-confirm') { gate(function () { submitDeclaration(btn, true); }); return; }
+    if (act === 'decl-nil-back') { declNilBack(btn.getAttribute('data-period') || ''); return; }
+    if (act === 'decl-change') { declReopen = btn.getAttribute('data-period') || null; load(); return; }
     if (act === 'intro-resend') { gate(function () { resendIntro(btn); }); return; }
     if (act === 'intro-accept-open') { openAnswer(btn, 'accept'); return; }
     if (act === 'intro-decline-open') { openAnswer(btn, 'decline'); return; }

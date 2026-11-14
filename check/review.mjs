@@ -265,6 +265,82 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
   }
 }
 
+// ---------------------------------------------------------------- plan 098: a blank declaration is not a nil return
+// The audit of 14 November 2026 found that the page worked out "nothing this
+// month" from an empty form: one stray press filed a nil return, and a blank
+// row beside a filled one declared nothing for itself without a word. Every
+// row is now answered (a value, or its Nothing tick), and a month with no
+// orders at all asks once more. declAnswers is lifted out and every row of
+// the plan's table is run; the rest is read.
+{
+  const dash = read("hub/assets/dashboard.js");
+  const FILE = "hub/assets/dashboard.js";
+
+  if (dash.includes("nothing_this_month: lines.length === 0")) fail(`${FILE}: the nil flag is still worked out from an empty form (plan 098)`);
+  if (!dash.includes('data-act="decl-nil-confirm"')) fail(`${FILE}: the nil return has no confirm button (plan 098)`);
+  if (!dash.includes("nothing_for: answers.nothingFor")) fail(`${FILE}: the declaration does not send nothing_for (plan 098)`);
+  if (!dash.includes('data-act="decl-change"')) fail(`${FILE}: a sent declaration has no Change this declaration button (plan 098)`);
+
+  // The plan's words, each one present and none on a line with an em-dash.
+  const WORDS = [
+    "One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.",
+    ": enter a value, or tick Nothing if no orders came through.",
+    " has figures and a Nothing tick. Clear the figures or untick Nothing.",
+    "You are declaring that no orders came through any of your introductions in ",
+    ". Your declaration is the record. Confirm it, or go back and enter what came through.",
+    "Confirm no orders in ",
+    "Go back to the form",
+    "Sent. No orders declared for ",
+    "Every introduction needs an answer: a value, or a tick under Nothing. If you have answered them all, reload the page and declare again.",
+    "One introduction has both figures and a Nothing tick. Clear one of them and send again.",
+    // Step 6: a sent declaration can be changed until its month is on a statement.
+    "Change this declaration",
+    "You are changing your declaration for ",
+    ". What you send now replaces what you sent before, so answer every introduction again.",
+    "Sent. Your declaration for ",
+    " has been replaced.",
+  ];
+  for (const want of WORDS) {
+    if (!dash.includes(want)) fail(`${FILE}: missing "${want}" (plan 098)`);
+  }
+  for (const line of dash.split("\n")) {
+    if (line.includes("—") && WORDS.some((w) => line.includes(w))) fail(`${FILE}: an em-dash in the plan 098 words: ${line.trim().slice(0, 80)}`);
+  }
+
+  // declAnswers, run on every row of the plan's table. It is pure: nothing
+  // from the page is handed to it.
+  const m = dash.match(/function declAnswers\(rows\) \{[\s\S]*?\n  \}/);
+  if (!m) fail(`${FILE}: declAnswers was not found`);
+  else {
+    const answers = new Function(`${m[0]}; return declAnswers;`)();
+    const row = (id, over = {}) => ({ id, ref: "INTRO-000" + id, units: "", value: "", currency: "GBP", nothing: false, ...over });
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const cases = [
+      ["one row, all empty, not ticked", [row(7)],
+        (a) => a.blocked && a.blocked.why === "blank" && a.blocked.ref === "INTRO-0007" && same(a.lines, []) && same(a.nothingFor, [])],
+      ["one row, ticked, empty", [row(7, { nothing: true })],
+        (a) => a.blocked === null && same(a.lines, []) && same(a.nothingFor, [7])],
+      ["one row, units and no value", [row(7, { units: "3" })],
+        (a) => a.blocked && a.blocked.why === "value" && same(a.lines, [])],
+      ["one row, a value and a tick", [row(7, { value: "10", nothing: true })],
+        (a) => a.blocked && a.blocked.why === "both" && same(a.lines, []) && same(a.nothingFor, [])],
+      ["two rows: a value, and a tick", [row(7, { value: "10" }), row(8, { nothing: true })],
+        (a) => a.blocked === null && same(a.nothingFor, [8]) &&
+          same(a.lines, [{ introduction_id: 7, units: null, value: 10, currency: "GBP" }])],
+      ["two rows: a value, and a blank", [row(7, { value: "10" }), row(8)],
+        (a) => a.blocked && a.blocked.why === "blank" && a.blocked.ref === "INTRO-0008" && a.blocked.id === 8],
+      ["one row, a typed nought, not ticked", [row(7, { value: "0" })],
+        (a) => a.blocked === null && same(a.nothingFor, []) &&
+          same(a.lines, [{ introduction_id: 7, units: null, value: 0, currency: "GBP" }])],
+    ];
+    for (const [name, rows, ok] of cases) {
+      let got;
+      try { got = answers(rows); } catch (e) { fail(`${FILE}: declAnswers threw on "${name}": ${e.message}`); continue; }
+      if (!ok(got)) fail(`${FILE}: declAnswers, ${name}: gives ${JSON.stringify(got)}`);
+    }
+  }
+}
+
 if (fails.length) {
   console.error(`review: ${fails.length} problem(s)`);
   for (const f of fails) console.error("  " + f);
