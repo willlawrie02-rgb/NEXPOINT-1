@@ -630,7 +630,7 @@
           ? '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Send the email again</button>'
           : '') +
         (canResendRelease
-          ? '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Send the introduction email again</button>'
+          ? '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '" data-kind="release">Send the introduction email again</button>'
           : '') +
         (showResend && (i.stage === 'awaiting_acceptance' || canResendRelease)
           ? '<span class="acct-msg" id="introMsg-' + esc(i.id) + '" hidden></span>'
@@ -1272,6 +1272,10 @@
       /* Plan 037: the worker's three named refusals in the host's own words.
          "Try again" was the wrong advice for every one of them. */
       var code = d && d.error;
+      /* The introduction email's button (data-kind="release") meets too_soon
+         after an attempt that did not go, since the worker times its wait from
+         the last attempt whatever became of it; "Sent" would be untrue there. */
+      if (code === 'too_soon' && btn.getAttribute('data-kind') === 'release') { say(msg, 'We tried a moment ago. Try again in two minutes.'); return; }
       if (code === 'too_soon') { say(msg, 'Sent in the last two minutes. Check your spam folder before asking again.'); return; }
       if (code === 'no owner address for this organisation') { say(msg, 'Your account has no user address on file. Email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
       if (code === 'this introduction is no longer open') { say(msg, 'This introduction is no longer open, so there is nothing to send again. If that looks wrong, email hello@nexpoint.co.uk.'); return; }

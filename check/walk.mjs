@@ -2852,10 +2852,18 @@ async function walkAccount() {
         eq(await page.locator(button).count(), 1, "buttons");
         eq((await page.textContent(button)).trim(), "Send the introduction email again", "the button");
       });
+      await step("pressed again too soon after an attempt that did not go, it says so and never says Sent (follow-up of 14 November)", async () => {
+        world.api["POST /introductions/:id/resend"] = () => [429, { error: "too_soon" }];
+        await page.click(button);
+        await page.waitForSelector("#introMsg-12:not([hidden])");
+        eq((await page.textContent("#introMsg-12")).trim(), "We tried a moment ago. Try again in two minutes.", "the message");
+        eq(await page.isDisabled(button), false, "the button is disabled");
+        world.api["POST /introductions/:id/resend"] = () => [200, { ok: true }];
+      });
       await step("pressing it posts the resend for that introduction and says Sent again", async () => {
         await page.click(button);
         await page.waitForFunction(() => /Sent again/.test(document.getElementById("introMsg-12").textContent));
-        eq(apiCalls(world, "POST /introductions/12/resend").length, 1, "resends sent");
+        eq(apiCalls(world, "POST /introductions/12/resend").length, 2, "resends sent");
         eq(await page.isDisabled(button), true, "the button is spent");
       });
       clean(world, errors, "the host's page with an email that did not go");

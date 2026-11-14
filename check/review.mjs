@@ -238,13 +238,19 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
     if (odd.includes("<b>")) fail("hub/assets/dashboard.js: listingNotice does not escape the invoice number");
   }
 
-  // The two refusals the button for the introduction email can also meet.
+  // The refusals the button for the introduction email can also meet. The
+  // button is told apart by data-kind="release"; the offer's button has none.
   const r = dash.match(/function resendIntro\(btn\) \{[\s\S]*?\n  \}/);
   const generic = (dash.match(/var GENERIC_ERROR = '([^']*)'/) || [])[1];
   if (r) {
-    for (const [code, starts, isBad] of [
-      ["this introduction has already been answered", "This introduction has already been answered and its email has gone.", false],
-      ["email log unavailable", "We could not check that just now.", true],
+    for (const [code, starts, isBad, kind] of [
+      ["this introduction has already been answered", "This introduction has already been answered and its email has gone.", false, "release"],
+      ["email log unavailable", "We could not check that just now.", true, "release"],
+      // Follow-up of 14 November: after an attempt that did not go, the worker
+      // still answers too_soon for two minutes; nothing was sent, so the
+      // introduction email's button must not say "Sent".
+      ["too_soon", "We tried a moment ago. Try again in two minutes.", false, "release"],
+      ["too_soon", "Sent in the last two minutes.", false, null],
     ]) {
       const said = [];
       const resend = new Function("post", "el", "busy", "say", "isNotBuilt", "GENERIC_ERROR", `${r[0]}; return resendIntro;`)(
@@ -255,10 +261,12 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
         (d) => d && d.error === "http_404",
         generic,
       );
-      resend({ getAttribute: () => "7", disabled: false, textContent: "Send the introduction email again" });
+      resend({ getAttribute: (name) => (name === "data-kind" ? kind : "7"), disabled: false, textContent: "Send the introduction email again" });
       await new Promise((done) => setTimeout(done, 0));
       const [text, bad] = said[0] || ["", false];
-      if (!text.startsWith(starts)) fail(`hub/assets/dashboard.js: "${code}" has no words of its own (reads "${text}")`);
+      const which = kind ? "the introduction email's button" : "the offer's button";
+      if (!text.startsWith(starts)) fail(`hub/assets/dashboard.js: "${code}" on ${which} has no words of its own (reads "${text}")`);
+      if (kind === "release" && /^Sent/.test(text)) fail(`hub/assets/dashboard.js: "${code}" on ${which} says Sent when nothing was sent`);
       if (bad !== isBad) fail(`hub/assets/dashboard.js: "${code}" is ${isBad ? "not marked" : "marked"} as a failure`);
       if (text.includes("—")) fail(`hub/assets/dashboard.js: an em-dash in the "${code}" message`);
     }
