@@ -268,9 +268,17 @@
         ' is unpaid. Nothing has been deleted, and your listing comes back once the payment reaches us.' +
         (inv ? '' : ' The invoice email has the button to pay; email ' + HELLO + ' if you cannot find it.');
     } else if (inv) {
-      /* A bill that is simply due: said plainly, not as an alarm. */
+      /* A bill that is simply due: said plainly, not as an alarm. Once its due
+         day has gone by (the listing is not hidden yet) it says "was due on",
+         never "is due by" a day in the past. Days are compared as the
+         calendar dates the worker sends, in the reader's own time. */
       alarm = false;
-      words = 'Membership ' + bill + (inv.due_on ? ' is due by ' + esc(fmtDate(inv.due_on)) + '.' : ' is waiting to be paid.');
+      var now = new Date();
+      var today = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
+      var dueDay = typeof inv.due_on === 'string' && /^\d{4}-\d{2}-\d{2}/.test(inv.due_on) ? inv.due_on.slice(0, 10) : '';
+      words = 'Membership ' + bill + (!inv.due_on ? ' is waiting to be paid.'
+        : dueDay && dueDay < today ? ' was due on ' + esc(fmtDate(inv.due_on)) + '.'
+          : ' is due by ' + esc(fmtDate(inv.due_on)) + '.');
     } else {
       return '';
     }
