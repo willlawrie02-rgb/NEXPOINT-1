@@ -339,11 +339,15 @@
     return ov;
   }
   function show() { overlay().classList.add('open'); document.body.style.overflow = 'hidden'; }
+  /* The Resend button's countdown on the "Check your inbox" card (wireResend,
+     below). Stopped when the modal closes, so no timer outlives the card. */
+  let resendTimer = null;
+  function stopResendTimer() { if (resendTimer) { clearInterval(resendTimer); resendTimer = null; } }
   function hide() {
     const ov = document.getElementById('npAccountOverlay');
     if (ov) ov.classList.remove('open');
     document.body.style.overflow = '';
-    delete draft.password; // never let a plaintext password outlive an abandoned or failed attempt
+    stopResendTimer();
   }
   function content() { overlay(); return document.getElementById('npAccountContent'); }
 
@@ -454,15 +458,13 @@
           <div class="field"><label for="qName">Your name</label><input id="qName" required value="${esc(draft.name)}" placeholder="Full name"></div>
           <div class="field"><label for="qCompany">Company</label><input id="qCompany" required value="${esc(draft.company)}" placeholder="Your company's name"></div>
           <div class="field"><label for="qEmail">Email</label><input id="qEmail" type="email" required value="${esc(draft.email)}" placeholder="you@company.com"></div>
-          <div class="field"><label for="qPass">Choose a password</label><input id="qPass" type="password" required minlength="8" maxlength="72" placeholder="At least 8 characters"></div>
           <div class="field full"><label for="qWebsite">Website (optional)</label><input id="qWebsite" type="text" inputmode="url" autocomplete="url" value="${esc(draft.website || '')}" placeholder="yourlab.com"></div>
         </div>
         <div class="modal-actions"><button class="btn btn-primary" type="submit">Continue</button></div>
       </form>`;
-    A.passwordEye(content().querySelector('#qPass'));
     content().querySelector('form').addEventListener('submit', (e) => {
       e.preventDefault();
-      draft.name = qv('qName'); draft.company = qv('qCompany'); draft.email = qv('qEmail'); draft.password = qv('qPass');
+      draft.name = qv('qName'); draft.company = qv('qCompany'); draft.email = qv('qEmail');
       draft.website = qv('qWebsite');
       step2();
     });
@@ -536,7 +538,9 @@
       }
       draft.region = qv('qRegion'); draft.country = qv('qCountry'); draft.town = qv('qTown');
       const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Creating your account…';
-      const body = { name: draft.name, company: draft.company, email: draft.email, password: draft.password,
+      /* No password (plan 093, 14 November 2026): it is chosen on the page
+         the confirmation link opens, by the person who holds the inbox. */
+      const body = { name: draft.name, company: draft.company, email: draft.email,
         website: draft.website || '',
         region: draft.region, country: draft.country, town: draft.town,
         interests: [], notes: '', terms_version_id: draft.terms_version_id,
@@ -563,7 +567,6 @@
         /* No cookie comes back: there is no account until the link in the
            email is clicked, so nothing here signs anyone in. */
         const email = draft.email;
-        delete draft.password;
         delete draft.portal_invite;
         delete draft.join_note;
         confirmSentCard(email);
@@ -578,10 +581,9 @@
           resetTurnstile(); // clears the token and re-disables submit until a fresh one arrives
         } else {
           btn.disabled = false;
-          /* Every refusal the registrant can put right is named (15 Oct 2026:
-             a password the sign-in service refused showed only "Check the
-             details"). Anything else carries the server's reason as a
-             reference, so an email to the desk says which step failed. */
+          /* Every refusal the registrant can put right is named. Anything
+             else carries the server's reason as a reference, so an email to
+             the desk says which step failed. */
           /* An invitation that ran out while the form was open never blocks
              the sign-up: it is dropped, and the next press registers as anyone
              would (plan 073). */
@@ -592,8 +594,6 @@
             ? 'There\'s already an account for that email. Close this and choose Sign in instead.'
             : d.error === 'network'
             ? 'That did not save. Check your connection and try again, or email hello@nexpoint.co.uk.'
-            : d.error === 'weak_password'
-            ? 'That password was not accepted. ' + (d.detail ? String(d.detail).trim() + ' ' : '') + 'Choose Go back to pick another.'
             : d.error === 'email_invalid' || d.error === 'valid email required'
             ? 'We could not use that email address. Choose Go back to check it.'
             : d.error === 'invalid terms_version_id'
@@ -650,7 +650,7 @@
       <div class="success">
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>Check your inbox…</h2>
-        <p>We have sent a confirmation link to <strong>${esc(email)}</strong>. Open it and your account is ready. It is how we keep every introduction tied to a real inbox.</p>
+        <p>We have sent a confirmation link to <strong>${esc(email)}</strong>. Open it, choose your password, and your account is ready. It is how we keep every introduction tied to a real inbox.</p>
         <p class="np-sign-error" style="display:none"></p>
         <div class="modal-actions" style="justify-content:center">
           <button class="btn btn-outline" type="button" data-np-resend>Resend the email</button>
@@ -663,20 +663,65 @@
 
   /* The worker answers a resend the same way whatever the email, and sends
      nothing to an address already confirmed, so the card says only what is
-     true either way (audit plan 029). That is a sentence, not a label: on a
-     phone it overflowed the button, so the button gives way to it. */
+     true either way (audit plan 029).
+
+     It also sends nothing inside two minutes of the last confirmation email
+     to an address, and this card appears the moment registration has sent
+     one. A press in those two minutes used to say a new link was on its way
+     when nothing had gone, and the button then left the card (audit of 14
+     November 2026, item 8; plan 093). So the button waits the two minutes
+     out, counting down, and stays for another try after each send. */
+  const RESEND_WAIT_S = 120; /* the worker's CONFIRM_RESEND_COOLDOWN_MS (auth.js), in seconds */
+  const RESEND_LABEL = 'Resend the email';
   function wireResend(btn, email) {
     if (!btn) return;
+    /* The line under the words, one at a time: a new one replaces the last. */
+    const say = (words) => {
+      const row = btn.closest('.modal-actions') || btn;
+      let note = row.parentNode.querySelector('[data-np-resend-note]');
+      if (!note) {
+        note = document.createElement('p');
+        note.setAttribute('role', 'status');
+        note.setAttribute('data-np-resend-note', '');
+        row.insertAdjacentElement('beforebegin', note);
+      }
+      note.textContent = words;
+    };
+    /* Counted against the clock, not by ticks, so a tab left in the
+       background comes back to the right number. A button no longer in the
+       page (the card was replaced) stops its own timer. */
+    const wait = () => {
+      stopResendTimer();
+      const until = Date.now() + RESEND_WAIT_S * 1000;
+      const tick = () => {
+        if (!btn.isConnected) { stopResendTimer(); return; }
+        const left = Math.ceil((until - Date.now()) / 1000);
+        if (left <= 0) {
+          stopResendTimer();
+          btn.disabled = false; btn.textContent = RESEND_LABEL;
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = RESEND_LABEL + ' in ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+      };
+      tick();
+      resendTimer = setInterval(tick, 1000);
+    };
     btn.addEventListener('click', async () => {
       if (btn.disabled) return;
       btn.disabled = true; btn.textContent = 'Sending…';
-      await A.resendConfirmation(email);
-      const note = document.createElement('p');
-      note.setAttribute('role', 'status');
-      note.textContent = 'If that address still needs confirming, a new link is on its way.';
-      (btn.closest('.modal-actions') || btn).insertAdjacentElement('beforebegin', note);
-      btn.remove();
+      const d = await A.resendConfirmation(email);
+      if (!btn.isConnected) return;
+      if (d && d.error === 'network') {
+        /* It never left this device, so there is nothing to wait out. */
+        say('That did not send. Check your connection and try again.');
+        btn.disabled = false; btn.textContent = RESEND_LABEL;
+        return;
+      }
+      say('If that address still needs confirming, a new link is on its way. It can take a minute to arrive, and it may be in your junk folder.');
+      wait();
     });
+    wait();
   }
 
   /* Show-password (Will, 5 Oct; every password field, 6 Oct; plan 046): one
@@ -708,8 +753,8 @@
     wrap.appendChild(btn);
   };
   /* The sign-in box is in every page's own markup, so it is there once the
-     document is; the hub pages' module loader fires np:modules later still,
-     and the registration form wires its own field as it renders. */
+     document is; the hub pages' module loader fires np:modules later still.
+     The registration form has no password field (plan 093). */
   function eyeEveryPassword() {
     document.querySelectorAll('input[type="password"]').forEach(A.passwordEye);
   }

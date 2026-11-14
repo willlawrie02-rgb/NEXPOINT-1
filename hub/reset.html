@@ -73,7 +73,7 @@ const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const API = local ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
 const ACCOUNT_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
   ? 'https://nexpoint.co.uk/hub/account/' : '/hub/account/';
-const MIN_LENGTH = 8;
+const MIN_LENGTH = 12;
 /* Set once the worker has answered past verifying the link. From then on the
    device is signed in on that link's session and further attempts go up on
    the session alone: the link is spent, but no fresh one is needed. */
