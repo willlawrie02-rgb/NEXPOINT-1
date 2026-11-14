@@ -1503,11 +1503,11 @@
     if (act === 'join') { if (window.NPAccount) NPAccount.openQuestionnaire({}); return; }
     if (act === 'education') { if (window.openEducationList) openEducationList(); return; }
     if (act === 'reopen') { reopenAccount(); return; }
-    if (act === 'decl-submit') { gate(function () { submitDeclaration(btn); }); return; }
     if (act === 'decl-nil-confirm') { gate(function () { submitDeclaration(btn, true); }); return; }
     if (act === 'decl-nil-back') { declNilBack(btn.getAttribute('data-period') || ''); return; }
     if (act === 'decl-change') { declReopen = btn.getAttribute('data-period') || null; load(); return; }
     if (act === 'decl-keep') { declReopen = null; load(); return; }
+    if (act === 'decl-submit') { gate(function () { submitDeclaration(btn); }); return; }
     if (act === 'intro-resend') { gate(function () { resendIntro(btn); }); return; }
     if (act === 'intro-accept-open') { openAnswer(btn, 'accept'); return; }
     if (act === 'intro-decline-open') { openAnswer(btn, 'decline'); return; }
