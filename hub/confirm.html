@@ -392,7 +392,14 @@ async function confirm(token, type){
     const me = await whoAmI();
     if (me && me.signed_in && me.confirmed){
       const email = me.member && me.member.email;
-      if (!triedBefore){ renderConfirmed(email, true); return; }
+      /* The link was spent before this page's first press, so the password
+         just typed went nowhere (plan 093 review). */
+      if (!triedBefore){
+        renderConfirmed(email, true);
+        noteAfterLead('This link was already used, so the password you typed just now was not saved. ' +
+          'If you need a new one, use Forgotten your password on the sign-in box.');
+        return;
+      }
       /* An earlier press on this page probably reached the worker and its
          answer was lost: the address is confirmed and the device signed in,
          but this page never heard whether the password was set. It is sent
@@ -429,6 +436,15 @@ async function confirm(token, type){
     return;
   }
   say('That did not go through.', 'Open the link from your email again, or email hello@nexpoint.co.uk and we will sort it out.');
+}
+
+/* One line under the confirmed card's opening paragraph. */
+function noteAfterLead(text){
+  const lead = body().querySelector('h1 + p');
+  if (!lead) return;
+  const p = document.createElement('p');
+  p.textContent = text;
+  lead.insertAdjacentElement('afterend', p);
 }
 
 /* Another password, after the link is spent: the worker's reset route, on

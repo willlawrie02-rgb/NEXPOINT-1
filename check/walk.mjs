@@ -4385,6 +4385,26 @@ async function walkLandings() {
     clean(world, errors, "the confirmation page, a used link");
     await context.close();
   }
+  {
+    /* Plan 093 review: a link opened a second time on a device that the
+       first open signed in. The form is shown, a password is typed, and the
+       link comes back refused: that password went nowhere, and the page says
+       so rather than "You're confirmed" alone. */
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = () => [401, { error: "invalid_or_expired" }];
+    world.api["GET /auth/me"] = () => [200, { ok: true, signed_in: true, confirmed: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    await step("a link already used on a signed-in device says the password just typed was not saved", async () => {
+      await openAndPress(page);
+      await page.waitForSelector("text=You're confirmed.");
+      has(await page.textContent("#confirmBody"),
+        "This link was already used, so the password you typed just now was not saved. If you need a new one, use Forgotten your password on the sign-in box.", "the line");
+      eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session");
+      return has(await page.textContent("#confirmBody"), USER.email, "the account named");
+    });
+    clean(world, errors, "the confirmation page, a link used on this device");
+    await context.close();
+  }
   /* The first press reached the worker and its answer was lost: the address
      is confirmed and the device signed in, but the page never heard. The
      second press finds the link spent. The worker signs the device in only
