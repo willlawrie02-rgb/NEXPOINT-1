@@ -2861,10 +2861,19 @@ async function walkAccount() {
         world.api["POST /introductions/:id/resend"] = () => [200, { ok: true }];
       });
       await step("pressing it posts the resend for that introduction and says Sent again", async () => {
+        // What the worker says once the email has gone.
+        world.summary.introductions[0].release = "sent";
         await page.click(button);
         await page.waitForFunction(() => /Sent again/.test(document.getElementById("introMsg-12").textContent));
         eq(apiCalls(world, "POST /introductions/12/resend").length, 2, "resends sent");
         eq(await page.isDisabled(button), true, "the button is spent");
+      });
+      await step("then the account is read again, and the row stops saying the email did not go (follow-up of 14 November)", async () => {
+        await until(() => apiCalls(world, "GET /account/summary").length >= 2, "the second summary read");
+        await page.waitForFunction(() => /is in your inbox/.test((document.getElementById("intro-12") || {}).textContent || ""));
+        const row = await page.textContent("#intro-12");
+        eq(row.includes("did not go"), false, "the row still says did not go");
+        eq(await page.locator(button).count(), 0, "buttons");
       });
       clean(world, errors, "the host's page with an email that did not go");
       await context.close();

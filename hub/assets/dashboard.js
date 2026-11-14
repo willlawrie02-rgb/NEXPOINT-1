@@ -1267,8 +1267,9 @@
     var id = btn.getAttribute('data-intro');
     var msg = el('introMsg-' + id);
     var done = busy(btn, 'Sending…');
-    post('/introductions/' + encodeURIComponent(id) + '/resend', {}).then(function (d) {
-      if (d && d.ok) { say(msg, 'Sent again.'); btn.disabled = true; btn.textContent = 'Sent again'; return; }
+    /* Answers true when the email went, so the caller can redraw the row. */
+    return post('/introductions/' + encodeURIComponent(id) + '/resend', {}).then(function (d) {
+      if (d && d.ok) { say(msg, 'Sent again.'); btn.disabled = true; btn.textContent = 'Sent again'; return true; }
       done();
       if (isNotBuilt(d)) { say(msg, 'We could not resend that just now. Email hello@nexpoint.co.uk and we will send it again.'); return; }
       /* Plan 037: the worker's three named refusals in the host's own words.
@@ -1407,7 +1408,15 @@
     if (act === 'education') { if (window.openEducationList) openEducationList(); return; }
     if (act === 'reopen') { reopenAccount(); return; }
     if (act === 'decl-submit') { gate(function () { submitDeclaration(btn); }); return; }
-    if (act === 'intro-resend') { gate(function () { resendIntro(btn); }); return; }
+    if (act === 'intro-resend') {
+      gate(function () {
+        var sent = resendIntro(btn);
+        /* The introduction email's row said it did not go: once it has, read
+           the account again so the row says what is true now. */
+        if (btn.getAttribute('data-kind') === 'release' && sent && sent.then) sent.then(function (ok) { if (ok) reload(); });
+      });
+      return;
+    }
     if (act === 'intro-accept-open') { openAnswer(btn, 'accept'); return; }
     if (act === 'intro-decline-open') { openAnswer(btn, 'decline'); return; }
     if (act === 'intro-accept-send') { gate(function () { sendAnswer(btn, 'accept'); }); return; }
