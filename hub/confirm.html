@@ -93,8 +93,34 @@ const ACCOUNT_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
 const DOOR_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
   ? 'https://nexpoint.co.uk/hub/' : '/hub/';
 
-/* One minimum on every page and in the worker (auth.js PASSWORD_MIN). */
-const MIN_LENGTH = 12;
+/* The password rule: the live sign-in service's own, as read on 14 November
+   2026, and the worker's (auth.js PASSWORD_MIN, passwordMissingKind). At
+   least 8 characters, with a lower-case letter, a capital letter, a number
+   and a symbol from the sign-in service's own set. Copied on each page that
+   takes a password, since these pages share no script; change both, and the
+   worker, together. */
+const MIN_LENGTH = 8;
+const RULE = 'Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.';
+const SYMBOLS = "!@#$%^&*()_+-=[]{};'\\:\"|<>?,./`~";
+const KINDS = [
+  ['a lower-case letter', (c) => c >= 'a' && c <= 'z'],
+  ['a capital letter', (c) => c >= 'A' && c <= 'Z'],
+  ['a number', (c) => c >= '0' && c <= '9'],
+  ['a symbol', (c) => SYMBOLS.includes(c)],
+];
+/* "Add a capital letter." for the first kind missing, or null. */
+function missingKindLine(pw){
+  const chars = [...pw];
+  const miss = KINDS.find(([, has]) => !chars.some(has));
+  return miss ? 'Add ' + miss[0] + '.' : null;
+}
+/* The sign-in service's own refusal, kept as the backstop: when it is the
+   character rule, our sentence is shown, not its list of characters. */
+function weakLine(detail){
+  const lead = 'That password does not meet the rules for hub passwords.';
+  if (/^password should contain at least one character of each/i.test(String(detail || ''))) return lead + ' ' + RULE;
+  return lead + (detail ? ' ' + detail : '');
+}
 /* Set when a press on this page has posted the link. If the link is then
    refused, that press probably reached the worker and its answer was lost. */
 let tried = false;
@@ -277,7 +303,7 @@ async function resend(){
 function renderForm(token, type){
   render(`
     <h1>Choose your password.</h1>
-    <p>You are one step from your hub account. Choose a password of at least ${MIN_LENGTH} characters. We then confirm your email and sign you in on this device.</p>
+    <p>You are one step from your hub account. Choose a password of at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol. We then confirm your email and sign you in on this device.</p>
     <div class="panel">
       <div class="field">
         <label for="pass1">Password</label>
@@ -334,7 +360,6 @@ const TOO_SHORT = `Use at least ${MIN_LENGTH} characters.`;
 const TOO_LONG = 'Use 72 characters or fewer.';
 const NOT_SENT = 'That did not send. Check your connection and try again.';
 const NOT_SAVED = 'Your email is confirmed, but the password did not save. Try again.';
-const weakLine = (detail) => 'That password does not meet the rules for hub passwords.' + (detail ? ' ' + detail : '');
 
 /* The address is confirmed but this page can no longer set the password:
    the fifteen minutes the worker allows a link's session have passed, or
@@ -355,6 +380,8 @@ async function confirm(token, type){
   const p2 = document.getElementById('pass2').value;
   if (p1.length < MIN_LENGTH){ showError(TOO_SHORT); return; }
   if (p1.length > 72){ showError(TOO_LONG); return; }
+  const kind = missingKindLine(p1);
+  if (kind){ showError(kind); return; }
   if (p1 !== p2){ showError('The two passwords do not match.'); return; }
   showError('');
   btn.disabled = true; btn.textContent = 'Confirming…';
@@ -425,6 +452,7 @@ async function confirm(token, type){
   /* The password's shape, refused before the link was spent. */
   if (d && (d.error === 'password_too_short' || d.error === 'password_required')){ back(); showError(TOO_SHORT); return; }
   if (d && d.error === 'password_too_long'){ back(); showError(TOO_LONG); return; }
+  if (d && d.error === 'password_needs_each_kind'){ back(); showError(RULE); return; }
   /* The address is confirmed and the device signed in, but the password was
      not set: the sign-in service refused it, or could not be reached. The
      link is spent, so the next press goes up on the session alone. */
@@ -467,6 +495,7 @@ async function setOnSession(password, back){
   if (d && d.error === 'weak_password'){ back(); showError(weakLine(d.detail)); return; }
   if (d && d.error === 'password_too_short'){ back(); showError(TOO_SHORT); return; }
   if (d && d.error === 'password_too_long'){ back(); showError(TOO_LONG); return; }
+  if (d && d.error === 'password_needs_each_kind'){ back(); showError(RULE); return; }
   if (d && (d.error === 'current_password_required' || d.error === 'reset_invalid')){ renderUseReset(); return; }
   back();
   showError(NOT_SAVED);

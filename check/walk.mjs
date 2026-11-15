@@ -114,7 +114,9 @@ async function trapUnreachable(trap) {
 }
 
 // ---------------------------------------------------------------- the people
-const PASSWORD = "walk-password-1";
+/* Meets the live password rule (plan 093, 14 November 2026): 8 or more,
+   with a lower-case letter, a capital, a number and a symbol. */
+const PASSWORD = "Walk-password-1";
 const USER = {
   id: "00000000-0000-4000-8000-000000000001", name: "Walk Tester", company: "ZZ Walk Test Ltd",
   email: "walk@example.com", town: "Leeds", country: "United Kingdom", region: "Europe",
@@ -4235,14 +4237,14 @@ async function walkLandings() {
       await page.goto(`${APEX}/hub/confirm.html?t=walk-token&type=signup&return=${encodeURIComponent(back)}`);
       await page.waitForSelector("#setBtn");
       has(await page.textContent("#confirmBody h1"), "Choose your password.", "the heading");
-      has(await page.textContent("#confirmBody"), "Choose a password of at least 12 characters. We then confirm your email and sign you in on this device.", "the line");
+      has(await page.textContent("#confirmBody"), "You are one step from your hub account. Choose a password of at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol. We then confirm your email and sign you in on this device.", "the line");
       has(await page.textContent("#setBtn"), "Confirm and sign in", "the button");
-      eq([await page.getAttribute("#pass1", "minlength"), await page.getAttribute("#pass2", "minlength")], ["12", "12"], "the two boxes' minimum");
+      eq([await page.getAttribute("#pass1", "minlength"), await page.getAttribute("#pass2", "minlength")], ["8", "8"], "the two boxes' minimum");
       await page.waitForTimeout(300);
       return eq(apiCalls(world, "POST /auth/confirm").length, 0, "confirmations sent on opening the link");
     });
     await step("the eye shows the password and hides it again (plan 046)", async () => {
-      await page.fill("#pass1", "short-eleve");
+      await page.fill("#pass1", "Walk-1!");
       eq(await page.getAttribute("#pass1", "type"), "password", "before the eye");
       await page.click("#confirmBody .field:has(#pass1) .np-eye__btn");
       eq(await page.getAttribute("#pass1", "type"), "text", "after one press");
@@ -4251,10 +4253,10 @@ async function walkLandings() {
       eq(await page.getAttribute("#pass1", "type"), "password", "after the second press");
       return eq(await page.locator("#confirmBody .np-eye__btn").count(), 2, "eyes on the page");
     });
-    await step("eleven characters, or two passwords that differ, post nothing and say why", async () => {
-      await page.fill("#pass2", "short-eleve");
+    await step("seven characters, or two passwords that differ, post nothing and say why", async () => {
+      await page.fill("#pass2", "Walk-1!");
       await page.click("#setBtn");
-      await errLine("Use at least 12 characters.");
+      await errLine("Use at least 8 characters.");
       await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD + "x");
       await page.click("#setBtn");
       await errLine("The two passwords do not match.");
@@ -4263,7 +4265,19 @@ async function walkLandings() {
       await errLine("Use 72 characters or fewer.");
       return eq(apiCalls(world, "POST /auth/confirm").length, 0, "confirmations sent");
     });
-    await step("a good pair posts the link with the password once, confirms, and offers the way back", async () => {
+    /* The live rule (plan 093, 14 November 2026): each missing kind is named
+       on the page, the first one missing, and nothing is sent. */
+    await step("a password with no symbol, no capital, no number or no lower-case letter is refused on the page, and nothing is sent", async () => {
+      for (const [pw, line] of [["Walkpassword1", "Add a symbol."], ["walk-password-1", "Add a capital letter."],
+        ["Walk-password", "Add a number."], ["WALK-PASSWORD-1", "Add a lower-case letter."]]) {
+        await page.fill("#pass1", pw); await page.fill("#pass2", pw);
+        await page.click("#setBtn");
+        await errLine(line);
+        eq((await page.textContent("#formErr")).trim(), line, `the line for ${pw}`);
+      }
+      return eq(apiCalls(world, "POST /auth/confirm").length, 0, "confirmations sent");
+    });
+    await step("a good pair, with all four kinds, posts the link with the password once, confirms, and offers the way back", async () => {
       await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
       await page.click("#setBtn");
       await page.waitForSelector("text=You're confirmed.");
@@ -4299,7 +4313,7 @@ async function walkLandings() {
     const { context, page, errors } = await visit(world);
     await step("a password the worker finds too short is said, and the link is posted again on the next press", async () => {
       await openAndPress(page);
-      await errShows(page, "Use at least 12 characters.");
+      await errShows(page, "Use at least 8 characters.");
       eq(await page.isDisabled("#setBtn"), false, "the button afterwards");
       delete world.api["POST /auth/confirm"];
       await page.click("#setBtn");
@@ -4312,6 +4326,24 @@ async function walkLandings() {
     await context.close();
   }
   {
+    /* The worker checks the rule too, before the link is spent (a page a
+       browser kept from before the rule changed). Its refusal shows the
+       rule's full sentence, and the next press posts the link again. */
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = () => [422, { error: "password_needs_each_kind" }];
+    const { context, page, errors } = await visit(world);
+    await step("the worker's password_needs_each_kind shows the rule, and the link is posted again on the next press", async () => {
+      await openAndPress(page);
+      await errShows(page, "Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.");
+      delete world.api["POST /auth/confirm"];
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      return eq(apiCalls(world, "POST /auth/confirm").length, 2, "confirmations sent");
+    });
+    clean(world, errors, "the confirmation page, the worker's rule");
+    await context.close();
+  }
+  {
     /* The address is confirmed and the device signed in, but the sign-in
        service refused the password: the link is spent, so the next press
        goes up on the session alone, to the reset route. */
@@ -4320,9 +4352,10 @@ async function walkLandings() {
       detail: "Password should contain at least one character of each: abc, ABC, 123.", confirmed: true, member: USER, return_to: null }]; };
     world.api["POST /auth/reset-confirm"] = () => [200, { ok: true, member: USER }];
     const { context, page, errors } = await visit(world);
-    await step("a password the sign-in service refuses is named with its rule, and the button comes back", async () => {
+    await step("a password the sign-in service refuses for its characters is named in our words, and the button comes back", async () => {
       await openAndPress(page);
-      await errShows(page, "That password does not meet the rules for hub passwords. Password should contain at least one character of each: abc, ABC, 123.");
+      await errShows(page, "That password does not meet the rules for hub passwords. Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.");
+      eq((await page.textContent("#formErr")).includes("abc, ABC"), false, "the sign-in service's list of characters");
       eq(await page.isDisabled("#setBtn"), false, "the button afterwards");
       return eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session so far");
     });
@@ -4547,6 +4580,37 @@ async function walkLandings() {
       eq(got, WRAPPED_HTML, "the shared reader's output");
     });
     clean(world, errors, "the shared reader");
+    await context.close();
+  }
+  {
+    /* The reset page says the same rule and checks it the same way (plan 093,
+       14 November 2026). */
+    const world = newWorld();
+    world.api["POST /auth/reset-confirm"] = () => [200, { ok: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    const resetErr = (n) => page.waitForFunction((t) => (document.getElementById("formErr") || {}).textContent.includes(t), n);
+    await step("the reset page says the rule above the boxes, with a minimum of 8 on both", async () => {
+      await page.goto(`${APEX}/hub/reset.html?t=walk-reset`);
+      await page.waitForSelector("#setBtn");
+      has(await page.textContent("#resetBody"), "Choose a new password for your hub account. Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.", "the line");
+      return eq([await page.getAttribute("#pass1", "minlength"), await page.getAttribute("#pass2", "minlength")], ["8", "8"], "the two boxes' minimum");
+    });
+    await step("a reset password with no symbol is refused on the page, and nothing is sent", async () => {
+      await page.fill("#pass1", "Walkpassword1"); await page.fill("#pass2", "Walkpassword1");
+      await page.click("#setBtn");
+      await resetErr("Add a symbol.");
+      await page.fill("#pass1", "Walk-1!"); await page.fill("#pass2", "Walk-1!");
+      await page.click("#setBtn");
+      await resetErr("Use at least 8 characters.");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "resets sent");
+    });
+    await step("a reset password with all four kinds is sent once, with the link", async () => {
+      await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
+      await page.click("#setBtn");
+      await page.waitForSelector("text=Your password is set.");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ token_hash: "walk-reset", password: PASSWORD }], "resets sent");
+    });
+    clean(world, errors, "the reset page's password");
     await context.close();
   }
   for (const [name, url, sign] of [
