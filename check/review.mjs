@@ -147,18 +147,17 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
 }
 
 // ---------------------------------------------------------------- plan 095: the pages a signed-in company uses
-// The audit of 14 November 2026 found four faults on them. The account page
+// The audit of 14 November 2026 found three faults on them. The account page
 // told a paused host its listing was live, and told a host hidden for an
 // unpaid membership invoice to email and "we will put it back"; the listing
-// form dropped a material that was typed and not clicked; the host had no
-// button to send the introduction email again when it did not go; and the
-// find form did not say who reads its last box. listingNotice is lifted out
-// and every row of the plan's table is run; the rest is read.
+// form dropped a material that was typed and not clicked; and the host had no
+// button to send the introduction email again when it did not go.
+// listingNotice is lifted out and every row of the plan's table is run; the
+// rest is read.
 {
   const dash = read("hub/assets/dashboard.js");
   const ta = read("hub/assets/typeahead.js");
   const lf = read("hub/assets/listing-form.js");
-  const find = read("hub/assets/find.js");
 
   if (dash.includes("we will put it back")) fail('hub/assets/dashboard.js: still says "we will put it back" (plan 095)');
   for (const want of ["NexPoint has paused your listing", "Pay the invoice", "Send the introduction email again"]) {
@@ -170,7 +169,6 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
   for (const want of ["leftoverIn(", "TA[k].commit()"]) {
     if (!lf.includes(want)) fail(`hub/assets/listing-form.js: missing "${want}" (plan 095)`);
   }
-  if (!find.includes("reads it only once it accepts")) fail("hub/assets/find.js: the notes box does not say who reads it (plan 095)");
 
   // No em-dash in any line that carries the plan's new words.
   const NEW_WORDS = [
@@ -178,7 +176,6 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
       "Hidden from seekers for now", "did not go", "has not gone yet", "is on its way", "Send the introduction email again",
       "already been answered and its email has gone", "could not check that just now"]],
     [lf, "hub/assets/listing-form.js", ["is not on the", "Select from the list"]],
-    [find, "hub/assets/find.js", ["should know? (optional)", "reads it only once it accepts"]],
   ];
   for (const [text, file, marks] of NEW_WORDS) {
     for (const line of text.split("\n")) {

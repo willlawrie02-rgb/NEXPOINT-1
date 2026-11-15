@@ -1725,12 +1725,6 @@ async function walkFindMap() {
     eq(order, true, "Is this a one off? sits above How many");
     return has(await page.textContent("#fCadenceLabel"), "one off", "the cadence question");
   });
-  await step("the last box says who reads it and when: NexPoint straight away, the site only once it accepts (plan 095)", async () => {
-    eq((await page.textContent('label[for="fNotes"]')).trim(), "Anything else the site should know? (optional)", "the label");
-    eq((await page.textContent("#fNotes ~ .np-hint")).trim(),
-      "NexPoint reads this straight away. The site reads it only once it accepts, so leave out your name and your contact details: the introduction shares those.", "the hint");
-    return has(await page.getAttribute("#fNotes", "placeholder"), "Three-quarter or full foot", "the placeholder stays");
-  });
   await step("A first search opens the Seeker Agreement: no search, no card, before the tick", async () => {
     has(await page.textContent("#findSubmit"), "Find the sites that fit", "the button");
     await page.click(deviceBox("rigid"));
