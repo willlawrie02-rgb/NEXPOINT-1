@@ -6240,9 +6240,10 @@ async function walkPeople() {
       has(await page.textContent("#formErr"), "accept the Platform Terms", "the message");
       return eq(apiCalls(world, "POST /auth/register-invited").length, 0, "registrations sent");
     });
-    /* Plan 093 (audit of 14 November 2026, item 7): the page allowed a
-       password of 8 where the sign-in service wanted 12, and a colleague who
-       chose 8 to 11 could never join. It asks for none now. */
+    /* Plan 093 (audit of 14 November 2026, item 7): the page took a password
+       the sign-in service could refuse, with no words for the refusal, so a
+       colleague whose password was refused could never join. It asks for
+       none now. */
     await step("the invitation page asks for no password, and says where it is chosen (plan 093)", async () => {
       eq(await page.locator("#invPass").count(), 0, "the old password box");
       eq(await page.locator('#inviteBody input[type="password"]').count(), 0, "password boxes on the page");

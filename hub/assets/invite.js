@@ -9,8 +9,10 @@
 
    No password is asked for here (plan 093, 14 November 2026). The colleague
    chooses it on the page the confirmation link opens, as a new registrant
-   does. This page used to allow 8 characters where the sign-in service
-   wanted 12, and a colleague who chose 8 to 11 could never join.
+   does. This page used to take a password the sign-in service could refuse
+   (its rule as read on 14 November 2026: 8 characters with a lower-case
+   letter, a capital, a number and a symbol), with no words for the refusal,
+   so a colleague whose password was refused could never join.
 
    Standalone, like confirm.html and reset.html: someone arriving from an
    email client may have no session and nothing cached, so the page carries
