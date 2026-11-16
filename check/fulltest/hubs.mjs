@@ -66,10 +66,26 @@ async function hostOrg(ctx) {
   const rows = (await dbRead(ctx, "organisations", "id,name,sub_status,sub_period,billing_from", [["ilike", "name", "ZZ%"]]))
     .filter((o) => same(o.name, company));
   if (!rows.length) differs("the ZZ host's account in the database", "no account by that name", company);
-  if (rows.length > 1) throw new Refused(`refused: ${rows.length} accounts are named ${JSON.stringify(company)}, so the runner cannot tell which is the host`);
-  mustBeZZ(rows[0].name, "the host's account");
-  ctx.cache.hostOrg = rows[0];
-  return rows[0];
+  let org = rows[0];
+  if (rows.length > 1) {
+    /* Two accounts can carry the host's name: the first run's pipeline
+       invitation gave its joiner a second "ZZ Full Test Host" (13 November,
+       DP4 item 5). The host's own listing names its account, so that one is
+       the host's; with no listing to go by, the runner cannot tell. */
+    const ids = [];
+    for (const h of HUBS) {
+      const b = await mine(ctx, h).catch(() => null);
+      if (b && b.listing && b.listing.id) ids.push(b.listing.id);
+    }
+    const owners = ids.length ? [...new Set((await dbRead(ctx, "listings", "id,org_id", [["in", "id", ids]])).map((l) => l.org_id))] : [];
+    const mineOnes = rows.filter((o) => owners.includes(o.id));
+    if (mineOnes.length !== 1) throw new Refused(`refused: ${rows.length} accounts are named ${JSON.stringify(company)}, and the host's own listings do not settle which is the host`);
+    org = mineOnes[0];
+    ctx.notes.push(`${rows.length} accounts are named ${company}; the runner took the one its listings are on (${org.id}). The other is the first run's joiner's (DP4 item 5): a finding for Will, and one for the ZZ clear-out.`);
+  }
+  mustBeZZ(org.name, "the host's account");
+  ctx.cache.hostOrg = org;
+  return org;
 }
 /* One row of the Inbox's own view (public.inbox), by kind and item. */
 async function inboxRow(ctx, kind, itemId, ms = 60000) {
@@ -214,7 +230,10 @@ const hubJourney = (h) => {
       shows: `Queued; the listing still waits; the card says "Call asked for on" today; "A call about your ${h.name} listing" reaches the host`,
       run: async (ctx) => {
         const now = await mine(ctx, h);
-        if (now.status === "live" || now.status === "live_pending_edit") skip("the listing is live already, so its card has gone");
+        if (now.status === "live" || now.status === "live_pending_edit") {
+          ctx.notes.push(`Ask for a call (queue DQ6, the code audit's row 23) was not taken: the ZZ host's ${h.name} listing was live before the run (approved by hand on 16 November), so no listing of its waits and there is no card to press. It needs a ZZ listing still waiting.`);
+          skip("the listing is live already (approved before this run), so its card and Ask for a call have gone");
+        }
         if (now.status !== "pending") differs("the listing before asking for a call", now.status, "pending");
         if (!adminAvailable(ctx)) wait(`asking the ZZ host for a call waits: ${NO_ADMIN}`);
         let org;
@@ -251,6 +270,27 @@ const hubJourney = (h) => {
           .catch((e) => { throw new Soft(String(e.message || e)); });
         return twins.length ? "asked, and the listing still waits; the Inbox shows a second card for it (see the notes)"
           : "asked, and the listing still waits; one card for it in the Inbox";
+      } },
+    /* Plan 096 (live 16 November 2026, queue DU7): the Inbox shows one card
+       per waiting listing, never a "Desk question" card beside it. Read from
+       the Inbox's own view as its page does, for every listing that waits,
+       whoever's: names are said only when they are ZZ ones. */
+    { id: "one-card", does: "Reads the Inbox for every listing that waits for approval",
+      shows: "One card for each waiting listing, and no \"Desk question\" card beside any of them",
+      run: async (ctx) => {
+        if (!adminAvailable(ctx)) skip(NO_ADMIN);
+        const rows = await dbRead(ctx, "inbox", "kind,item_id,name,hub,board,ref", [["in", "kind", ["listing", "listing_change", "enquiry"]]]);
+        const listings = rows.filter((r) => r.kind === "listing" || r.kind === "listing_change");
+        if (!listings.length) skip("no listing waits for approval anywhere today, so there is nothing to look beside (the ZZ host's two went live before the run)");
+        const twinsOf = (l) => rows.filter((r) => r.kind === "enquiry" && same(r.name, l.name) && r.hub === l.hub && /-hub\.html$/.test(String(r.board || "")));
+        const perListing = new Map();
+        for (const l of listings) perListing.set(String(l.item_id), (perListing.get(String(l.item_id)) || 0) + 1);
+        const doubled = [...perListing.values()].filter((n) => n > 1).length;
+        const twinned = listings.filter((l) => twinsOf(l).length);
+        const say = (l) => (isZZ(l.name) ? `${l.name} (${l.hub})` : `a ${l.hub} listing`);
+        if (doubled) differs("listing cards in the Inbox", `${doubled} listing(s) with more than one card`, "one card per listing");
+        if (twinned.length) differs("a Desk question card beside a waiting listing", twinned.map(say).join("; "), "none (plan 096)");
+        return `${listings.length} waiting listing(s), one card each, no Desk question card beside any`;
       } }] : []),
     { id: "approve", once: true,
       does: "Admin: opens the listing request from the Inbox on the host's company page, presses Approve, then \"Yes, approve it\"",
@@ -258,7 +298,9 @@ const hubJourney = (h) => {
         : "Queued, then the listing is live; no new invoice (one membership covers both hubs)",
       run: async (ctx) => {
         const now = await mine(ctx, h);
-        if (now.status === "live" || now.status === "live_pending_edit") skip("the listing is live already");
+        /* Will approved both of the ZZ host's listings by hand on 16 November (queue DU20):
+           only a listing still waiting is approved here, and the steps after approval run either way. */
+        if (now.status === "live" || now.status === "live_pending_edit") skip("the listing is live already (approved before this run); the steps after approval run on it");
         if (now.status !== "pending") differs("the listing before approval", now.status, "pending");
         if (!adminAvailable(ctx)) wait(`the ZZ host's ${h.name} listing waits for approval and ${NO_ADMIN}`);
         let org;
@@ -341,6 +383,32 @@ const hubJourney = (h) => {
         await see(w.page, "#page", inv.xero_invoice_number, "the invoice on Money's Xero invoices tab", 25000);
         return `Xero ${inv.xero_invoice_number}, ${inv.currency || "GBP"} ${inv.amount} (${inv.period})`;
       } },
+    /* Plan 095 (live 16 November 2026): the host's account page says a bill
+       that is simply due plainly, with a Pay the invoice button carrying the
+       invoice's own pay link; the alarm words are for a hidden or paused
+       listing (admin.pause reads the paused words). The button is read,
+       never pressed. */
+    ...(print ? [{ id: "host-bill", does: "Host opens its account page while its membership invoice is unpaid",
+      shows: "\"Membership invoice <number> for … is due by …\" (or \"was due on\"), and Pay the invoice; not pressed",
+      run: async (ctx) => {
+        const b = await mine(ctx, h);
+        if (b.status !== "live" && b.status !== "live_pending_edit") wait(`the ${h.name} listing is ${b.status}, not live yet`);
+        const w = await signIn(ctx, "host");
+        const sum = await apiGet(w.page, "/account/summary");
+        if (sum.status !== 200 || !sum.body) differs("the host's account summary", `the API answered ${sum.status}`, "the account");
+        const inv = sum.body.membership_invoice;
+        if (!inv || !inv.number) skip("the host has no unpaid membership invoice to show (paid or voided already)");
+        await go(w.page, `${APEX}/hub/account/`);
+        await w.page.locator("#profile:not([hidden])").waitFor({ state: "visible", timeout: 25000 });
+        await see(w.page, "#profile", new RegExp(`Membership invoice ${inv.number.replace(/[^A-Za-z0-9-]/g, "")} for .+ (is due by|was due on|is waiting to be paid)`),
+          "the bill on the host's account page", 25000);
+        if (await shows(w.page, "#profile .acct-notice", 1500)) differs("the bill on the host's account page", await text(w.page, "#profile .acct-notice"), "said plainly, with no alarm, while the listing shows");
+        const pay = w.page.locator("#profile a", { hasText: "Pay the invoice" }).first();
+        if (!(await pay.count())) differs("the host's account page", "no Pay the invoice button", "Pay the invoice");
+        const href = String(await pay.getAttribute("href") || "");
+        if (!/^https:\/\/api\.nexpoint\.co\.uk\/membership\/pay\/[0-9a-f]{64}$/.test(href)) differs("Pay the invoice's link", href.replace(/[0-9a-f]{64}$/, "<token>"), `${API}/membership/pay/<token>`);
+        return `${inv.number}: said plainly, with Pay the invoice (not pressed)`;
+      } }] : []),
   ];
   /* 5.5 to 5.7, on the 3D Print Hub only: one change that goes live, one that
      is reviewed and approved, one that is reviewed and declined. */
@@ -468,7 +536,7 @@ const hubJourney = (h) => {
         ctx.left.push(`introduction ${j.introduction.ref} on the ${h.name}`);
         return `${j.introduction.ref}`;
       } },
-    { id: "row", does: "Host opens the introduction on its account page", shows: "The row, \"Open until …\", Review and accept, Decline",
+    { id: "row", does: "Host opens the introduction on its account page", shows: "The row, \"Open until …\", Review and accept, Decline; the seeker's notes in full (item 34 withdrawn)",
       run: async (ctx) => {
         const id = made(ctx).intro, w = await signIn(ctx, "host");
         await go(w.page, `${APEX}/hub/account/#intro-${id}`);
@@ -476,6 +544,13 @@ const hubJourney = (h) => {
         for (const act of ["intro-accept-open", "intro-decline-open"]) {
           if (!(await shows(w.page, `[data-act="${act}"][data-intro="${id}"]`))) differs("the row's buttons", `${act} is missing`, "Review and accept, and Decline");
         }
+        /* The seeker's notes reach the host in full before it accepts, as on
+           live: plan 095's item 34 was withdrawn (16 November 2026). */
+        const want = `${MARK}: a test search, please ignore.`;
+        const notes = w.page.locator(`#intro-${id} .np-need__notes`).first();
+        const got = (await notes.count()) ? ((await notes.textContent()) || "").replace(/\s+/g, " ").trim() : "";
+        if (!got.includes(want)) throw new Soft(`the seeker's notes on the host's row before accepting: got ${JSON.stringify(got.slice(0, 120) || "none")}, expected them in full (${want})`);
+        return "the row, its two buttons, and the seeker's notes in full";
       } },
   ];
   /* 6.5: the account page offers Send the email again only while the offer
@@ -489,7 +564,8 @@ const hubJourney = (h) => {
         const left = (m.sentAt || 0) + 125000 - Date.now();
         if (left > 0) { ctx.log(`  waiting ${Math.ceil(left / 1000)} seconds: the offer email can be sent again two minutes after the last`); await w.page.waitForTimeout(left); }
         await go(w.page, `${APEX}/hub/account/#intro-${id}`);
-        const button = w.page.locator(`[data-act="intro-resend"][data-intro="${id}"]`);
+        /* The open offer's own button; plan 095's "Send the introduction email again" (data-kind="release") is another. */
+        const button = w.page.locator(`[data-act="intro-resend"][data-intro="${id}"]:not([data-kind="release"])`);
         await button.waitFor({ state: "visible", timeout: 25000 }).catch(() => differs("Send the email again", "not on the row", "the button, while the offer is open"));
         const sent = w.page.waitForResponse((r) => r.url() === `${API}/introductions/${id}/resend` && r.request().method() === "POST", { timeout: 30000 });
         await button.click();
@@ -600,8 +676,8 @@ const declare = {
         await see(w.page, "#declarations", "Declarations", "the Declarations section", 25000);
         return `${d.period_open}, ${d.due_state}, ${d.items.length} introduction(s)`;
       } },
-    { id: "declare", once: true, does: "Declares the month: one line on the accepted introduction (1 unit, GBP 10), or Nothing if an earlier month carries the line",
-      shows: "\"Sent. Thank you.\"; the desk notice; the seeker gets no email",
+    { id: "declare", once: true, does: "Presses Send on the empty form, then declares the month: one line on the accepted introduction (1 unit, GBP 10) and Nothing on any other, or Nothing on all if an earlier month carries the line",
+      shows: "The empty form refused with the row named and nothing sent; then \"Sent. Thank you.\" (all Nothing: asked once more, then \"Sent. No orders declared\"); the desk notice; the seeker gets no email",
       run: async (ctx) => {
         const m = made(ctx), p = m.period;
         if (m.state === "submitted") skip(`declared for ${p} already`);
@@ -610,6 +686,18 @@ const declare = {
         const submit = w.page.locator(`[id=${quote(`declSubmit-${p}`)}]`);
         await submit.waitFor({ state: "visible", timeout: 25000 }).catch(() => differs("the declaration card", "no Send this declaration button", p));
         const nothing = m.lineBefore;
+        /* Plan 098 (live 16 November 2026): every introduction is answered,
+           with figures or a Nothing tick, before anything is sent. Pressed
+           once on the empty form first: named, and nothing sent. */
+        {
+          let early = 0;
+          const on = (r) => { if (r.url() === `${API}/declarations` && r.method() === "POST") early += 1; };
+          w.page.on("request", on);
+          await submit.click();
+          await see(w.page, `[id=${quote(`declMsg-${p}`)}]`, /^Answer .+: enter a value, or tick Nothing/, "Send on an empty declaration", 10000)
+            .finally(() => w.page.waitForTimeout(1500).then(() => w.page.off("request", on)));
+          if (early) differs("Send on an empty declaration", `${early} declaration(s) sent`, "nothing sent; the row named");
+        }
         for (const id of m.items) {
           const base = `decl-${p}-${id}-`;
           if (!nothing && String(id) === String(m.intro)) {
@@ -621,16 +709,49 @@ const declare = {
           }
         }
         if (await shows(w.page, "#declTerms [data-np-terms-tick]", 1500)) await w.page.check("#declTerms [data-np-terms-tick]");
-        const sent = w.page.waitForResponse((r) => r.url() === `${API}/declarations` && r.request().method() === "POST", { timeout: 30000 });
+        const sent = w.page.waitForResponse((r) => r.url() === `${API}/declarations` && r.request().method() === "POST", { timeout: 60000 });
         await submit.click();
+        if (nothing) {
+          /* A month with no orders at all is asked once more (plan 098): "Confirm no orders …" takes the Send button's place. */
+          const confirmNil = w.page.locator(`[data-act="decl-nil-confirm"][data-period=${quote(p)}]`);
+          await confirmNil.waitFor({ state: "visible", timeout: 10000 }).catch(() => differs("a month with no orders", "sent on the first press", "asked once more: Confirm no orders"));
+          await confirmNil.click();
+        }
         const r = await sent;
-        if (!r.ok()) differs("sending the declaration", `${r.status()} ${await text(w.page, `[id=${quote(`declMsg-${p}`)}]`).catch(() => "")}`, "Sent. Thank you.");
+        if (!r.ok()) differs("sending the declaration", `${r.status()} ${await text(w.page, `[id=${quote(`declMsg-${p}`)}]`).catch(() => "")}`, "Sent.");
         ctx.did();
         m.declared = nothing ? "nothing" : "line";
-        await see(w.page, `[id=${quote(`declMsg-${p}`)}]`, "Sent. Thank you.", "after sending the declaration");
+        /* The page reloads the section after a send: the message, or the month marked declared. */
+        await see(w.page, "#declarations", nothing ? /Sent\. No orders declared|Declared for/ : /Sent\. Thank you\.|Declared for/, "after sending the declaration", 20000);
         if (ctx.mail.s.desk) ctx.mail.expect(`Desk notice: a declaration filed, ${p}`, ctx.mail.s.desk, "declaration filed by");
         ctx.left.push(`a ${p} declaration by ${acct(ctx, "host").company} (${nothing ? "nothing this month" : `GBP 10 on ${m.ref}`})`);
         return nothing ? `Nothing this month for ${p} (an earlier month carries the line)` : `one line on ${m.ref}: 1 unit, GBP 10, for ${p}`;
+      } },
+    { id: "change", does: "Host presses Change this declaration on the sent month, then Keep what I sent",
+      shows: "The form again, empty, with Keep what I sent; then \"Declared for …\" again, and nothing sent",
+      run: async (ctx) => {
+        const m = made(ctx), p = m.period;
+        if (!p) wait("nothing has been declared yet");
+        const w = await signIn(ctx, "host");
+        await go(w.page, `${APEX}/hub/account/#declarations`);
+        const change = w.page.locator(`[data-act="decl-change"][data-period=${quote(p)}]`);
+        if (!(await shows(w.page, `[data-act="decl-change"][data-period=${quote(p)}]`, 20000))) {
+          skip(`no Change this declaration on ${p}: the month is on a statement already, or not declared`);
+        }
+        let sentAny = 0;
+        const on = (r) => { if (r.url() === `${API}/declarations` && r.method() === "POST") sentAny += 1; };
+        w.page.on("request", on);
+        try {
+          await change.click();
+          const keep = w.page.locator(`[data-act="decl-keep"][data-period=${quote(p)}]`);
+          await keep.waitFor({ state: "visible", timeout: 15000 }).catch(() => differs("Change this declaration", "no form with Keep what I sent", "the form again"));
+          await see(w.page, "#declarations", "replaces what you sent before", "the form when changing", 10000);
+          await keep.click();
+          await see(w.page, "#declarations", "Declared for", "after Keep what I sent", 15000);
+          await w.page.waitForTimeout(1500);
+        } finally { w.page.off("request", on); }
+        if (sentAny) differs("Keep what I sent", `${sentAny} declaration(s) sent`, "nothing sent");
+        return "the form opened for a change, and Keep what I sent went back with nothing sent";
       } },
     { id: "orders", does: "Admin, Orders: picks the month and finds the ZZ host's declaration", shows: "The ZZ host's card for that month, with the line's reference and GBP 10.00, or NOTHING DECLARED",
       run: async (ctx) => {

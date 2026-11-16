@@ -1,7 +1,8 @@
 // The full test's shared step helpers: names, mail links, the find form, the
 // introduction answer, the admin company page. Every journey file uses these.
-import { APEX, PRINT, MILL, OPPS, API, Refused, Soft, mustBeZZ, isZZ, isZZSlug, differs, wait, skip, hand, askEnter, askLine } from "./core.mjs";
+import { APEX, PRINT, MILL, OPPS, API, Refused, Soft, mustBeZZ, isZZ, isZZSlug, differs, wait, skip, hand, askEnter, askLine, passwordProblem } from "./core.mjs";
 import { spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { windowFor, go, see, shows, text, whoAmI, apiGet, signIn, signOut, adminWindow, adminGo, saveVia, wantDirect, ADMIN, allow, pollUntil, invoiceRaised } from "./browser.mjs";
 
 const same = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
@@ -204,22 +205,89 @@ async function fits(w, url, main) {
 /* Registering is a person's act. The site's human check (Cloudflare's)
    refuses an automated browser, as it should, and the runner never tries to
    pass it. So the runner stops, opens the page in a private window of the
-   operator's own Chrome, puts the account's password on the clipboard (it is
-   never shown) and waits while the person registers. */
-async function registerByHand(ctx, { url, what, fields, password }) {
+   operator's own Chrome and waits while the person registers.
+   Since plan 093 (live 16 November 2026) the registration form and the
+   invitation have no password box: the password is chosen on the page the
+   confirmation link opens, and the runner does that (choosePassword below),
+   so nothing goes on the clipboard any more.
+   With watchResend, the person also watches the "Check your inbox" card's
+   Resend the email button count down from 2:10 and presses it once when it
+   comes back: the card is in their window, which the runner cannot see. */
+async function registerByHand(ctx, { url, what, fields, watchResend = false }) {
   if (ctx.args.headless) skip(`${what} is registered by a person, in a Chrome window`);
-  if (process.platform !== "darwin") hand(`${what}: register it by hand; the runner can only hand over the password on a Mac`);
-  const clip = (text) => spawnSync("pbcopy", [], { input: text });
-  clip(password);
+  if (process.platform !== "darwin") hand(`${what}: register it by hand, in a private Chrome window at ${url}`);
   spawnSync("open", ["-na", "Google Chrome", "--args", "--incognito", url]);
   const list = fields.map(([k, v]) => `      ${k}: ${v}`).join("\n");
+  const after = watchResend
+    ? `    When it says "Check your inbox", leave that card open and watch its "Resend the email" button:\n` +
+      `      it should be greyed and count down from 2:10 ("Resend the email in 2:09", and so on).\n` +
+      `    When it reads "Resend the email" again, press it once. The card should say a new link is on its way.\n` +
+      `    Then close that window and come back here. Do not open the emails: the runner does that.`
+    : `    When it says "Check your inbox", close that window and come back here. Do not open the email: the runner does that.`;
   const went = await askEnter(`Register ${what} yourself, in the private Chrome window that just opened (not the test's own window).\n` +
-    `    Type these in:\n${list}\n      Password: press Cmd+V (it is on your clipboard)\n` +
-    `    Tick the terms, wait for the "are you human" tick, and create the account.\n` +
-    `    When it says "Check your inbox", close that window and come back here.` +
+    `    Type these in:\n${list}\n` +
+    `    There is no password box: the runner chooses the password later, on the page the email's link opens.\n` +
+    `    Tick the terms, wait for the "are you human" tick, and create the account.\n${after}` +
     (/[0-9a-f]{32}/.test(url) ? "" : `\n    (If no window opened, open a private Chrome window yourself at ${url})`));
-  clip("");
   if (!went) skip(`${what} was not registered`);
 }
 
-export { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits, registerByHand };
+/* The page a confirmation link opens (hub/confirm.html, plan 093): "Choose
+   your password", two boxes, "Confirm and sign in". Nothing is posted when
+   the page loads; the link is spent only by the press, which posts the
+   password with it. With checks, it first proves the page refuses, before
+   anything is sent, a password missing a symbol and two that differ. Then
+   it chooses the account's password and expects "You're confirmed." */
+const RULE_WORDS = "at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol";
+function confirmPosts(page) {
+  let n = 0;
+  const on = (r) => { if (r.url() === `${API}/auth/confirm` && r.method() === "POST") n += 1; };
+  page.on("request", on);
+  return { count: () => n, stop: () => page.off("request", on) };
+}
+async function openChoosePassword(w, link, what) {
+  await go(w.page, link);
+  await see(w.page, "#confirmBody h1", "Choose your password", `${what}: the page the link opens`, 30000);
+  await w.page.locator("#pass1").waitFor({ state: "visible" });
+  await w.page.locator("#pass2").waitFor({ state: "visible" });
+}
+async function refusedBeforeSending(w, p1, p2, want, what) {
+  const posts = confirmPosts(w.page);
+  try {
+    await w.page.fill("#pass1", p1);
+    await w.page.fill("#pass2", p2);
+    await w.page.click("#setBtn");
+    await see(w.page, "#formErr", want, what, 5000);
+    await w.page.waitForTimeout(1500);
+    if (posts.count()) differs(`${what}: anything sent`, `${posts.count()} request(s) to /auth/confirm`, "nothing, the page refuses it first");
+  } finally { posts.stop(); }
+}
+async function choosePassword(ctx, w, link, password, { what = "the confirmation link", checks = false } = {}) {
+  const bad = passwordProblem(password);
+  if (bad) throw new Refused(`refused: the password the runner would choose ${bad}, so the live page would refuse it; run "npm run fulltest -- --setup"`);
+  ctx.lastWindow = w;
+  await openChoosePassword(w, link, what);
+  let note = "";
+  if (checks) {
+    const said = await text(w.page, "#confirmBody");
+    if (!said.includes(RULE_WORDS)) differs(`${what}: the rule on the page`, said.slice(0, 160), RULE_WORDS);
+    /* Long enough, with a capital, a lower-case letter and a number, and no symbol. */
+    const noSymbol = `Zz${randomBytes(6).toString("hex")}7`;
+    await refusedBeforeSending(w, noSymbol, noSymbol, "Add a symbol.", `${what}: a password with no symbol`);
+    const other = `Zz-${randomBytes(6).toString("hex")}7`;
+    await refusedBeforeSending(w, other, `${other}x`, "do not match", `${what}: two passwords that differ`);
+    note = "the page stated the rule and refused, before sending anything, a password with no symbol and two that differed; ";
+  }
+  await w.page.fill("#pass1", password);
+  await w.page.fill("#pass2", password);
+  const sent = w.page.waitForResponse((r) => r.url() === `${API}/auth/confirm` && r.request().method() === "POST", { timeout: 30000 });
+  await w.page.click("#setBtn");
+  const r = await sent;
+  if (!r.ok()) differs(`${what}: Confirm and sign in`, `${r.status()} ${await text(w.page, "#confirmBody").catch(() => "")}`, "You're confirmed.");
+  if (typeof ctx.did === "function") ctx.did();
+  await see(w.page, "#confirmBody", /You.re confirmed/, `${what}: after Confirm and sign in`, 30000);
+  w.signedIn = true;
+  return `${note}the password chosen; confirmed and signed in`;
+}
+
+export { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits, registerByHand, choosePassword, openChoosePassword, RULE_WORDS };

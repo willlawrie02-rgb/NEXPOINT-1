@@ -1,7 +1,7 @@
 // The full test: the consultancy sign-up and the admin boards.
 import { APEX, PRINT, MILL, OPPS, API, Refused, Soft, mustBeZZ, isZZ, isZZSlug, differs, wait, skip, hand, askEnter, askLine } from "./core.mjs";
 import { windowFor, go, see, shows, text, whoAmI, apiGet, signIn, signOut, adminWindow, adminGo, saveVia, wantDirect, ADMIN, allow, pollUntil, invoiceRaised } from "./browser.mjs";
-import { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits, registerByHand } from "./kit.mjs";
+import { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits, registerByHand, choosePassword } from "./kit.mjs";
 
 /* What these journeys send, beyond what browser.mjs opens for every run. The
    never-lists there still win: no campaign, no re-run, nothing marked paid,
@@ -539,6 +539,19 @@ const admin = [{
         ctx.left.push(`a pause and a resume on ${company} (each on the account's record)`);
         await untilOrgWord(ctx, company, org, /Paused/, "the pause");
       } },
+    /* Plan 095 (live 16 November 2026): a person's pause has its own words on
+       the host's account page, and no Pay the invoice beside them, since
+       paying does not bring a paused listing back. */
+    { id: "host-sees", does: "Host opens its account page while paused", shows: "\"NexPoint has paused your listing\"; no Pay the invoice beside it",
+      run: async (ctx) => {
+        const w = await signIn(ctx, "host");
+        await go(w.page, `${APEX}/hub/account/`);
+        await w.page.locator("#profile:not([hidden])").waitFor({ state: "visible", timeout: 25000 });
+        const words = await see(w.page, "#profile .acct-notice", /NexPoint has (also )?paused your listing/, "the paused words on the host's account page", 25000);
+        const hidden = /unpaid/.test(words);
+        if (!hidden && (await w.page.locator("#profile a", { hasText: "Pay the invoice" }).count())) differs("the paused host's account page", "a Pay the invoice button", "none: paying does not bring a paused listing back");
+        return hidden ? "paused and hidden for an unpaid invoice: both said" : "paused: said, with no Pay the invoice";
+      } },
     { id: "gone", does: "Seeker searches again", shows: "The ZZ host is not among the named sites",
       run: async (ctx) => {
         if (ctx.cache.pauseBaseline === false) skip("the host was not shown before the pause either");
@@ -661,21 +674,21 @@ const admin = [{
         if (!same(await w.page.inputValue("#qEmail"), j.email)) differs("the address on the form", await w.page.inputValue("#qEmail"), j.email);
         const n = ctx.settings.new_account;
         /* The runner has read the form; a person now registers through the same link. */
-        await registerByHand(ctx, { url: link, what: `the invited account (${filled})`, password: n.password, fields: [
+        await registerByHand(ctx, { url: link, what: `the invited account (${filled})`, fields: [
           ["Your name", j.name], ["Company", "already filled in"], ["Email", "already filled in"],
           ["Country", n.country || "United Kingdom"], ["Town", n.town || "Leeds"]] });
         ctx.did();
         ctx.left.push(`the account made through the invitation (${filled}, ${j.email}); its login is deleted by delete-login`);
         ctx.mail.expect("Confirm your email (the invited account)", j.email, "Confirm your email");
       } },
-    { id: "join-confirm", once: true, does: "Confirms the invited account's address", shows: "\"You're confirmed.\"",
+    { id: "join-confirm", once: true, does: "Confirms the invited account's address, choosing its password on \"Choose your password\"", shows: "\"You're confirmed.\"",
       run: async (ctx) => {
         const j = joinerOf(ctx);
         if (!j || !made(ctx).card) skip("no invitation was sent");
         stampOf(ctx);
         const w = ctx.lastWindow = await windowFor(ctx, "invitee");
-        await go(w.page, await emailLink(ctx, { to: j.email, subject: "Confirm your email", part: "/hub/confirm.html", what: "the invited account's confirmation email" }));
-        await see(w.page, "#confirmBody", /You.re confirmed/, "the confirmation page", 30000);
+        const link = await emailLink(ctx, { to: j.email, subject: "Confirm your email", part: "/hub/confirm.html", what: "the invited account's confirmation email" });
+        return choosePassword(ctx, w, link, ctx.settings.new_account.password, { what: "the invited account's confirmation link" });
       } },
     { id: "dead", does: "Marks the card dead (once nothing on it is queued)", shows: "\"Saved\"; the card in the company's dead archive",
       run: async (ctx) => {

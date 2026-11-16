@@ -41,6 +41,25 @@ export function mustBeZZ(name, what) {
   return true;
 }
 
+// ---------------------------------------------------------------- the live password rule
+/* The live sign-in service's rule, as hub/confirm.html, hub/reset.html and
+   the worker (auth.js passwordMissingKind) state it since plan 093 (live 16
+   November 2026): at least 8 characters, at most 72, with a lower-case
+   letter, a capital, a number and a symbol from the service's own set. A
+   password is chosen on the page the confirmation link opens, so one the
+   runner types there must meet it. Answers what is wrong, or "". Never
+   says the password itself. */
+export const PASSWORD_SYMBOLS = "!@#$%^&*()_+-=[]{};'\\:\"|<>?,./`~";
+export function passwordProblem(pw) {
+  const s = String(pw == null ? "" : pw), chars = [...s];
+  if (chars.length < 8) return "shorter than 8 characters";
+  if (chars.length > 72) return "longer than 72 characters";
+  const kinds = [["a lower-case letter", (c) => c >= "a" && c <= "z"], ["a capital letter", (c) => c >= "A" && c <= "Z"],
+    ["a number", (c) => c >= "0" && c <= "9"], ["a symbol", (c) => PASSWORD_SYMBOLS.includes(c)]];
+  const miss = kinds.find(([, has]) => !chars.some(has));
+  return miss ? `has no ${miss[0].replace(/^an? /, "")}` : "";
+}
+
 // ---------------------------------------------------------------- the command line
 export const USAGE = `The full test, on ZZ test accounts only.
 
@@ -145,6 +164,10 @@ export function checkSettings(s, { withJourneys = [] } = {}) {
   }
   if (have.new_account && lower(n.email) === lower(n.invite_email)) problems.push("new_account.email and invite_email must differ");
   if (have.new_account && !isZZ(n.name)) problems.push("new_account.name is not a ZZ test name: the person is named ZZ too, so Contacts shows a test person");
+  /* Since plan 093 the password is chosen on the confirmation page, which refuses one that misses the rule. */
+  if (have.new_account && passwordProblem(n.password)) {
+    problems.push(`new_account.password does not meet the live password rule (it ${passwordProblem(n.password)}); run "npm run fulltest -- --setup" to make a new one`);
+  }
   const m = (s && s.mail) || {};
   const mailKeys = [m.tenant_id, m.client_id, m.client_secret || m.client_secret_file, [].concat(m.mailboxes || []).join("")]
     .filter((v) => String(v || "").trim());
@@ -191,6 +214,20 @@ export function askEnter(question) {
     rl.question(`\n>>> ${question}\n    Press Return when done, or type "skip" and Return to leave it: `, (answer) => {
       rl.close();
       done(String(answer || "").trim().toLowerCase() !== "skip");
+    });
+  });
+}
+
+/* A yes or no from the person at the keyboard, about something only a
+   person can see (a countdown in their own Chrome window). Answers true for
+   yes, false for no, null when nothing was typed. */
+export function askYesNo(question) {
+  return new Promise((done) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(`\n>>> ${question}\n    Type y or n and press Return (just Return to leave it): `, (answer) => {
+      rl.close();
+      const a = String(answer || "").trim().toLowerCase();
+      done(/^y/.test(a) ? true : /^n/.test(a) ? false : null);
     });
   });
 }

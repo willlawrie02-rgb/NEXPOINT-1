@@ -1,6 +1,6 @@
 // The full test's own checks: the ZZ rule, the settings, and the locks on
 // what a window may send. No browser, no network. Part of `npm run check`.
-import { isZZ, isZZSlug, parseArgs, checkSettings, emptySettings, leftOut, unknownNames } from "./core.mjs";
+import { isZZ, isZZSlug, parseArgs, checkSettings, emptySettings, leftOut, unknownNames, passwordProblem } from "./core.mjs";
 import { lockVerdict, allow } from "./browser.mjs";
 import { JOURNEYS } from "./journeys.mjs";
 import { readFileSync } from "node:fs";
@@ -19,7 +19,18 @@ const filled = (company) => { const s = emptySettings(); s.accounts.host = { com
 ok("a ZZ host passes", checkSettings(filled("ZZ Host Test")).problems.length === 0 && checkSettings(filled("ZZ Host Test")).have.host);
 ok("a real host is refused", checkSettings(filled("Acme Orthotics")).problems.length === 1);
 ok("a half-filled account is refused", checkSettings({ accounts: { seeker: { company: "ZZ Seeker", email: "", password: "x" } } }).problems.length === 1);
-ok("an address without {stamp} is refused", checkSettings({ new_account: { company: "ZZ New {stamp}", name: "ZZ New", email: "a@example.com", password: "x" } }).problems.length === 1);
+ok("an address without {stamp} is refused", checkSettings({ new_account: { company: "ZZ New {stamp}", name: "ZZ New", email: "a@example.com", password: "Zz-abcdefgh-9a" } }).problems.length === 1);
+
+// The live password rule (plan 093, 16 November 2026): the runner chooses each new account's password on the confirmation page.
+ok("a password with each kind passes", passwordProblem("Zz-abcdefgh-9a") === "" && passwordProblem("ZZ-abc_def-7q") === "");
+ok("a password missing a kind is caught", /symbol/.test(passwordProblem("Zzabcdefgh9")) && /capital/.test(passwordProblem("zz-abcdefgh9"))
+  && /number/.test(passwordProblem("Zz-abcdefgh")) && /lower-case/.test(passwordProblem("ZZ-ABCDEFG9")));
+ok("a short or long password is caught", /shorter/.test(passwordProblem("Zz-9a")) && /longer/.test(passwordProblem(`Zz-9${"a".repeat(80)}`)));
+ok("--setup's passwords meet the rule", passwordProblem(`Zz-${"AbC_d-12xY9q-Z0k1"}9a`) === "");
+ok("a new account whose password misses the rule is refused", checkSettings({ new_account: { company: "ZZ New {stamp}", name: "ZZ New", email: "a+{stamp}@example.com", password: "password" } })
+  .problems.some((p) => /password rule/.test(p) && !/password"/.test(p)));
+ok("the problem never says the password", !checkSettings({ new_account: { company: "ZZ New {stamp}", name: "ZZ New", email: "a+{stamp}@example.com", password: "Secretpass1" } })
+  .problems.join(" ").includes("Secretpass1"));
 ok("the template has no values", checkSettings(emptySettings()).problems.length === 0 && !Object.values(checkSettings(emptySettings()).have).some(Boolean));
 ok("the example file is the template", JSON.stringify(JSON.parse(readFileSync(new URL("../fulltest.example.json", import.meta.url), "utf8"))) === JSON.stringify(emptySettings()));
 
@@ -30,6 +41,7 @@ ok("reads pass", v("admin", "GET", `${DB}/membership_invoices?select=*`) === "" 
 ok("signing is stopped outside its own step", v("account", "POST", `${API}/signup/accept`) !== "" && v("admin", "POST", `${API}/signup/accept`) !== ""
   && v("account", "POST", `${API}/signup/accept`, null, { sign: true }) === "");
 ok("a search passes", v("account", "POST", `${API}/listings/search`) === "");
+ok("the confirmation page's press and its resend pass", v("account", "POST", `${API}/auth/confirm`) === "" && v("account", "POST", `${API}/auth/resend-confirmation`) === "");
 ok("an account path no journey sends is stopped", v("account", "POST", `${API}/account/no-such-path`) !== "" && v("account", "POST", `${API}/orders`) !== "");
 ok("accepting an introduction passes (Will, 12 November)", v("account", "POST", `${API}/introductions/accept`) === "");
 ok("an account window never writes to the database", v("account", "POST", `${DB}/engine_intents`, intent("add-note", {})) !== "");

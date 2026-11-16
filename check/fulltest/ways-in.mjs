@@ -2,9 +2,9 @@
 // people, closing and reopening, and Terms 2.0 (action list groups 1.1-1.3,
 // 2, 3, 4, 10 and 11).
 import { randomBytes } from "node:crypto";
-import { APEX, PRINT, MILL, OPPS, API, Refused, Soft, mustBeZZ, isZZ, isZZSlug, differs, wait, skip, hand, askEnter, askLine } from "./core.mjs";
+import { APEX, PRINT, MILL, OPPS, API, Refused, Soft, mustBeZZ, isZZ, isZZSlug, differs, wait, skip, hand, askEnter, askLine, askYesNo } from "./core.mjs";
 import { windowFor, go, see, shows, text, whoAmI, apiGet, signIn, signOut, adminWindow, adminGo, saveVia, wantDirect, ADMIN, allow, pollUntil, invoiceRaised } from "./browser.mjs";
-import { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits, registerByHand } from "./kit.mjs";
+import { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits, registerByHand, choosePassword, openChoosePassword } from "./kit.mjs";
 
 /* What these journeys send, beyond the runner's own list (browser.mjs). */
 allow({
@@ -22,17 +22,6 @@ allow({
 // ================================================================ helpers of this file
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 const posted = (page, path, ms = 30000) => page.waitForResponse((r) => r.url() === `${API}${path}` && r.request().method() === "POST", { timeout: ms });
-/* The site sends one confirmation email, one reset email and one email-change
-   link per address every two minutes (portal worker, auth.js
-   CONFIRM_RESEND_COOLDOWN_MS); a little over that, to be sure. */
-const COOLDOWN_MS = 125 * 1000;
-async function waitOutCooldown(ctx, sinceIso, what) {
-  const left = (Date.parse(sinceIso || "") || 0) + COOLDOWN_MS - Date.now();
-  if (left > 0) {
-    ctx.log(`  waiting ${Math.ceil(left / 1000)} seconds: the site sends ${what} once every two minutes`);
-    await pause(left);
-  }
-}
 /* A one-pixel PNG, made here: the logo upload needs a real picture. */
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
 
@@ -229,72 +218,85 @@ const signingIn = {
 const registering = {
   id: REG, title: "Every way in: registering, closing and reopening, and a new password", pass: "computer", needs: ["new_account", "window"],
   steps: [
-    { id: "register", once: true, does: "You register a new ZZ account in your own Chrome (the human check refuses an automated browser); the runner hands you the details",
-      shows: "\"Check your inbox\"; the confirmation email arrives",
+    { id: "register", once: true, does: "You register a new ZZ account in your own Chrome (the human check refuses an automated browser); the runner hands you the details. No password box: it is chosen from the link. On the \"Check your inbox\" card you watch Resend the email count down from 2:10, then press it once",
+      shows: "No password box on the form; \"Check your inbox\"; Resend the email greyed, counting down from 2:10; once pressed, \"a new link is on its way\"",
       run: async (ctx) => {
         const n = newcomer(ctx);
-        await registerByHand(ctx, { url: `${APEX}/hub/?join=1`, what: `a new ZZ account, ${n.company}`, password: n.password, fields: [
+        await registerByHand(ctx, { url: `${APEX}/hub/?join=1`, what: `a new ZZ account, ${n.company}`, watchResend: true, fields: [
           ["Your name", n.name], ["Company", n.company], ["Email", n.email], ["Country", n.country], ["Town", n.town]] });
         made(ctx).registeredAt = new Date().toISOString();
         ctx.cache.newcomerStamp = stampOf(ctx);
+        ctx.cache.resendByHand = true;
         ctx.did();
         ctx.mail.expect("Confirm your email (registration)", n.email, "Confirm your email");
         ctx.left.push(`the account ${n.company} (${n.email})`);
       } },
-    { id: "resend", once: true, does: "Asks for the confirmation email again, once the site's two-minute pause has passed",
-      shows: "\"A new link is on its way\"; a second confirmation email arrives",
+    /* Plan 093 (audit item 8): the card's Resend the email waits out the
+       worker's two minutes, counting down from 2:10, and stays for another
+       try. The card is in the person's own window (the human check keeps
+       the runner off the form), so the person says what it did, and the
+       runner counts the emails. Before 16 November the runner pressed it
+       itself, or signed in unconfirmed to get "Confirm your email first";
+       an account registered with no password has no password to sign in
+       with, so that way is gone. */
+    { id: "resend", once: true, does: "Asks you what Resend the email did on the card, then counts the confirmation emails",
+      shows: "You saw the countdown from 2:10 and \"a new link is on its way\"; two confirmation emails arrive",
       run: async (ctx) => {
         const n = reg(ctx), m = made(ctx);
-        await waitOutCooldown(ctx, m.registeredAt || m.since, "a confirmation email");
-        const asked = new Date(Date.now() - 2000).toISOString();
-        let w = ctx.windows[`newcomer@${ctx.size}`];
-        if (w && (await shows(w.page, "#npAccountContent [data-np-resend]", 1500))) {
-          /* The card registration left on screen: its own Resend the email. */
-          ctx.lastWindow = w;
-          const sent = posted(w.page, "/auth/resend-confirmation");
-          await w.page.click("#npAccountContent [data-np-resend]");
-          if (!(await sent).ok()) differs("Resend the email", "the site refused it", "a new link sent");
-          ctx.did();
-          await see(w.page, "#npAccountContent [role=status]", "a new link is on its way", "after Resend the email");
-        } else {
-          /* A later run: the sign-in box offers the same, to an address not yet confirmed. */
-          w = ctx.lastWindow = await windowFor(ctx, "stranger", { fresh: true });
-          await go(w.page, `${APEX}/hub/?signin=1`);
-          await w.page.locator("#signOverlay.open").waitFor({ state: "visible", timeout: 25000 });
-          await w.page.fill("#sEmail", n.email);
-          await w.page.fill("#sPass", n.password);
-          await w.page.click("#signContent button[type=submit]");
-          await see(w.page, "#signContent .np-sign-error", "Confirm your email first", "signing in before confirming", 20000);
-          const sent = posted(w.page, "/auth/resend-confirmation");
-          await w.page.click("#signContent .np-sign-resend button");
-          if (!(await sent).ok()) differs("Send a new confirmation link", "the site refused it", "a new link sent");
-          ctx.did();
-          await see(w.page, "#signContent .np-sign-resend [role=status]", "a link is on its way", "after Send a new confirmation link");
-        }
+        if (!ctx.cache.resendByHand) skip("the account was registered on an earlier run; Resend the email is pressed on the registration card, in the same sitting");
+        if (ctx.args.headless) hand("Resend the email's countdown is on the registration card, in your own window");
+        const counted = await askYesNo("On the \"Check your inbox\" card: was Resend the email greyed and counting down from about 2:10, and could you press it only once it read \"Resend the email\" again?");
+        const said = await askYesNo("When you pressed it, did the card say \"If that address still needs confirming, a new link is on its way\"?");
         ctx.mail.expect("Confirm your email (sent again)", n.email, "Confirm your email");
-        const count = await mailCount(ctx, { to: n.email, subject: "Confirm your email", since: m.since, want: 2 });
-        if (count === null) return "the second email is for you to check by hand: the runner cannot read that mailbox";
-        if (count < 2) differs("confirmation emails in the mailbox", `${count}`, "2: the first and the one sent again");
-        return `${count} confirmation emails arrived (asked again at ${asked.slice(11, 16)} UTC)`;
+        const count = await mailCount(ctx, { to: n.email, subject: "Confirm your email", since: m.since, want: 2, ms: 120000 });
+        if (counted === false) throw new Soft("you saw no countdown on Resend the email (plan 093: it counts down from 2:10 before it can be pressed)");
+        if (said === false) throw new Soft("the card did not say a new link is on its way after Resend the email");
+        if (count !== null && count < 2) differs("confirmation emails in the mailbox", `${count}`, "2: the first and the one sent again");
+        if (counted === null || said === null) hand("Resend the email's countdown and its words: not answered at the prompt");
+        return count === null ? "the countdown and the words as you saw them; the second email is for you to check by hand"
+          : `the countdown and the words as you saw them; ${count} confirmation emails arrived`;
       } },
-    { id: "confirm", once: true, does: "Opens the newest confirmation link (read from the mailbox, or pasted by you)",
-      shows: "\"You're confirmed.\"; the account-ready email and the desk's \"Account created\" notice",
+    { id: "confirm", once: true, does: "Opens the newest confirmation link (read from the mailbox, or pasted by you): \"Choose your password\", tries a password with no symbol and two that differ, then chooses the account's password",
+      shows: "The rule stated on the page; \"Add a symbol.\" and \"do not match\" with nothing sent; then \"You're confirmed.\"; the account-ready email and the desk's \"Account created\" notice",
       run: async (ctx) => {
         const n = reg(ctx), w = ctx.lastWindow = await windowFor(ctx, "newcomer");
         /* Kept for the next step in this run only: a link is never written to the state file. */
         const link = ctx.cache.confirmLink = await emailLink(ctx, { to: n.email, subject: "Confirm your email", part: "/hub/confirm.html", what: "the newest confirmation email" });
-        await go(w.page, link);
-        ctx.did();
-        await see(w.page, "#confirmBody", /You.re confirmed/, "the confirmation page", 30000);
+        const note = await choosePassword(ctx, w, link, n.password, { what: "the confirmation link", checks: true });
         ctx.mail.expect("Your account is ready", n.email, "Your NexPoint hub account is ready");
         if (ctx.mail.s.desk) ctx.mail.expect("Desk notice: account created", ctx.mail.s.desk, "Account created:");
+        return note;
       } },
-    { id: "twice", does: "Opens the same link again in a clean window", shows: "\"This link has been used or has expired.\"",
+    /* The link spent, two ways (plan 093): in a clean window the page says
+       the link is used or expired; on the device the link signed in, it says
+       the password just typed was not saved. Either way the password typed on
+       a spent link is not the account's: signing in with it is refused, and
+       with the chosen one still works (audit item 1, the registration
+       takeover, closed on live at DU19). */
+    { id: "twice", does: "Opens the same link again, in a clean window and in the account's own window, and types a different password each time",
+      shows: "Nothing is sent on opening; \"This link has been used or has expired.\" in the clean window; \"the password you typed just now was not saved\" in the signed-in one; that password is refused at sign-in and the chosen one works",
       run: async (ctx) => {
         if (!ctx.cache.confirmLink) skip("the link was opened on an earlier run and is not kept between runs");
-        const w = ctx.lastWindow = await windowFor(ctx, "stranger", { fresh: true });
-        await go(w.page, ctx.cache.confirmLink);
-        await see(w.page, "#confirmBody", "used or has expired", "the link, opened twice", 30000);
+        const n = reg(ctx), other = `Zz-${randomBytes(9).toString("base64url")}5k`;
+        const clean = ctx.lastWindow = await windowFor(ctx, "stranger", { fresh: true });
+        await openChoosePassword(clean, ctx.cache.confirmLink, "the spent link in a clean window");
+        await clean.page.fill("#pass1", other);
+        await clean.page.fill("#pass2", other);
+        const refused = clean.page.waitForResponse((r) => r.url() === `${API}/auth/confirm` && r.request().method() === "POST", { timeout: 30000 });
+        await clean.page.click("#setBtn");
+        if ((await refused).ok()) differs("the spent link, pressed again", "the worker took it", "refused");
+        await see(clean.page, "#confirmBody", "used or has expired", "the spent link in a clean window", 30000);
+        const own = ctx.lastWindow = await windowFor(ctx, "newcomer");
+        await openChoosePassword(own, ctx.cache.confirmLink, "the spent link on the account's own device");
+        await own.page.fill("#pass1", other);
+        await own.page.fill("#pass2", other);
+        await own.page.click("#setBtn");
+        await see(own.page, "#confirmBody", "password you typed just now was not saved", "the spent link on the account's own device", 30000);
+        const typed = await trySignIn(ctx, "stranger", n.email, other);
+        if (typed.ok) differs("signing in with the password typed on the spent link", "signed in", "refused");
+        const chosen = await trySignIn(ctx, "stranger", n.email, n.password);
+        if (!chosen.ok) differs("signing in with the password chosen from the link", chosen.error, "the name chip");
+        return "used or expired in a clean window; not saved on the signed-in one; only the chosen password signs in";
       } },
     { id: "signed-in", does: "Signs in as the new account", shows: "The chip; the ZZ company",
       run: async (ctx) => { await signInHere(ctx, "newcomer", newcomerAccount(ctx)); } },
@@ -537,7 +539,7 @@ const joining = {
         await invite(ctx, n.email);
         ctx.mail.expect("Invitation to join", n.email, "has invited you to");
       } },
-    { id: "join", once: true, does: "Opens the new invitation and joins", shows: "\"Join <ZZ host>\"; then \"Check your inbox.\"",
+    { id: "join", once: true, does: "Opens the new invitation and joins: name and the Platform Terms tick, no password", shows: "\"Join <ZZ host>\" with no password box; then \"Check your inbox.\"",
       run: async (ctx) => {
         const n = invitee(ctx), w = ctx.lastWindow = await windowFor(ctx, "joiner");
         const link = await linkSince(ctx, { to: n.email, subject: "has invited you to", part: "/hub/invite.html", what: "the second invitation email", since: made(ctx).invitedAt });
@@ -545,7 +547,8 @@ const joining = {
         const head = await see(w.page, "h1", "Join", "the invitation page", 30000);
         if (!head.toLowerCase().includes(acct(ctx, "host").company.toLowerCase())) throw new Refused("refused: the invitation is not to the ZZ host's account");
         await w.page.fill("#invName", joinerName(ctx));
-        await w.page.locator("#invPass").pressSequentially(n.password);
+        /* Since plan 093 the invitation has no password box: it is chosen from the confirmation link. */
+        if (await w.page.locator("#invPass").count()) differs("the invitation page", "a password box", "none: the password is chosen from the confirmation link");
         await w.page.locator("#invTick").waitFor({ state: "visible" });
         await w.page.check("#invTick");
         const sent = posted(w.page, "/auth/register-invited");
@@ -553,12 +556,11 @@ const joining = {
         if ((await sent).ok()) ctx.did();
         await see(w.page, "h1", "Check your inbox", "after joining", 30000);
       } },
-    { id: "join-confirm", once: true, does: "Confirms the invited user's address", shows: "\"You're confirmed.\"",
+    { id: "join-confirm", once: true, does: "Confirms the invited user's address, choosing its password on \"Choose your password\"", shows: "\"You're confirmed.\"",
       run: async (ctx) => {
         const n = invitee(ctx), w = ctx.lastWindow = await windowFor(ctx, "joiner");
-        await go(w.page, await emailLink(ctx, { to: n.email, subject: "Confirm your email", part: "/hub/confirm.html", what: "the invited user's confirmation email" }));
-        ctx.did();
-        await see(w.page, "#confirmBody", /You.re confirmed/, "the confirmation page", 30000);
+        const link = await emailLink(ctx, { to: n.email, subject: "Confirm your email", part: "/hub/confirm.html", what: "the invited user's confirmation email" });
+        return choosePassword(ctx, w, link, joinerAccount(ctx).password, { what: "the invited user's confirmation link" });
       } },
 
     // ---------------------------------------------------------------- 4.5 the joined user changes email
