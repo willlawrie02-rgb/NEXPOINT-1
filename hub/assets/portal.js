@@ -577,7 +577,7 @@ function signResendOffer(email){
       note.textContent = 'That did not send. Check your connection and try again.';
       return;
     }
-    note.textContent = 'If that address still needs confirming, a link is on its way.';
+    note.textContent = 'If that address still needs confirming, a link is on its way. If one was sent in the last two minutes, use that one.';
     btn.remove();
   });
   row.appendChild(btn);
