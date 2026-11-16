@@ -362,9 +362,14 @@
       if (def.type === 'number') {
         return '<div class="field full">' + label + '<input id="' + esc(id) + '" type="number" step="1" inputmode="numeric"></div>';
       }
-      /* text and multiselect both take an input; multiselect gets a type-ahead */
+      /* text and multiselect both take an input; multiselect gets a type-ahead.
+         A fixed list does not invite typing (plan 095): only a field with no
+         list of its own takes the host's own words. */
       return '<div class="field full">' + label + '<input id="' + esc(id) + '"' +
-        (def.type === 'multiselect' ? ' placeholder="Select from the list or type your own"' : '') + '></div>';
+        (def.type === 'multiselect'
+          ? ' placeholder="' + (Array.isArray(def.options) && def.options.length
+            ? 'Select from the list' : 'Select from the list or type your own') + '"'
+          : '') + '></div>';
     }).join('');
   }
 
@@ -385,6 +390,24 @@
       if (def.type === 'boolean') { node.checked = !!v; return; }
       if (v != null) node.value = String(v);
     });
+  }
+
+  /* The first fixed-list field with words still in its box, or null (plan
+     095). A field that takes typed words has none left after commit(), so
+     this only ever speaks for a fixed list, where words that are not on it
+     would otherwise be dropped without a word. */
+  function leftoverIn(defs, idFor) {
+    for (let i = 0; i < defs.length; i += 1) {
+      const def = defs[i];
+      if (def.type !== 'multiselect') continue;
+      const id = idFor(def.key);
+      const left = TA[id] && TA[id].pending ? TA[id].pending() : '';
+      if (left) {
+        return { focus: id, error: '"' + left + '" is not on the ' + String(def.label || def.key).toLowerCase() +
+          ' list. Choose from the list, or clear the box and name it under Quality systems and standards.' };
+      }
+    }
+    return null;
   }
 
   function readAttrFields(defs, idFor) {
@@ -858,6 +881,8 @@
     const capRaw = val('m-' + n + '-capacity');
     const minRaw = val('m-' + n + '-minorder');
     const attributes = readAttrFields(defs, (k) => 'm-' + n + '-attr-' + k);
+    const found = leftoverIn(defs, (k) => 'm-' + n + '-attr-' + k);
+    if (found) return { missing: found.focus, why: found.error };
 
     const empty = !name && !materials.length && !process && !notes && leadRaw === '' &&
       capRaw === '' && minRaw === '' && !Object.keys(attributes).length;
@@ -898,6 +923,9 @@
      is not ready. Client validation is short on purpose: the worker is the
      authority, and every message it sends back is shown as written. */
   function buildPayload() {
+    /* Settle every type-ahead first (plan 095), so words typed and not yet a
+       chip are read, and a read never depends on a field having been left. */
+    Object.keys(TA).forEach((k) => { if (TA[k] && TA[k].commit) TA[k].commit(); });
     const country = TA.siteCountry ? TA.siteCountry.value() : val('siteCountry');
     const town = val('siteTown');
     if (!town) return { error: 'Which town or city is the site in?', focus: 'siteTown' };
@@ -937,6 +965,8 @@
 
     const line1 = [val('siteAddress1'), val('siteAddress2')].filter(Boolean).join(', ');
     const listingDefs = ((vocab && vocab.attributes && vocab.attributes.listing) || []).filter((d) => d.key !== 'min_order_units');
+    const leftover = leftoverIn(listingDefs, (k) => 'attr-' + k);
+    if (leftover) return { error: leftover.error, focus: leftover.focus };
 
     const payload = {
       hub: HUB,

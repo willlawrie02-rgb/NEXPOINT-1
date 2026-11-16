@@ -34,6 +34,12 @@
 
   var CURRENCIES = ['GBP', 'EUR', 'USD'];
 
+  /* The API address the page talks to, by portal.js's own rule (listing-form.js
+     and find.js keep the same copy). Plan 095: the Pay the invoice button is
+     drawn only for a pay link on this address. */
+  var API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+    ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
+
   /* ── small helpers ──────────────────────────────────────────────── */
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -171,7 +177,14 @@
       host_print: pick(site.host_print, org.host_print) || 'none',
       host_mill: pick(site.host_mill, org.host_mill) || 'none',
       sub_status: pick(site.sub_status, org.sub_status) || '',
-      hidden: site.hidden != null ? !!site.hidden : (org.sub_status === 'hidden'),
+      /* Plan 095: two reasons a listing is not showing, told apart. Each reads
+         the worker's new field when it is there and falls back to what an
+         older worker sends. hiddenUnpaid is the automatic hide for an unpaid
+         membership invoice; pausedByDesk is a person's pause. */
+      hiddenUnpaid: site.hidden_unpaid != null ? !!site.hidden_unpaid : (org.sub_status === 'hidden'),
+      pausedByDesk: site.paused_by_desk != null ? !!site.paused_by_desk
+        : (!!site.paused && org.sub_status !== 'hidden'),
+      invoice: d.membership_invoice && typeof d.membership_invoice === 'object' ? d.membership_invoice : null,
       verified: !!site.verified,
       /* Plan 069: the closed shape, when the holder closed the account. */
       closed: d.closed && typeof d.closed === 'object' ? d.closed : null,
@@ -224,10 +237,68 @@
       '<a class="btn btn-outline acct-btn-sm acct-edit" href="settings/">' + (s.closed ? 'Account settings' : 'Edit account or add users') + '</a>' +
       (s.closed ? '<div class="acct-badges"><span class="acct-badge">Closed ' + esc(fmtDate(s.closed.at)) + '</span></div>' : '') +
       (badges.length && !s.closed ? '<div class="acct-badges">' + badges.join('') + '</div>' : '') +
-      (s.hidden ? '<div class="acct-notice">Your listing is hidden, so nobody searching the hub can see it. Email <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a> and we will put it back.</div>' : '') +
+      listingNotice(s) +
       listingRows(d, s);
     fill('profile', html);
     loadLogo();
+  }
+
+  /* Why a host's listing is not showing, and the membership invoice that is
+     due (plan 095; audit of 14 November 2026). A person's pause and the
+     automatic hide for an unpaid membership invoice are two states, and both
+     can hold at once: paying lifts the second and never the first, so each
+     has its own words. The page never says who paused a listing or why;
+     those stay with NexPoint. The button is the link the invoice email
+     carries, drawn only when it has the shape of one and is on the API
+     address this page talks to (API_BASE).
+     Uses only esc, fmtDate, isHost, HELLO and API_BASE, so check/review.mjs
+     can lift it out and run every row of the plan's table. */
+  function listingNotice(s) {
+    if (s.closed || !isHost(s)) return '';
+    var inv = s.invoice && s.invoice.number && s.invoice.amount_text ? s.invoice : null;
+    var bill = inv ? 'invoice ' + esc(inv.number) + ' for ' + esc(inv.amount_text) : '';
+    var payPrefix = API_BASE + '/membership/pay/';
+    var payUrl = inv && typeof inv.pay_url === 'string' && inv.pay_url.indexOf(payPrefix) === 0 &&
+      /^[0-9a-f]{64}$/.test(inv.pay_url.slice(payPrefix.length)) ? inv.pay_url : '';
+    var words;
+    var alarm = true;
+    var payable = true;
+    if (s.pausedByDesk && s.hiddenUnpaid) {
+      words = 'Your listing is hidden from the hubs. ' + (inv ? 'Membership ' + bill : 'Your membership invoice') +
+        ' is unpaid, and NexPoint has also paused your listing, so paying does not bring it back on its own. Email ' +
+        HELLO + ' and we will tell you what happens next.';
+    } else if (s.pausedByDesk) {
+      payable = false;
+      words = 'NexPoint has paused your listing, so nobody searching the hubs can see it. Email ' + HELLO +
+        ' and we will tell you why and what happens next.';
+    } else if (s.hiddenUnpaid) {
+      words = 'Your listing is hidden from the hubs because ' + (inv ? 'membership ' + bill : 'your membership invoice') +
+        ' is unpaid. Nothing has been deleted, and your listing comes back once the payment reaches us.' +
+        (inv ? '' : ' The invoice email has the button to pay; email ' + HELLO + ' if you cannot find it.');
+    } else if (inv) {
+      /* A bill that is simply due: said plainly, not as an alarm. Once its due
+         day has gone by (the listing is not hidden yet) it says "was due on",
+         never "is due by" a day in the past. Days are compared as the
+         calendar dates the worker sends, in the reader's own time. */
+      alarm = false;
+      var now = new Date();
+      var today = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
+      var dueDay = typeof inv.due_on === 'string' && /^\d{4}-\d{2}-\d{2}/.test(inv.due_on) ? inv.due_on.slice(0, 10) : '';
+      words = 'Membership ' + bill + (!inv.due_on ? ' is waiting to be paid.'
+        : dueDay && dueDay < today ? ' was due on ' + esc(fmtDate(inv.due_on)) + '.'
+          : ' is due by ' + esc(fmtDate(inv.due_on)) + '.');
+    } else {
+      return '';
+    }
+    var button = payable && payUrl;
+    return (alarm ? '<div class="acct-notice">' + words + '</div>' : '<p class="hint" style="margin:14px 0 0">' + words + '</p>') +
+      (button
+        ? '<div class="modal-actions" style="margin-top:14px"><a class="btn btn-primary acct-btn-sm" href="' + esc(payUrl) +
+            '" target="_blank" rel="noopener">Pay the invoice</a></div>' +
+          /* the line the invoice email ends on, under the rows that say "unpaid" */
+          (alarm ? '<p class="hint" style="margin:10px 0 0">Paid already? A payment can take a few working days to reach us. Email ' +
+            HELLO + ' if you would like us to check.</p>' : '')
+        : '');
   }
 
   /* ── the logo (plan 055, decision 25) ─────────────────────────────
@@ -261,12 +332,17 @@
       return isHost(s) ? empty('Your listing status appears here.', 'storefront') : '';
     }
     if (!listings.length) return isHost(s) ? empty('Your listing status appears here.', 'storefront') : '';
+    /* Plan 095: a listing that is paused or hidden for an unpaid invoice is
+       approved but not showing, so its row must not read as live. */
+    var off = !!(s.hiddenUnpaid || s.pausedByDesk);
     return group(listings.map(function (l) {
       var st = l.status || 'none';
       var live = l.live || {};
       var pending = l.pending || {};
       var text;
-      if (st === 'live') text = 'Live since ' + fmtDate(live.approved_at);
+      if (st === 'live' && off) text = 'Approved ' + fmtDate(live.approved_at) + '. Hidden from seekers for now.';
+      else if (st === 'live_pending_edit' && off) text = 'Approved ' + fmtDate(live.approved_at) + '. Hidden from seekers for now. Pending review since ' + fmtDate(pending.submitted_at) + '.';
+      else if (st === 'live') text = 'Live since ' + fmtDate(live.approved_at);
       else if (st === 'live_pending_edit') text = 'Live since ' + fmtDate(live.approved_at) + '. Pending review since ' + fmtDate(pending.submitted_at) + '.';
       else if (st === 'pending') text = 'Pending review since ' + fmtDate(pending.submitted_at);
       else text = 'Not listed';
@@ -275,7 +351,7 @@
       var action = locked
         ? '<span class="acct-disabled" aria-disabled="true">Edit listing</span>'
         : (href ? '<a class="acct-link" href="' + esc(href) + '">Edit listing</a>' : '');
-      var dot = st === 'live' ? 'is-live' : locked ? 'is-pending' : '';
+      var dot = st === 'live' && !off ? 'is-live' : locked ? 'is-pending' : '';
       return '<div class="acct-row">' +
         '<div class="acct-row__meta"><b><span class="acct-dot ' + dot + '" aria-hidden="true"></span>' + esc(hubLabel(l.hub)) + ' listing</b><span>' + esc(text) + '</span></div>' +
         '<div class="acct-row__actions">' + action + '</div>' +
@@ -318,10 +394,21 @@
   /* The one line an introduced row ends on (plan 052 item 26). The other
      side's details travel in the plain-text introduction email only, so the
      page says where it is and how to carry on, and shows no address. */
-  function inboxLine(ref, date) {
+  /* Plan 095: the line no longer says "in your inbox" when the worker says
+     the email with each other's details did not go, or is still on its way.
+     state is 'failed-host' (the side that can send it again), 'failed-other',
+     'waiting', or anything else for the line as it always read. */
+  function inboxLine(ref, date, state) {
+    var tail = state === 'failed-host'
+      ? 'The email that gives you both each other\'s details did not go. Send it again with the button here, or email hello@nexpoint.co.uk and we will send it by hand.'
+      : state === 'failed-other'
+        ? 'The email with each other\'s details has not gone yet. NexPoint has been told and will send it.'
+        : state === 'waiting'
+          ? 'The introduction email is on its way.'
+          : 'The introduction is in your inbox; reply to all to carry on.';
     return '<div class="acct-released"><span>' + esc(
       (date ? 'Introduced on ' + fmtDate(date) + ', ref ' + ref + '. ' : 'Introduced, ref ' + ref + '. ') +
-      'The introduction is in your inbox; reply to all to carry on.') + '</span></div>';
+      tail) + '</span></div>';
   }
 
   function pickBlock(p, intro, hub) {
@@ -349,7 +436,9 @@
         return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>';
       }).join('') + '</dl>' : '') +
       statusChain(p.stage) +
-      (accepted ? inboxLine(p.ref || (intro && intro.ref) || '', introDate(intro)) : '') +
+      (accepted ? inboxLine(p.ref || (intro && intro.ref) || '', introDate(intro),
+        intro && intro.stage === 'introduced' && intro.release === 'failed' ? 'failed-other'
+          : (intro && intro.stage === 'introduced' && intro.release === 'waiting' ? 'waiting' : '')) : '') +
     '</div>';
   }
 
@@ -532,6 +621,14 @@
     if (i.stage === 'awaiting_acceptance' && i.acceptance_expires_at) extra.push('Open until ' + fmtDate(i.acceptance_expires_at) + '.');
     var accepted = acceptedStage(i.stage);
     var canAnswer = showResend && answerable(i);
+    /* Plan 095: the worker says whether the email that gives both sides each
+       other's details went. Only the answering side can send it again.
+       'unrecorded' (no attempt on the log at all) can be sent again too, but
+       the other side is not told NexPoint knows: nothing says it was told. */
+    var releaseFailed = i.stage === 'introduced' && (i.release === 'failed' || i.release === 'unrecorded');
+    var canResendRelease = showResend && releaseFailed;
+    var releaseState = releaseFailed ? (showResend ? 'failed-host' : i.release === 'failed' ? 'failed-other' : '')
+      : (i.stage === 'introduced' && i.release === 'waiting' ? 'waiting' : '');
     return '<div class="acct-row" id="intro-' + esc(i.id) + '">' +
       '<div class="acct-row__meta">' +
         '<b>' + refLine(i.ref, i.hub) + tagHtml(tag) + '</b>' +
@@ -539,7 +636,7 @@
         extra.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') +
         pairMapBox(i, offer) +
         statusChain(i.stage) +
-        (accepted ? inboxLine(i.ref || '', introDate(i)) : '') +
+        (accepted ? inboxLine(i.ref || '', introDate(i), releaseState) : '') +
         (canAnswer ? answerPanel(i) : '') +
       '</div>' +
       '<div class="acct-row__actions">' +
@@ -550,7 +647,10 @@
         (showResend && i.stage === 'awaiting_acceptance'
           ? '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Send the email again</button>'
           : '') +
-        (showResend && i.stage === 'awaiting_acceptance'
+        (canResendRelease
+          ? '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '" data-kind="release">Send the introduction email again</button>'
+          : '') +
+        (showResend && (i.stage === 'awaiting_acceptance' || canResendRelease)
           ? '<span class="acct-msg" id="introMsg-' + esc(i.id) + '" hidden></span>'
           : '') +
       '</div>' +
@@ -1183,13 +1283,18 @@
     var id = btn.getAttribute('data-intro');
     var msg = el('introMsg-' + id);
     var done = busy(btn, 'Sending…');
-    post('/introductions/' + encodeURIComponent(id) + '/resend', {}).then(function (d) {
-      if (d && d.ok) { say(msg, 'Sent again.'); btn.disabled = true; btn.textContent = 'Sent again'; return; }
+    /* Answers true when the email went, so the caller can redraw the row. */
+    return post('/introductions/' + encodeURIComponent(id) + '/resend', {}).then(function (d) {
+      if (d && d.ok) { say(msg, 'Sent again.'); btn.disabled = true; btn.textContent = 'Sent again'; return true; }
       done();
       if (isNotBuilt(d)) { say(msg, 'We could not resend that just now. Email hello@nexpoint.co.uk and we will send it again.'); return; }
       /* Plan 037: the worker's three named refusals in the host's own words.
          "Try again" was the wrong advice for every one of them. */
       var code = d && d.error;
+      /* The introduction email's button (data-kind="release") meets too_soon
+         after an attempt that did not go, since the worker times its wait from
+         the last attempt whatever became of it; "Sent" would be untrue there. */
+      if (code === 'too_soon' && btn.getAttribute('data-kind') === 'release') { say(msg, 'We tried a moment ago. Try again in two minutes.'); return; }
       if (code === 'too_soon') { say(msg, 'Sent in the last two minutes. Check your spam folder before asking again.'); return; }
       if (code === 'no owner address for this organisation') { say(msg, 'Your account has no user address on file. Email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
       if (code === 'this introduction is no longer open') { say(msg, 'This introduction is no longer open, so there is nothing to send again. If that looks wrong, email hello@nexpoint.co.uk.'); return; }
@@ -1197,6 +1302,10 @@
          2026). The worker counts the attempt towards its two-minute wait,
          so the advice is a few minutes, not "try again" at once. */
       if (code === 'send_failed') { say(msg, 'We could not send that just now. Try again in a few minutes, or email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
+      /* Plan 095: the two answers the button for the introduction email can
+         also meet. The first is not a failure: the email has gone. */
+      if (code === 'this introduction has already been answered') { say(msg, 'This introduction has already been answered and its email has gone. Check your inbox and your spam folder, or email hello@nexpoint.co.uk.'); return; }
+      if (code === 'email log unavailable') { say(msg, 'We could not check that just now. Try again in a few minutes, or email hello@nexpoint.co.uk.', true); return; }
       say(msg, 'That did not go through. Try again, or email hello@nexpoint.co.uk.', true);
     });
   }
@@ -1315,7 +1424,15 @@
     if (act === 'education') { if (window.openEducationList) openEducationList(); return; }
     if (act === 'reopen') { reopenAccount(); return; }
     if (act === 'decl-submit') { gate(function () { submitDeclaration(btn); }); return; }
-    if (act === 'intro-resend') { gate(function () { resendIntro(btn); }); return; }
+    if (act === 'intro-resend') {
+      gate(function () {
+        var sent = resendIntro(btn);
+        /* The introduction email's row said it did not go: once it has, read
+           the account again so the row says what is true now. */
+        if (btn.getAttribute('data-kind') === 'release' && sent && sent.then) sent.then(function (ok) { if (ok) reload(); });
+      });
+      return;
+    }
     if (act === 'intro-accept-open') { openAnswer(btn, 'accept'); return; }
     if (act === 'intro-decline-open') { openAnswer(btn, 'decline'); return; }
     if (act === 'intro-accept-send') { gate(function () { sendAnswer(btn, 'accept'); }); return; }
