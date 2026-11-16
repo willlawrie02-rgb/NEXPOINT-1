@@ -34,6 +34,12 @@
 
   var CURRENCIES = ['GBP', 'EUR', 'USD'];
 
+  /* The API address the page talks to, by portal.js's own rule (listing-form.js
+     and find.js keep the same copy). Plan 095: the Pay the invoice button is
+     drawn only for a pay link on this address. */
+  var API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+    ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
+
   /* ── small helpers ──────────────────────────────────────────────── */
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -243,15 +249,17 @@
      can hold at once: paying lifts the second and never the first, so each
      has its own words. The page never says who paused a listing or why;
      those stay with NexPoint. The button is the link the invoice email
-     carries, drawn only when it has the shape of one.
-     Uses only esc, fmtDate, isHost and HELLO, so check/review.mjs can lift it
-     out and run every row of the plan's table. */
+     carries, drawn only when it has the shape of one and is on the API
+     address this page talks to (API_BASE).
+     Uses only esc, fmtDate, isHost, HELLO and API_BASE, so check/review.mjs
+     can lift it out and run every row of the plan's table. */
   function listingNotice(s) {
     if (s.closed || !isHost(s)) return '';
     var inv = s.invoice && s.invoice.number && s.invoice.amount_text ? s.invoice : null;
     var bill = inv ? 'invoice ' + esc(inv.number) + ' for ' + esc(inv.amount_text) : '';
-    var payUrl = inv && typeof inv.pay_url === 'string' &&
-      /^https?:\/\/[^\/\s]+\/membership\/pay\/[0-9a-f]{64}$/.test(inv.pay_url) ? inv.pay_url : '';
+    var payPrefix = API_BASE + '/membership/pay/';
+    var payUrl = inv && typeof inv.pay_url === 'string' && inv.pay_url.indexOf(payPrefix) === 0 &&
+      /^[0-9a-f]{64}$/.test(inv.pay_url.slice(payPrefix.length)) ? inv.pay_url : '';
     var words;
     var alarm = true;
     var payable = true;
@@ -268,9 +276,17 @@
         ' is unpaid. Nothing has been deleted, and your listing comes back once the payment reaches us.' +
         (inv ? '' : ' The invoice email has the button to pay; email ' + HELLO + ' if you cannot find it.');
     } else if (inv) {
-      /* A bill that is simply due: said plainly, not as an alarm. */
+      /* A bill that is simply due: said plainly, not as an alarm. Once its due
+         day has gone by (the listing is not hidden yet) it says "was due on",
+         never "is due by" a day in the past. Days are compared as the
+         calendar dates the worker sends, in the reader's own time. */
       alarm = false;
-      words = 'Membership ' + bill + (inv.due_on ? ' is due by ' + esc(fmtDate(inv.due_on)) + '.' : ' is waiting to be paid.');
+      var now = new Date();
+      var today = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
+      var dueDay = typeof inv.due_on === 'string' && /^\d{4}-\d{2}-\d{2}/.test(inv.due_on) ? inv.due_on.slice(0, 10) : '';
+      words = 'Membership ' + bill + (!inv.due_on ? ' is waiting to be paid.'
+        : dueDay && dueDay < today ? ' was due on ' + esc(fmtDate(inv.due_on)) + '.'
+          : ' is due by ' + esc(fmtDate(inv.due_on)) + '.');
     } else {
       return '';
     }
@@ -606,10 +622,12 @@
     var accepted = acceptedStage(i.stage);
     var canAnswer = showResend && answerable(i);
     /* Plan 095: the worker says whether the email that gives both sides each
-       other's details went. Only the answering side can send it again. */
-    var releaseFailed = i.stage === 'introduced' && i.release === 'failed';
+       other's details went. Only the answering side can send it again.
+       'unrecorded' (no attempt on the log at all) can be sent again too, but
+       the other side is not told NexPoint knows: nothing says it was told. */
+    var releaseFailed = i.stage === 'introduced' && (i.release === 'failed' || i.release === 'unrecorded');
     var canResendRelease = showResend && releaseFailed;
-    var releaseState = releaseFailed ? (showResend ? 'failed-host' : 'failed-other')
+    var releaseState = releaseFailed ? (showResend ? 'failed-host' : i.release === 'failed' ? 'failed-other' : '')
       : (i.stage === 'introduced' && i.release === 'waiting' ? 'waiting' : '');
     return '<div class="acct-row" id="intro-' + esc(i.id) + '">' +
       '<div class="acct-row__meta">' +
@@ -630,7 +648,7 @@
           ? '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Send the email again</button>'
           : '') +
         (canResendRelease
-          ? '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Send the introduction email again</button>'
+          ? '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '" data-kind="release">Send the introduction email again</button>'
           : '') +
         (showResend && (i.stage === 'awaiting_acceptance' || canResendRelease)
           ? '<span class="acct-msg" id="introMsg-' + esc(i.id) + '" hidden></span>'
@@ -1368,13 +1386,18 @@
     var id = btn.getAttribute('data-intro');
     var msg = el('introMsg-' + id);
     var done = busy(btn, 'Sending…');
-    post('/introductions/' + encodeURIComponent(id) + '/resend', {}).then(function (d) {
-      if (d && d.ok) { say(msg, 'Sent again.'); btn.disabled = true; btn.textContent = 'Sent again'; return; }
+    /* Answers true when the email went, so the caller can redraw the row. */
+    return post('/introductions/' + encodeURIComponent(id) + '/resend', {}).then(function (d) {
+      if (d && d.ok) { say(msg, 'Sent again.'); btn.disabled = true; btn.textContent = 'Sent again'; return true; }
       done();
       if (isNotBuilt(d)) { say(msg, 'We could not resend that just now. Email hello@nexpoint.co.uk and we will send it again.'); return; }
       /* Plan 037: the worker's three named refusals in the host's own words.
          "Try again" was the wrong advice for every one of them. */
       var code = d && d.error;
+      /* The introduction email's button (data-kind="release") meets too_soon
+         after an attempt that did not go, since the worker times its wait from
+         the last attempt whatever became of it; "Sent" would be untrue there. */
+      if (code === 'too_soon' && btn.getAttribute('data-kind') === 'release') { say(msg, 'We tried a moment ago. Try again in two minutes.'); return; }
       if (code === 'too_soon') { say(msg, 'Sent in the last two minutes. Check your spam folder before asking again.'); return; }
       if (code === 'no owner address for this organisation') { say(msg, 'Your account has no user address on file. Email hello@nexpoint.co.uk and we will send it by hand.', true); return; }
       if (code === 'this introduction is no longer open') { say(msg, 'This introduction is no longer open, so there is nothing to send again. If that looks wrong, email hello@nexpoint.co.uk.'); return; }
@@ -1508,7 +1531,15 @@
     if (act === 'decl-change') { declReopen = btn.getAttribute('data-period') || null; load(); return; }
     if (act === 'decl-keep') { declReopen = null; load(); return; }
     if (act === 'decl-submit') { gate(function () { submitDeclaration(btn); }); return; }
-    if (act === 'intro-resend') { gate(function () { resendIntro(btn); }); return; }
+    if (act === 'intro-resend') {
+      gate(function () {
+        var sent = resendIntro(btn);
+        /* The introduction email's row said it did not go: once it has, read
+           the account again so the row says what is true now. */
+        if (btn.getAttribute('data-kind') === 'release' && sent && sent.then) sent.then(function (ok) { if (ok) reload(); });
+      });
+      return;
+    }
     if (act === 'intro-accept-open') { openAnswer(btn, 'accept'); return; }
     if (act === 'intro-decline-open') { openAnswer(btn, 'decline'); return; }
     if (act === 'intro-accept-send') { gate(function () { sendAnswer(btn, 'accept'); }); return; }

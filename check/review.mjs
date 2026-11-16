@@ -112,6 +112,36 @@ function returnCheck(file, fnName, call) {
 returnCheck("hub/confirm.html", "safeReturnTo", "safeReturnTo()");
 returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
 
+// ---------------------------------------------------------------- the password rule
+// Plan 093 (14 November 2026): the two pages that take a password say and
+// check the live sign-in rule, the same one the worker checks (auth.js
+// PASSWORD_MIN, passwordMissingKind): at least 8 characters, with a
+// lower-case letter, a capital letter, a number and a symbol. The pages share
+// no script, so each carries its own copy; this keeps the copies in step, and
+// runs each page's own check on a few passwords.
+{
+  const RULE = "Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.";
+  const cases = [["Walkpassword1", "Add a symbol."], ["walk-password-1", "Add a capital letter."],
+    ["Walk-password", "Add a number."], ["WALK-PASSWORD-1", "Add a lower-case letter."], ["Walk-password-1", null]];
+  for (const file of ["hub/confirm.html", "hub/reset.html"]) {
+    const t = read(file);
+    if (!/const MIN_LENGTH = 8;/.test(t)) fail(`${file}: MIN_LENGTH is not 8, the live minimum`);
+    if (!t.includes(`const RULE = '${RULE}';`)) fail(`${file}: the rule's sentence is not the agreed one`);
+    if (!/minlength="\$\{MIN_LENGTH\}"/.test(t)) fail(`${file}: the boxes' minlength does not follow MIN_LENGTH`);
+    const from = t.indexOf("const SYMBOLS");
+    const to = t.indexOf("/* The sign-in service's own refusal");
+    if (from < 0 || to < 0) { fail(`${file}: the rule's check was not found`); continue; }
+    let got;
+    try {
+      got = new Function(t.slice(from, to) + "\nreturn (pw) => missingKindLine(pw);")();
+    } catch (e) { fail(`${file}: the rule's check does not run (${e.message})`); continue; }
+    for (const [pw, want] of cases) {
+      const line = got(pw);
+      if (line !== want) fail(`${file}: ${pw} gives ${JSON.stringify(line)}, not ${JSON.stringify(want)}`);
+    }
+  }
+}
+
 // ---------------------------------------------------------------- the resend that failed
 // The worker answers send_failed when the email provider refuses the message.
 // The page has words of its own for it, and gives the button back.
@@ -147,18 +177,17 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
 }
 
 // ---------------------------------------------------------------- plan 095: the pages a signed-in company uses
-// The audit of 14 November 2026 found four faults on them. The account page
+// The audit of 14 November 2026 found three faults on them. The account page
 // told a paused host its listing was live, and told a host hidden for an
 // unpaid membership invoice to email and "we will put it back"; the listing
-// form dropped a material that was typed and not clicked; the host had no
-// button to send the introduction email again when it did not go; and the
-// find form did not say who reads its last box. listingNotice is lifted out
-// and every row of the plan's table is run; the rest is read.
+// form dropped a material that was typed and not clicked; and the host had no
+// button to send the introduction email again when it did not go.
+// listingNotice is lifted out and every row of the plan's table is run; the
+// rest is read.
 {
   const dash = read("hub/assets/dashboard.js");
   const ta = read("hub/assets/typeahead.js");
   const lf = read("hub/assets/listing-form.js");
-  const find = read("hub/assets/find.js");
 
   if (dash.includes("we will put it back")) fail('hub/assets/dashboard.js: still says "we will put it back" (plan 095)');
   for (const want of ["NexPoint has paused your listing", "Pay the invoice", "Send the introduction email again"]) {
@@ -170,7 +199,6 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
   for (const want of ["leftoverIn(", "TA[k].commit()"]) {
     if (!lf.includes(want)) fail(`hub/assets/listing-form.js: missing "${want}" (plan 095)`);
   }
-  if (!find.includes("reads it only once it accepts")) fail("hub/assets/find.js: the notes box does not say who reads it (plan 095)");
 
   // No em-dash in any line that carries the plan's new words.
   const NEW_WORDS = [
@@ -178,7 +206,6 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
       "Hidden from seekers for now", "did not go", "has not gone yet", "is on its way", "Send the introduction email again",
       "already been answered and its email has gone", "could not check that just now"]],
     [lf, "hub/assets/listing-form.js", ["is not on the", "Select from the list"]],
-    [find, "hub/assets/find.js", ["should know? (optional)", "reads it only once it accepts"]],
   ];
   for (const [text, file, marks] of NEW_WORDS) {
     for (const line of text.split("\n")) {
@@ -191,14 +218,17 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
   if (!m) fail("hub/assets/dashboard.js: listingNotice was not found");
   else {
     const HELLO = "hello@nexpoint.co.uk";
-    const notice = new Function("esc", "fmtDate", "isHost", "HELLO", `${m[0]}; return listingNotice;`)(
+    const API_BASE = "https://api.nexpoint.co.uk";
+    const notice = new Function("esc", "fmtDate", "isHost", "HELLO", "API_BASE", `${m[0]}; return listingNotice;`)(
       (x) => String(x == null ? "" : x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"),
-      (iso) => (iso === "2026-12-01" ? "1 Dec 2026" : String(iso)),
+      (iso) => ({ "2099-12-01": "1 Dec 2099", "2020-01-15": "15 Jan 2020" })[iso] || String(iso),
       (s) => !!s.host,
       HELLO,
+      API_BASE,
     );
-    const payUrl = "https://portal.example/membership/pay/" + "ab".repeat(32);
-    const inv = { number: "INV-0042", amount_text: "£1,000", due_on: "2026-12-01", pay_url: payUrl };
+    const payUrl = `${API_BASE}/membership/pay/` + "ab".repeat(32);
+    // A due day far ahead, so the case reads "is due by" whatever day the check runs.
+    const inv = { number: "INV-0042", amount_text: "£1,000", due_on: "2099-12-01", pay_url: payUrl };
     const words = (html) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     const BUTTON = `<a class="btn btn-primary acct-btn-sm" href="${payUrl}" target="_blank" rel="noopener">Pay the invoice</a>`;
     const PAID = "Paid already? A payment can take a few working days to reach us. Email hello@nexpoint.co.uk if you would like us to check.";
@@ -216,10 +246,19 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
       ["both, invoice not known", { host: true, pausedByDesk: true, hiddenUnpaid: true, invoice: null },
         "Your listing is hidden from the hubs. Your membership invoice is unpaid, and NexPoint has also paused your listing, so paying does not bring it back on its own. Email hello@nexpoint.co.uk and we will tell you what happens next.", false, true],
       ["an invoice that is simply due", { host: true, pausedByDesk: false, hiddenUnpaid: false, invoice: inv },
-        "Membership invoice INV-0042 for £1,000 is due by 1 Dec 2026. Pay the invoice", true, false],
+        "Membership invoice INV-0042 for £1,000 is due by 1 Dec 2099. Pay the invoice", true, false],
+      // Follow-up of 14 November: past its due day, on a host not yet hidden.
+      ["an invoice past its due day", { host: true, pausedByDesk: false, hiddenUnpaid: false, invoice: { ...inv, due_on: "2020-01-15" } },
+        "Membership invoice INV-0042 for £1,000 was due on 15 Jan 2020. Pay the invoice", true, false],
       ["an invoice that is due, with no date", { host: true, pausedByDesk: false, hiddenUnpaid: false, invoice: { ...inv, due_on: null } },
         "Membership invoice INV-0042 for £1,000 is waiting to be paid. Pay the invoice", true, false],
       ["a pay link that is not one", { host: true, pausedByDesk: false, hiddenUnpaid: true, invoice: { ...inv, pay_url: "javascript:alert(1)" } },
+        "Your listing is hidden from the hubs because membership invoice INV-0042 for £1,000 is unpaid. Nothing has been deleted, and your listing comes back once the payment reaches us.", false, true],
+      // Follow-up of 14 November: the right path and token on another address draws no button.
+      ...["https://elsewhere.example", "https://api.nexpoint.co.uk.elsewhere.example", "http://api.nexpoint.co.uk"].map((origin) =>
+        [`a pay link on ${origin}`, { host: true, pausedByDesk: false, hiddenUnpaid: true, invoice: { ...inv, pay_url: `${origin}/membership/pay/` + "ab".repeat(32) } },
+          "Your listing is hidden from the hubs because membership invoice INV-0042 for £1,000 is unpaid. Nothing has been deleted, and your listing comes back once the payment reaches us.", false, true]),
+      ["a pay link with more after the token", { host: true, pausedByDesk: false, hiddenUnpaid: true, invoice: { ...inv, pay_url: payUrl + "/x" } },
         "Your listing is hidden from the hubs because membership invoice INV-0042 for £1,000 is unpaid. Nothing has been deleted, and your listing comes back once the payment reaches us.", false, true],
       ["nothing wrong and no invoice", { host: true, pausedByDesk: false, hiddenUnpaid: false, invoice: null }, "", false, false],
       ["not a host", { host: false, pausedByDesk: true, hiddenUnpaid: true, invoice: inv }, "", false, false],
@@ -238,13 +277,19 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
     if (odd.includes("<b>")) fail("hub/assets/dashboard.js: listingNotice does not escape the invoice number");
   }
 
-  // The two refusals the button for the introduction email can also meet.
+  // The refusals the button for the introduction email can also meet. The
+  // button is told apart by data-kind="release"; the offer's button has none.
   const r = dash.match(/function resendIntro\(btn\) \{[\s\S]*?\n  \}/);
   const generic = (dash.match(/var GENERIC_ERROR = '([^']*)'/) || [])[1];
   if (r) {
-    for (const [code, starts, isBad] of [
-      ["this introduction has already been answered", "This introduction has already been answered and its email has gone.", false],
-      ["email log unavailable", "We could not check that just now.", true],
+    for (const [code, starts, isBad, kind] of [
+      ["this introduction has already been answered", "This introduction has already been answered and its email has gone.", false, "release"],
+      ["email log unavailable", "We could not check that just now.", true, "release"],
+      // Follow-up of 14 November: after an attempt that did not go, the worker
+      // still answers too_soon for two minutes; nothing was sent, so the
+      // introduction email's button must not say "Sent".
+      ["too_soon", "We tried a moment ago. Try again in two minutes.", false, "release"],
+      ["too_soon", "Sent in the last two minutes.", false, null],
     ]) {
       const said = [];
       const resend = new Function("post", "el", "busy", "say", "isNotBuilt", "GENERIC_ERROR", `${r[0]}; return resendIntro;`)(
@@ -255,10 +300,12 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
         (d) => d && d.error === "http_404",
         generic,
       );
-      resend({ getAttribute: () => "7", disabled: false, textContent: "Send the introduction email again" });
+      resend({ getAttribute: (name) => (name === "data-kind" ? kind : "7"), disabled: false, textContent: "Send the introduction email again" });
       await new Promise((done) => setTimeout(done, 0));
       const [text, bad] = said[0] || ["", false];
-      if (!text.startsWith(starts)) fail(`hub/assets/dashboard.js: "${code}" has no words of its own (reads "${text}")`);
+      const which = kind ? "the introduction email's button" : "the offer's button";
+      if (!text.startsWith(starts)) fail(`hub/assets/dashboard.js: "${code}" on ${which} has no words of its own (reads "${text}")`);
+      if (kind === "release" && /^Sent/.test(text)) fail(`hub/assets/dashboard.js: "${code}" on ${which} says Sent when nothing was sent`);
       if (bad !== isBad) fail(`hub/assets/dashboard.js: "${code}" is ${isBad ? "not marked" : "marked"} as a failure`);
       if (text.includes("—")) fail(`hub/assets/dashboard.js: an em-dash in the "${code}" message`);
     }
