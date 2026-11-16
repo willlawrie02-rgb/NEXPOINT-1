@@ -202,7 +202,7 @@ async function loadList(){
   const [cq,fq,pq,eq,kq]=await Promise.all([
     NXCRM.readAll(()=>sb.from('crm_companies').select('id,name,slug,area,archived_at').order('id',{ascending:true})),
     NXCRM.readAll(()=>sb.from('crm_company_folders').select('company_id,area,slug,is_primary,gone_at').order('id',{ascending:true})),
-    NXCRM.readAll(()=>sb.from('crm_people').select('id,company_id,name,role,position,archived_at').order('id',{ascending:true})),
+    NXCRM.readAll(()=>sb.from('crm_people').select('id,company_id,name,role,position,notes,archived_at').order('id',{ascending:true})),
     NXCRM.readAll(()=>sb.from('crm_person_emails').select('person_id,email,is_primary,retired_at').order('id',{ascending:true})),
     NXCRM.readAll(()=>sb.from('crm_pipeline_cards').select('id,board,company_id,stage,dead_at,won_at,ended_at').order('id',{ascending:true})),
   ]);
@@ -389,7 +389,13 @@ function warmupHtml(){
 
 /* ---------- a campaign's list (D6) ---------- */
 const companyIdOf=slug=>C?C.slugCompany[slug]:undefined;
-const addressedPeople=companyId=>(C.peopleOf[companyId]||[]).filter(p=>(C.emails[p.id]||[]).length)
+/* Plan 099: a person the key people pass found has never heard of us. They
+   are offered only when the email checker verified their address; the engine
+   then asks for the checker's stamp and the campaign tick (handlers.py).
+   FOUND_NOTE must stay the same pattern as prospects.FOUND_NOTE (prospects.py). */
+const FOUND_NOTE=/\bFound via\b.*\bNot yet contacted\b/i, FOUND_VERIFIED=/,\s*verified\.\s+Not yet contacted\b/i;
+const unverifiedFound=p=>!!p&&FOUND_NOTE.test(p.notes||'')&&!FOUND_VERIFIED.test(p.notes||'');
+const addressedPeople=companyId=>(C.peopleOf[companyId]||[]).filter(p=>(C.emails[p.id]||[]).length&&!unverifiedFound(p))
   .sort((a,b)=>(a.position||0)-(b.position||0)||a.id-b.id);
 const here=()=>memberHistory.filter(m=>m.campaign_id===UI.campaign);
 const liveElsewhere=slug=>members.find(m=>m.company===slug&&LIVE.includes(m.status)&&m.campaign_id!==UI.campaign);
@@ -472,6 +478,7 @@ function putBackFor(m){
   if(cid==null||!C.folderOf[cid])return failed+'<span class="muted-t">It is no longer a lead or a deal, so it cannot be put back.</span>';
   const p=m.contact_email?C.personByEmail[String(m.contact_email).toLowerCase()]:null;
   if(!p||p.company_id!==cid)return failed+'<span class="muted-t">No person at this company has its address in Contacts; find them with Add contacts.</span>';
+  if(unverifiedFound(p))return failed+'<span class="muted-t">This is a person we found and the email checker has not verified the address, so it cannot be put back.</span>';
   return failed+`<button type="button" class="btn sm" data-act="putBack" data-member="${esc(m.id)}">${ms('undo','sm')}Put back</button>`;
 }
 
@@ -493,11 +500,25 @@ function offers(){
   }
   return out;
 }
+/* Plan 099: true when the search matches a lead or deal only through a found
+   person the email checker has not passed, so the empty line can say so. */
+function foundOnlyMatch(){
+  const q=UI.q.trim().toLowerCase();
+  const onHere=new Set(here().filter(m=>ON_LIST.includes(m.status)).map(m=>m.company));
+  return C.companies.some(c=>{
+    const f=C.folderOf[c.id];
+    if(!f||onHere.has(f.slug))return false;
+    const held=(C.peopleOf[c.id]||[]).filter(p=>(C.emails[p.id]||[]).length&&unverifiedFound(p));
+    return held.length>0&&[c.name,f.slug].concat(held.map(p=>p.name+' '+(C.emails[p.id]||[]).join(' '))).join(' ').toLowerCase().includes(q);
+  });
+}
 function offersHtml(){
   if(!C)return '<p class="picker-note">Contacts could not be read, so nobody can be added here.</p>';
-  if(!UI.q.trim())return '<p class="picker-note">Type a company or a person. Leads and deals with a person who has an email address are offered; a company only in Contacts goes through Prospects first.</p>';
+  if(!UI.q.trim())return '<p class="picker-note">Type a company or a person. Leads and deals with a person who has an email address are offered; a company only in Contacts goes through Prospects first. A person we found is offered only once the email checker has verified their address.</p>';
   const list=offers();
-  if(!list.length)return '<p class="picker-note">No lead or deal with an email contact matches.</p>';
+  if(!list.length)return '<p class="picker-note">'+(foundOnlyMatch()
+    ?'A person we found matches, but the email checker has not verified their address, so they are not offered.'
+    :'No lead or deal with an email contact matches.')+'</p>';
   return list.map(({c,f,people})=>{
     const other=liveElsewhere(f.slug), oc=other?campaignById(other.campaign_id):null;
     const chosen=UI.pick[f.slug]||String(people[0].id);

@@ -801,7 +801,10 @@ function introManage(i){
   }
   /* Plan 070: on the Opportunities Board the owner is asked. */
   let manage=muted(i.hub==='opportunities'?'With the owner':'With the provider');
-  if(REISSUABLE_STAGES.includes(i.stage))manage+=`
+  /* Plan 094: not for a paused or removed host, as in the Inbox (app/jobs.js):
+     the company asked (asked_org on the Opportunities Board), then the
+     listing's company, then org_a. */
+  if(REISSUABLE_STAGES.includes(i.stage)&&orgVisible(orgById[i.asked_org||(listingById(i.listing_id)||{}).org_id||i.org_a]))manage+=`
     <button class="btn btn-gh btn-sm" onclick="reissueAcceptance(${i.id})">Send the offer again</button>`;
   return failed+manage;
 }
