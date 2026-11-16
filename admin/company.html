@@ -74,9 +74,9 @@
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=6"></script>
-<script src="crm.js?v=071"></script>
+<script src="crm.js?v=097"></script>
 <script src="save.js?v=0794"></script>
-<script src="jobs.js?v=094b"></script>
+<script src="jobs.js?v=097b"></script>
 <script src="pipelines.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -316,7 +316,7 @@ async function loadPipes(cid){
   const [mq,lq,iq,kq,aq,bq]=await Promise.all([
     ids.length?sb.from('crm_card_moves').select('id,card_id,from_stage,to_stage,how,evidence,by,at').in('card_id',ids).order('at',{ascending:false}).limit(500):none,
     linkIds.length?sb.from('consultancy_links').select('id,company_slug,created_at,opened_at,signed_at,invoiced_at,paid_at,revoked_at').in('id',linkIds):none,
-    orgIds.length?sb.from('membership_invoices').select('id,org_id,kind,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at').in('org_id',orgIds):none,
+    orgIds.length?sb.from('membership_invoices').select('id,org_id,kind,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at,hide_held_at,hide_held_reason').in('org_id',orgIds):none,
     linkedIds.length?sb.from('crm_pipeline_cards').select('id,company_id').in('id',linkedIds):none,
     orgIds.length?sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,updated_at').in('org_a',orgIds):none,
     orgIds.length?sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,updated_at').in('org_b',orgIds):none,
@@ -483,7 +483,8 @@ const input=(id,ph,v)=>`<label class="sr" for="${id}">${esc(ph)}</label><input c
 function stateWord(o){
   const s=NXCRM.orgState(o);
   if(s==='on')return '<span class="st ok">On the portal</span>';
-  if(s==='paused')return '<span class="st err">Paused</span>';
+  if(s==='paused')return o.sub_status==='hidden'?'<span class="st err">Paused, and hidden: membership unpaid</span>':'<span class="st err">Paused</span>';
+  if(s==='unpaid')return '<span class="st err">Hidden: membership unpaid</span>';
   if(s==='removed')return '<span class="st">Removed from the hub</span>';
   if(s==='closed')return `<span class="st">${ms('no_accounts')}Closed by the account</span>`;
   if(s==='deleted')return '<span class="st">Deleted</span>';
@@ -493,7 +494,7 @@ function subLine(o){
   const s=o.sub_status||'none';
   if(s==='none'&&!o.sub_period)return 'No membership yet';
   const rate=o.sub_rate_gbp!=null?`, £${Number(o.sub_rate_gbp).toLocaleString('en-GB')}`:'';
-  const pill=s==='active'?'<span class="st ok">Paid</span>':s==='hidden'?'<span class="st err">Unpaid, hidden</span>':s==='overdue'?'<span class="st">Overdue</span>':'';
+  const pill=s==='active'?'<span class="st ok">Active</span>':s==='hidden'?'<span class="st err">Unpaid, hidden</span>':s==='overdue'?'<span class="st">Overdue</span>':'';
   return `${esc((o.sub_period==='monthly'?'Monthly':'Annual')+rate)} ${pill}`;
 }
 function scoreLine(o){
@@ -653,6 +654,9 @@ function accountBlock(o){
       const who=s==='paused'?o.paused_by:o.removed_by, why=s==='paused'?o.paused_reason:o.removed_reason, when=s==='paused'?o.hidden_at:o.removed_at;
       rows.push([s==='paused'?'Paused':'Removed',`<span style="display:flex;flex-direction:column;gap:2px"><span>${esc(fmt(when))}${who?', by '+esc(NXShell.personOf(who)):''}</span>${why?`<span class="muted-t">${esc(why)}</span>`:''}</span>`]);
     }
+    /* Plan 097: the payment clock's hide is not a person's pause, and says so; where both apply both are said. */
+    if(s==='unpaid')rows.push(['Hidden',`${esc(fmt(o.hidden_at))}, by the payment clock. Its membership invoice is unpaid.`]);
+    if(s==='paused'&&o.sub_status==='hidden')rows.push(['Hidden','Also by the payment clock. Its membership invoice is unpaid, and paying does not lift the pause.']);
     if(onCheck(o))rows.push(['Three-year check',dormantLines(o)]);
     rows.push(['Listings',listingsLine(o.id)]);
     const reqs=A.requests.filter(r=>r.org_id===o.id);
@@ -669,19 +673,24 @@ function accountBlock(o){
   let buttons='';
   if(s==='on')buttons=btn('pauseOrg','Pause','pause_circle',{'org-id':o.id})+btn('openAuditStrike','Open audit strike','flag',{'org-id':o.id})+btn('removeOrg','Remove from the hub','remove_circle',{'org-id':o.id})+del;
   else if(s==='paused')buttons=btn('resumeOrg','Resume','play_circle',{'org-id':o.id})+btn('openAuditStrike','Open audit strike','flag',{'org-id':o.id})+btn('removeOrg','Remove from the hub','remove_circle',{'org-id':o.id})+del;
+  /* Plan 097 (D5): no Resume for the payment clock's hide, which the engine refuses; Money has the two things that work. */
+  else if(s==='unpaid')buttons=`<a class="btn sm primary" href="money.html?tab=memberships">${ms('payments','sm')}Extend the clock or record a payment</a>`+btn('pauseOrg','Pause','pause_circle',{'org-id':o.id})+btn('openAuditStrike','Open audit strike','flag',{'org-id':o.id})+btn('removeOrg','Remove from the hub','remove_circle',{'org-id':o.id})+del;
   else if(s==='removed')buttons=btn('restoreOrg','Restore to the hub','undo',{'org-id':o.id})+del;
-  if(s==='on'||s==='paused'||s==='removed')buttons=dormantButtons(o)+buttons;
+  if(s==='on'||s==='paused'||s==='unpaid'||s==='removed')buttons=dormantButtons(o)+buttons;
   else if(s==='closed')buttons=del+erase;
   else if(s==='deleted'&&retentionDue(o))buttons=erase;
   if(buttons)h+=`<div class="panel-actions acct-actions"><div class="actions">${manageFor(q,buttons)}</div></div>`;
   h+=orgChoice(o)+dormantChoice(o);
   if(s==='on'||s==='paused')h+='<p class="picker-note">Pausing for strikes is always a person’s decision. Only the day-14 payment hide is automatic.</p>';
+  if(s==='unpaid')h+='<p class="picker-note">Resume does not lift this. Paying restores the listing within fifteen minutes; Extend the clock or Record payment (by hand) on Money brings it back sooner.</p>';
   return h;
 }
 function orgChoice(o){
   const id=o.id, name=esc(o.name||'this account');
   if(UI.open==='pause:'+id)return choice(`Why is ${name} being paused? Seekers stop seeing it and the desk stops routing to it; the record and its listings stay.`,input('pa-why','Reason, kept on the account')+btn('confirmPause','Pause','',{'org-id':id},'primary')+cancel());
-  if(UI.open==='resume:'+id)return choice(`Resume ${name}? It goes back into search and the desk’s pickers straight away.`,btn('confirmResume','Resume','',{'org-id':id},'primary')+cancel());
+  if(UI.open==='resume:'+id)return choice(o.sub_status==='hidden'
+    ?`Resume ${name}? The pause is lifted, but it stays hidden until its membership invoice is paid.`
+    :`Resume ${name}? It goes back into search and the desk’s pickers straight away.`,btn('confirmResume','Resume','',{'org-id':id},'primary')+cancel());
   if(UI.open==='remove:'+id)return choice(`Why is ${name} being removed from the hub? Its people can still sign in to read, and can no longer act; the record is kept and you can restore it.`,input('rm-why','Reason, kept on the account')+btn('confirmRemove','Remove from the hub','',{'org-id':id},'danger')+cancel());
   if(UI.open==='restore:'+id)return choice(`Restore ${name} to the hub? A pause recorded before the removal stands until you resume it.`,btn('confirmRestore','Restore to the hub','',{'org-id':id},'primary')+cancel());
   if(UI.open==='audit:'+id)return choice(`Why is an audit strike being opened against ${name}? Kept on the strike.`,input('au-why','Reason, kept on the strike')+btn('confirmAudit','Open audit strike','',{'org-id':id},'danger')+cancel());
