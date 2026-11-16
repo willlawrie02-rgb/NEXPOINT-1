@@ -2,7 +2,7 @@
    yields, as the Inbox (inbox.html) and the company page's Needs you
    (company.html) show it and decide it.
 
-   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=094b">:
+   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=097b">:
    shared admin files are cached in browsers for up to four hours, so bump
    ?v= on every change (and on every page that links it).
 
@@ -135,7 +135,7 @@ const KINDS={
   membership_unpaid:{group:'money',icon:'payments',label:'Membership unpaid',
     line:r=>{const d=Number(r.status);
       return isNaN(d)?`${who(r)} has not paid its membership invoice`
-        :d>14?`${who(r)} has not paid its membership: its clock was extended past day 14`
+        :d>14?`${who(r)} has not paid its membership: past day 14 and still showing`
         :`${who(r)} has not paid its membership: day ${d} of 14`;},panel:membershipPanel},
   listing_hidden:{group:'money',icon:'visibility_off',label:'Listing hidden',
     line:r=>`${who(r)} is hidden: its membership is unpaid`,panel:membershipPanel},
@@ -825,14 +825,18 @@ function flaggedPanel(r,ctx){
 
 /* The payment clock (the design's): a bar for the 14 days with ticks at days
    7 and 12, blue until day 14, red once the listing has hidden itself; the
-   label says which reminders have gone. `n` is the clock's day. */
+   label says which reminders have gone. `n` is the clock's day. A hide the
+   engine is holding (plan 097: Xero has not confirmed the invoice unpaid, or
+   an email is not on record as sent) is red and says so, with the reason. */
 function clockHtml(inv,n){
   const hidden=!!inv.hidden_at&&!inv.restored_at, d=Math.max(0,Math.min(n,14));
+  const held=!hidden&&!!inv.hide_held_at&&!inv.paid_at&&!inv.voided_at;
   const text=hidden?'Day 14 passed: hidden until paid'
+    :held?`Day ${n} of 14: not hidden, ${inv.hide_held_reason||'held'}`
     :inv.extended_to&&n>14?`Extended by hand to ${day(inv.extended_to)}`
     :n>14?`Day ${n} of 14: it hides at the next scheduled check`
     :`Day ${n} of 14${inv.reminder_12_at?', reminders sent on days 7 and 12':inv.reminder_7_at?', reminder sent on day 7':''}`;
-  return `<div class="clock ${hidden||(n>14&&!inv.extended_to)?'red':'blue'}" role="img" aria-label="${esc(text)}"><div class="cbar"><i style="width:${(d/14*100).toFixed(1)}%"></i><b style="left:50%"></b><b style="left:85.7%"></b></div><span class="clabel">${esc(text)}</span></div>`;
+  return `<div class="clock ${hidden||held||(n>14&&!inv.extended_to)?'red':'blue'}" role="img" aria-label="${esc(text)}"><div class="cbar"><i style="width:${(d/14*100).toFixed(1)}%"></i><b style="left:50%"></b><b style="left:85.7%"></b></div><span class="clabel">${esc(text)}</span></div>`;
 }
 /* The clock's day: London today less its start, the engine's count. */
 const clockDay=(inv,today)=>inv.clock_start?Math.round((Date.parse(today+'T12:00:00Z')-Date.parse(String(inv.clock_start).slice(0,10)+'T12:00:00Z'))/864e5):null;
@@ -850,7 +854,14 @@ function membershipPanel(r,ctx){
   else{
     rows.push(['Reminders',esc(sent.length?'Sent on '+sent.join(' and '):'None yet')]);
     if(inv.hidden_at&&!inv.restored_at)rows.push(['Hidden since',esc(day(inv.hidden_at))]);
-    else if(inv.extended_to||inv.hide_on)rows.push(['Hides on',esc(day(inv.extended_to||inv.hide_on)+', unless paid')]);
+    else{
+      /* Plan 097: a hide that was due and is being held says the day it was due and the engine's reason,
+         never "Hides on" a day already past. */
+      const last=inv.extended_to||inv.hide_on;
+      if(inv.hide_held_at&&!inv.paid_at&&!inv.voided_at)
+        rows.push(['Not hidden',esc((last?`Was due to hide on ${day(last)}; held: `:'Held: ')+(inv.hide_held_reason||'no reason recorded'))]);
+      else if(last)rows.push(['Hides on',esc(day(last)+', unless paid')]);
+    }
   }
   const k=r.item_key, unpaid=r.kind!=='invoice_not_raised'&&!inv.paid_at&&!inv.voided_at;
   /* Plan 075: Record payment (by hand) and Extend the clock here, as on Money. */
@@ -1271,7 +1282,7 @@ async function read(sb,rows,opt){
     evIds.length?sb.from('order_evidence').select('*').in('id',evIds):none,
     runIds.length?sb.from('engine_steps').select('run_id,seq,name,status,detail').in('run_id',runIds):none,
     flagged.length?sb.from('strikes').select('*').in('org_id',flagged):none,
-    invIds.length?sb.from('membership_invoices').select('id,org_id,period,amount,currency,xero_invoice_number,xero_online_url,invoice_date,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at,last_error,last_error_at').in('id',invIds):none,
+    invIds.length?sb.from('membership_invoices').select('id,org_id,period,amount,currency,xero_invoice_number,xero_online_url,invoice_date,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at,last_error,last_error_at,hide_held_at,hide_held_reason').in('id',invIds):none,
   ]);
   got('the vocabulary',vq).forEach(v=>{(out.vocab[v.kind]=out.vocab[v.kind]||{})[v.term]=v.label;});
   out.listings=got('the listings',lq);
