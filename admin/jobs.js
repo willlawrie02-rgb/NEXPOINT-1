@@ -2,7 +2,7 @@
    yields, as the Inbox (inbox.html) and the company page's Needs you
    (company.html) show it and decide it.
 
-   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=092b">:
+   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=094b">:
    shared admin files are cached in browsers for up to four hours, so bump
    ?v= on every change (and on every page that links it).
 
@@ -643,9 +643,18 @@ function reroutePanel(r,ctx){
   if(best)actions+=btn('jobReroute',`Re-route to ${orgName(best.org_id)||'the next best'}, next best`,'alt_route',{key:k,listing:best.id},'primary');
   if(options.length)actions+=btn('jobOpen','Re-route to another site','',{key:k,ui:'reroute'});
   if(!best&&!options.length)actions+='<span class="status-line">No other visible listing to re-route to. Paused and removed hosts are left out.</span>';
-  if(REISSUABLE_STAGES.includes(i.stage))actions+=btn('jobOpen',`Resend to ${provider}`,'replay',{key:k,ui:'resend'});
+  /* Plan 094: a paused or removed host cannot answer, and a resend to one
+     re-opened a finished offer that could not be re-routed until it ran out
+     again. The engine refuses it too (handlers._reissue_acceptance). The
+     company checked is the one asked, as the engine and the worker check
+     it: asked_org (the Opportunities Board's owner, in either slot), then
+     the listing's company, then org_a. */
+  const askedId=i.asked_org||(l||{}).org_id||i.org_a;
+  const canResend=REISSUABLE_STAGES.includes(i.stage)&&orgVisible(orgById[askedId]);
+  if(canResend)actions+=btn('jobOpen',`Resend to ${provider}`,'replay',{key:k,ui:'resend'});
+  else if(REISSUABLE_STAGES.includes(i.stage))actions+=`<span class="status-line">${esc(orgName(askedId)||'The site')} is paused or removed, so the offer cannot be sent to it again.</span>`;
   let ui='';
-  if(isOpen(ctx,'resend',r))ui=choice(`Send the offer for ${esc(introRef(i))} to the same site again? A fresh 14-day window; nothing else on the introduction changes.`,
+  if(canResend&&isOpen(ctx,'resend',r))ui=choice(`Send the offer for ${esc(introRef(i))} to the same site again? A fresh 14-day window; nothing else on the introduction changes.`,
     btn('jobResend','Resend the offer','',{key:k},'primary')+cancel());
   else if(isOpen(ctx,'reroute',r))ui=choice('Re-route to which site? That site is emailed the offer, and the seeker is told which site it went to.',
     `<label class="sr" for="${fid('jb-site',r)}">Site</label><select class="input" id="${fid('jb-site',r)}"><option value="">Choose a site</option>${
@@ -661,6 +670,16 @@ function reroutePanel(r,ctx){
 /* An offer the desk approved whose email has not gone (plan 023): the
    06:15 retry sends it; Send it now is the same reissue the board offered. */
 function introductionPanel(r){
+  /* Plan 094: the 06:15 run does not try a host that is paused or removed
+     (commercial.unsent_notices), so the card does not offer to either. */
+  const i=intros.find(x=>String(x.id)===String(r.item_id));
+  const l=i?listingById(i.listing_id):null;
+  const askedId=i?i.asked_org||(l||{}).org_id||i.org_a:null;   /* the company asked, as in reroutePanel */
+  if(i&&!orgVisible(orgById[askedId])){
+    const provider=orgName(askedId)||'the site';
+    return {intent:'intro:'+r.item_id,
+      body:para(`The offer email has not gone, and ${esc(provider)} is paused or removed. The offer runs out at the end of its 14 days and then comes here to be re-routed.`)};
+  }
   return {intent:'intro:'+r.item_id,
     body:para('The offer email has not gone. The 06:15 run tries again.'),
     actions:btn('jobSendNow','Send it now','send',{key:r.item_key},'primary')};
