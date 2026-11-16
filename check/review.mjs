@@ -112,6 +112,36 @@ function returnCheck(file, fnName, call) {
 returnCheck("hub/confirm.html", "safeReturnTo", "safeReturnTo()");
 returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
 
+// ---------------------------------------------------------------- the password rule
+// Plan 093 (14 November 2026): the two pages that take a password say and
+// check the live sign-in rule, the same one the worker checks (auth.js
+// PASSWORD_MIN, passwordMissingKind): at least 8 characters, with a
+// lower-case letter, a capital letter, a number and a symbol. The pages share
+// no script, so each carries its own copy; this keeps the copies in step, and
+// runs each page's own check on a few passwords.
+{
+  const RULE = "Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.";
+  const cases = [["Walkpassword1", "Add a symbol."], ["walk-password-1", "Add a capital letter."],
+    ["Walk-password", "Add a number."], ["WALK-PASSWORD-1", "Add a lower-case letter."], ["Walk-password-1", null]];
+  for (const file of ["hub/confirm.html", "hub/reset.html"]) {
+    const t = read(file);
+    if (!/const MIN_LENGTH = 8;/.test(t)) fail(`${file}: MIN_LENGTH is not 8, the live minimum`);
+    if (!t.includes(`const RULE = '${RULE}';`)) fail(`${file}: the rule's sentence is not the agreed one`);
+    if (!/minlength="\$\{MIN_LENGTH\}"/.test(t)) fail(`${file}: the boxes' minlength does not follow MIN_LENGTH`);
+    const from = t.indexOf("const SYMBOLS");
+    const to = t.indexOf("/* The sign-in service's own refusal");
+    if (from < 0 || to < 0) { fail(`${file}: the rule's check was not found`); continue; }
+    let got;
+    try {
+      got = new Function(t.slice(from, to) + "\nreturn (pw) => missingKindLine(pw);")();
+    } catch (e) { fail(`${file}: the rule's check does not run (${e.message})`); continue; }
+    for (const [pw, want] of cases) {
+      const line = got(pw);
+      if (line !== want) fail(`${file}: ${pw} gives ${JSON.stringify(line)}, not ${JSON.stringify(want)}`);
+    }
+  }
+}
+
 // ---------------------------------------------------------------- the resend that failed
 // The worker answers send_failed when the email provider refuses the message.
 // The page has words of its own for it, and gives the button back.

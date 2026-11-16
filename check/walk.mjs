@@ -114,7 +114,9 @@ async function trapUnreachable(trap) {
 }
 
 // ---------------------------------------------------------------- the people
-const PASSWORD = "walk-password-1";
+/* Meets the live password rule (plan 093, 14 November 2026): 8 or more,
+   with a lower-case letter, a capital, a number and a symbol. */
+const PASSWORD = "Walk-password-1";
 const USER = {
   id: "00000000-0000-4000-8000-000000000001", name: "Walk Tester", company: "ZZ Walk Test Ltd",
   email: "walk@example.com", town: "Leeds", country: "United Kingdom", region: "Europe",
@@ -1061,24 +1063,17 @@ async function walkRegister() {
   await step("an empty form does not move on", async () => { await submit(); return (await onStep(1)) && (await page.locator("#qName:invalid").count()) === 1; });
   await step("a bad email does not move on", async () => {
     await page.fill("#qName", "Walk Tester"); await page.fill("#qCompany", "ZZ Walk Test Ltd");
-    await page.fill("#qEmail", "not-an-email"); await page.locator("#qPass").pressSequentially("long-enough-1");
+    await page.fill("#qEmail", "not-an-email");
     await submit();
     return (await onStep(1)) && (await page.locator("#qEmail:invalid").count()) === 1;
   });
-  await step("a seven-character password does not move on", async () => {
+  /* Plan 093 (14 November 2026): no password is typed before the address is
+     confirmed. It is chosen on the page the confirmation link opens. */
+  await step("the form asks for no password (plan 093)", async () => {
     await page.fill("#qEmail", "walk@example.com");
-    await page.fill("#qPass", ""); await page.locator("#qPass").pressSequentially("short-7");
-    await submit();
-    return (await onStep(1)) && (await page.locator("#qPass:invalid").count()) === 1;
-  });
-  await step("the eye shows the password and hides it again (plan 046)", async () => {
-    await page.fill("#qPass", ""); await page.locator("#qPass").pressSequentially(PASSWORD);
-    eq(await page.getAttribute("#qPass", "type"), "password", "before the eye");
-    await page.click('#npAccountContent .np-eye__btn');
-    eq(await page.getAttribute("#qPass", "type"), "text", "after one press");
-    eq(await page.getAttribute('#npAccountContent .np-eye__btn', "aria-pressed"), "true", "the eye's state");
-    await page.click('#npAccountContent .np-eye__btn');
-    eq(await page.getAttribute("#qPass", "type"), "password", "after the second press");
+    eq(await page.locator("#qPass").count(), 0, "the old password box");
+    eq(await page.locator('#npAccountContent input[type="password"]').count(), 0, "password boxes on the form");
+    eq(await page.locator("#npAccountContent .np-eye__btn").count(), 0, "show-password eyes on the form");
     return has(await page.textContent('#npAccountContent button[type=submit]'), "Continue", "the button");
   });
   await step("a complete first step moves on to where the site is", async () => {
@@ -1150,12 +1145,14 @@ async function walkRegister() {
     const sent = apiCalls(world, "POST /auth/register");
     eq(sent.length, 1, "registrations sent");
     const b = sent[0].body;
-    eq([b.name, b.company, b.email, b.password, b.website, b.country, b.town, b.terms_version_id, b.turnstile_token, b.company_url],
-      ["Walk Tester", "ZZ Walk Test Ltd", "walk@example.com", PASSWORD, "example.com", "United Kingdom", "Leeds", 12, "walk-turnstile-token", ""], "the register body");
+    eq([b.name, b.company, b.email, b.website, b.country, b.town, b.terms_version_id, b.turnstile_token, b.company_url],
+      ["Walk Tester", "ZZ Walk Test Ltd", "walk@example.com", "example.com", "United Kingdom", "Leeds", 12, "walk-turnstile-token", ""], "the register body");
+    eq("password" in b, false, "a password on the register body");
   });
   await step("it says check your inbox, and signs nobody in", async () => {
     has(await page.textContent("#npAccountContent .success"), "Check your inbox", "the card");
     has(await page.textContent("#npAccountContent .success"), "walk@example.com", "the card");
+    has(await page.textContent("#npAccountContent .success"), "Open it, choose your password, and your account is ready.", "where the password is chosen");
     await page.click("#npAccountContent [data-np-done]");
     return has(await page.textContent("[data-np-account-slot]"), "Sign in", "the header slot");
   });
@@ -1163,7 +1160,6 @@ async function walkRegister() {
     world.api["POST /auth/register"] = () => [409, { error: "account_exists" }];
     await page.click("[data-np-account-slot] [data-np-join]");
     await page.waitForSelector('form[data-np-step="1"]');
-    await page.locator("#qPass").pressSequentially(PASSWORD);
     await submit();
     await page.waitForSelector("#qTerms");
     await page.check("#qTerms");
@@ -1172,10 +1168,10 @@ async function walkRegister() {
     await page.waitForSelector("#npAccountContent .np-sign-error:visible");
     return has(await page.textContent("#npAccountContent form .np-sign-error"), "already an account", "the refusal");
   });
-  /* 15 Oct 2026: a password the sign-in service refused showed only "Check
-     the details". Each refusal the registrant can put right is named, and
-     anything else carries the server's reason for the desk. The form is
-     still on step 2 from the step above, so each case just submits again. */
+  /* Each refusal the registrant can put right is named, and anything else
+     carries the server's reason for the desk. The form is still on step 2
+     from the step above, so each case just submits again. (No password is
+     typed here since plan 093, so there is no refused password to name.) */
   const refusedWith = async (status, body, needle, label) => {
     world.api["POST /auth/register"] = () => [status, body];
     await page.waitForSelector('form[data-np-step="2"] button[type=submit]:not([disabled])');
@@ -1183,9 +1179,6 @@ async function walkRegister() {
     await page.waitForFunction((n) => (document.querySelector("#npAccountContent form .np-sign-error") || {}).textContent?.includes(n), needle);
     return has(await page.textContent("#npAccountContent form .np-sign-error"), needle, label);
   };
-  await step("a password the sign-in service refuses is named, with its rule", () =>
-    refusedWith(422, { error: "weak_password", detail: "Password should be at least 12 characters." },
-      "That password was not accepted. Password should be at least 12 characters. Choose Go back", "the refusal"));
   await step("an address the sign-in service refuses is named", () =>
     refusedWith(422, { error: "email_invalid" }, "could not use that email address", "the refusal"));
   await step("terms that changed under the form ask for a refresh", () =>
@@ -1203,6 +1196,82 @@ async function walkRegister() {
   });
   clean(world, errors, "the register form");
   await context.close();
+
+  /* Audit of 14 November 2026, item 8 (plan 093). The worker never sends two
+     confirmation emails to one address inside two minutes, and the card
+     appears the moment registration has sent one: a press on Resend then
+     said a new link was on its way when nothing had gone, and the button
+     left the card. It now waits the two minutes out, and ten seconds more
+     because the worker's clock starts a moment later, counting down, and
+     stays. The clock is the walk's, so the wait takes no time. */
+  area = "Create an account (the Resend button on Check your inbox)";
+  {
+    const world = newWorld();
+    const { context, page, errors } = await visit(world);
+    const resend = "#npAccountContent [data-np-resend]";
+    const label = async () => (await page.textContent(resend)).trim();
+    await page.clock.install();
+    await page.goto(`${APEX}/hub/`);
+    await page.click("[data-np-account-slot] [data-np-join]");
+    await page.waitForSelector('form[data-np-step="1"]');
+    await page.fill("#qName", "Walk Tester"); await page.fill("#qCompany", "ZZ Walk Test Ltd"); await page.fill("#qEmail", "walk@example.com");
+    await page.click("#npAccountContent button[type=submit]");
+    await page.waitForSelector('form[data-np-step="2"]');
+    await page.fill("#qCountry", "United Kingdom");
+    await page.waitForSelector("#qTerms");
+    await page.check("#qTerms");
+    await page.waitForSelector('form[data-np-step="2"] button[type=submit]:not([disabled])');
+    /* From here time moves only when the walk moves it. */
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
+    await page.click("#npAccountContent button[type=submit]");
+    await page.waitForSelector("#npAccountContent .success");
+    await step("the Resend button starts disabled, counting down from 2:10", async () => {
+      eq(await label(), "Resend the email in 2:10", "the button");
+      eq(await page.isDisabled(resend), true, "the button is disabled");
+      await page.clock.runFor(61000);
+      eq(await label(), "Resend the email in 1:09", "the button a minute on");
+      await page.clock.runFor(59000);
+      eq(await label(), "Resend the email in 0:10", "the button at the worker's two minutes");
+      eq(await page.isDisabled(resend), true, "the button is disabled at two minutes");
+      return eq(apiCalls(world, "POST /auth/resend-confirmation").length, 0, "resends sent");
+    });
+    await step("after 2:10 it can be pressed", async () => {
+      await page.clock.runFor(10000);
+      eq(await label(), "Resend the email", "the button");
+      return eq(await page.isDisabled(resend), false, "the button is disabled");
+    });
+    await step("a press sends once, says so, and the button stays, counting down again", async () => {
+      await page.click(resend);
+      await page.waitForSelector("#npAccountContent [data-np-resend-note]");
+      eq(apiCalls(world, "POST /auth/resend-confirmation").map((c) => c.body), [{ email: "walk@example.com" }], "the resend");
+      has(await page.textContent("#npAccountContent [data-np-resend-note]"),
+        "If that address still needs confirming, a new link is on its way. It can take a minute to arrive, and it may be in your junk folder.", "the line");
+      eq(await page.locator(resend).count(), 1, "Resend buttons on the card");
+      eq(await label(), "Resend the email in 2:10", "the button");
+      return eq(await page.isDisabled(resend), true, "the button is disabled");
+    });
+    await step("a send that never left the device says so, and gives the button back at once", async () => {
+      await page.clock.runFor(130000);
+      world.dropOnce = new Set(["POST /auth/resend-confirmation"]);
+      await page.click(resend);
+      await page.waitForFunction(() => /That did not send/.test((document.querySelector("#npAccountContent [data-np-resend-note]") || {}).textContent || ""));
+      has(await page.textContent("#npAccountContent [data-np-resend-note]"), "That did not send. Check your connection and try again.", "the line");
+      eq(await page.locator("#npAccountContent [data-np-resend-note]").count(), 1, "lines on the card");
+      eq(await label(), "Resend the email", "the button");
+      return eq(await page.isDisabled(resend), false, "the button is disabled");
+    });
+    await step("closing the card stops the countdown, and nothing throws afterwards", async () => {
+      await page.click(resend);
+      await page.waitForFunction((sel) => /in 2:10/.test(document.querySelector(sel).textContent), resend);
+      await page.click("#npAccountContent [data-np-done]");
+      await page.clock.runFor(140000);
+      return eq(await label(), "Resend the email in 2:10", "the button, left where it was");
+    });
+    /* The browser logs a line of its own for the send the walk dropped on
+       purpose; anything the page itself threw still counts. */
+    clean(world, errors.filter((e) => !/net::ERR_FAILED/.test(e)), "the Check your inbox card");
+    await context.close();
+  }
 }
 
 /* Plan 073 (D7): NexPoint's invitation email opens the door with ?join=. The
@@ -1218,7 +1287,6 @@ async function walkJoin() {
   const submit = () => page.click("#npAccountContent button[type=submit]");
   const toStepTwo = async () => {
     await page.fill("#qName", "Walk Tester");
-    await page.locator("#qPass").pressSequentially(PASSWORD);
     await submit();
     await page.waitForSelector('form[data-np-step="2"]');
     await page.fill("#qCountry", "United Kingdom");
@@ -1356,7 +1424,7 @@ async function walkWall() {
     eq((await page.textContent("#signContent .np-sign-resend button")).trim(), "Send a new confirmation link", "the button");
     await page.click("#signContent .np-sign-resend button");
     await page.waitForSelector("#signContent .np-sign-resend [role=status]:visible");
-    has(await page.textContent("#signContent .np-sign-resend"), "If that address still needs confirming, a link is on its way.", "the line after");
+    has(await page.textContent("#signContent .np-sign-resend"), "If that address still needs confirming, a link is on its way. If one was sent in the last two minutes, use that one.", "the line after");
     eq(apiCalls(world, "POST /auth/resend-confirmation").map((c) => c.body.email), [USER.email], "the resend");
     eq(await page.locator("#signContent .np-sign-resend button").count(), 0, "the button, once used");
     return eq(await page.locator("#signContent form").count(), 1, "the sign-in form, still there");
@@ -1609,14 +1677,20 @@ async function walkWaits() {
   {
     const world = newWorld({ hang: new Set(["POST /auth/confirm"]) });
     const { context, page } = await visit(world);
-    await step("a confirmation link whose answer never comes is given up at 20 s, with the way on", async () => {
+    await step("a confirmation whose answer never comes is given up at 20 s, and the button comes back with the reason", async () => {
       await page.clock.install();
       await page.goto(`${APEX}/hub/confirm.html?t=walk-token&type=signup`);
+      await page.waitForSelector("#setBtn");
+      await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
+      await page.click("#setBtn");
       await until(() => apiCalls(world, "POST /auth/confirm").length === 1, "the link being posted");
-      has(await page.textContent("#confirmBody"), "One moment", "the page while it waits");
+      has(await page.textContent("#setBtn"), "Confirming…", "the button while it waits");
+      eq(await page.isDisabled("#setBtn"), true, "the button while it waits");
       await page.clock.runFor(21000);
-      await page.waitForFunction(() => document.getElementById("confirmBody").textContent.includes("That did not go through."));
-      return has(await page.textContent("#confirmBody"), "Check your connection and open the link again, or email hello@nexpoint.co.uk.", "the way on");
+      await page.waitForSelector("#formErr:visible");
+      has(await page.textContent("#formErr"), "That did not send. Check your connection and try again.", "the reason");
+      has(await page.textContent("#setBtn"), "Confirm and sign in", "the button afterwards");
+      return eq(await page.isDisabled("#setBtn"), false, "the button afterwards");
     });
     await context.close();
   }
@@ -4436,22 +4510,331 @@ async function walkLandings() {
     const world = newWorld();
     const { context, page, errors } = await visit(world);
     const back = `${PRINT}/find.html`;
-    await step("a confirmation link confirms, and offers the way back to where they were", async () => {
+    /* Plan 093 (14 November 2026): the link opens a page that asks for the
+       password, and nothing is posted until the button is pressed. The
+       password a new account has is the one typed here, by the person who
+       opened the link. */
+    const errLine = async (needle) => {
+      await page.waitForFunction((n) => (document.getElementById("formErr") || {}).textContent.includes(n), needle);
+      return true;
+    };
+    await step("a confirmation link asks for a password, and posts nothing until the button is pressed", async () => {
       await page.goto(`${APEX}/hub/confirm.html?t=walk-token&type=signup&return=${encodeURIComponent(back)}`);
+      await page.waitForSelector("#setBtn");
+      has(await page.textContent("#confirmBody h1"), "Choose your password.", "the heading");
+      has(await page.textContent("#confirmBody"), "You are one step from your hub account. Choose a password of at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol. We then confirm your email and sign you in on this device.", "the line");
+      has(await page.textContent("#setBtn"), "Confirm and sign in", "the button");
+      eq([await page.getAttribute("#pass1", "minlength"), await page.getAttribute("#pass2", "minlength")], ["8", "8"], "the two boxes' minimum");
+      await page.waitForTimeout(300);
+      return eq(apiCalls(world, "POST /auth/confirm").length, 0, "confirmations sent on opening the link");
+    });
+    await step("the eye shows the password and hides it again (plan 046)", async () => {
+      await page.fill("#pass1", "Walk-1!");
+      eq(await page.getAttribute("#pass1", "type"), "password", "before the eye");
+      await page.click("#confirmBody .field:has(#pass1) .np-eye__btn");
+      eq(await page.getAttribute("#pass1", "type"), "text", "after one press");
+      eq(await page.getAttribute("#confirmBody .field:has(#pass1) .np-eye__btn", "aria-pressed"), "true", "the eye's state");
+      await page.click("#confirmBody .field:has(#pass1) .np-eye__btn");
+      eq(await page.getAttribute("#pass1", "type"), "password", "after the second press");
+      return eq(await page.locator("#confirmBody .np-eye__btn").count(), 2, "eyes on the page");
+    });
+    await step("seven characters, or two passwords that differ, post nothing and say why", async () => {
+      await page.fill("#pass2", "Walk-1!");
+      await page.click("#setBtn");
+      await errLine("Use at least 8 characters.");
+      await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD + "x");
+      await page.click("#setBtn");
+      await errLine("The two passwords do not match.");
+      await page.fill("#pass1", "a".repeat(73)); await page.fill("#pass2", "a".repeat(73));
+      await page.click("#setBtn");
+      await errLine("Use 72 characters or fewer.");
+      return eq(apiCalls(world, "POST /auth/confirm").length, 0, "confirmations sent");
+    });
+    /* The live rule (plan 093, 14 November 2026): each missing kind is named
+       on the page, the first one missing, and nothing is sent. */
+    await step("a password with no symbol, no capital, no number or no lower-case letter is refused on the page, and nothing is sent", async () => {
+      for (const [pw, line] of [["Walkpassword1", "Add a symbol."], ["walk-password-1", "Add a capital letter."],
+        ["Walk-password", "Add a number."], ["WALK-PASSWORD-1", "Add a lower-case letter."]]) {
+        await page.fill("#pass1", pw); await page.fill("#pass2", pw);
+        await page.click("#setBtn");
+        await errLine(line);
+        eq((await page.textContent("#formErr")).trim(), line, `the line for ${pw}`);
+      }
+      return eq(apiCalls(world, "POST /auth/confirm").length, 0, "confirmations sent");
+    });
+    await step("a good pair, with all four kinds, posts the link with the password once, confirms, and offers the way back", async () => {
+      await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
+      await page.click("#setBtn");
       await page.waitForSelector("text=You're confirmed.");
-      eq(apiCalls(world, "POST /auth/confirm").map((c) => c.body), [{ token_hash: "walk-token", type: "signup" }], "confirmations sent");
+      eq(apiCalls(world, "POST /auth/confirm").map((c) => c.body), [{ token_hash: "walk-token", type: "signup", password: PASSWORD }], "confirmations sent");
       eq(await page.getAttribute("a.btn.yes", "href"), back, "the way back");
     });
     clean(world, errors, "the confirmation page");
     await context.close();
   }
+  /* The rest of the confirmation page's answers (plan 093). Each opens the
+     link, types a good pair and presses the button. */
+  const openAndPress = async (page, query = "") => {
+    await page.goto(`${APEX}/hub/confirm.html?t=walk-token&type=signup${query}`);
+    await page.waitForSelector("#setBtn");
+    await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
+    await page.click("#setBtn");
+  };
+  const errShows = (page, needle) =>
+    page.waitForFunction((n) => (document.getElementById("formErr") || {}).textContent.includes(n), needle);
   {
     const world = newWorld();
     const { context, page } = await visit(world);
     await step("a confirmation link with a return address on localhost offers the account page only", async () => {
-      await page.goto(`${APEX}/hub/confirm.html?t=walk-token&type=signup&return=${encodeURIComponent("http://localhost:8080/anything")}`);
+      await openAndPress(page, `&return=${encodeURIComponent("http://localhost:8080/anything")}`);
       await page.waitForSelector("text=You're confirmed.");
       eq(await page.locator('a[href*="localhost"]').count(), 0, "links to localhost");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = () => [422, { error: "password_too_short" }];
+    const { context, page, errors } = await visit(world);
+    await step("a password the worker finds too short is said, and the link is posted again on the next press", async () => {
+      await openAndPress(page);
+      await errShows(page, "Use at least 8 characters.");
+      eq(await page.isDisabled("#setBtn"), false, "the button afterwards");
+      delete world.api["POST /auth/confirm"];
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      const sent = apiCalls(world, "POST /auth/confirm").map((c) => c.body);
+      eq(sent.length, 2, "confirmations sent");
+      return eq(sent[1], { token_hash: "walk-token", type: "signup", password: PASSWORD }, "the second post");
+    });
+    clean(world, errors, "the confirmation page, a password too short");
+    await context.close();
+  }
+  {
+    /* The worker checks the rule too, before the link is spent (a page a
+       browser kept from before the rule changed). Its refusal shows the
+       rule's full sentence, and the next press posts the link again. */
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = () => [422, { error: "password_needs_each_kind" }];
+    const { context, page, errors } = await visit(world);
+    await step("the worker's password_needs_each_kind shows the rule, and the link is posted again on the next press", async () => {
+      await openAndPress(page);
+      await errShows(page, "Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.");
+      delete world.api["POST /auth/confirm"];
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      return eq(apiCalls(world, "POST /auth/confirm").length, 2, "confirmations sent");
+    });
+    clean(world, errors, "the confirmation page, the worker's rule");
+    await context.close();
+  }
+  {
+    /* The address is confirmed and the device signed in, but the sign-in
+       service refused the password: the link is spent, so the next press
+       goes up on the session alone, to the reset route. */
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = (w) => { w.user = USER; return [422, { error: "weak_password",
+      detail: "Password should contain at least one character of each: abc, ABC, 123.", confirmed: true, member: USER, return_to: null }]; };
+    world.api["POST /auth/reset-confirm"] = () => [200, { ok: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    await step("a password the sign-in service refuses for its characters is named in our words, and the button comes back", async () => {
+      await openAndPress(page);
+      await errShows(page, "That password does not meet the rules for hub passwords. Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.");
+      eq((await page.textContent("#formErr")).includes("abc, ABC"), false, "the sign-in service's list of characters");
+      eq(await page.isDisabled("#setBtn"), false, "the button afterwards");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session so far");
+    });
+    await step("the next press sends the new password on the session alone, and ends on You're confirmed", async () => {
+      await page.fill("#pass1", "Walk-password-2"); await page.fill("#pass2", "Walk-password-2");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ password: "Walk-password-2" }], "the retry");
+      eq(apiCalls(world, "POST /auth/confirm").length, 1, "times the link was posted");
+      return has(await page.textContent("#confirmBody"), USER.email, "the account named");
+    });
+    clean(world, errors, "the confirmation page, a refused password");
+    await context.close();
+  }
+  {
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = (w) => { w.user = USER; return [502, { error: "password_not_set", confirmed: true, member: USER, return_to: null }]; };
+    world.api["POST /auth/reset-confirm"] = () => [400, { error: "weak_password", detail: "Password should be at least 14 characters." }];
+    const { context, page, errors } = await visit(world);
+    await step("a password that did not save says the email is confirmed and asks for another try", async () => {
+      await openAndPress(page);
+      await errShows(page, "Your email is confirmed, but the password did not save. Try again.");
+      return eq(await page.isDisabled("#setBtn"), false, "the button afterwards");
+    });
+    await step("a retry the sign-in service refuses shows the rules line again", async () => {
+      await page.click("#setBtn");
+      await errShows(page, "That password does not meet the rules for hub passwords. Password should be at least 14 characters.");
+      return eq(await page.isDisabled("#setBtn"), false, "the button afterwards");
+    });
+    await step("a retry after the fifteen minutes points to Forgotten your password, with the way to sign in", async () => {
+      world.api["POST /auth/reset-confirm"] = () => [400, { error: "current_password_required" }];
+      await page.click("#setBtn");
+      await page.waitForSelector("text=Your email is confirmed.");
+      has(await page.textContent("#confirmBody"), "To choose your password, use Forgotten your password on the sign-in box.", "the line");
+      eq(await page.locator("#setBtn").count(), 0, "the form");
+      return has(await page.getAttribute("#confirmBody a.btn.yes", "href"), "/hub/?signin=1", "the Sign in link");
+    });
+    clean(world, errors, "the confirmation page, a password that did not save");
+    await context.close();
+  }
+  {
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = () => [401, { error: "invalid_or_expired" }];
+    const { context, page, errors } = await visit(world);
+    await step("a link already used or expired says so once the button is pressed, with both ways on", async () => {
+      await openAndPress(page);
+      await page.waitForSelector("text=This link has been used or has expired.");
+      eq(await page.locator("#needLink").count(), 1, "the way to a new link");
+      return has(await page.getAttribute("#confirmBody a.btn.yes", "href"), "/hub/?signin=1", "the Sign in link");
+    });
+    await step("the resend from there says what is true whether or not a link went", async () => {
+      await page.click("#needLink");
+      await page.fill("#resendEmail", "walk@example.com");
+      await page.click("#resendBtn");
+      await page.waitForSelector("text=Check your inbox");
+      eq(apiCalls(world, "POST /auth/resend-confirmation").map((c) => c.body), [{ email: "walk@example.com" }], "the resend");
+      return has(await page.textContent("#confirmBody"),
+        "If that address still needs confirming, a fresh link is on its way; if one was sent in the last two minutes, use that one. If it is already confirmed, sign in instead.", "the line");
+    });
+    clean(world, errors, "the confirmation page, a used link");
+    await context.close();
+  }
+  {
+    /* Plan 093 review: a link opened a second time on a device that the
+       first open signed in. The form is shown, a password is typed, and the
+       link comes back refused: that password went nowhere, and the page says
+       so rather than "You're confirmed" alone. */
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = () => [401, { error: "invalid_or_expired" }];
+    world.api["GET /auth/me"] = () => [200, { ok: true, signed_in: true, confirmed: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    await step("a link already used on a signed-in device says the password just typed was not saved", async () => {
+      await openAndPress(page);
+      await page.waitForSelector("text=You're confirmed.");
+      has(await page.textContent("#confirmBody"),
+        "This link was already used, so the password you typed just now was not saved. If you need a new one, use Forgotten your password on the sign-in box.", "the line");
+      eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session");
+      return has(await page.textContent("#confirmBody"), USER.email, "the account named");
+    });
+    clean(world, errors, "the confirmation page, a link used on this device");
+    await context.close();
+  }
+  /* The first press reached the worker and its answer was lost: the address
+     is confirmed and the device signed in, but the page never heard. The
+     second press finds the link spent. The worker signs the device in only
+     once the link has been posted, so /auth/me says nobody until then. */
+  const signedInOnceConfirmed = (who = USER) => (w) =>
+    (apiCalls(w, "POST /auth/confirm").length
+      ? [200, { ok: true, signed_in: true, confirmed: true, member: who }]
+      : [200, { ok: true, signed_in: false }]);
+  const lostAnswerWorld = (resetAnswer) => {
+    const world = newWorld();
+    world.dropOnce = new Set(["POST /auth/confirm"]);
+    world.api["POST /auth/confirm"] = () => [401, { error: "invalid_or_expired" }];
+    world.api["GET /auth/me"] = signedInOnceConfirmed();
+    world.api["POST /auth/reset-confirm"] = resetAnswer;
+    return world;
+  };
+  {
+    const world = lostAnswerWorld(() => [200, { ok: true, member: USER }]);
+    const { context, page } = await visit(world);
+    await step("a press whose answer was lost: the next press sets the password on the session and ends on You're confirmed", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send. Check your connection and try again.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/confirm").length, 2, "times the link was posted");
+      eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ password: PASSWORD }], "the password sent on the session");
+      return eq((await page.textContent("#confirmBody")).includes("If your password does not work next time"), false, "the caution line");
+    });
+    await context.close();
+  }
+  {
+    const world = lostAnswerWorld(() => [400, { error: "current_password_required" }]);
+    const { context, page } = await visit(world);
+    await step("and when that last send is refused, it says where to choose a password next time", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/reset-confirm").length, 1, "passwords sent on the session");
+      return has(await page.textContent("#confirmBody"), "If your password does not work next time, use Forgotten your password on the sign-in box.", "the caution line");
+    });
+    await context.close();
+  }
+  /* Plan 093 review: a device already signed in to an account when the link
+     was opened must never have that account's password changed by the
+     retry. Who was signed in is read once, before the form is shown. */
+  {
+    const world = lostAnswerWorld(() => [200, { ok: true, member: USER }]);
+    world.api["GET /auth/me"] = () => [200, { ok: true, signed_in: true, confirmed: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    await step("a device signed in as the same account at load sends no password on the session, and says where to choose one", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/confirm").length, 2, "times the link was posted");
+      eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session");
+      return has(await page.textContent("#confirmBody"), "If your password does not work next time, use Forgotten your password on the sign-in box.", "the caution line");
+    });
+    /* The browser's own line for the press the walk dropped on purpose is
+       left out; anything the page itself threw still counts. */
+    clean(world, errors.filter((e) => !/net::ERR_FAILED/.test(e)), "the confirmation page, signed in at load");
+    await context.close();
+  }
+  {
+    /* Signed in as another account at load; the lost press then signed the
+       device in as the link's own address, so the retry is this page's. */
+    const OTHER = Object.assign({}, USER, { email: "other.member@example.com", name: "Other Member" });
+    const world = lostAnswerWorld(() => [200, { ok: true, member: USER }]);
+    world.api["GET /auth/me"] = (w) => (apiCalls(w, "POST /auth/confirm").length
+      ? [200, { ok: true, signed_in: true, confirmed: true, member: USER }]
+      : [200, { ok: true, signed_in: true, confirmed: true, member: OTHER }]);
+    const { context, page } = await visit(world);
+    await step("a device signed in as another account at load still finishes the link's own account", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ password: PASSWORD }], "the password sent on the session");
+    });
+    await context.close();
+  }
+  {
+    /* Signed in as another account at load, and the first press never
+       reached the worker: the session is still that other account's, so
+       nothing is sent on it. */
+    const OTHER = Object.assign({}, USER, { email: "other.member@example.com", name: "Other Member" });
+    const world = lostAnswerWorld(() => [200, { ok: true, member: OTHER }]);
+    world.api["GET /auth/me"] = () => [200, { ok: true, signed_in: true, confirmed: true, member: OTHER }];
+    const { context, page } = await visit(world);
+    await step("a device signed in as another account whose press never arrived leaves that account's password alone", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session");
+      return has(await page.textContent("#confirmBody"), "If your password does not work next time", "the caution line");
+    });
+    await context.close();
+  }
+  {
+    /* Who was signed in could not be read at load: nobody can say whose
+       session it is, so nothing is sent on it. */
+    const world = lostAnswerWorld(() => [200, { ok: true, member: USER }]);
+    world.meFailures = 1;
+    const { context, page } = await visit(world);
+    await step("a device that could not say who was signed in at load sends no password on the session", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session");
     });
     await context.close();
   }
@@ -4482,6 +4865,37 @@ async function walkLandings() {
       eq(got, WRAPPED_HTML, "the shared reader's output");
     });
     clean(world, errors, "the shared reader");
+    await context.close();
+  }
+  {
+    /* The reset page says the same rule and checks it the same way (plan 093,
+       14 November 2026). */
+    const world = newWorld();
+    world.api["POST /auth/reset-confirm"] = () => [200, { ok: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    const resetErr = (n) => page.waitForFunction((t) => (document.getElementById("formErr") || {}).textContent.includes(t), n);
+    await step("the reset page says the rule above the boxes, with a minimum of 8 on both", async () => {
+      await page.goto(`${APEX}/hub/reset.html?t=walk-reset`);
+      await page.waitForSelector("#setBtn");
+      has(await page.textContent("#resetBody"), "Choose a new password for your hub account. Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.", "the line");
+      return eq([await page.getAttribute("#pass1", "minlength"), await page.getAttribute("#pass2", "minlength")], ["8", "8"], "the two boxes' minimum");
+    });
+    await step("a reset password with no symbol is refused on the page, and nothing is sent", async () => {
+      await page.fill("#pass1", "Walkpassword1"); await page.fill("#pass2", "Walkpassword1");
+      await page.click("#setBtn");
+      await resetErr("Add a symbol.");
+      await page.fill("#pass1", "Walk-1!"); await page.fill("#pass2", "Walk-1!");
+      await page.click("#setBtn");
+      await resetErr("Use at least 8 characters.");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "resets sent");
+    });
+    await step("a reset password with all four kinds is sent once, with the link", async () => {
+      await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
+      await page.click("#setBtn");
+      await page.waitForSelector("text=Your password is set.");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ token_hash: "walk-reset", password: PASSWORD }], "resets sent");
+    });
+    clean(world, errors, "the reset page's password");
     await context.close();
   }
   for (const [name, url, sign] of [
@@ -6107,17 +6521,28 @@ async function walkPeople() {
       has(await page.textContent("#invTerms"), "I accept the Platform Terms, version 1.0", "the tick's words");
       eq(await page.getAttribute("#invTerms .terms-dl a", "href"), "https://api.nexpoint.co.uk/terms/platform/1.0.pdf", "Download a copy");
       await page.fill("#invName", "Cal League");
-      await page.fill("#invPass", "a-good-password");
       await page.click("#joinBtn");
       has(await page.textContent("#formErr"), "accept the Platform Terms", "the message");
       return eq(apiCalls(world, "POST /auth/register-invited").length, 0, "registrations sent");
     });
-    await step("Join posts the token, the name, the password and the terms version, then says check your inbox", async () => {
+    /* Plan 093 (audit of 14 November 2026, item 7): the page took a password
+       the sign-in service could refuse, with no words for the refusal, so a
+       colleague whose password was refused could never join. It asks for
+       none now. */
+    await step("the invitation page asks for no password, and says where it is chosen (plan 093)", async () => {
+      eq(await page.locator("#invPass").count(), 0, "the old password box");
+      eq(await page.locator('#inviteBody input[type="password"]').count(), 0, "password boxes on the page");
+      return has(await page.textContent("#inviteBody"),
+        "Tell us your name; we then send one email to confirm the address, and you choose your password there.", "the opening line");
+    });
+    await step("Join posts the token, the name and the terms version, with no password, then says check your inbox", async () => {
       await page.check("#invTick");
       await page.click("#joinBtn");
       await page.waitForFunction(() => /Check your inbox/.test(document.body.textContent));
       const b = apiCalls(world, "POST /auth/register-invited").pop().body;
-      return eq([b.token, b.name, b.password, b.terms_version_id], [INVITE_TOKEN, "Cal League", "a-good-password", 12], "the body");
+      eq("password" in b, false, "a password on the body");
+      has(await page.textContent("#inviteBody"), "Open the link in it, choose your password, and you are in.", "the card");
+      return eq([b.token, b.name, b.terms_version_id], [INVITE_TOKEN, "Cal League", 12], "the body");
     });
     await page.goto(`${APEX}/hub/invite.html?t=${"b".repeat(64)}`);
     await step("a used or expired invitation says so", async () => {
