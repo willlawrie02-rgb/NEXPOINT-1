@@ -769,6 +769,7 @@
       /* A sent month that is being changed (plan 098) has no due line: it is
          not open, overdue or reminded, it is being replaced. */
       '<p class="hint">' + (dec.due_state === 'submitted' ? '' : esc(dueLine(dec.due_state)) + ' ') + 'One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.</p>' +
+      '<p class="hint">If you invoiced in any currency other than pounds, euros or US dollars, email ' + HELLO + ' before you send this declaration.</p>' +
       '<div class="acct-scroll"><table class="decl-table">' +
         '<thead><tr><th>Introduction</th><th>Units</th><th>Value</th><th>Currency</th><th>Nothing</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +

@@ -405,6 +405,27 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
   }
 }
 
+// ---------------------------------------------------------------- Plan 104 (round 7 audit, 17 November 2026)
+// Fixes for the first weeks after launch, each kept from coming back. Each
+// finding has its own part below; where a function can be lifted out of its
+// page and run, it is run, and the rest is read.
+{
+  const dash = read("hub/assets/dashboard.js");
+  const DASH = "hub/assets/dashboard.js";
+  // The plan's words in a file: each one present, none on a line with an em-dash.
+  const wordsIn = (file, text, words, finding) => {
+    for (const want of words) {
+      if (!text.includes(want)) fail(`${file}: missing "${want}" (plan 104, ${finding})`);
+    }
+    for (const line of text.split("\n")) {
+      if (line.includes("—") && words.some((w) => line.includes(w))) fail(`${file}: an em-dash in the plan 104 words (${finding}): ${line.trim().slice(0, 80)}`);
+    }
+  };
+
+  // R7-16: the declaration form says what to do about a currency it does not offer.
+  wordsIn(DASH, dash, ["If you invoiced in any currency other than pounds, euros or US dollars, email "], "R7-16");
+}
+
 if (fails.length) {
   console.error(`review: ${fails.length} problem(s)`);
   for (const f of fails) console.error("  " + f);

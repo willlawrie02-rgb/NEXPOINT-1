@@ -4396,6 +4396,8 @@ async function walkTerms() {
       await page.waitForSelector("#declTerms [data-np-terms-tick]");
       has(await page.textContent("#declTerms"), DOC_WORDS.host, "the document");
       has(await page.textContent("#declarations .acct-card"), "One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.", "the hint");
+      // Plan 104 (R7-16): what to do about a currency the form does not offer.
+      has(await page.textContent("#declarations .acct-card"), "If you invoiced in any currency other than pounds, euros or US dollars, email hello@nexpoint.co.uk before you send this declaration.", "the line about another currency");
       await shot(page, "declaration-host-agreement", "#declTerms");
       await page.click('[data-act="decl-submit"]');
       await page.waitForFunction(() => /Answer INTRO-0007/.test(document.getElementById("declMsg-2026-10").textContent));
