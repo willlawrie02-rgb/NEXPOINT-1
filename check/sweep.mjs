@@ -595,6 +595,13 @@ for (const p of pages) {
     }
     if (!read("hub/assets/dashboard.js").includes("Listing changes needed")) fail('hub/assets/dashboard.js: missing "Listing changes needed" (plan 102, R7-02)');
   }
+  // R7-04: the sign-in box no longer promises "the board matched to your
+  // profile" on any page, and the door's box carries the second button a hub
+  // page's visitor is offered beside Sign in.
+  for (const p of pages) {
+    if (read(p).includes("matched to your profile")) fail(`${p}: still says "matched to your profile" (plan 102, R7-04)`);
+  }
+  if (!read("hub/index.html").includes('id="signCreate"')) fail('hub/index.html: the sign-in box has no id="signCreate" button (plan 102, R7-04)');
 }
 
 if (fails.length) {

@@ -945,6 +945,9 @@ async function walkDoor() {
   await step("Sign in opens the sign-in box", async () => {
     await page.click("[data-np-account-slot] [data-np-signin]");
     await page.waitForSelector("#signOverlay.open");
+    /* Plan 102 (R7-04): the door's own Sign in keeps the box as it was. */
+    eq((await page.textContent("#signTitle")).trim(), "Welcome back", "the heading");
+    eq(await page.isVisible("#signCreate"), false, "Create your hub account beside Sign in");
     await page.keyboard.press("Escape");
     await page.waitForSelector("#signOverlay.open", { state: "detached" });
   });
@@ -1387,9 +1390,71 @@ async function walkWall() {
       await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/" && u.searchParams.get("signin") === "1");
       eq(new URL(page.url()).searchParams.get("return"), url, "the return address");
       await page.waitForSelector("#signOverlay.open");
+      /* Plan 102 (R7-04): a hub page sent this visitor, so the box says what
+         happened and offers Create your hub account beside Sign in. The
+         account page's way in keeps "Welcome back". Nothing is pressed here:
+         the next step holds the page to one API call. */
+      const hub = url.startsWith(PRINT) ? "the 3D Print Hub" : url.startsWith(MILL) ? "the Mill Hub" : url.startsWith(OPPS) ? "the Opportunities Board" : "";
+      if (hub) {
+        eq((await page.textContent("#signTitle")).trim(), "Sign in or create your hub account", "the heading");
+        eq(await page.isVisible("#signLead"), true, "the line is shown");
+        eq((await page.textContent("#signLead")).trim(),
+          `You need a hub account to use ${hub}. Sign in, or create your account in about two minutes, and you go on to the page you asked for.`, "the line");
+        eq(await page.isVisible("#signCreate"), true, "Create your hub account is shown");
+        eq((await page.textContent("#signCreate")).trim(), "Create your hub account", "the second button");
+      } else {
+        eq((await page.textContent("#signTitle")).trim(), "Welcome back", "the heading");
+        eq(await page.isVisible("#signLead"), false, "the line is shown");
+        eq(await page.isVisible("#signCreate"), false, "Create your hub account is shown");
+      }
     });
     await step(`${name} asked the API for nothing but who is signed in`, async () =>
       eq([...new Set(world.calls.map((c) => `${c.method} ${c.path}`))].filter((k) => k !== "GET /auth/me"), [], "other API calls"));
+    await context.close();
+  }
+
+  /* Plan 102 (R7-04): the second button is the way in for a first-time
+     visitor. It closes the box and opens the Create account questionnaire,
+     which carries the return address. */
+  {
+    const world = newWorld();
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${MILL}/find.html`);
+    await page.waitForSelector("#signOverlay.open");
+    await step("the two buttons sit in one row, the same height: Sign in solid, Create your hub account outlined", async () => {
+      const row = await page.$$eval("#signContent .modal-actions button", (els) => els.map((b) => {
+        const r = b.getBoundingClientRect();
+        return { words: b.textContent.trim(), type: b.type, cls: b.className, top: Math.round(r.top), height: Math.round(r.height) };
+      }));
+      eq(row.map((b) => b.words), ["Sign in", "Create your hub account"], "the buttons");
+      eq(row.map((b) => b.type), ["submit", "button"], "the button types");
+      eq(row.map((b) => b.cls), ["btn btn-primary", "btn btn-outline"], "the button classes");
+      eq(row[0].height, row[1].height, "the heights");
+      eq(row[0].top, row[1].top, "side by side");
+      return has(await page.textContent("#signContent .privacy span"), "New here? Create your hub account. Two minutes, in confidence.", "the small line, still there");
+    });
+    await step("Create your hub account closes the box and opens the questionnaire", async () => {
+      await page.click("#signCreate");
+      await page.waitForSelector("#signOverlay.open", { state: "detached" });
+      await page.waitForSelector('form[data-np-step="1"]');
+      return true;
+    });
+    clean(world, errors, "the newcomer's box");
+    await context.close();
+  }
+  /* The home page's own Sign in link carries the home page's address as the
+     return address: that is not a hub page, and the box stays as it was. */
+  {
+    const world = newWorld();
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/?signin=1&return=${encodeURIComponent(`${APEX}/`)}`);
+    await page.waitForSelector("#signOverlay.open");
+    await step("the home page's Sign in link keeps Welcome back, with one button", async () => {
+      eq((await page.textContent("#signTitle")).trim(), "Welcome back", "the heading");
+      eq(await page.isVisible("#signLead"), false, "the line is shown");
+      return eq(await page.isVisible("#signCreate"), false, "Create your hub account is shown");
+    });
+    clean(world, errors, "the home page's way in");
     await context.close();
   }
 
