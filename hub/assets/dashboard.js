@@ -892,7 +892,7 @@
     if (s.closed) { hide('waiting'); return 0; }
     var asked = intros.filter(function (i) { return i.role === 'provider' && i.stage === 'awaiting_acceptance'; });
     var held = answersHeld(s);
-    var due =(isHost(s) || boardSeller(d)) && dec && ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
+    var due = (isHost(s) || boardSeller(d)) && dec && ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
       Array.isArray(dec.items) && dec.items.length;
     /* An account that is not a host and has listed, asked and been
        introduced to nothing yet has one thing to do: choose a hub. The
