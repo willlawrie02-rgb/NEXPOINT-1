@@ -470,6 +470,67 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
     if (!portal.includes("signFormNodes")) fail("hub/assets/portal.js: the sign-in form's nodes are not kept while a card stands in their place (plan 104, R7-25)");
     if (portal.includes("getElementById('signContent').innerHTML =")) fail("hub/assets/portal.js: a card is written straight over the sign-in form (plan 104, R7-25)");
   }
+
+  // R7-18: a paused or hidden account is not offered buttons the worker always
+  // refuses; the page says when it can answer instead. The three functions
+  // are pure, so they are lifted out and every row of the plan's table is run.
+  {
+    const HELD_WORDS = {
+      rowHost: "You can answer this introduction once your listing is back on the hubs.",
+      rowOther: "This introduction cannot be answered for now. Email hello@nexpoint.co.uk and we will tell you what happens next.",
+      oneHost: "1 introduction is waiting for your answer. You can answer it once your listing is back on the hubs.",
+      manyHost: "3 introductions are waiting for your answer. You can answer them once your listing is back on the hubs.",
+      oneOther: "1 introduction is waiting for your answer, and cannot be answered for now. Email hello@nexpoint.co.uk and we will tell you what happens next.",
+      manyOther: "3 introductions are waiting for your answer, and cannot be answered for now. Email hello@nexpoint.co.uk and we will tell you what happens next.",
+      noneHost: "Nothing waiting on you. Your listing is not showing on the hubs for now.",
+    };
+    const lifted = [
+      dash.match(/function answersHeld\(s\) \{[\s\S]*?\n  \}/),
+      dash.match(/function heldRowWords\(host\) \{[\s\S]*?\n  \}/),
+      dash.match(/function heldWaitingWords\(host, n\) \{[\s\S]*?\n  \}/),
+    ];
+    if (lifted.some((m) => !m)) fail(`${DASH}: answersHeld, heldRowWords or heldWaitingWords was not found (plan 104, R7-18)`);
+    else {
+      let fns = null;
+      try {
+        fns = new Function(`${lifted.map((m) => m[0]).join("\n")}; return { answersHeld, heldRowWords, heldWaitingWords };`)();
+      } catch (e) { fail(`${DASH}: the held functions could not be lifted out: ${e.message} (plan 104, R7-18)`); }
+      if (fns) {
+        const cases = [
+          ["answersHeld, paused by the desk", () => fns.answersHeld({ pausedByDesk: true }), true],
+          ["answersHeld, hidden for an unpaid invoice", () => fns.answersHeld({ hiddenUnpaid: true }), true],
+          ["answersHeld, neither", () => fns.answersHeld({}), false],
+          ["answersHeld, no site", () => fns.answersHeld(null), false],
+          ["answersHeld, a closed account", () => fns.answersHeld({ pausedByDesk: true, closed: { at: "x" } }), false],
+          ["heldRowWords, a host", () => fns.heldRowWords(true), HELD_WORDS.rowHost],
+          ["heldRowWords, no listing", () => fns.heldRowWords(false), HELD_WORDS.rowOther],
+          ["heldWaitingWords, a host, one", () => fns.heldWaitingWords(true, 1), HELD_WORDS.oneHost],
+          ["heldWaitingWords, a host, three", () => fns.heldWaitingWords(true, 3), HELD_WORDS.manyHost],
+          ["heldWaitingWords, no listing, one", () => fns.heldWaitingWords(false, 1), HELD_WORDS.oneOther],
+          ["heldWaitingWords, no listing, three", () => fns.heldWaitingWords(false, 3), HELD_WORDS.manyOther],
+          ["heldWaitingWords, a host, none", () => fns.heldWaitingWords(true, 0), HELD_WORDS.noneHost],
+          ["heldWaitingWords, no listing, none", () => fns.heldWaitingWords(false, 0), ""],
+        ];
+        for (const [name, run, want] of cases) {
+          let got;
+          try { got = run(); } catch (e) { fail(`${DASH}: ${name} threw: ${e.message} (plan 104, R7-18)`); continue; }
+          if (got !== want) fail(`${DASH}: ${name}: gives ${JSON.stringify(got)}, want ${JSON.stringify(want)} (plan 104, R7-18)`);
+        }
+      }
+    }
+    if (!dash.includes("answerable(i) && !held")) fail(`${DASH}: Accept and Decline are still drawn for an account that cannot answer (plan 104, R7-18)`);
+    if (!dash.includes("showResend && !held && i.stage === 'awaiting_acceptance'")) fail(`${DASH}: Send the email again is still drawn for an account that cannot answer (plan 104, R7-18)`);
+    // None of the seven sentences, as the page's code writes them, sits on a line with an em-dash.
+    const PARTS = [
+      HELD_WORDS.rowHost, HELD_WORDS.rowOther, HELD_WORDS.noneHost,
+      "1 introduction is waiting for your answer", " introductions are waiting for your answer",
+      " once your listing is back on the hubs.",
+      ", and cannot be answered for now. Email hello@nexpoint.co.uk and we will tell you what happens next.",
+    ];
+    for (const line of dash.split("\n")) {
+      if (line.includes("—") && PARTS.some((w) => line.includes(w))) fail(`${DASH}: an em-dash in the plan 104 words (R7-18): ${line.trim().slice(0, 80)}`);
+    }
+  }
 }
 
 if (fails.length) {

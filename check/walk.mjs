@@ -3335,10 +3335,11 @@ async function walkAccountAnswers() {
     request: { material: "pa12_nylon12", process: "mjf", quantity: 40, cadence: "one_off", max_lead_time_days: 10, needed_by: "2026-11-03",
       services: ["finishing_dyeing"], notes: "Pairs, boxed per patient.", town: "Bristol", country: "United Kingdom", point: { lat: 51.45, lng: -2.59 } },
     site: { town: "Leeds", country: "United Kingdom", point: { lat: 53.8, lng: -1.55 } } });
-  const summary = (intros, offers) => Object.assign({}, EMPTY_SUMMARY, {
+  /* The third argument is merged over the site (plan 104: a paused or hidden listing). */
+  const summary = (intros, offers, site = {}) => Object.assign({}, EMPTY_SUMMARY, {
     org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", founding: true, host_print: "approved", host_mill: "none", fee_exempt_note: null },
-    site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
-      sub_status: "trial", founding: true, paused: false, removed: false, verified: true },
+    site: Object.assign({ org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
+      sub_status: "trial", founding: true, paused: false, removed: false, verified: true }, site),
     introductions: intros, offers, hubs_used: ["print"],
   });
   const world = newWorld({
@@ -3432,6 +3433,63 @@ async function walkAccountAnswers() {
   });
   clean(world, errors, "answering on the account page");
   await context.close();
+
+  /* Plan 104 (R7-18): a host whose listing is paused by the desk, or hidden
+     for an unpaid membership invoice, may not answer an open offer (the
+     worker refuses, by design). The page used to draw Accept and Decline all
+     the same. It now draws no button the worker would refuse, and says when
+     the offer can be answered. */
+  const introduced8 = intro(8, { stage: "introduced", accepted_a_at: "2026-10-07T10:00:00Z",
+    introduced_at: "2026-10-07T10:00:00Z", acceptance_expires_at: null });
+  const heldButtons = async (page) => [
+    await page.locator('#intro-7 [data-act="intro-accept-open"]').count(),
+    await page.locator('#intro-7 [data-act="intro-decline-open"]').count(),
+    await page.locator('#intro-7 [data-act="intro-resend"]').count(),
+  ];
+  {
+    const world = newWorld({ user: USER, terms: TERMS_STATE({ host: HELD(32) }),
+      summary: summary([intro(7), introduced8], [offer(7), offer(8)], { paused: true, paused_by_desk: true, hidden_unpaid: false }) });
+    const { context, page, errors } = await visit(world);
+    await step("a host paused by the desk is offered no Accept, Decline or Send the email again, and the row says when it can answer (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("#intro-7");
+      eq(await heldButtons(page), [0, 0, 0], "Accept, Decline and Send the email again in the row");
+      has(await page.textContent("#intro-7"), "You can answer this introduction once your listing is back on the hubs.", "the row");
+      const waiting = await page.textContent("#waiting");
+      has(waiting, "1 introduction is waiting for your answer. You can answer it once your listing is back on the hubs.", "Waiting on you");
+      eq(waiting.includes("Answer 1 introduction"), false, "the Answer action");
+      return eq(apiCalls(world, "POST /introductions/accept").length, 0, "accepts sent");
+    });
+    clean(world, errors, "the account page of a paused host with an offer waiting");
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER, terms: TERMS_STATE({ host: HELD(32) }),
+      summary: summary([introduced8], [offer(8)], { paused: true, paused_by_desk: true, hidden_unpaid: false }) });
+    const { context, page, errors } = await visit(world);
+    await step("a paused host with nothing waiting is not told its listing is live (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("#intro-8");
+      const waiting = await page.textContent("#waiting");
+      has(waiting, "Nothing waiting on you. Your listing is not showing on the hubs for now.", "Waiting on you");
+      return eq(waiting.includes("Your listing is live"), false, "the live line");
+    });
+    clean(world, errors, "the account page of a paused host with nothing waiting");
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER, terms: TERMS_STATE({ host: HELD(32) }),
+      summary: summary([intro(7)], [offer(7)], { paused: true, paused_by_desk: false, hidden_unpaid: true, sub_status: "hidden" }) });
+    const { context, page, errors } = await visit(world);
+    await step("a host hidden for an unpaid membership invoice is offered no buttons either, with the same sentence (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("#intro-7");
+      eq(await heldButtons(page), [0, 0, 0], "Accept, Decline and Send the email again in the row");
+      return has(await page.textContent("#intro-7"), "You can answer this introduction once your listing is back on the hubs.", "the row");
+    });
+    clean(world, errors, "the account page of a host hidden for an unpaid invoice");
+    await context.close();
+  }
 
   area = "The account page (sent to one introduction)";
   {
