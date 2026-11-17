@@ -1019,8 +1019,8 @@
       head('school', 'Education', 'Courses and training, built with the people who do the work.') +
       '<div class="tile-grid">' +
         '<button class="tile" type="button" data-act="education">' +
-          '<h4>Education Hub</h4>' +
-          '<p>Education Hub: quarterly webinars for the whole community, first courses opening soon.</p>' +
+          '<h4>Education</h4>' +
+          '<p>Quarterly webinars for the whole community, with the first courses opening soon.</p>' +
           '<span class="go">Put me on the list</span>' +
         '</button>' +
       '</div>');

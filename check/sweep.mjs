@@ -232,13 +232,19 @@ for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.htm
 // board and Education. Visible copy, titles and descriptions. The board is left
 // out of the one rule that is true of it: a person does read a board request.
 {
+  // Plan 102 (R7-10): the count of hubs is caught as a digit too ("4" and
+  // "Hubs" in two neighbouring elements read as "4 Hubs" once the tags are
+  // spaces), and these two names are also held in the shared scripts, which
+  // draw tiles and lines a visitor reads (see the loop under the pages').
+  const HUBS_RULE = [/\b(?:Four|4)\s+hubs\b/i, "two hubs, a board and Education"];
+  const EDUCATION_RULE = [/\bEducation Hub\b/i, "the part is called Education (Will, 14 Oct 2026)"];
   const CLAIMS = [
     [/(?:names|identities)[^.]{0,60}never (?:appear|published)|identit(?:y|ies)[^.]{0,40}held back/i, "names are shown to seekers who have accepted the terms (Host Agreement §2)"],
     [/\bfirst (?:labs|facilities) to join\b|\bcohort\b/i, "no founding or early-adopter offer (Will, 2 Nov 2026)"],
     [/routed to (?:you|them) first|contracted volume|contracted book of work/i, "no routing and no revenue guarantee (Host Agreement)"],
-    [/\bFour hubs\b/i, "two hubs, a board and Education"],
+    HUBS_RULE,
     [/(?<!3D )\bprint capacity\b/i, "say 3D print capacity (Will, 14 Oct 2026)"],
-    [/\bEducation Hub\b/i, "the part is called Education (Will, 14 Oct 2026)"],
+    EDUCATION_RULE,
   ];
   const DESK = /weighs? the fit/i;
   for (const p of pages) {
@@ -254,6 +260,21 @@ for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.htm
       if (m) fail(`${p}: says "${m[0]}" (${why})`);
     }
     if (p !== "opportunities/index.html" && DESK.test(text)) fail(`${p}: says a person weighs the fit (a hub pick goes straight to the site)`);
+  }
+  // The two names, in the string literals that read as copy in the shared
+  // scripts (plan 102, R7-10). The other four rules stay on page text only.
+  for (const p of scripts) {
+    const src = read(p).replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const line of src.split("\n")) {
+      if (/^\s*\/\//.test(line)) continue;
+      for (const lit of line.match(/(['"`])(?:(?!\1)[^\\\n]|\\.)*\1/g) || []) {
+        if (!lit.includes(" ")) continue;
+        for (const [re, why] of [HUBS_RULE, EDUCATION_RULE]) {
+          const m = lit.match(re);
+          if (m) fail(`${p}: copy says "${m[0]}" in ${lit.slice(0, 60)} (${why})`);
+        }
+      }
+    }
   }
 }
 
