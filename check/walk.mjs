@@ -6653,6 +6653,10 @@ async function walkPeople() {
       : [400, { error: "invite_invalid" }]);
     world.api["POST /auth/register-invited"] = () => [200, { ok: true, confirm_required: true }];
     const { context, page, errors } = await visit(world);
+    /* Plan 102 (R7-01): the card after Join carries a Resend that waits the
+       worker's two minutes out. The clock is the walk's from the press on
+       Join, so the wait takes no time. */
+    await page.clock.install();
     await page.goto(`${APEX}/hub/invite.html?t=${INVITE_TOKEN}`);
     await step("the page names the account, who invited, and the address", async () => {
       await page.waitForSelector("#invName");
@@ -6681,6 +6685,8 @@ async function walkPeople() {
     });
     await step("Join posts the token, the name and the terms version, with no password, then says check your inbox", async () => {
       await page.check("#invTick");
+      /* From here time moves only when the walk moves it. */
+      await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
       await page.click("#joinBtn");
       await page.waitForFunction(() => /Check your inbox/.test(document.body.textContent));
       const b = apiCalls(world, "POST /auth/register-invited").pop().body;
@@ -6688,12 +6694,60 @@ async function walkPeople() {
       has(await page.textContent("#inviteBody"), "Open the link in it, choose your password, and you are in.", "the card");
       return eq([b.token, b.name, b.terms_version_id], [INVITE_TOKEN, "Cal League", 12], "the body");
     });
+    /* Plan 102 (R7-01): an invited colleague who missed the confirmation
+       email had no way to ask for another. The card now carries the
+       registration card's Resend: disabled for 2:10 because the worker has
+       just sent one email and sends no second inside two minutes, then one
+       press for a fresh link, and it stays for another try. */
+    {
+      const resend = "#resendBtn";
+      const label = async () => (await page.textContent(resend)).trim();
+      await step("the card's Resend starts disabled, counting down from 2:10, and nothing is sent (plan 102)", async () => {
+        eq(await label(), "Resend the email in 2:10", "the button");
+        eq(await page.isDisabled(resend), true, "the button is disabled");
+        eq(await page.isHidden("#resendNote"), true, "the line is hidden until it has words");
+        return eq(apiCalls(world, "POST /auth/resend-confirmation").length, 0, "resends sent");
+      });
+      await step("after 2:10 the Resend can be pressed (plan 102)", async () => {
+        await page.clock.runFor(130000);
+        eq(await label(), "Resend the email", "the button");
+        return eq(await page.isDisabled(resend), false, "the button is disabled");
+      });
+      await step("a press sends the invited address once, says so, and counts down again (plan 102)", async () => {
+        await page.click(resend);
+        await page.waitForFunction(() => /on its way/.test((document.getElementById("resendNote") || {}).textContent || ""));
+        eq(apiCalls(world, "POST /auth/resend-confirmation").map((c) => c.body), [{ email: "cal@example.com" }], "the resend");
+        eq((await page.textContent("#resendNote")).trim(),
+          "If that address still needs confirming, a new link is on its way. It can take a minute to arrive, and it may be in your junk folder.", "the line");
+        eq(await page.getAttribute("#resendNote", "role"), "status", "the line's role");
+        eq(await label(), "Resend the email in 2:10", "the button");
+        return eq(await page.isDisabled(resend), true, "the button is disabled");
+      });
+      await step("a resend that never left the device says so, and gives the button back at once (plan 102)", async () => {
+        await page.clock.runFor(130000);
+        world.dropOnce = new Set(["POST /auth/resend-confirmation"]);
+        await page.click(resend);
+        await page.waitForFunction(() => /That did not send/.test((document.getElementById("resendNote") || {}).textContent || ""));
+        eq((await page.textContent("#resendNote")).trim(), "That did not send. Check your connection and try again.", "the line");
+        eq(await label(), "Resend the email", "the button");
+        return eq(await page.isDisabled(resend), false, "the button is disabled");
+      });
+      await step("the card keeps its own words beside the Resend (plan 102)", async () => {
+        has(await page.textContent("#inviteBody h1"), "Check your inbox.", "the heading");
+        return has(await page.textContent("#inviteBody"),
+          "We have sent one email to cal@example.com. Open the link in it, choose your password, and you are in.", "the card");
+      });
+    }
+    /* The next step runs on a moving clock, as it always has. */
+    await page.clock.resume();
     await page.goto(`${APEX}/hub/invite.html?t=${"b".repeat(64)}`);
     await step("a used or expired invitation says so", async () => {
       await page.waitForFunction(() => /used or has expired/.test(document.body.textContent));
       return true;
     });
-    clean(world, errors, "the invitation page");
+    /* The browser logs a line of its own for the send the walk dropped on
+       purpose; anything the page itself threw still counts. */
+    clean(world, errors.filter((e) => !/net::ERR_FAILED/.test(e)), "the invitation page");
     await context.close();
   }
 

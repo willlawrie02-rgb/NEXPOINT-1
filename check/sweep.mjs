@@ -574,6 +574,18 @@ for (const p of pages) {
   }
 }
 
+// ---------------------------------------------------------------- plan 102: launch week
+// The audit of 17 November 2026 (round 7). Each rule below is one of its
+// findings, held so it cannot come back.
+{
+  // R7-01: a reset asked for an unconfirmed address now sends the confirmation
+  // link, so the three pages that speak after "Forgotten your password?" say
+  // "a link to set your password", which is true of both kinds of account.
+  for (const p of ["hub/assets/portal.js", "opportunities/index.html", "hub/reset.html"]) {
+    if (read(p).includes("a reset link is on its way")) fail(`${p}: still says "a reset link is on its way"; the words are "a link to set your password is on its way" (plan 102, R7-01)`);
+  }
+}
+
 if (fails.length) {
   console.error(`sweep: ${fails.length} problem(s)`);
   for (const f of fails) console.error("  " + f);

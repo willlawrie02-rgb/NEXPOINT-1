@@ -105,6 +105,66 @@
     e.style.display = 'block';
   }
 
+  /* The Resend on the card after Join (plan 102, R7-01). An invited colleague
+     who missed the confirmation email had no way to ask for another: the
+     invitation is spent, and a fresh one is refused. The worker answers a
+     resend the same way whatever the address, so the card says only what is
+     true either way.
+
+     These two mirror assets/hub-account.js (this page loads no shared
+     script, so the copy lives here). The worker's CONFIRM_RESEND_COOLDOWN_MS
+     is 120 seconds, but its clock starts when the email log row is written
+     after the send, a second or two after this card appears. Counting exactly
+     120 from here would end inside the worker's window: nothing sent, and the
+     card saying a link is on its way. So ten seconds more. */
+  var RESEND_WAIT_S = 130;
+  var RESEND_LABEL = 'Resend the email';
+  function wireResend(btn, note, email) {
+    if (!btn || !note) return;
+    var timer = null;
+    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function show(words) { note.textContent = words; note.hidden = false; }
+    /* Counted against the clock, not by ticks, so a tab left in the
+       background comes back to the right number. A button no longer in the
+       page stops its own timer. */
+    function wait() {
+      stop();
+      var until = Date.now() + RESEND_WAIT_S * 1000;
+      function tick() {
+        if (!btn.isConnected) { stop(); return; }
+        var left = Math.ceil((until - Date.now()) / 1000);
+        if (left <= 0) {
+          stop();
+          btn.disabled = false; btn.textContent = RESEND_LABEL;
+          return;
+        }
+        var m = Math.floor(left / 60);
+        var s = left % 60;
+        btn.disabled = true;
+        btn.textContent = RESEND_LABEL + ' in ' + m + ':' + (s < 10 ? '0' + s : s);
+      }
+      tick();
+      timer = setInterval(tick, 1000);
+    }
+    btn.addEventListener('click', function () {
+      if (btn.disabled) return;
+      btn.disabled = true; btn.textContent = 'Sending…';
+      call('/auth/resend-confirmation', { email: email })
+        .then(function () {
+          /* Any answer is "sent": the worker says the same thing whatever it
+             found. */
+          show('If that address still needs confirming, a new link is on its way. It can take a minute to arrive, and it may be in your junk folder.');
+          wait();
+        })
+        .catch(function () {
+          /* It never left this device, so there is nothing to wait out. */
+          show('That did not send. Check your connection and try again.');
+          btn.disabled = false; btn.textContent = RESEND_LABEL;
+        });
+    });
+    wait();
+  }
+
   var ERRORS = {
     'name required': 'Enter your name.',
     'invalid terms_version_id': 'The Platform Terms have just changed. Refresh the page and accept the new version.',
@@ -121,7 +181,10 @@
       .then(function (o) {
         if (o.r.ok && o.d && o.d.ok) {
           render('<h1>Check your inbox.</h1><p>We have sent one email to <strong>' + esc(invite.email) +
-            '</strong>. Open the link in it, choose your password, and you are in.</p>');
+            '</strong>. Open the link in it, choose your password, and you are in.</p>' +
+            '<p id="resendNote" role="status" hidden></p>' +
+            '<div class="actions"><button class="yes" type="button" id="resendBtn" disabled>Resend the email in 2:10</button></div>');
+          wireResend($('resendBtn'), $('resendNote'), invite.email);
           return;
         }
         btn.disabled = false; btn.textContent = label;

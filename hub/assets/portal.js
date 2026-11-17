@@ -611,7 +611,7 @@ async function resetRequest(){
     <div class="success">
       <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
       <h2>Check your inbox.</h2>
-      <p>If that address holds an account, a reset link is on its way. It lasts a short while and works once.</p>
+      <p>If that address holds an account, a link to set your password is on its way. It lasts a short while and works once.</p>
       <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Close</button></div>
     </div>`;
 }
