@@ -573,13 +573,25 @@ function acceptCampaign(r){
   if(NO_CAMPAIGN.includes(pick(r,'type',typeOf(r))))return campaignWords([]);
   return campaignWords(pick(r,'campaigns',campChoices(r)));
 }
+/* Plan 101 (D13): a lead that came back from the Leads tab, by the Return
+   button or by the back-through run, says so, and names the campaigns it
+   was on, as the return recorded them at the end of its note. A return made
+   before that record has no "Was on" line, never a guess from the
+   recommendation. */
+const cameBack=r=>/^returned to prospect/i.test(r.decision_note||'');
+const backPill=r=>cameBack(r)?`<span class="tag" title="${esc(r.decision_note)}">${ms('replay','sm')}Back through</span>`:'';
+function wasOnLine(r){
+  const m=cameBack(r)&&/ Was on: (.+)\.$/.exec(r.decision_note||'');
+  if(!m)return '';
+  return `<div class="hint">${ms('replay')}<span>Back through as a prospect. Was on: ${esc(m[1])}.</span></div>`;
+}
 function prospectCard(r,isParked){
   const q=pendingFor['q'+r.id],queued=q&&q.status!=='failed';
   const why=r.judge_reason||r.reasoning||'';
   const src=SOURCES[r.source]||'Weekend finder';
   const act=queued?queuedLine(q)
     :`<button class="btn sm primary" type="button" data-act="accept" data-id="${esc(r.id)}"${pre0047?' disabled title="Waiting for migration 0047"':''}>${ms('check','sm')}Accept</button> ${toggleBtn(r)}`;
-  let out=`<tr${UI.open===r.id?' class="open"':''}>${companyCell(r,src)}<td><div class="pills">${foundFor(r)}</div></td>`+
+  let out=`<tr${UI.open===r.id?' class="open"':''}>${companyCell(r,src)}<td><div class="pills">${backPill(r)}${foundFor(r)}</div></td>`+
     `<td>${esc(typeLabel(typeOf(r)))}<small>${esc(cap(gradeOf(r)))}</small></td><td>${esc(acceptCampaign(r))}</td><td class="why">${esc(why)||'Not checked yet.'}</td>`+
     `<td>${contactsCell(r)}</td><td class="act">${failedLine(q)}${act}</td></tr>`;
   if(UI.open!==r.id)return out;
@@ -597,6 +609,7 @@ function prospectCard(r,isParked){
     :UI.ask==='block:'+r.id?askHtml('Block',r.id,'Kill this company? It is never proposed or researched again; only an admin can restore it. Say why.','Required','Kill it',true):'';
   out+=`<tr class="detail"><td colspan="7"><div class="detail-body">
     ${finderTags(r)}
+    ${wasOnLine(r)}
     ${r.list_overlap?`<div class="hint">${ms('info')}<span>Already on the campaign list (${esc(r.list_overlap)}).</span></div>`:''}
     ${fields(r,isParked)}
     ${r.proposed_at?`<span class="muted-t">Found ${esc(NXCRM.fmtDate(r.proposed_at))}</span>`:''}
