@@ -1,7 +1,7 @@
 // Code review of 4 October 2026 (launch checklist, Phase 4): three things the
 // review found on the public pages, each kept from coming back. Where a
 // function can be lifted out of its page and run, it is run; the rest is read.
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
@@ -540,6 +540,37 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
     "which is the most allowed in a day.",
     "We could not check that just now. Try again in a minute",
   ], "R7-20");
+
+  // R7-21: the home page does not wait for the visitor tracking company. Its
+  // tag sits at the foot, after the page's own inline script, never in the
+  // head; and the header and footer logo is the small file, not the 2,362
+  // pixel original.
+  {
+    const home = read("index.html");
+    const headEnd = home.indexOf("</head>");
+    const TRACKER = "365-syndicate";
+    if (headEnd < 0) fail("index.html: no </head> found (plan 104, R7-21)");
+    else {
+      if (home.slice(0, headEnd).includes(TRACKER)) fail("index.html: the tracking tag is in the head, where a slow answer holds up the whole page (plan 104, R7-21)");
+      const body = home.slice(headEnd);
+      const tags = [...body.matchAll(/<script\b[^>]*>/g)].filter((m) => m[0].includes(TRACKER));
+      const inline = [...body.matchAll(/<script>/g)];
+      const lastInline = inline.length ? inline[inline.length - 1].index : -1;
+      if (tags.length !== 1) fail(`index.html: the body holds ${tags.length} tracking scripts, want exactly one (plan 104, R7-21)`);
+      else if (lastInline < 0 || tags[0].index < lastInline) fail("index.html: the tracking script is not after the page's last inline script (plan 104, R7-21)");
+    }
+    if (/<img\b[^>]*\bsrc="assets\/nexpoint-logo\.png"/.test(home)) fail("index.html: an image still loads the full-size logo (plan 104, R7-21)");
+    const small = join(ROOT, "assets/nexpoint-logo-156.png");
+    if (!existsSync(small)) fail("assets/nexpoint-logo-156.png is missing (plan 104, R7-21)");
+    else {
+      // A PNG's width is bytes 16 to 19, as check/sweep.mjs's imageSize reads it.
+      const png = readFileSync(small);
+      const isPng = png.length > 24 && png.readUInt32BE(0) === 0x89504e47;
+      const width = isPng ? png.readUInt32BE(16) : 0;
+      if (!isPng) fail("assets/nexpoint-logo-156.png is not a PNG (plan 104, R7-21)");
+      else if (width > 400) fail(`assets/nexpoint-logo-156.png is ${width} pixels wide, want 400 or less (plan 104, R7-21)`);
+    }
+  }
 }
 
 if (fails.length) {

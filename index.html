@@ -845,9 +845,6 @@
      (see the hero script). Without this class (reduced motion, or no script)
      the hero shows the film alone. -->
 <script>if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches))document.documentElement.classList.add('np-reveal');</script>
-<!-- Lead Forensics tracking -->
-<script type="text/javascript" src="https://www.365-syndicate.com/js/818863.js"></script>
-<noscript><img src="https://www.365-syndicate.com/818863.png" style="display:none;" alt="" width="1" height="1" /></noscript>
 </head>
 <body>
 <!-- No flash of the wrong account state (Will, 30 October 2026): the header's account
@@ -860,7 +857,7 @@
 <header class="navbar">
   <nav class="navbar__inner">
     <a href="#top" class="navbar__brand" data-nav="top">
-      <img src="assets/nexpoint-logo.png" alt="NexPoint" width="52" height="52" />
+      <img src="assets/nexpoint-logo-156.png" alt="NexPoint" width="52" height="52" />
     </a>
     <div class="navbar__links">
       <a href="#hub"       class="navbar__link" data-nav="hub">The Global Portal</a>
@@ -1399,7 +1396,7 @@
 <footer class="footer">
   <div class="footer__inner">
     <div class="footer__brand">
-      <img src="assets/nexpoint-logo.png" alt="NexPoint" width="44" height="44" loading="lazy" />
+      <img src="assets/nexpoint-logo-156.png" alt="NexPoint" width="44" height="44" loading="lazy" />
       <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, Australia and Asia.</p>
     </div>
     <div class="footer__col">
@@ -2209,5 +2206,10 @@
   render();
 })();
 </script>
+<!-- Lead Forensics tracking. At the foot and async, so a slow or blocked
+     answer from its server cannot hold up the page (plan 104). The tag is
+     kept on purpose: do not remove it. -->
+<script async type="text/javascript" src="https://www.365-syndicate.com/js/818863.js"></script>
+<noscript><img src="https://www.365-syndicate.com/818863.png" style="display:none;" alt="" width="1" height="1" /></noscript>
 </body>
 </html>
