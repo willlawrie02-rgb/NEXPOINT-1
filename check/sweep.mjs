@@ -602,6 +602,15 @@ for (const p of pages) {
     if (read(p).includes("matched to your profile")) fail(`${p}: still says "matched to your profile" (plan 102, R7-04)`);
   }
   if (!read("hub/index.html").includes('id="signCreate"')) fail('hub/index.html: the sign-in box has no id="signCreate" button (plan 102, R7-04)');
+  // R7-06: change of email is limited to five requests a day for each
+  // sign-in; the worker's word for the sixth is too_many_today, and the
+  // settings page has a sentence for it.
+  {
+    const people = read("hub/assets/people.js");
+    for (const want of ["too_many_today", "You have asked to change your email address five times in the last day."]) {
+      if (!people.includes(want)) fail(`hub/assets/people.js: missing "${want}" (plan 102, R7-06)`);
+    }
+  }
 }
 
 if (fails.length) {
