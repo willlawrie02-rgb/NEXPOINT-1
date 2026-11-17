@@ -611,6 +611,50 @@ for (const p of pages) {
       if (!people.includes(want)) fail(`hub/assets/people.js: missing "${want}" (plan 102, R7-06)`);
     }
   }
+  // R7-07: the launch posts give nexpoint.co.uk/hub. The door and the three
+  // hub pages carry the tags that make LinkedIn, Teams, WhatsApp or email draw
+  // the NexPoint picture and a summary, as the home page always has. Each
+  // page's preview is its own title and description, word for word, so a page
+  // whose title or description changes must change its preview with it. A new
+  // public front page needs the block and a row here.
+  {
+    const PREVIEW = {
+      "index.html": "https://nexpoint.co.uk/",
+      "hub/index.html": "https://nexpoint.co.uk/hub/",
+      "printhub/index.html": "https://printhub.nexpoint.co.uk/",
+      "millhub/index.html": "https://millhub.nexpoint.co.uk/",
+      "opportunities/index.html": "https://opportunities.nexpoint.co.uk/",
+    };
+    const IMAGE = "https://nexpoint.co.uk/assets/og-image.png";
+    if (!existsSync(join(ROOT, "assets", "og-image.png"))) fail("assets/og-image.png: the link preview's picture is not in the repo (plan 102, R7-07)");
+    for (const [p, address] of Object.entries(PREVIEW)) {
+      const head = read(p).replace(/<!--[\s\S]*?-->/g, "");
+      const tags = (attr, key) => [...head.matchAll(new RegExp(`<meta\\s+${attr}="${key}"\\s+content="([^"]*)"\\s*/?>`, "g"))].map((m) => unescape(m[1]));
+      const one = (attr, key) => {
+        const found = tags(attr, key);
+        if (found.length !== 1) fail(`${p}: needs exactly one ${key} tag (found ${found.length}) (plan 102, R7-07)`);
+        return found.length === 1 ? found[0] : null;
+      };
+      const title = unescape(((head.match(/<title>([^<]*)<\/title>/) || [])[1] || "").trim());
+      const description = tags("name", "description")[0];
+      const ogTitle = one("property", "og:title");
+      const ogDescription = one("property", "og:description");
+      const ogUrl = one("property", "og:url");
+      const card = one("name", "twitter:card");
+      if (ogUrl !== null && ogUrl !== address) fail(`${p}: og:url is ${ogUrl}; the page's own address is ${address} (plan 102, R7-07)`);
+      if (card !== null && card !== "summary_large_image") fail(`${p}: twitter:card is ${card}, not summary_large_image (plan 102, R7-07)`);
+      if (ogTitle !== null && ogTitle !== title) fail(`${p}: og:title is not the page's own title (plan 102, R7-07)`);
+      if (ogDescription !== null && ogDescription !== description) fail(`${p}: og:description is not the page's own meta description (plan 102, R7-07)`);
+      for (const [attr, key] of [["property", "og:image"], ["name", "twitter:image"]]) {
+        const found = tags(attr, key);
+        if (found.length !== 1 || found[0] !== IMAGE) fail(`${p}: ${key} must be ${IMAGE}, once (plan 102, R7-07)`);
+      }
+      for (const [key, want] of [["twitter:title", title], ["twitter:description", description]]) {
+        const found = tags("name", key);
+        if (found.length !== 1 || found[0] !== want) fail(`${p}: ${key} is not the page's own ${key.split(":")[1]}, once (plan 102, R7-07)`);
+      }
+    }
+  }
 }
 
 if (fails.length) {
