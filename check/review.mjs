@@ -531,6 +531,15 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
       if (line.includes("—") && PARTS.some((w) => line.includes(w))) fail(`${DASH}: an em-dash in the plan 104 words (R7-18): ${line.trim().slice(0, 80)}`);
     }
   }
+
+  // R7-20: a repeat pick and an eleventh request in a day are refused by the
+  // worker; the find page has words for each of its three new answers.
+  wordsIn("hub/assets/find.js", read("hub/assets/find.js"), [
+    "You have already asked this company, and it has not answered yet.",
+    "You already have an introduction with this company",
+    "which is the most allowed in a day.",
+    "We could not check that just now. Try again in a minute",
+  ], "R7-20");
 }
 
 if (fails.length) {

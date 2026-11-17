@@ -1985,6 +1985,39 @@ async function walkFindMap() {
     const lit = await page.$$eval("#matchMap .np-pin.is-on", (els) => els.map((e) => e.textContent.trim()));
     return eq(lit, ["3"], "the lit pin");
   });
+  /* Plan 104 (R7-20): the worker refuses a pick of a company the account
+     already has an offer waiting with or an introduction to, and an eleventh
+     request in 24 hours. Each refusal has its own words, and the first two
+     take the seeker back to the card. The stub is put back for the step
+     that sends the request for good. */
+  await step("a repeat pick and an eleventh request in a day are each refused in words, and nothing else changes (plan 104)", async () => {
+    const sendsFor = world.api["POST /seeker-requests"];
+    const refusedWith = async (answer, starts) => {
+      world.api["POST /seeker-requests"] = () => answer;
+      const before = apiCalls(world, "POST /seeker-requests").length;
+      await page.click("#requestSubmit");
+      await until(() => apiCalls(world, "POST /seeker-requests").length === before + 1, "the request");
+      await page.waitForFunction((t) => (document.getElementById("requestErr").textContent || "").startsWith(t), starts);
+      return (await page.textContent("#requestErr")).trim();
+    };
+    try {
+      await page.click("#pickContinue");
+      await page.waitForSelector("#step3:not([hidden]) #requestSubmit");
+      eq(await refusedWith([409, { error: "already_introduced", listing_id: "listing-c", waiting: true, ref: "INTRO-0007" }], "You have already asked"),
+        "You have already asked this company, and it has not answered yet. You will hear by email when it does. Pick another site, or search again.",
+        "the words for an offer still waiting");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.id), "pick-listing-c", "the focus");
+      eq(await refusedWith([409, { error: "already_introduced", listing_id: "listing-c", waiting: false, ref: "INTRO-0007" }], "You already have"),
+        "You already have an introduction with this company (INTRO-0007). Its details are in the introduction email we sent you. Pick another site, or search again.",
+        "the words for an introduction already made");
+      eq(await refusedWith([429, { error: "too_many_picks_today", limit: 10 }], "Your account has sent"),
+        "Your account has sent 10 requests in the last 24 hours, which is the most allowed in a day. Try again tomorrow, or email hello@nexpoint.co.uk.",
+        "the words for the daily limit");
+      eq(await page.locator("#step3Body .success").count(), 0, "a success card after a refusal");
+    } finally {
+      world.api["POST /seeker-requests"] = sendsFor;
+    }
+  });
   await step("the request names the site picked and goes to it in one call, and the success card names it", async () => {
     await page.click("#pickContinue");
     await page.waitForSelector("#step3:not([hidden]) #requestSubmit");
