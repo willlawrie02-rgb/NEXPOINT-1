@@ -483,7 +483,35 @@ function eduSubmit(e){
   }, () => formFailState(form, state));
   return false;
 }
-function openSignIn(){ openOverlay('signOverlay'); }
+/* The sign-in form's own nodes, kept while a card stands in their place
+   (plan 104). Moved, not rebuilt from text: the show-password eye is wired
+   to the real password box (assets/hub-account.js). */
+let signFormNodes = null;
+function signShowCard(html){
+  const box = document.getElementById('signContent');
+  if (!box) return;
+  if (!signFormNodes){
+    signFormNodes = document.createDocumentFragment();
+    while (box.firstChild) signFormNodes.appendChild(box.firstChild);
+  }
+  box.innerHTML = html;
+}
+function openSignIn(){
+  const box = document.getElementById('signContent');
+  if (box && signFormNodes){
+    box.textContent = '';
+    box.appendChild(signFormNodes);
+    signFormNodes = null;
+    const pass = document.getElementById('sPass');
+    if (pass) pass.value = '';
+    const err = box.querySelector('.np-sign-error');
+    if (err){ err.textContent = ''; err.style.display = 'none'; }
+    signResendOffer('');
+    const submit = box.querySelector('button[type=submit]');
+    if (submit) submit.disabled = false;
+  }
+  openOverlay('signOverlay');
+}
 /* One login at a time (audit plan 008): the modal is a real form now, so
    Enter and a double click both arrive here, and the second must not fire a
    second login while the first is in flight. */
@@ -510,13 +538,13 @@ async function signSubmit(){
     const back = NPAccount.doorReturn && NPAccount.doorReturn();
     if (back){ location.href = back; return; }
     if (NPAccount.afterSignIn){ const go = NPAccount.afterSignIn; NPAccount.afterSignIn = null; closeAll(); go(); return; }
-    document.getElementById('signContent').innerHTML = `
+    signShowCard(`
       <div class="success">
         <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
         <h2>Welcome back, ${escapeHtml((NPAccount.user && (NPAccount.user.name || NPAccount.user.email)) || '')}.</h2>
         <p>You're signed in across every hub. Requests you make now arrive with your profile attached.</p>
         <div class="modal-actions" style="justify-content:center;flex-wrap:wrap"><a class="btn btn-primary" href="https://nexpoint.co.uk/hub/account/">Go to your account</a><button class="btn btn-outline" onclick="closeAll()">Back to the Global Portal</button></div>
-      </div>`;
+      </div>`);
   } else if (err){
     signResendOffer('');   /* an offer from an earlier attempt goes; this attempt speaks for itself */
     err.style.display = 'block';
@@ -607,13 +635,13 @@ async function resetRequest(){
     } catch (e) { /* the message below is the same for every outcome */ }
     finally { limit.done(); }
   }
-  document.getElementById('signContent').innerHTML = `
+  signShowCard(`
     <div class="success">
       <div class="ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M4 12l6 6L20 6"/></svg></div>
       <h2>Check your inbox.</h2>
       <p>If that address holds an account, a link to set your password is on its way. It lasts a short while and works once.</p>
       <div class="modal-actions" style="justify-content:center"><button class="btn btn-outline" onclick="closeAll()">Close</button></div>
-    </div>`;
+    </div>`);
 }
 let lastFocus = null;
 function openOverlay(id){

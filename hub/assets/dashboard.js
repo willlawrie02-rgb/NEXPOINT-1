@@ -1233,6 +1233,7 @@
      here (including no error code at all) keeps the generic sentence. */
   var DECL_ERRORS = {
     line_value_required: 'Every line needs a value. Enter one, or tick Nothing for that introduction.',
+    line_units_invalid: 'Units must be a whole number, such as 12. Correct the Units box, or leave it empty, and send again.',
     line_currency_invalid: 'Choose a currency from the list.',
     not_your_introduction: 'One of these introductions is not yours to declare. Reload the page and try again.',
     period_out_of_range: 'That month is not open for declarations.',
@@ -1258,8 +1259,10 @@
 
   /* What the declaration form says, row by row (plan 098). Pure: no page and
      no network, so check/review.mjs can run it. Every row is answered: a
-     value, or its Nothing tick. A blank row, a row with units and no value,
-     and a row with figures and a tick are each refused, the first one found. */
+     value, or its Nothing tick. A blank row, a row whose Units is not a whole
+     number (plan 104: a decimal or a minus, which the worker refuses), a row
+     with units and no value, and a row with figures and a tick are each
+     refused, the first one found. */
   function declAnswers(rows) {
     var lines = [], nothingFor = [], blocked = null;
     rows.forEach(function (r) {
@@ -1272,6 +1275,7 @@
         return;
       }
       if (!hasUnits && !hasValue) { blocked = { id: r.id, ref: r.ref, why: 'blank' }; return; }
+      if (hasUnits && !/^\d+$/.test(String(r.units).trim())) { blocked = { id: r.id, ref: r.ref, why: 'units' }; return; }
       if (!hasValue) { blocked = { id: r.id, ref: r.ref, why: 'value' }; return; }
       lines.push({ introduction_id: r.id, units: hasUnits ? Number(r.units) : null,
         value: Number(r.value), currency: r.currency || 'GBP' });
@@ -1327,9 +1331,10 @@
          is no longer a nil return, so the Send button comes back. */
       declNilBack(period);
       say(msg, b.why === 'both' ? b.ref + ' has figures and a Nothing tick. Clear the figures or untick Nothing.'
+        : b.why === 'units' ? 'Enter Units for ' + b.ref + ' as a whole number, such as 12, or leave Units empty.'
         : b.why === 'value' ? 'Enter a value for ' + b.ref + ', or tick Nothing.'
         : 'Answer ' + b.ref + ': enter a value, or tick Nothing if no orders came through.', true);
-      var fix = el(prefix + b.id + '-value');
+      var fix = el(prefix + b.id + (b.why === 'units' ? '-units' : '-value'));
       if (fix) fix.focus();
       return;
     }

@@ -396,6 +396,14 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
       ["one row, a typed nought, not ticked", [row(7, { value: "0" })],
         (a) => a.blocked === null && same(a.nothingFor, []) &&
           same(a.lines, [{ introduction_id: 7, units: null, value: 0, currency: "GBP" }])],
+      // Plan 104 (R7-25): Units is a whole number or empty; a decimal or a minus is refused on the page.
+      ["one row, a decimal in Units beside a value", [row(7, { units: "1.5", value: "10" })],
+        (a) => a.blocked && a.blocked.why === "units" && a.blocked.ref === "INTRO-0007" && same(a.lines, [])],
+      ["one row, a minus in Units beside a value", [row(7, { units: "-3", value: "10" })],
+        (a) => a.blocked && a.blocked.why === "units" && same(a.lines, [])],
+      ["one row, whole Units and a value", [row(7, { units: "3", value: "10" })],
+        (a) => a.blocked === null && same(a.nothingFor, []) &&
+          same(a.lines, [{ introduction_id: 7, units: 3, value: 10, currency: "GBP" }])],
     ];
     for (const [name, rows, ok] of cases) {
       let got;
@@ -424,6 +432,44 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
 
   // R7-16: the declaration form says what to do about a currency it does not offer.
   wordsIn(DASH, dash, ["If you invoiced in any currency other than pounds, euros or US dollars, email "], "R7-16");
+
+  // R7-25: four small slips where a person is told the wrong thing.
+  // (c) A decimal or a minus in Units gets words, and is not sent. The three
+  // rows for declAnswers sit in the plan 098 table above, where it is lifted out.
+  wordsIn(DASH, dash, [
+    " as a whole number, such as 12, or leave Units empty.",
+    "Units must be a whole number, such as 12. Correct the Units box, or leave it empty, and send again.",
+  ], "R7-25");
+  if (!dash.includes("'Enter Units for ' + b.ref + ' as a whole number, such as 12, or leave Units empty.'"))
+    fail(`${DASH}: the page has no words for a decimal or a minus in Units (plan 104, R7-25)`);
+  if (!/line_units_invalid: 'Units must be a whole number/.test(dash)) fail(`${DASH}: line_units_invalid has no words of its own (plan 104, R7-25)`);
+  // (a) The reset page ignores a second Enter while the first send is in flight.
+  {
+    const reset = read("hub/reset.html");
+    const from = reset.indexOf("async function setPassword(token){");
+    const body = from < 0 ? "" : reset.slice(from, reset.indexOf("\n}", from));
+    const guard = body.indexOf("if (!btn || btn.disabled) return;");
+    const lock = body.indexOf("btn.disabled = true");
+    if (!body) fail("hub/reset.html: setPassword was not found (plan 104, R7-25)");
+    else if (guard < 0 || lock < 0 || guard > lock) fail("hub/reset.html: setPassword does not leave when a send is already in flight (plan 104, R7-25)");
+  }
+  // (b) The invitation page the same.
+  {
+    const invite = read("hub/assets/invite.js");
+    const from = invite.indexOf("function join() {");
+    const body = from < 0 ? "" : invite.slice(from, invite.indexOf("\n  }", from));
+    const guard = body.indexOf("if (btn.disabled) return;");
+    const lock = body.indexOf("btn.disabled = true");
+    if (!body) fail("hub/assets/invite.js: join was not found (plan 104, R7-25)");
+    else if (guard < 0 || lock < 0 || guard > lock) fail("hub/assets/invite.js: join does not leave when a send is already in flight (plan 104, R7-25)");
+  }
+  // (d) The sign-in box gets its form back each time it opens: a card is put
+  // up through signShowCard, which keeps the form's own nodes.
+  {
+    const portal = read("hub/assets/portal.js");
+    if (!portal.includes("signFormNodes")) fail("hub/assets/portal.js: the sign-in form's nodes are not kept while a card stands in their place (plan 104, R7-25)");
+    if (portal.includes("getElementById('signContent').innerHTML =")) fail("hub/assets/portal.js: a card is written straight over the sign-in form (plan 104, R7-25)");
+  }
 }
 
 if (fails.length) {

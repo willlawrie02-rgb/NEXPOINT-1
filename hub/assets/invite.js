@@ -175,6 +175,7 @@
     if (!name) { showError('Enter your name.'); $('invName').focus(); return; }
     if (!termsId || !$('invTick') || !$('invTick').checked) { showError('Tick the box to accept the Platform Terms.'); return; }
     var btn = $('joinBtn');
+    if (btn.disabled) return;
     var label = btn.textContent;
     btn.disabled = true; btn.textContent = 'Setting up…';
     call('/auth/register-invited', { token: token, name: name, phone: $('invPhone').value, terms_version_id: termsId })

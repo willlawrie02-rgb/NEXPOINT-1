@@ -951,6 +951,33 @@ async function walkDoor() {
     await page.keyboard.press("Escape");
     await page.waitForSelector("#signOverlay.open", { state: "detached" });
   });
+  /* Plan 104 (R7-25): a card that took the form's place ("Check your inbox."
+     here) used to stay in the box until the page was reloaded. The form's
+     own nodes come back each time the box opens, so the eye still works. */
+  await step("the sign-in box gets its form back each time it opens, with the eye still working (plan 104)", async () => {
+    await page.click("[data-np-account-slot] [data-np-signin]");
+    await page.waitForSelector("#signOverlay.open");
+    await page.fill("#sEmail", USER.email);
+    await page.fill("#sPass", "left-behind");
+    await page.click('#signContent a:has-text("Forgotten your password?")');
+    await page.waitForSelector("#signContent .success");
+    has(await page.textContent("#signContent"), "Check your inbox.", "the card");
+    eq(apiCalls(world, "POST /auth/reset-request").map((c) => c.body), [{ email: USER.email }], "the reset asked for");
+    await page.click("#signContent .success button");
+    await page.waitForSelector("#signOverlay.open", { state: "detached" });
+    await page.click("[data-np-account-slot] [data-np-signin]");
+    await page.waitForSelector("#signOverlay.open");
+    eq(await page.locator("#signContent form").count(), 1, "forms in the box");
+    eq([await page.locator("#sEmail").count(), await page.locator("#sPass").count()], [1, 1], "the email and password boxes");
+    eq(await page.inputValue("#sEmail"), USER.email, "the email typed");
+    eq(await page.inputValue("#sPass"), "", "the password box");
+    eq((await page.textContent("#signContent")).includes("Check your inbox."), false, "the old card still in the box");
+    await page.click("#signContent .np-eye__btn");
+    eq(await page.getAttribute("#sPass", "type"), "text", "the password box after one press of the eye");
+    await page.click("#signContent .np-eye__btn");
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("#signOverlay.open", { state: "detached" });
+  });
   // Plan 055: the hero's account-holder line is a button now, and ?join=1
   // (the main site's Join our network) lands with the questionnaire open.
   await step("the hero offers Create your hub account as a button, with Sign in underneath", async () => {
@@ -4435,6 +4462,21 @@ async function walkTerms() {
     const world = termsWorld({ terms: TERMS_STATE({ host: HELD(TERMS_ID.host) }), summary: Object.assign({}, EMPTY_SUMMARY, hostOrg, { declarations: decl }) });
     world.api["POST /declarations"] = () => [200, { ok: true }];
     const { context, page, errors } = await visit(world);
+    /* Plan 104 (R7-25): the worker refuses a decimal in Units with a code the
+       page had no words for. The page now refuses it first, in words, and
+       sends nothing. The step after this one opens the page afresh. */
+    await step("a decimal in Units is refused on the page in words, the focus goes to the Units box, and nothing is sent (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector('[data-act="decl-submit"]');
+      await settled(page);
+      await page.fill("#decl-2026-10-7-units", "1.5");
+      await page.fill("#decl-2026-10-7-value", "120");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /Enter Units/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "Enter Units for INTRO-0007 as a whole number, such as 12, or leave Units empty.", "the words for a decimal in Units");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.id), "decl-2026-10-7-units", "the focus");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations sent");
+    });
     await step("a declaration by a host holding the version shows no block and sends no version; a value goes on the first press", async () => {
       await page.goto(`${APEX}/hub/account/`);
       await page.waitForSelector('[data-act="decl-submit"]');
@@ -5200,6 +5242,26 @@ async function walkLandings() {
       return eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ token_hash: "walk-reset", password: PASSWORD }], "resets sent");
     });
     clean(world, errors, "the reset page's password");
+    await context.close();
+  }
+  {
+    /* Plan 104 (R7-25): a second Enter while the first send was in flight
+       spent a link the first had already spent, and the page could end on
+       "That link has expired" over a password that was set. Both presses go
+       in one turn of the page, so no answer can land between them. */
+    const world = newWorld();
+    world.api["POST /auth/reset-confirm"] = () => [200, { ok: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    await step("Enter pressed twice on the reset page sends the password once (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/reset.html?t=walk-reset`);
+      await page.waitForSelector("#setBtn");
+      await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
+      await page.evaluate(() => { const box = document.getElementById("pass2"); for (let n = 0; n < 2; n += 1) box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); });
+      await page.waitForSelector("text=Your password is set.");
+      await page.waitForTimeout(300);
+      return eq(apiCalls(world, "POST /auth/reset-confirm").length, 1, "resets sent");
+    });
+    clean(world, errors, "the reset page, Enter twice");
     await context.close();
   }
   for (const [name, url, sign] of [
@@ -6908,6 +6970,30 @@ async function walkPeople() {
     /* The browser logs a line of its own for the send the walk dropped on
        purpose; anything the page itself threw still counts. */
     clean(world, errors.filter((e) => !/net::ERR_FAILED/.test(e)), "the invitation page");
+    await context.close();
+  }
+  {
+    /* Plan 104 (R7-25): a second Enter while the first Join was in flight
+       sent the invitation twice, and the second answer said it was used.
+       Both presses go in one turn of the page. */
+    const world = newWorld();
+    world.api["POST /auth/invite"] = (w, req) => (req.body.token === INVITE_TOKEN
+      ? [200, { ok: true, email: "cal@example.com", company: "ZZ Walk Test Ltd", inviter: "Walk Tester" }]
+      : [400, { error: "invite_invalid" }]);
+    world.api["POST /auth/register-invited"] = () => [200, { ok: true, confirm_required: true }];
+    const { context, page, errors } = await visit(world);
+    await step("Enter pressed twice on the invitation page registers once (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/invite.html?t=${INVITE_TOKEN}`);
+      await page.waitForSelector("#invName");
+      await page.fill("#invName", "Cal League");
+      await page.waitForSelector("#invTick");
+      await page.check("#invTick");
+      await page.evaluate(() => { const box = document.getElementById("invName"); for (let n = 0; n < 2; n += 1) box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); });
+      await page.waitForFunction(() => /Check your inbox/.test(document.body.textContent));
+      await page.waitForTimeout(300);
+      return eq(apiCalls(world, "POST /auth/register-invited").length, 1, "registrations sent");
+    });
+    clean(world, errors, "the invitation page, Enter twice");
     await context.close();
   }
 
