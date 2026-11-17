@@ -2481,6 +2481,49 @@ async function walkOfferCommit() {
     clean(world, errors, "the form with words typed and not clicked");
     await context.close();
   }
+
+  // 7. a first listing sent back for changes (plan 102, R7-02)
+  {
+    /* Decline with a note is the desk's only way to ask a host to change a
+       listing that is waiting. The engine's decline clears the pointer, so
+       the host opened an empty form under "not approved this time". The
+       worker now hands back the host's own declined revision, and the page
+       says what the email says and refills the form from it. */
+    const world = newWorld({ user: USER });
+    world.api["GET /listings/mine"] = () => [200, { ...MINE_NONE, listing: { id: "listing-1", hub: "print", status: "declined" },
+      status: "declined", declined: { ...LIVE_REV, id: 4, revision_no: 1, status: "declined" }, host_terms_accepted_version_id: 12 }];
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${PRINT}/offer.html`);
+    await page.waitForSelector("body[data-np-open]");
+    await step("a first listing sent back says Changes needed, and who has the email (plan 102)", async () => {
+      await page.waitForSelector("#listingDeclinedNotice");
+      const notice = await page.textContent("#listingDeclinedNotice");
+      has(notice, "Changes needed. We have looked at your listing", "the notice");
+      has(notice, "the person who created your account", "who has the email");
+      eq(notice.trim(), "Changes needed. We have looked at your listing and it needs a few changes before it can go live. " +
+        "We have emailed what to change to the person who created your account. " +
+        "Change your listing and send it back to us. Nothing is listed in the meantime. " +
+        "If you cannot find the email, write to hello@nexpoint.co.uk.", "the notice in full");
+      return eq(await page.getAttribute("#listingDeclinedNotice a", "href"), "mailto:hello@nexpoint.co.uk", "the address is a link");
+    });
+    await step("it shows what was sent, under What you sent us, and none of the old words (plan 102)", async () => {
+      const text = await page.textContent("#hostAppBody");
+      has(text, "What you sent us", "the heading"); has(text, "1 Works Road", "the address"); has(text, "HP MJF 5200", "the machine");
+      eq(text.includes("not approved"), false, "the old not approved line");
+      eq(text.includes("Edit and resubmit"), false, "the old button");
+      return eq((await page.textContent("#listingDeclinedEdit")).trim(), "Change your listing and send it back", "the button");
+    });
+    await step("the button opens the form filled with what was sent: address, town, machine and the yearly choice (plan 102)", async () => {
+      await page.click("#listingDeclinedEdit");
+      await page.waitForSelector("#listingForm");
+      eq(await page.inputValue("#siteAddress1"), "1 Works Road", "the address line");
+      eq(await page.inputValue("#siteTown"), "Leeds", "the town");
+      eq(await page.inputValue("#m-1-machine"), "HP MJF 5200", "the first machine's name");
+      return eq(await page.isChecked('#hostMembership input[name="billing"][value="annual"]'), true, "Yearly is chosen");
+    });
+    clean(world, errors, "the listing sent back for changes");
+    await context.close();
+  }
 }
 
 async function walkAccount() {
@@ -2901,6 +2944,56 @@ async function walkAccount() {
         eq(await page.locator("#profile .acct-dot.is-live").count(), 1, "green dots");
       });
       clean(world, errors, "the live host's page");
+      await context.close();
+    }
+  }
+
+  area = "The account page (a first listing sent back for changes, plan 102)";
+  {
+    // R7-02: the decline leaves the hub's host state at applied, so the badge
+    // read "Host application in review" and the row "Not listed" while the
+    // email said to change the listing and send it back.
+    const sentBack = (status) => newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+      org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "active", host_print: "applied", host_mill: "none" },
+      site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "applied", host_mill: "none",
+        sub_status: "active", verified: false },
+      listings: [{ hub: "print", status, live: null, pending: null }],
+      hubs_used: ["print"],
+    }) });
+    {
+      const world = sentBack("declined");
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a first listing sent back reads Listing changes needed, the row says so, and the link reads Change your listing", async () => {
+        await page.waitForSelector("#profile .acct-list");
+        const text = await page.textContent("#profile");
+        has(text, "Listing changes needed · 3D Print Hub", "the badge");
+        has(text, "Changes needed. We have emailed what to change.", "the listing row");
+        eq(text.includes("Host application in review"), false, "the old badge");
+        eq(text.includes("Not listed"), false, "the old row");
+        const link = page.locator("#profile .acct-row__actions a");
+        eq(await link.count(), 1, "links on the row");
+        eq((await link.textContent()).trim(), "Change your listing", "the link's words");
+        eq(await link.getAttribute("href"), "https://printhub.nexpoint.co.uk/offer.html", "where the link goes");
+        eq(await page.locator("#profile .acct-dot.is-live").count(), 0, "green dots");
+        return eq(await page.locator("#profile .acct-dot.is-pending").count(), 0, "amber dots");
+      });
+      clean(world, errors, "the account page of a listing sent back");
+      await context.close();
+    }
+    {
+      const world = sentBack("pending");
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a first listing that is waiting still reads Host application in review", async () => {
+        await page.waitForSelector("#profile .acct-list");
+        const text = await page.textContent("#profile");
+        has(text, "Host application in review · 3D Print Hub", "the badge");
+        eq(text.includes("Listing changes needed"), false, "the sent-back badge");
+        eq(text.includes("Change your listing"), false, "the sent-back link");
+        return has(text, "Pending review since", "the listing row");
+      });
+      clean(world, errors, "the account page of a listing that is waiting");
       await context.close();
     }
   }

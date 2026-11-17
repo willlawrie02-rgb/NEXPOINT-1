@@ -584,6 +584,17 @@ for (const p of pages) {
   for (const p of ["hub/assets/portal.js", "opportunities/index.html", "hub/reset.html"]) {
     if (read(p).includes("a reset link is on its way")) fail(`${p}: still says "a reset link is on its way"; the words are "a link to set your password is on its way" (plan 102, R7-01)`);
   }
+  // R7-02: a first listing sent back for changes says one thing everywhere:
+  // "Changes needed", as the email does. The old application form's own line,
+  // "This application was not approved this time", is another thing and stays.
+  {
+    const lf = read("hub/assets/listing-form.js");
+    if (!lf.includes("Change your listing and send it back")) fail('hub/assets/listing-form.js: missing "Change your listing and send it back" (plan 102, R7-02)');
+    for (const gone of ["This listing was not approved this time", "Edit and resubmit"]) {
+      if (lf.includes(gone)) fail(`hub/assets/listing-form.js: still says "${gone}" (plan 102, R7-02)`);
+    }
+    if (!read("hub/assets/dashboard.js").includes("Listing changes needed")) fail('hub/assets/dashboard.js: missing "Listing changes needed" (plan 102, R7-02)');
+  }
 }
 
 if (fails.length) {
