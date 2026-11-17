@@ -571,6 +571,27 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
       else if (width > 400) fail(`assets/nexpoint-logo-156.png is ${width} pixels wide, want 400 or less (plan 104, R7-21)`);
     }
   }
+
+  // R7-26: the Global Portal's front page may be listed by search engines
+  // (the D29 gate is met at the launch). Every other hub page keeps noindex.
+  {
+    const door = read("hub/index.html");
+    if (/<meta\b[^>]*name="robots"/.test(door)) fail("hub/index.html: the front page still carries a robots meta (plan 104, R7-26)");
+    const canon = [...door.matchAll(/<link\b[^>]*rel="canonical"[^>]*>/g)];
+    if (canon.length !== 1) fail(`hub/index.html: ${canon.length} canonical links, want exactly one (plan 104, R7-26)`);
+    else {
+      const href = (canon[0][0].match(/\bhref="([^"]*)"/) || [])[1] || "";
+      if (href !== "https://nexpoint.co.uk/hub/") fail(`hub/index.html: the canonical address is "${href}", want https://nexpoint.co.uk/hub/ (plan 104, R7-26)`);
+    }
+    for (const page of [
+      "hub/account/index.html", "hub/account/settings/index.html",
+      "printhub/index.html", "printhub/find.html", "printhub/offer.html",
+      "millhub/index.html", "millhub/find.html", "millhub/offer.html",
+      "opportunities/index.html",
+    ]) {
+      if (!read(page).includes("noindex")) fail(`${page}: this page has lost its noindex (plan 104, R7-26)`);
+    }
+  }
 }
 
 if (fails.length) {

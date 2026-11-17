@@ -55,5 +55,6 @@ walk has no stub for fails it: add the stub beside the others.
 - `portal/` — an 11-line legacy redirect to `/hub/`; keep it (old bookmarks)
 - `check/links.mjs` — the internal link checker
 
-The hub is deliberately `noindex` until the D29 go-live gate (spec
-2026-09-07); do not "fix" that.
+The Global Portal's front page (`hub/index.html`) may be indexed since plan 104
+(Will, 17 November 2026: the D29 gate is met at the launch). Every other hub
+page, the three hub doors included, keeps `noindex`: do not remove those.
