@@ -232,13 +232,19 @@ for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.htm
 // board and Education. Visible copy, titles and descriptions. The board is left
 // out of the one rule that is true of it: a person does read a board request.
 {
+  // Plan 102 (R7-10): the count of hubs is caught as a digit too ("4" and
+  // "Hubs" in two neighbouring elements read as "4 Hubs" once the tags are
+  // spaces), and these two names are also held in the shared scripts, which
+  // draw tiles and lines a visitor reads (see the loop under the pages').
+  const HUBS_RULE = [/\b(?:Four|4)\s+hubs\b/i, "two hubs, a board and Education"];
+  const EDUCATION_RULE = [/\bEducation Hub\b/i, "the part is called Education (Will, 14 Oct 2026)"];
   const CLAIMS = [
     [/(?:names|identities)[^.]{0,60}never (?:appear|published)|identit(?:y|ies)[^.]{0,40}held back/i, "names are shown to seekers who have accepted the terms (Host Agreement §2)"],
     [/\bfirst (?:labs|facilities) to join\b|\bcohort\b/i, "no founding or early-adopter offer (Will, 2 Nov 2026)"],
     [/routed to (?:you|them) first|contracted volume|contracted book of work/i, "no routing and no revenue guarantee (Host Agreement)"],
-    [/\bFour hubs\b/i, "two hubs, a board and Education"],
+    HUBS_RULE,
     [/(?<!3D )\bprint capacity\b/i, "say 3D print capacity (Will, 14 Oct 2026)"],
-    [/\bEducation Hub\b/i, "the part is called Education (Will, 14 Oct 2026)"],
+    EDUCATION_RULE,
   ];
   const DESK = /weighs? the fit/i;
   for (const p of pages) {
@@ -254,6 +260,21 @@ for (const p of ["hub/index.html", "hub/account/index.html", "printhub/index.htm
       if (m) fail(`${p}: says "${m[0]}" (${why})`);
     }
     if (p !== "opportunities/index.html" && DESK.test(text)) fail(`${p}: says a person weighs the fit (a hub pick goes straight to the site)`);
+  }
+  // The two names, in the string literals that read as copy in the shared
+  // scripts (plan 102, R7-10). The other four rules stay on page text only.
+  for (const p of scripts) {
+    const src = read(p).replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const line of src.split("\n")) {
+      if (/^\s*\/\//.test(line)) continue;
+      for (const lit of line.match(/(['"`])(?:(?!\1)[^\\\n]|\\.)*\1/g) || []) {
+        if (!lit.includes(" ")) continue;
+        for (const [re, why] of [HUBS_RULE, EDUCATION_RULE]) {
+          const m = lit.match(re);
+          if (m) fail(`${p}: copy says "${m[0]}" in ${lit.slice(0, 60)} (${why})`);
+        }
+      }
+    }
   }
 }
 
@@ -570,6 +591,89 @@ for (const p of pages) {
       if (!existsSync(join(ROOT, target))) { fail(`assets/film-tags.js ${key} "${t.label}": ${t.href} lands on ${target}, which is not in the repo`); continue; }
       const anchor = t.href.includes("#") ? t.href.split("#")[1] : "";
       if (anchor && !read(target).includes(`id="${anchor}"`)) fail(`assets/film-tags.js ${key} "${t.label}": ${target} has no #${anchor}`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------- plan 102: launch week
+// The audit of 17 November 2026 (round 7). Each rule below is one of its
+// findings, held so it cannot come back.
+{
+  // R7-01: a reset asked for an unconfirmed address now sends the confirmation
+  // link, so the three pages that speak after "Forgotten your password?" say
+  // "a link to set your password", which is true of both kinds of account.
+  for (const p of ["hub/assets/portal.js", "opportunities/index.html", "hub/reset.html"]) {
+    if (read(p).includes("a reset link is on its way")) fail(`${p}: still says "a reset link is on its way"; the words are "a link to set your password is on its way" (plan 102, R7-01)`);
+  }
+  // R7-02: a first listing sent back for changes says one thing everywhere:
+  // "Changes needed", as the email does. The old application form's own line,
+  // "This application was not approved this time", is another thing and stays.
+  {
+    const lf = read("hub/assets/listing-form.js");
+    if (!lf.includes("Change your listing and send it back")) fail('hub/assets/listing-form.js: missing "Change your listing and send it back" (plan 102, R7-02)');
+    for (const gone of ["This listing was not approved this time", "Edit and resubmit"]) {
+      if (lf.includes(gone)) fail(`hub/assets/listing-form.js: still says "${gone}" (plan 102, R7-02)`);
+    }
+    if (!read("hub/assets/dashboard.js").includes("Listing changes needed")) fail('hub/assets/dashboard.js: missing "Listing changes needed" (plan 102, R7-02)');
+  }
+  // R7-04: the sign-in box no longer promises "the board matched to your
+  // profile" on any page, and the door's box carries the second button a hub
+  // page's visitor is offered beside Sign in.
+  for (const p of pages) {
+    if (read(p).includes("matched to your profile")) fail(`${p}: still says "matched to your profile" (plan 102, R7-04)`);
+  }
+  if (!read("hub/index.html").includes('id="signCreate"')) fail('hub/index.html: the sign-in box has no id="signCreate" button (plan 102, R7-04)');
+  // R7-06: change of email is limited to five requests a day for each
+  // sign-in; the worker's word for the sixth is too_many_today, and the
+  // settings page has a sentence for it.
+  {
+    const people = read("hub/assets/people.js");
+    for (const want of ["too_many_today", "You have asked to change your email address five times in the last day."]) {
+      if (!people.includes(want)) fail(`hub/assets/people.js: missing "${want}" (plan 102, R7-06)`);
+    }
+  }
+  // R7-07: the launch posts give nexpoint.co.uk/hub. The door and the three
+  // hub pages carry the tags that make LinkedIn, Teams, WhatsApp or email draw
+  // the NexPoint picture and a summary, as the home page always has. Each
+  // page's preview is its own title and description, word for word, so a page
+  // whose title or description changes must change its preview with it. A new
+  // public front page needs the block and a row here.
+  {
+    const PREVIEW = {
+      "index.html": "https://nexpoint.co.uk/",
+      "hub/index.html": "https://nexpoint.co.uk/hub/",
+      "printhub/index.html": "https://printhub.nexpoint.co.uk/",
+      "millhub/index.html": "https://millhub.nexpoint.co.uk/",
+      "opportunities/index.html": "https://opportunities.nexpoint.co.uk/",
+    };
+    const IMAGE = "https://nexpoint.co.uk/assets/og-image.png";
+    if (!existsSync(join(ROOT, "assets", "og-image.png"))) fail("assets/og-image.png: the link preview's picture is not in the repo (plan 102, R7-07)");
+    for (const [p, address] of Object.entries(PREVIEW)) {
+      const head = read(p).replace(/<!--[\s\S]*?-->/g, "");
+      const tags = (attr, key) => [...head.matchAll(new RegExp(`<meta\\s+${attr}="${key}"\\s+content="([^"]*)"\\s*/?>`, "g"))].map((m) => unescape(m[1]));
+      const one = (attr, key) => {
+        const found = tags(attr, key);
+        if (found.length !== 1) fail(`${p}: needs exactly one ${key} tag (found ${found.length}) (plan 102, R7-07)`);
+        return found.length === 1 ? found[0] : null;
+      };
+      const title = unescape(((head.match(/<title>([^<]*)<\/title>/) || [])[1] || "").trim());
+      const description = tags("name", "description")[0];
+      const ogTitle = one("property", "og:title");
+      const ogDescription = one("property", "og:description");
+      const ogUrl = one("property", "og:url");
+      const card = one("name", "twitter:card");
+      if (ogUrl !== null && ogUrl !== address) fail(`${p}: og:url is ${ogUrl}; the page's own address is ${address} (plan 102, R7-07)`);
+      if (card !== null && card !== "summary_large_image") fail(`${p}: twitter:card is ${card}, not summary_large_image (plan 102, R7-07)`);
+      if (ogTitle !== null && ogTitle !== title) fail(`${p}: og:title is not the page's own title (plan 102, R7-07)`);
+      if (ogDescription !== null && ogDescription !== description) fail(`${p}: og:description is not the page's own meta description (plan 102, R7-07)`);
+      for (const [attr, key] of [["property", "og:image"], ["name", "twitter:image"]]) {
+        const found = tags(attr, key);
+        if (found.length !== 1 || found[0] !== IMAGE) fail(`${p}: ${key} must be ${IMAGE}, once (plan 102, R7-07)`);
+      }
+      for (const [key, want] of [["twitter:title", title], ["twitter:description", description]]) {
+        const found = tags("name", key);
+        if (found.length !== 1 || found[0] !== want) fail(`${p}: ${key} is not the page's own ${key.split(":")[1]}, once (plan 102, R7-07)`);
+      }
     }
   }
 }

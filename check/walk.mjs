@@ -945,6 +945,9 @@ async function walkDoor() {
   await step("Sign in opens the sign-in box", async () => {
     await page.click("[data-np-account-slot] [data-np-signin]");
     await page.waitForSelector("#signOverlay.open");
+    /* Plan 102 (R7-04): the door's own Sign in keeps the box as it was. */
+    eq((await page.textContent("#signTitle")).trim(), "Welcome back", "the heading");
+    eq(await page.isVisible("#signCreate"), false, "Create your hub account beside Sign in");
     await page.keyboard.press("Escape");
     await page.waitForSelector("#signOverlay.open", { state: "detached" });
   });
@@ -1387,9 +1390,71 @@ async function walkWall() {
       await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/" && u.searchParams.get("signin") === "1");
       eq(new URL(page.url()).searchParams.get("return"), url, "the return address");
       await page.waitForSelector("#signOverlay.open");
+      /* Plan 102 (R7-04): a hub page sent this visitor, so the box says what
+         happened and offers Create your hub account beside Sign in. The
+         account page's way in keeps "Welcome back". Nothing is pressed here:
+         the next step holds the page to one API call. */
+      const hub = url.startsWith(PRINT) ? "the 3D Print Hub" : url.startsWith(MILL) ? "the Mill Hub" : url.startsWith(OPPS) ? "the Opportunities Board" : "";
+      if (hub) {
+        eq((await page.textContent("#signTitle")).trim(), "Sign in or create your hub account", "the heading");
+        eq(await page.isVisible("#signLead"), true, "the line is shown");
+        eq((await page.textContent("#signLead")).trim(),
+          `You need a hub account to use ${hub}. Sign in, or create your account in about two minutes, and you go on to the page you asked for.`, "the line");
+        eq(await page.isVisible("#signCreate"), true, "Create your hub account is shown");
+        eq((await page.textContent("#signCreate")).trim(), "Create your hub account", "the second button");
+      } else {
+        eq((await page.textContent("#signTitle")).trim(), "Welcome back", "the heading");
+        eq(await page.isVisible("#signLead"), false, "the line is shown");
+        eq(await page.isVisible("#signCreate"), false, "Create your hub account is shown");
+      }
     });
     await step(`${name} asked the API for nothing but who is signed in`, async () =>
       eq([...new Set(world.calls.map((c) => `${c.method} ${c.path}`))].filter((k) => k !== "GET /auth/me"), [], "other API calls"));
+    await context.close();
+  }
+
+  /* Plan 102 (R7-04): the second button is the way in for a first-time
+     visitor. It closes the box and opens the Create account questionnaire,
+     which carries the return address. */
+  {
+    const world = newWorld();
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${MILL}/find.html`);
+    await page.waitForSelector("#signOverlay.open");
+    await step("the two buttons sit in one row, the same height: Sign in solid, Create your hub account outlined", async () => {
+      const row = await page.$$eval("#signContent .modal-actions button", (els) => els.map((b) => {
+        const r = b.getBoundingClientRect();
+        return { words: b.textContent.trim(), type: b.type, cls: b.className, top: Math.round(r.top), height: Math.round(r.height) };
+      }));
+      eq(row.map((b) => b.words), ["Sign in", "Create your hub account"], "the buttons");
+      eq(row.map((b) => b.type), ["submit", "button"], "the button types");
+      eq(row.map((b) => b.cls), ["btn btn-primary", "btn btn-outline"], "the button classes");
+      eq(row[0].height, row[1].height, "the heights");
+      eq(row[0].top, row[1].top, "side by side");
+      return has(await page.textContent("#signContent .privacy span"), "New here? Create your hub account. Two minutes, in confidence.", "the small line, still there");
+    });
+    await step("Create your hub account closes the box and opens the questionnaire", async () => {
+      await page.click("#signCreate");
+      await page.waitForSelector("#signOverlay.open", { state: "detached" });
+      await page.waitForSelector('form[data-np-step="1"]');
+      return true;
+    });
+    clean(world, errors, "the newcomer's box");
+    await context.close();
+  }
+  /* The home page's own Sign in link carries the home page's address as the
+     return address: that is not a hub page, and the box stays as it was. */
+  {
+    const world = newWorld();
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/?signin=1&return=${encodeURIComponent(`${APEX}/`)}`);
+    await page.waitForSelector("#signOverlay.open");
+    await step("the home page's Sign in link keeps Welcome back, with one button", async () => {
+      eq((await page.textContent("#signTitle")).trim(), "Welcome back", "the heading");
+      eq(await page.isVisible("#signLead"), false, "the line is shown");
+      return eq(await page.isVisible("#signCreate"), false, "Create your hub account is shown");
+    });
+    clean(world, errors, "the home page's way in");
     await context.close();
   }
 
@@ -2481,6 +2546,49 @@ async function walkOfferCommit() {
     clean(world, errors, "the form with words typed and not clicked");
     await context.close();
   }
+
+  // 7. a first listing sent back for changes (plan 102, R7-02)
+  {
+    /* Decline with a note is the desk's only way to ask a host to change a
+       listing that is waiting. The engine's decline clears the pointer, so
+       the host opened an empty form under "not approved this time". The
+       worker now hands back the host's own declined revision, and the page
+       says what the email says and refills the form from it. */
+    const world = newWorld({ user: USER });
+    world.api["GET /listings/mine"] = () => [200, { ...MINE_NONE, listing: { id: "listing-1", hub: "print", status: "declined" },
+      status: "declined", declined: { ...LIVE_REV, id: 4, revision_no: 1, status: "declined" }, host_terms_accepted_version_id: 12 }];
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${PRINT}/offer.html`);
+    await page.waitForSelector("body[data-np-open]");
+    await step("a first listing sent back says Changes needed, and who has the email (plan 102)", async () => {
+      await page.waitForSelector("#listingDeclinedNotice");
+      const notice = await page.textContent("#listingDeclinedNotice");
+      has(notice, "Changes needed. We have looked at your listing", "the notice");
+      has(notice, "the person who created your account", "who has the email");
+      eq(notice.trim(), "Changes needed. We have looked at your listing and it needs a few changes before it can go live. " +
+        "We have emailed what to change to the person who created your account. " +
+        "Change your listing and send it back to us. Nothing is listed in the meantime. " +
+        "If you cannot find the email, write to hello@nexpoint.co.uk.", "the notice in full");
+      return eq(await page.getAttribute("#listingDeclinedNotice a", "href"), "mailto:hello@nexpoint.co.uk", "the address is a link");
+    });
+    await step("it shows what was sent, under What you sent us, and none of the old words (plan 102)", async () => {
+      const text = await page.textContent("#hostAppBody");
+      has(text, "What you sent us", "the heading"); has(text, "1 Works Road", "the address"); has(text, "HP MJF 5200", "the machine");
+      eq(text.includes("not approved"), false, "the old not approved line");
+      eq(text.includes("Edit and resubmit"), false, "the old button");
+      return eq((await page.textContent("#listingDeclinedEdit")).trim(), "Change your listing and send it back", "the button");
+    });
+    await step("the button opens the form filled with what was sent: address, town, machine and the yearly choice (plan 102)", async () => {
+      await page.click("#listingDeclinedEdit");
+      await page.waitForSelector("#listingForm");
+      eq(await page.inputValue("#siteAddress1"), "1 Works Road", "the address line");
+      eq(await page.inputValue("#siteTown"), "Leeds", "the town");
+      eq(await page.inputValue("#m-1-machine"), "HP MJF 5200", "the first machine's name");
+      return eq(await page.isChecked('#hostMembership input[name="billing"][value="annual"]'), true, "Yearly is chosen");
+    });
+    clean(world, errors, "the listing sent back for changes");
+    await context.close();
+  }
 }
 
 async function walkAccount() {
@@ -2901,6 +3009,56 @@ async function walkAccount() {
         eq(await page.locator("#profile .acct-dot.is-live").count(), 1, "green dots");
       });
       clean(world, errors, "the live host's page");
+      await context.close();
+    }
+  }
+
+  area = "The account page (a first listing sent back for changes, plan 102)";
+  {
+    // R7-02: the decline leaves the hub's host state at applied, so the badge
+    // read "Host application in review" and the row "Not listed" while the
+    // email said to change the listing and send it back.
+    const sentBack = (status) => newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+      org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "active", host_print: "applied", host_mill: "none" },
+      site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "applied", host_mill: "none",
+        sub_status: "active", verified: false },
+      listings: [{ hub: "print", status, live: null, pending: null }],
+      hubs_used: ["print"],
+    }) });
+    {
+      const world = sentBack("declined");
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a first listing sent back reads Listing changes needed, the row says so, and the link reads Change your listing", async () => {
+        await page.waitForSelector("#profile .acct-list");
+        const text = await page.textContent("#profile");
+        has(text, "Listing changes needed · 3D Print Hub", "the badge");
+        has(text, "Changes needed. We have emailed what to change.", "the listing row");
+        eq(text.includes("Host application in review"), false, "the old badge");
+        eq(text.includes("Not listed"), false, "the old row");
+        const link = page.locator("#profile .acct-row__actions a");
+        eq(await link.count(), 1, "links on the row");
+        eq((await link.textContent()).trim(), "Change your listing", "the link's words");
+        eq(await link.getAttribute("href"), "https://printhub.nexpoint.co.uk/offer.html", "where the link goes");
+        eq(await page.locator("#profile .acct-dot.is-live").count(), 0, "green dots");
+        return eq(await page.locator("#profile .acct-dot.is-pending").count(), 0, "amber dots");
+      });
+      clean(world, errors, "the account page of a listing sent back");
+      await context.close();
+    }
+    {
+      const world = sentBack("pending");
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a first listing that is waiting still reads Host application in review", async () => {
+        await page.waitForSelector("#profile .acct-list");
+        const text = await page.textContent("#profile");
+        has(text, "Host application in review · 3D Print Hub", "the badge");
+        eq(text.includes("Listing changes needed"), false, "the sent-back badge");
+        eq(text.includes("Change your listing"), false, "the sent-back link");
+        return has(text, "Pending review since", "the listing row");
+      });
+      clean(world, errors, "the account page of a listing that is waiting");
       await context.close();
     }
   }
@@ -6653,6 +6811,10 @@ async function walkPeople() {
       : [400, { error: "invite_invalid" }]);
     world.api["POST /auth/register-invited"] = () => [200, { ok: true, confirm_required: true }];
     const { context, page, errors } = await visit(world);
+    /* Plan 102 (R7-01): the card after Join carries a Resend that waits the
+       worker's two minutes out. The clock is the walk's from the press on
+       Join, so the wait takes no time. */
+    await page.clock.install();
     await page.goto(`${APEX}/hub/invite.html?t=${INVITE_TOKEN}`);
     await step("the page names the account, who invited, and the address", async () => {
       await page.waitForSelector("#invName");
@@ -6681,6 +6843,8 @@ async function walkPeople() {
     });
     await step("Join posts the token, the name and the terms version, with no password, then says check your inbox", async () => {
       await page.check("#invTick");
+      /* From here time moves only when the walk moves it. */
+      await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
       await page.click("#joinBtn");
       await page.waitForFunction(() => /Check your inbox/.test(document.body.textContent));
       const b = apiCalls(world, "POST /auth/register-invited").pop().body;
@@ -6688,12 +6852,60 @@ async function walkPeople() {
       has(await page.textContent("#inviteBody"), "Open the link in it, choose your password, and you are in.", "the card");
       return eq([b.token, b.name, b.terms_version_id], [INVITE_TOKEN, "Cal League", 12], "the body");
     });
+    /* Plan 102 (R7-01): an invited colleague who missed the confirmation
+       email had no way to ask for another. The card now carries the
+       registration card's Resend: disabled for 2:10 because the worker has
+       just sent one email and sends no second inside two minutes, then one
+       press for a fresh link, and it stays for another try. */
+    {
+      const resend = "#resendBtn";
+      const label = async () => (await page.textContent(resend)).trim();
+      await step("the card's Resend starts disabled, counting down from 2:10, and nothing is sent (plan 102)", async () => {
+        eq(await label(), "Resend the email in 2:10", "the button");
+        eq(await page.isDisabled(resend), true, "the button is disabled");
+        eq(await page.isHidden("#resendNote"), true, "the line is hidden until it has words");
+        return eq(apiCalls(world, "POST /auth/resend-confirmation").length, 0, "resends sent");
+      });
+      await step("after 2:10 the Resend can be pressed (plan 102)", async () => {
+        await page.clock.runFor(130000);
+        eq(await label(), "Resend the email", "the button");
+        return eq(await page.isDisabled(resend), false, "the button is disabled");
+      });
+      await step("a press sends the invited address once, says so, and counts down again (plan 102)", async () => {
+        await page.click(resend);
+        await page.waitForFunction(() => /on its way/.test((document.getElementById("resendNote") || {}).textContent || ""));
+        eq(apiCalls(world, "POST /auth/resend-confirmation").map((c) => c.body), [{ email: "cal@example.com" }], "the resend");
+        eq((await page.textContent("#resendNote")).trim(),
+          "If that address still needs confirming, a new link is on its way. It can take a minute to arrive, and it may be in your junk folder.", "the line");
+        eq(await page.getAttribute("#resendNote", "role"), "status", "the line's role");
+        eq(await label(), "Resend the email in 2:10", "the button");
+        return eq(await page.isDisabled(resend), true, "the button is disabled");
+      });
+      await step("a resend that never left the device says so, and gives the button back at once (plan 102)", async () => {
+        await page.clock.runFor(130000);
+        world.dropOnce = new Set(["POST /auth/resend-confirmation"]);
+        await page.click(resend);
+        await page.waitForFunction(() => /That did not send/.test((document.getElementById("resendNote") || {}).textContent || ""));
+        eq((await page.textContent("#resendNote")).trim(), "That did not send. Check your connection and try again.", "the line");
+        eq(await label(), "Resend the email", "the button");
+        return eq(await page.isDisabled(resend), false, "the button is disabled");
+      });
+      await step("the card keeps its own words beside the Resend (plan 102)", async () => {
+        has(await page.textContent("#inviteBody h1"), "Check your inbox.", "the heading");
+        return has(await page.textContent("#inviteBody"),
+          "We have sent one email to cal@example.com. Open the link in it, choose your password, and you are in.", "the card");
+      });
+    }
+    /* The next step runs on a moving clock, as it always has. */
+    await page.clock.resume();
     await page.goto(`${APEX}/hub/invite.html?t=${"b".repeat(64)}`);
     await step("a used or expired invitation says so", async () => {
       await page.waitForFunction(() => /used or has expired/.test(document.body.textContent));
       return true;
     });
-    clean(world, errors, "the invitation page");
+    /* The browser logs a line of its own for the send the walk dropped on
+       purpose; anything the page itself threw still counts. */
+    clean(world, errors.filter((e) => !/net::ERR_FAILED/.test(e)), "the invitation page");
     await context.close();
   }
 

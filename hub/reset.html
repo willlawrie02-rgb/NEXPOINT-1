@@ -269,7 +269,7 @@ async function sendAgain(){
   try {
     await postJson('/auth/reset-request', { email });
   } catch (e) { /* the worker answers every address the same way; so does this */ }
-  render(`<h1>Check your inbox.</h1><p>If that address holds an account, a reset link is on its way to it.</p>`);
+  render(`<h1>Check your inbox.</h1><p>If that address holds an account, a link to set your password is on its way to it.</p>`);
 }
 
 /* ── boot ────────────────────────────────────────────────────────── */

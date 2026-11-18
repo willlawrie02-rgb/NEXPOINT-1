@@ -224,7 +224,12 @@
           ? '<span class="badge-verified">Verified host · ' + esc(hubLabel(h)) + '</span>'
           : '<span class="acct-badge">Host · ' + esc(hubLabel(h)) + '</span>');
       } else if (st === 'applied') {
-        badges.push('<span class="acct-badge is-applied">Host application in review · ' + esc(hubLabel(h)) + '</span>');
+        /* Plan 102 (R7-02): a first listing sent back for changes is not "in
+           review"; the badge says what the email and the offer page say. */
+        var mine = (Array.isArray(d.listings) ? d.listings : []).filter(function (l) { return l && l.hub === h; })[0];
+        badges.push('<span class="acct-badge is-applied">' +
+          (mine && mine.status === 'declined' ? 'Listing changes needed' : 'Host application in review') +
+          ' · ' + esc(hubLabel(h)) + '</span>');
       }
     });
 
@@ -345,12 +350,14 @@
       else if (st === 'live') text = 'Live since ' + fmtDate(live.approved_at);
       else if (st === 'live_pending_edit') text = 'Live since ' + fmtDate(live.approved_at) + '. Pending review since ' + fmtDate(pending.submitted_at) + '.';
       else if (st === 'pending') text = 'Pending review since ' + fmtDate(pending.submitted_at);
+      else if (st === 'declined') text = 'Changes needed. We have emailed what to change.';
       else text = 'Not listed';
       var locked = st === 'pending' || st === 'live_pending_edit';
       var href = HUB_LISTING[l.hub];
+      var edit = st === 'declined' ? 'Change your listing' : 'Edit listing';
       var action = locked
         ? '<span class="acct-disabled" aria-disabled="true">Edit listing</span>'
-        : (href ? '<a class="acct-link" href="' + esc(href) + '">Edit listing</a>' : '');
+        : (href ? '<a class="acct-link" href="' + esc(href) + '">' + edit + '</a>' : '');
       var dot = st === 'live' && !off ? 'is-live' : locked ? 'is-pending' : '';
       return '<div class="acct-row">' +
         '<div class="acct-row__meta"><b><span class="acct-dot ' + dot + '" aria-hidden="true"></span>' + esc(hubLabel(l.hub)) + ' listing</b><span>' + esc(text) + '</span></div>' +
@@ -1012,8 +1019,8 @@
       head('school', 'Education', 'Courses and training, built with the people who do the work.') +
       '<div class="tile-grid">' +
         '<button class="tile" type="button" data-act="education">' +
-          '<h4>Education Hub</h4>' +
-          '<p>Education Hub: quarterly webinars for the whole community, first courses opening soon.</p>' +
+          '<h4>Education</h4>' +
+          '<p>Quarterly webinars for the whole community, with the first courses opening soon.</p>' +
           '<span class="go">Put me on the list</span>' +
         '</button>' +
       '</div>');

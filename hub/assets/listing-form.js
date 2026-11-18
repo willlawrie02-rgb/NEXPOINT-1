@@ -174,13 +174,25 @@
       '<a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
   }
 
+  /* A first listing sent back for changes (plan 102, R7-02). Decline with a
+     note is the desk's only way to ask a host to change a listing that is
+     waiting, and the engine's decline clears the listing's pointers, so the
+     worker hands back the host's own newest declined revision as
+     `d.declined`. The page says what the email says and refills the form
+     from what was sent. With a worker from before plan 102 there is no
+     `d.declined`: the words show, with no summary, and the form opens empty. */
   function renderDeclined(d) {
-    const rev = (d && (d.pending || d.live)) || null;
+    const rev = (d && (d.declined || d.pending || d.live)) || null;
     const accepted = (d && d.host_terms_accepted_version_id) || null;
     body().innerHTML =
-      '<p class="body">This listing was not approved this time. Email ' +
-      '<a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a> if anything has changed and we will talk it through.</p>' +
-      '<div class="modal-actions"><button class="btn btn-outline" type="button" id="listingDeclinedEdit">Edit and resubmit</button></div>';
+      '<div class="notice-warn notice-warn--block" id="listingDeclinedNotice"><span>' +
+      'Changes needed. We have looked at your listing and it needs a few changes before it can go live. ' +
+      'We have emailed what to change to the person who created your account. ' +
+      'Change your listing and send it back to us. Nothing is listed in the meantime. ' +
+      'If you cannot find the email, write to <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.' +
+      '</span></div>' +
+      (rev ? '<div class="lsec"><div class="lsec__h">What you sent us</div>' + revisionSummary(rev) + '</div>' : '') +
+      '<div class="modal-actions"><button class="btn btn-primary" type="button" id="listingDeclinedEdit">Change your listing and send it back</button></div>';
     const btn = el('listingDeclinedEdit');
     if (btn) btn.addEventListener('click', () => {
       renderForm({ live: null, prefill: rev, host_terms_accepted_version_id: accepted });
