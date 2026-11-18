@@ -76,7 +76,7 @@
 <script src="crm-shell.js?v=6"></script>
 <script src="crm.js?v=097"></script>
 <script src="save.js?v=0794"></script>
-<script src="jobs.js?v=097b"></script>
+<script src="jobs.js?v=103"></script>
 <script src="pipelines.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -495,7 +495,13 @@ function subLine(o){
   if(s==='none'&&!o.sub_period)return 'No membership yet';
   const rate=o.sub_rate_gbp!=null?`, £${Number(o.sub_rate_gbp).toLocaleString('en-GB')}`:'';
   const pill=s==='active'?'<span class="st ok">Active</span>':s==='hidden'?'<span class="st err">Unpaid, hidden</span>':s==='overdue'?'<span class="st">Overdue</span>':'';
-  return `${esc((o.sub_period==='monthly'?'Monthly':'Annual')+rate)} ${pill}`;
+  /* Plan 103: a host approved with its first period free (NXJOBS.freeUntil,
+     the engine's rule) says so, with the day paid membership starts (always
+     with its year) and the reason kept on the account. */
+  const free=NXJOBS.freeUntil(o);
+  const freeLines=free?`<br><span class="muted-t">First period free. Paid membership starts ${esc(NXCRM.fmtDate(free,new Date(0)))}.</span>`
+    +(o.fee_exempt_note?`<br><span class="muted-t">${esc(o.fee_exempt_note)}</span>`:''):'';
+  return `${esc((o.sub_period==='monthly'?'Monthly':'Annual')+rate)} ${pill}${freeLines}`;
 }
 function scoreLine(o){
   if(o.score==null)return '<span class="st">Not scored yet</span>';

@@ -2,7 +2,7 @@
    yields, as the Inbox (inbox.html) and the company page's Needs you
    (company.html) show it and decide it.
 
-   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=097b">:
+   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=103">:
    shared admin files are cached in browsers for up to four hours, so bump
    ?v= on every change (and on every page that links it).
 
@@ -547,6 +547,12 @@ function listingPanel(r,ctx){
     :org.billing_from==='first_introduction'?'It goes live and the host is emailed. This site is invoiced at its first introduction, not now.'
     :'It goes live, the first membership invoice is raised in Xero and the host is emailed.';
   const askedOn=l.call_asked_at?day(l.call_asked_at):'';
+  /* Will, 17 November 2026: a third outcome, the first period free. No
+     invoice is raised; the day paid membership starts and the reason are
+     kept. Only for a site not yet billed, whose host chose a period, and
+     which is not billed from its first introduction; the engine refuses
+     the rest. */
+  const canFree=chosen&&!billed&&org.billing_from!=='first_introduction';
   return {intent:'listing:'+l.id,
     body:para(`Submitted ${esc(day(rev.submitted_at||l.created_at))}. Approving puts it live and starts the membership; the host is emailed once. Approve after the call with the host.`)
       +(askedOn?para(esc(`Call asked for on ${askedOn}${l.call_asked_by?' by '+l.call_asked_by:''}.`)):'')
@@ -555,8 +561,13 @@ function listingPanel(r,ctx){
     actions:(may?btn('jobOpen','Approve','check',{key:k,ui:'approve'},'primary'):'')
       +btn('jobOpen',askedOn?'Ask for a call again':'Ask for a call','call',{key:k,ui:'call'})
       +btn('jobOpen','Decline with a note','',{key:k,ui:'decline'}),
-    choice:may&&isOpen(ctx,'approve',r)?choice(esc(`Approve this listing? ${money} There is no un-approve.`),
-        btn('jobApproveListing','Yes, approve it','',{key:k},'primary')+cancel())
+    choice:canFree&&isOpen(ctx,'approvefree',r)?choice(esc('Approve this listing with the first period free? It goes live and the host is emailed. No invoice is raised now: the first invoice is raised on the day paid membership starts, and the email tells the host that day. Give the day and the reason. There is no un-approve.'),
+        input(fid('jb-freeuntil',r),'Paid membership starts on, as YYYY-MM-DD',yearOn(ctx.today||todayIn()))
+        +input(fid('jb-freewhy',r),'Why the first period is free, kept on the account')
+        +btn('jobApproveFree','Approve with no invoice','',{key:k},'primary')+cancel())
+      :may&&isOpen(ctx,'approve',r)?choice(esc(`Approve this listing? ${money} There is no un-approve.`),
+        btn('jobApproveListing','Yes, approve it','',{key:k},'primary')
+        +(canFree?btn('jobOpen','Approve with the first period free','',{key:k,ui:'approvefree'}):'')+cancel())
       :isOpen(ctx,'call',r)?choice(esc(askedOn?`Email the host again to ask for a call? It was last asked on ${askedOn}. The listing stays waiting until it is approved.`
           :'Email the host to ask for a call? The listing stays waiting until it is approved.'),
         btn('jobAskCall','Send the email','',{key:k},'primary')+cancel())
@@ -576,8 +587,12 @@ function changePanel(r,ctx){
     body:para('The live listing stays as it is until you approve.')
       +(mixesNoReview(live,pending)?para('This save mixes a change that goes live on its own with one we review, so it waits as a whole.'):'')
       +(changes.length?diffTable(changes,mixesNoReview(live,pending)):para('Nothing differs from the live listing.')),
-    actions:btn('jobApproveChange','Approve the change','check',{key:k},'primary')+btn('jobOpen','Decline the change','',{key:k,ui:'decline'}),
-    choice:isOpen(ctx,'decline',r)?choice('What needs changing? The host is sent this note; the live listing stays as it is.',
+    /* Will, 17 November 2026: approving emails the host and nothing
+       un-approves, so the button asks first in place, naming the site. */
+    actions:btn('jobOpen','Approve the change','check',{key:k,ui:'approvechange'},'primary')+btn('jobOpen','Decline the change','',{key:k,ui:'decline'}),
+    choice:isOpen(ctx,'approvechange',r)?choice(esc(`Approve this change to ${orgName(l.org_id)||'this site'}’s listing? It goes live now and the host is emailed that the change was approved. There is no un-approve.`),
+        btn('jobApproveChange','Yes, approve the change','',{key:k},'primary')+cancel())
+      :isOpen(ctx,'decline',r)?choice('What needs changing? The host is sent this note; the live listing stays as it is.',
       input(fid('jb-note',r),'What needs changing')+btn('jobDeclineChange','Decline the change','',{key:k},'danger')+cancel()):''};
 }
 
@@ -608,8 +623,11 @@ function seekerPanel(r,ctx){
     const rev=revById[l.live_revision_id]||{}, cap=capacityOf(rev,l), town=[rev.town,rev.country].filter(Boolean).join(', ');
     const sub=[cap!=null?`${cap} a month`:'',(rev.services||[]).map(t=>lab('service',t)).join(', '),shipsToUnset(l)?'Ships to: not set':''].filter(Boolean).join(', ');
     return `<div class="mini"><span><span><span class="rank num">${n+1}</span><span class="strong">${esc(orgName(l.org_id)||'(host)')}</span>${town?', '+esc(town):''}</span>${
-      sub?`<span class="item-sub">${esc(sub)}</span>`:''}</span>${btn('jobIntroduce','Introduce by hand','',{key:k,listing:l.id})}</div>`;
+      sub?`<span class="item-sub">${esc(sub)}</span>`:''}</span>${btn('jobOpen','Introduce by hand','',{key:k,ui:'introduce-'+l.id})}</div>`;
   };
+  /* Will, 17 November 2026: Introduce by hand emails that site the request
+     and nothing takes an offer back, so each site asks first in place. */
+  const asking=spare.slice(0,8).find(l=>isOpen(ctx,'introduce-'+l.id,r));
   return {intent:'seeker:'+req.id,
     body:(req.status==='desk'?para('The seeker told the desk the shortlist did not fit.'):req.no_match?para('The search matched nobody.'):'')
       +kv(needLines(req).concat(where?[['Where',esc(where)]]:[]))
@@ -620,7 +638,9 @@ function seekerPanel(r,ctx){
         :para(`No live site on the ${esc(hubName(req.hub))} ships there. Paused and removed hosts are left out.`)),
     actions:waiting?'':btn('jobOpen','Decline with a reason','',{key:k,ui:'decline'}),
     choice:!waiting&&isOpen(ctx,'decline',r)?choice('Why can we not match this request? Kept on the record; the seeker is told only that we could not match it.',
-      input(fid('jb-note',r),'Reason, kept on the request')+btn('jobDeclineRequest','Decline the request','',{key:k},'danger')+cancel()):''};
+      input(fid('jb-note',r),'Reason, kept on the request')+btn('jobDeclineRequest','Decline the request','',{key:k},'danger')+cancel())
+      :asking?choice(esc(`Email the offer to ${[orgName(asking.org_id)||'this site',(revById[asking.live_revision_id]||{}).town].filter(Boolean).join(', ')}? It is emailed this request now and has 14 days to answer. An offer cannot be taken back once it is sent.`),
+        btn('jobIntroduce','Yes, email the offer','',{key:k,listing:asking.id},'primary')+cancel()):''};
 }
 
 /* A declined or expired offer with nothing after it (067 Q7, D9): re-route
@@ -640,7 +660,9 @@ function reroutePanel(r,ctx){
   const {best,options}=rerouteControl(i);
   const k=r.item_key;
   let actions='';
-  if(best)actions+=btn('jobReroute',`Re-route to ${orgName(best.org_id)||'the next best'}, next best`,'alt_route',{key:k,listing:best.id},'primary');
+  /* Will, 17 November 2026: re-routing emails the next site its offer and
+     nothing takes an offer back, so the button asks first in place. */
+  if(best)actions+=btn('jobOpen',`Re-route to ${orgName(best.org_id)||'the next best'}, next best`,'alt_route',{key:k,ui:'reroutebest'},'primary');
   if(options.length)actions+=btn('jobOpen','Re-route to another site','',{key:k,ui:'reroute'});
   if(!best&&!options.length)actions+='<span class="status-line">No other visible listing to re-route to. Paused and removed hosts are left out.</span>';
   /* Plan 094: a paused or removed host cannot answer, and a resend to one
@@ -660,6 +682,8 @@ function reroutePanel(r,ctx){
     `<label class="sr" for="${fid('jb-site',r)}">Site</label><select class="input" id="${fid('jb-site',r)}"><option value="">Choose a site</option>${
       options.map(o=>{const rev=revById[o.live_revision_id]||{};return `<option value="${esc(o.id)}">${esc([orgName(o.org_id)||'(host)',rev.town].filter(Boolean).join(', '))}</option>`;}).join('')}</select>`
     +btn('jobRerouteTo','Re-route','',{key:k},'primary')+cancel());
+  else if(best&&isOpen(ctx,'reroutebest',r))ui=choice(esc(`Re-route ${introRef(i)} to ${orgName(best.org_id)||'this site'}? It is emailed the offer now and has 14 days to answer, and ${seeker} is told which site it went to. An offer cannot be taken back once it is sent.`),
+    btn('jobReroute','Yes, re-route it','',{key:k,listing:best.id},'primary')+cancel());
   return {intent:'intro:'+i.id,
     body:para(`${esc(seeker)} picked ${esc(provider)}, who ${i.stage==='declined'?'said no':'did not answer within 14 days'}. A request goes to one site at a time, so it is waiting on us.`)
       +kv([['Reference',esc(introRef(i))],[i.stage==='declined'?'Declined':'Expired',esc(day(spentAt)||'Date not recorded')]]
@@ -995,6 +1019,18 @@ const ACT={
     const r=rowOf(el,ctx);if(!r)return;
     return ctx.raise('approve-listing',{listing_id:r.item_id},spot(r),'Approved');
   },
+  /* Will, 17 November 2026: approve with the first period free. The day paid
+     membership starts (after today, within two years) and the reason go
+     with the listing; the engine checks both again before it writes. */
+  jobApproveFree(el,ctx){
+    const r=rowOf(el,ctx);if(!r)return;
+    const until=String(ctx.val(fid('jb-freeuntil',r))||'').trim(), reason=String(ctx.val(fid('jb-freewhy',r))||'').trim();
+    const today=ctx.today||todayIn();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(until)||until<=today)return ctx.need(fid('jb-freeuntil',r),'Give the day paid membership starts: a day after today, as YYYY-MM-DD.');
+    if(until>yearOn(yearOn(today)))return ctx.need(fid('jb-freeuntil',r),'That day is more than two years away. Give a day within two years.');
+    if(!reason)return ctx.need(fid('jb-freewhy',r),'Give the reason: it is kept on the account.');
+    return ctx.raise('approve-listing',{listing_id:r.item_id,free_until:until,free_reason:reason},spot(r),'Approved, first period free');
+  },
   /* Will, 12 November 2026: the email that asks a new host for a call. */
   jobAskCall(el,ctx){
     const r=rowOf(el,ctx);if(!r)return;
@@ -1108,6 +1144,24 @@ function dueText(due){
 }
 const BUCKETS=['Overdue','Today','This week','Later'];
 const todayIn=now=>(london(now||new Date())||{}).iso;
+/* The same day one year on, as YYYY-MM-DD; 29 February gives 28 February,
+   as the engine counts a year (commercial._plus_years). */
+function yearOn(iso){
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||''));
+  if(!m)return '';
+  return `${Number(m[1])+1}-${m[2]}-${m[2]==='02'&&m[3]==='29'?'28':m[3]}`;
+}
+/* The day paid membership starts for a host in a free first period, else
+   null: the twin of membership.free_until in the engine, so change them
+   together. A host is in one when it is active, is not billed from its
+   first introduction, has no billing_started_at, and sub_due_at holds the
+   day. ONLY for a page whose own read of organisations holds all four
+   columns (Money, the company page). The read in this file has no
+   billing_started_at, so every active host would look free: nothing in
+   this file may call it on orgById, and that read is not to be widened
+   for it. */
+const freeUntil=o=>o&&o.sub_status==='active'&&o.billing_from!=='first_introduction'&&!o.billing_started_at&&o.sub_due_at
+  ?String(o.sub_due_at).slice(0,10):null;
 const coOf=(ctx,id)=>id==null?null:((ctx.companies||{})[id]||null);
 function companyField(ctx,id,value){
   const names=(ctx.companyList||[]).map(c=>`<option value="${esc(c.name)}"></option>`).join('');
@@ -1416,7 +1470,7 @@ function poll(sb,load,hold){
 }
 
 window.NXJOBS={GROUPS,KINDS,TYPES,TASK_TYPES,BUCKETS,kindOf,lineOf,ageText,day,sentence,clockHtml,clockDay,boardLabel,runTime,hubName,hrefOf,inPlace,domId,
-  read,poll,use,body,item,ACT,intentKey,doneWords,london,todayIn,dueBucket,dueText,sundayOf,taskRow,taskForm,
+  read,poll,use,body,item,ACT,intentKey,doneWords,london,todayIn,freeUntil,dueBucket,dueText,sundayOf,taskRow,taskForm,
   humanise,lab,fmtVal,monthName,revisionDiff,machineDiff,mixesNoReview,diffTable,submittedTable,machineLines,needLines,
   shipsTo,shipsToUnset,capacityOf,successorOf,rerouteControl,partyGuess,
   SPENT_STAGES,REISSUABLE_STAGES,REV_FIELDS,KIND_OF,CADENCE_LABEL};
