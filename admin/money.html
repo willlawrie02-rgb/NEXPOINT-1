@@ -62,7 +62,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=6"></script>
 <script src="crm.js?v=097"></script>
-<script src="jobs.js?v=097b"></script>
+<script src="jobs.js?v=103"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -128,7 +128,7 @@ async function load(){
   UI.quarter=q.get('quarter')||UI.quarter;
   const all=(table,cols,order)=>NXCRM.readAll(()=>sb.from(table).select(cols).order(order||'id',{ascending:true}));
   const [oq,mq,sq,dq,iq,fq,rq,bq,cq,xq,lq,vq,nq]=await Promise.all([
-    all('organisations','id,name,sub_status,sub_period,sub_rate_gbp,billing_from,billing_started_at,host_print,host_mill,hidden_at,paused_by,removed_at,closed_at,deleted_at,erased_at'),
+    all('organisations','id,name,sub_status,sub_period,sub_rate_gbp,billing_from,billing_started_at,sub_due_at,fee_exempt_note,host_print,host_mill,hidden_at,paused_by,removed_at,closed_at,deleted_at,erased_at'),
     all('membership_invoices','id,org_id,kind,period,period_start,period_end,amount,currency,invoicing_started_at,xero_invoice_id,xero_invoice_number,xero_online_url,invoice_date,due_date,invoiced_at,clock_start,hide_on,hidden_at,restored_at,extended_to,paid_at,paid_source,voided_at,last_error,reminder_7_at,reminder_12_at,hide_held_at,hide_held_reason'),
     all('statements','id,org_id,quarter,status,currency,lines,totals,issued_at,invoiced_at,paid_at,invoice_ref,voided_at'),
     all('declarations','id,org_id,hub,period,status'),
@@ -208,9 +208,18 @@ function hosts(){
   return Object.values(D.orgs).filter(o=>!o.erased_at&&!o.deleted_at&&(byOrg[o.id]||o.host_print==='approved'||o.host_mill==='approved'||(o.sub_status&&o.sub_status!=='none')))
     .map(o=>({org:o,newest:byOrg[o.id]||null,unpaid:unpaidOf(o.id)})).sort((a,b)=>String(a.org.name||'').localeCompare(String(b.org.name||'')));
 }
+/* Plan 103: a host approved with its first period free has no invoice until
+   the day paid membership starts (NXJOBS.freeUntil, the engine's rule). It
+   reads so, shows the reason kept on the account, and has no button:
+   nothing changes or ends a free period once it is given. The day always
+   carries its year. */
+const freeDay=h=>h.newest?null:NXJOBS.freeUntil(h.org);
+const fmtYear=v=>NXCRM.fmtDate(v,new Date(0));
 function membershipStatus(h){
   const r=h.unpaid[0]||h.newest;
-  if(!r)return h.org.sub_status&&h.org.sub_status!=='none'?'<span class="st">Billed before Xero, by hand</span>':'<span class="st">Not billed yet</span>';
+  const free=freeDay(h);
+  if(!r)return free?`<span class="st info">First period free: paid from ${esc(fmtYear(free))}</span>`
+    :h.org.sub_status&&h.org.sub_status!=='none'?'<span class="st">Billed before Xero, by hand</span>':'<span class="st">Not billed yet</span>';
   if(r.voided_at)return `<span class="st">Void ${esc(fmt(r.voided_at))}</span>`;
   if(r.paid_at)return `<span class="st ok">Paid ${esc(fmt(r.paid_at))}${r.paid_source==='hand'?' (by hand)':''}</span>`;
   if(!r.invoiced_at)return r.last_error?`<span class="st err">Not raised: ${esc(r.last_error)}</span>`:'<span class="st">Being raised in Xero</span>';
@@ -228,6 +237,8 @@ function membershipActions(h){
     out.push(btn('openUi','Record payment (by hand)','payments',{ui:'paid:'+r.id}));
     out.push(btn('openUi','Extend the clock','more_time',{ui:'extend:'+r.id}));
     out.push(xeroLink(r.xero_invoice_id));
+  }else if(freeDay(h)){
+    /* A free first period: there is no invoice to pay, and no button. */
   }else if(!h.newest&&o.sub_status&&o.sub_status!=='none'){
     out.push(btn('openUi','Record payment (by hand)','payments',{ui:'paid:org:'+o.id}));
   }else if(!h.newest){
@@ -251,7 +262,7 @@ function membershipsTab(){
   return `<section class="panel"><h2>Memberships <span class="n num">${rows.length}</span></h2><div class="tscroll"><table class="tbl"><thead><tr><th>Host</th><th>Plan</th><th class="num">Amount</th><th>Invoiced</th><th>Status</th><th></th></tr></thead><tbody>`+
     rows.map(h=>{const o=h.org, r=h.unpaid[0]||h.newest;
       const plan=o.sub_period==='monthly'?'Monthly':o.sub_period==='annual'?'Yearly':'';
-      const row=`<tr><td>${orgLink(o.id)}${isTestOrg(o)?' <span class="tag mini">Test account</span>':''}</td><td>${esc(plan)}${o.sub_rate_gbp!=null?` ${esc(pounds(o.sub_rate_gbp))}`:''}${o.billing_from==='first_introduction'&&!o.billing_started_at?'<br><span class="muted-t">Billing from the first introduction</span>':''}</td>`+
+      const row=`<tr><td>${orgLink(o.id)}${isTestOrg(o)?' <span class="tag mini">Test account</span>':''}</td><td>${esc(plan)}${o.sub_rate_gbp!=null?` ${esc(pounds(o.sub_rate_gbp))}`:''}${o.billing_from==='first_introduction'&&!o.billing_started_at?'<br><span class="muted-t">Billing from the first introduction</span>':''}${freeDay(h)&&o.fee_exempt_note?`<br><span class="muted-t">${esc(o.fee_exempt_note)}</span>`:''}</td>`+
         `<td class="num">${r?esc(pounds(r.amount)):''}</td><td>${r?esc(r.xero_invoice_number||'')+(r.invoice_date?' '+esc(fmt(r.invoice_date)):''):''}</td><td>${membershipStatus(h)}</td><td><div class="actions" style="margin:0">${membershipActions(h)}</div></td></tr>`;
       const choice=membershipChoice(h);
       return row+(choice?`<tr><td colspan="6">${choice}</td></tr>`:'');
