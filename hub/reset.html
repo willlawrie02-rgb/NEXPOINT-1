@@ -200,9 +200,10 @@ function showError(text){
 }
 
 async function setPassword(token){
+  const btn = document.getElementById('setBtn');
+  if (!btn || btn.disabled) return;
   const p1 = document.getElementById('pass1').value;
   const p2 = document.getElementById('pass2').value;
-  const btn = document.getElementById('setBtn');
   if (p1.length < MIN_LENGTH){ showError(`Use at least ${MIN_LENGTH} characters.`); return; }
   if (p1.length > 72){ showError('Use 72 characters or fewer.'); return; }
   const kind = missingKindLine(p1);

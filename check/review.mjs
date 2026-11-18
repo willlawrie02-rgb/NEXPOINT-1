@@ -1,7 +1,7 @@
 // Code review of 4 October 2026 (launch checklist, Phase 4): three things the
 // review found on the public pages, each kept from coming back. Where a
 // function can be lifted out of its page and run, it is run; the rest is read.
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
@@ -396,11 +396,200 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
       ["one row, a typed nought, not ticked", [row(7, { value: "0" })],
         (a) => a.blocked === null && same(a.nothingFor, []) &&
           same(a.lines, [{ introduction_id: 7, units: null, value: 0, currency: "GBP" }])],
+      // Plan 104 (R7-25): Units is a whole number or empty; a decimal or a minus is refused on the page.
+      ["one row, a decimal in Units beside a value", [row(7, { units: "1.5", value: "10" })],
+        (a) => a.blocked && a.blocked.why === "units" && a.blocked.ref === "INTRO-0007" && same(a.lines, [])],
+      ["one row, a minus in Units beside a value", [row(7, { units: "-3", value: "10" })],
+        (a) => a.blocked && a.blocked.why === "units" && same(a.lines, [])],
+      ["one row, whole Units and a value", [row(7, { units: "3", value: "10" })],
+        (a) => a.blocked === null && same(a.nothingFor, []) &&
+          same(a.lines, [{ introduction_id: 7, units: 3, value: 10, currency: "GBP" }])],
     ];
     for (const [name, rows, ok] of cases) {
       let got;
       try { got = answers(rows); } catch (e) { fail(`${FILE}: declAnswers threw on "${name}": ${e.message}`); continue; }
       if (!ok(got)) fail(`${FILE}: declAnswers, ${name}: gives ${JSON.stringify(got)}`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------- Plan 104 (round 7 audit, 17 November 2026)
+// Fixes for the first weeks after launch, each kept from coming back. Each
+// finding has its own part below; where a function can be lifted out of its
+// page and run, it is run, and the rest is read.
+{
+  const dash = read("hub/assets/dashboard.js");
+  const DASH = "hub/assets/dashboard.js";
+  // The plan's words in a file: each one present, none on a line with an em-dash.
+  const wordsIn = (file, text, words, finding) => {
+    for (const want of words) {
+      if (!text.includes(want)) fail(`${file}: missing "${want}" (plan 104, ${finding})`);
+    }
+    for (const line of text.split("\n")) {
+      if (line.includes("—") && words.some((w) => line.includes(w))) fail(`${file}: an em-dash in the plan 104 words (${finding}): ${line.trim().slice(0, 80)}`);
+    }
+  };
+
+  // R7-16: the declaration form says what to do about a currency it does not offer.
+  wordsIn(DASH, dash, ["If you invoiced in any currency other than pounds, euros or US dollars, email "], "R7-16");
+
+  // R7-25: four small slips where a person is told the wrong thing.
+  // (c) A decimal or a minus in Units gets words, and is not sent. The three
+  // rows for declAnswers sit in the plan 098 table above, where it is lifted out.
+  wordsIn(DASH, dash, [
+    " as a whole number, such as 12, or leave Units empty.",
+    "Units must be a whole number, such as 12. Correct the Units box, or leave it empty, and send again.",
+  ], "R7-25");
+  if (!dash.includes("'Enter Units for ' + b.ref + ' as a whole number, such as 12, or leave Units empty.'"))
+    fail(`${DASH}: the page has no words for a decimal or a minus in Units (plan 104, R7-25)`);
+  if (!/line_units_invalid: 'Units must be a whole number/.test(dash)) fail(`${DASH}: line_units_invalid has no words of its own (plan 104, R7-25)`);
+  // (a) The reset page ignores a second Enter while the first send is in flight.
+  {
+    const reset = read("hub/reset.html");
+    const from = reset.indexOf("async function setPassword(token){");
+    const body = from < 0 ? "" : reset.slice(from, reset.indexOf("\n}", from));
+    const guard = body.indexOf("if (!btn || btn.disabled) return;");
+    const lock = body.indexOf("btn.disabled = true");
+    if (!body) fail("hub/reset.html: setPassword was not found (plan 104, R7-25)");
+    else if (guard < 0 || lock < 0 || guard > lock) fail("hub/reset.html: setPassword does not leave when a send is already in flight (plan 104, R7-25)");
+  }
+  // (b) The invitation page the same.
+  {
+    const invite = read("hub/assets/invite.js");
+    const from = invite.indexOf("function join() {");
+    const body = from < 0 ? "" : invite.slice(from, invite.indexOf("\n  }", from));
+    const guard = body.indexOf("if (btn.disabled) return;");
+    const lock = body.indexOf("btn.disabled = true");
+    if (!body) fail("hub/assets/invite.js: join was not found (plan 104, R7-25)");
+    else if (guard < 0 || lock < 0 || guard > lock) fail("hub/assets/invite.js: join does not leave when a send is already in flight (plan 104, R7-25)");
+  }
+  // (d) The sign-in box gets its form back each time it opens: a card is put
+  // up through signShowCard, which keeps the form's own nodes.
+  {
+    const portal = read("hub/assets/portal.js");
+    if (!portal.includes("signFormNodes")) fail("hub/assets/portal.js: the sign-in form's nodes are not kept while a card stands in their place (plan 104, R7-25)");
+    if (portal.includes("getElementById('signContent').innerHTML =")) fail("hub/assets/portal.js: a card is written straight over the sign-in form (plan 104, R7-25)");
+  }
+
+  // R7-18: a paused or hidden account is not offered buttons the worker always
+  // refuses; the page says when it can answer instead. The three functions
+  // are pure, so they are lifted out and every row of the plan's table is run.
+  {
+    const HELD_WORDS = {
+      rowHost: "You can answer this introduction once your listing is back on the hubs.",
+      rowOther: "This introduction cannot be answered for now. Email hello@nexpoint.co.uk and we will tell you what happens next.",
+      oneHost: "1 introduction is waiting for your answer. You can answer it once your listing is back on the hubs.",
+      manyHost: "3 introductions are waiting for your answer. You can answer them once your listing is back on the hubs.",
+      oneOther: "1 introduction is waiting for your answer, and cannot be answered for now. Email hello@nexpoint.co.uk and we will tell you what happens next.",
+      manyOther: "3 introductions are waiting for your answer, and cannot be answered for now. Email hello@nexpoint.co.uk and we will tell you what happens next.",
+      noneHost: "Nothing waiting on you. Your listing is not showing on the hubs for now.",
+    };
+    const lifted = [
+      dash.match(/function answersHeld\(s\) \{[\s\S]*?\n  \}/),
+      dash.match(/function heldRowWords\(host\) \{[\s\S]*?\n  \}/),
+      dash.match(/function heldWaitingWords\(host, n\) \{[\s\S]*?\n  \}/),
+    ];
+    if (lifted.some((m) => !m)) fail(`${DASH}: answersHeld, heldRowWords or heldWaitingWords was not found (plan 104, R7-18)`);
+    else {
+      let fns = null;
+      try {
+        fns = new Function(`${lifted.map((m) => m[0]).join("\n")}; return { answersHeld, heldRowWords, heldWaitingWords };`)();
+      } catch (e) { fail(`${DASH}: the held functions could not be lifted out: ${e.message} (plan 104, R7-18)`); }
+      if (fns) {
+        const cases = [
+          ["answersHeld, paused by the desk", () => fns.answersHeld({ pausedByDesk: true }), true],
+          ["answersHeld, hidden for an unpaid invoice", () => fns.answersHeld({ hiddenUnpaid: true }), true],
+          ["answersHeld, neither", () => fns.answersHeld({}), false],
+          ["answersHeld, no site", () => fns.answersHeld(null), false],
+          ["answersHeld, a closed account", () => fns.answersHeld({ pausedByDesk: true, closed: { at: "x" } }), false],
+          ["heldRowWords, a host", () => fns.heldRowWords(true), HELD_WORDS.rowHost],
+          ["heldRowWords, no listing", () => fns.heldRowWords(false), HELD_WORDS.rowOther],
+          ["heldWaitingWords, a host, one", () => fns.heldWaitingWords(true, 1), HELD_WORDS.oneHost],
+          ["heldWaitingWords, a host, three", () => fns.heldWaitingWords(true, 3), HELD_WORDS.manyHost],
+          ["heldWaitingWords, no listing, one", () => fns.heldWaitingWords(false, 1), HELD_WORDS.oneOther],
+          ["heldWaitingWords, no listing, three", () => fns.heldWaitingWords(false, 3), HELD_WORDS.manyOther],
+          ["heldWaitingWords, a host, none", () => fns.heldWaitingWords(true, 0), HELD_WORDS.noneHost],
+          ["heldWaitingWords, no listing, none", () => fns.heldWaitingWords(false, 0), ""],
+        ];
+        for (const [name, run, want] of cases) {
+          let got;
+          try { got = run(); } catch (e) { fail(`${DASH}: ${name} threw: ${e.message} (plan 104, R7-18)`); continue; }
+          if (got !== want) fail(`${DASH}: ${name}: gives ${JSON.stringify(got)}, want ${JSON.stringify(want)} (plan 104, R7-18)`);
+        }
+      }
+    }
+    if (!dash.includes("answerable(i) && !held")) fail(`${DASH}: Accept and Decline are still drawn for an account that cannot answer (plan 104, R7-18)`);
+    if (!dash.includes("showResend && !held && i.stage === 'awaiting_acceptance'")) fail(`${DASH}: Send the email again is still drawn for an account that cannot answer (plan 104, R7-18)`);
+    // None of the seven sentences, as the page's code writes them, sits on a line with an em-dash.
+    const PARTS = [
+      HELD_WORDS.rowHost, HELD_WORDS.rowOther, HELD_WORDS.noneHost,
+      "1 introduction is waiting for your answer", " introductions are waiting for your answer",
+      " once your listing is back on the hubs.",
+      ", and cannot be answered for now. Email hello@nexpoint.co.uk and we will tell you what happens next.",
+    ];
+    for (const line of dash.split("\n")) {
+      if (line.includes("—") && PARTS.some((w) => line.includes(w))) fail(`${DASH}: an em-dash in the plan 104 words (R7-18): ${line.trim().slice(0, 80)}`);
+    }
+  }
+
+  // R7-20: a repeat pick and an eleventh request in a day are refused by the
+  // worker; the find page has words for each of its three new answers.
+  wordsIn("hub/assets/find.js", read("hub/assets/find.js"), [
+    "You have already asked this company, and it has not answered yet.",
+    "You already have an introduction with this company",
+    "which is the most allowed in a day.",
+    "We could not check that just now. Try again in a minute",
+  ], "R7-20");
+
+  // R7-21: the home page does not wait for the visitor tracking company. Its
+  // tag sits at the foot, after the page's own inline script, never in the
+  // head; and the header and footer logo is the small file, not the 2,362
+  // pixel original.
+  {
+    const home = read("index.html");
+    const headEnd = home.indexOf("</head>");
+    const TRACKER = "365-syndicate";
+    if (headEnd < 0) fail("index.html: no </head> found (plan 104, R7-21)");
+    else {
+      if (home.slice(0, headEnd).includes(TRACKER)) fail("index.html: the tracking tag is in the head, where a slow answer holds up the whole page (plan 104, R7-21)");
+      const body = home.slice(headEnd);
+      const tags = [...body.matchAll(/<script\b[^>]*>/g)].filter((m) => m[0].includes(TRACKER));
+      const inline = [...body.matchAll(/<script>/g)];
+      const lastInline = inline.length ? inline[inline.length - 1].index : -1;
+      if (tags.length !== 1) fail(`index.html: the body holds ${tags.length} tracking scripts, want exactly one (plan 104, R7-21)`);
+      else if (lastInline < 0 || tags[0].index < lastInline) fail("index.html: the tracking script is not after the page's last inline script (plan 104, R7-21)");
+    }
+    if (/<img\b[^>]*\bsrc="assets\/nexpoint-logo\.png"/.test(home)) fail("index.html: an image still loads the full-size logo (plan 104, R7-21)");
+    const small = join(ROOT, "assets/nexpoint-logo-156.png");
+    if (!existsSync(small)) fail("assets/nexpoint-logo-156.png is missing (plan 104, R7-21)");
+    else {
+      // A PNG's width is bytes 16 to 19, as check/sweep.mjs's imageSize reads it.
+      const png = readFileSync(small);
+      const isPng = png.length > 24 && png.readUInt32BE(0) === 0x89504e47;
+      const width = isPng ? png.readUInt32BE(16) : 0;
+      if (!isPng) fail("assets/nexpoint-logo-156.png is not a PNG (plan 104, R7-21)");
+      else if (width > 400) fail(`assets/nexpoint-logo-156.png is ${width} pixels wide, want 400 or less (plan 104, R7-21)`);
+    }
+  }
+
+  // R7-26: the Global Portal's front page may be listed by search engines
+  // (the D29 gate is met at the launch). Every other hub page keeps noindex.
+  {
+    const door = read("hub/index.html");
+    if (/<meta\b[^>]*name="robots"/.test(door)) fail("hub/index.html: the front page still carries a robots meta (plan 104, R7-26)");
+    const canon = [...door.matchAll(/<link\b[^>]*rel="canonical"[^>]*>/g)];
+    if (canon.length !== 1) fail(`hub/index.html: ${canon.length} canonical links, want exactly one (plan 104, R7-26)`);
+    else {
+      const href = (canon[0][0].match(/\bhref="([^"]*)"/) || [])[1] || "";
+      if (href !== "https://nexpoint.co.uk/hub/") fail(`hub/index.html: the canonical address is "${href}", want https://nexpoint.co.uk/hub/ (plan 104, R7-26)`);
+    }
+    for (const page of [
+      "hub/account/index.html", "hub/account/settings/index.html",
+      "printhub/index.html", "printhub/find.html", "printhub/offer.html",
+      "millhub/index.html", "millhub/find.html", "millhub/offer.html",
+      "opportunities/index.html",
+    ]) {
+      if (!read(page).includes("noindex")) fail(`${page}: this page has lost its noindex (plan 104, R7-26)`);
     }
   }
 }

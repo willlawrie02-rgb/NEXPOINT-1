@@ -511,6 +511,25 @@
     return i.stage === 'awaiting_acceptance' && !!i.acceptance_expires_at &&
       new Date(i.acceptance_expires_at).getTime() > Date.now();
   }
+  /* Plan 104 (R7-18): a paused or hidden account cannot answer an offer (the
+     worker refuses, by design), so the page draws no button for one and
+     says when it can instead. The same test listingRows uses. Pure, and
+     plain text, so check/review.mjs can run every row of the plan's table. */
+  function answersHeld(s) {
+    return !!(s && !s.closed && (s.hiddenUnpaid || s.pausedByDesk));
+  }
+  function heldRowWords(host) {
+    return host
+      ? 'You can answer this introduction once your listing is back on the hubs.'
+      : 'This introduction cannot be answered for now. Email hello@nexpoint.co.uk and we will tell you what happens next.';
+  }
+  function heldWaitingWords(host, n) {
+    if (!n) return host ? 'Nothing waiting on you. Your listing is not showing on the hubs for now.' : '';
+    var lead = n === 1 ? '1 introduction is waiting for your answer' : n + ' introductions are waiting for your answer';
+    return host
+      ? lead + '. You can answer ' + (n === 1 ? 'it' : 'them') + ' once your listing is back on the hubs.'
+      : lead + ', and cannot be answered for now. Email hello@nexpoint.co.uk and we will tell you what happens next.';
+  }
 
   /* Accept or decline in the account (plan 052 items 21, 22): the same
      choice the emailed link offers, through POST /introductions/accept and
@@ -611,7 +630,7 @@
      (plan 055, decision 8): which side of it the reader is on. */
   function tagHtml(tag) { return tag ? '<span class="acct-tag">' + esc(tag) + '</span>' : ''; }
 
-  function introRow(i, showResend, offer, tag) {
+  function introRow(i, showResend, offer, tag, held, host) {
     var extra = [];
     /* Plan 070: a board introduction names its opportunity, and to the owner
        what the company asking said and where it is (never who). */
@@ -627,7 +646,8 @@
     if (asked) extra.push(asked);
     if (i.stage === 'awaiting_acceptance' && i.acceptance_expires_at) extra.push('Open until ' + fmtDate(i.acceptance_expires_at) + '.');
     var accepted = acceptedStage(i.stage);
-    var canAnswer = showResend && answerable(i);
+    var canAnswer = showResend && answerable(i) && !held;
+    if (showResend && held && answerable(i)) extra.push(heldRowWords(host));
     /* Plan 095: the worker says whether the email that gives both sides each
        other's details went. Only the answering side can send it again.
        'unrecorded' (no attempt on the log at all) can be sent again too, but
@@ -651,7 +671,7 @@
           ? '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-accept-open" data-intro="' + esc(i.id) + '">Review and accept</button>' +
             '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-decline-open" data-intro="' + esc(i.id) + '">Decline</button>'
           : '') +
-        (showResend && i.stage === 'awaiting_acceptance'
+        (showResend && !held && i.stage === 'awaiting_acceptance'
           ? '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Send the email again</button>'
           : '') +
         (canResendRelease
@@ -671,7 +691,7 @@
     var ms = iso ? new Date(iso).getTime() : 0;
     return isNaN(ms) ? 0 : ms;
   }
-  function renderIntroductions(d) {
+  function renderIntroductions(d, s) {
     var intros = Array.isArray(d.introductions) ? d.introductions : [];
     var requests = Array.isArray(d.requests) ? d.requests : [];
     var byId = {};
@@ -695,7 +715,7 @@
     var both = (requests.length || other.length) && provider.length;
     var items = [];
     requests.forEach(function (r) { items.push({ at: when(r.created_at), html: requestCard(r, byId, both ? 'You asked' : '') }); });
-    provider.forEach(function (i) { items.push({ at: when(i.created_at), html: introRow(i, true, offerBy[i.id], both ? 'Asked of you' : '') }); });
+    provider.forEach(function (i) { items.push({ at: when(i.created_at), html: introRow(i, true, offerBy[i.id], both ? 'Asked of you' : '', answersHeld(s), isHost(s)) }); });
     other.forEach(function (i) { items.push({ at: when(i.created_at), html: introRow(i, false, null, both ? 'You asked' : '') }); });
     items.sort(function (a, b) { return b.at - a.at; });
 
@@ -769,6 +789,7 @@
       /* A sent month that is being changed (plan 098) has no due line: it is
          not open, overdue or reminded, it is being replaced. */
       '<p class="hint">' + (dec.due_state === 'submitted' ? '' : esc(dueLine(dec.due_state)) + ' ') + 'One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.</p>' +
+      '<p class="hint">If you invoiced in any currency other than pounds, euros or US dollars, email ' + HELLO + ' before you send this declaration.</p>' +
       '<div class="acct-scroll"><table class="decl-table">' +
         '<thead><tr><th>Introduction</th><th>Units</th><th>Value</th><th>Currency</th><th>Nothing</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
@@ -870,6 +891,7 @@
     /* The closed mode (plan 069): nothing here applies to a closed account. */
     if (s.closed) { hide('waiting'); return 0; }
     var asked = intros.filter(function (i) { return i.role === 'provider' && i.stage === 'awaiting_acceptance'; });
+    var held = answersHeld(s);
     var due = (isHost(s) || boardSeller(d)) && dec && ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
       Array.isArray(dec.items) && dec.items.length;
     /* An account that is not a host and has listed, asked and been
@@ -879,18 +901,21 @@
       !(Array.isArray(d.requests) && d.requests.length) && !intros.length;
 
     var acts = [];
-    if (asked.length) acts.push({ href: '#intro-' + asked[0].id, icon: 'handshake',
+    if (asked.length && !held) acts.push({ href: '#intro-' + asked[0].id, icon: 'handshake',
       text: asked.length === 1 ? 'Answer 1 introduction' : 'Answer ' + asked.length + ' introductions' });
     if (due) acts.push({ href: '#declarations', icon: 'fact_check',
       text: 'Send your declaration for ' + (fmtPeriod(dec.period_open) || 'this period') + (dec.due_state === 'overdue' ? ', now overdue' : '') });
     if (nothingYet) acts.push({ href: HUB_DOOR, icon: 'hub', leaves: true,
       text: 'List your site, or ask a hub for what you need' });
+    /* Plan 104 (R7-18): an offer a paused or hidden account cannot answer is
+       not an action. A sentence says when it can be answered instead. */
+    var heldLine = held ? heldWaitingWords(isHost(s), asked.length) : '';
 
     var body;
     if (!acts.length) {
-      body = '<p class="acct-quiet">' + esc(isHost(s)
+      body = '<p class="acct-quiet">' + esc(heldLine || (isHost(s)
         ? 'Nothing waiting on you. Your listing is live; introductions appear below as they arrive.'
-        : 'Nothing waiting on you. Ask a hub for what you need when you are ready.') + '</p>';
+        : 'Nothing waiting on you. Ask a hub for what you need when you are ready.')) + '</p>';
     } else {
       /* The trailing arrow points down to a section, or on to the door. */
       var down = icon('arrow_downward'), on = icon('arrow_forward');
@@ -898,7 +923,7 @@
         var cls = 'acct-action' + (n === 0 ? ' is-top' : '');
         var inner = icon(a.icon) + '<span>' + esc(a.text) + '</span>' + (a.leaves ? on : down);
         return '<a class="' + cls + '" href="' + esc(a.href) + '">' + inner + '</a>';
-      }).join('') + '</div>';
+      }).join('') + '</div>' + (heldLine && asked.length ? '<p class="acct-quiet">' + esc(heldLine) + '</p>' : '');
     }
     fill('waiting', head('pending_actions', 'Waiting on you', 'What needs your answer.') + body);
     return acts.length;
@@ -1171,7 +1196,7 @@
     renderProfile(d, s);
     if (s.closed) renderClosed(d, s);
     var open = renderWaiting(d, s);
-    if (s.closed) hide('introductions'); else renderIntroductions(d);
+    if (s.closed) hide('introductions'); else renderIntroductions(d, s);
     renderDeclarations(d, s, byId);
     renderFees(d, s);
     renderYourTerms(d, s);
@@ -1232,6 +1257,7 @@
      here (including no error code at all) keeps the generic sentence. */
   var DECL_ERRORS = {
     line_value_required: 'Every line needs a value. Enter one, or tick Nothing for that introduction.',
+    line_units_invalid: 'Units must be a whole number, such as 12. Correct the Units box, or leave it empty, and send again.',
     line_currency_invalid: 'Choose a currency from the list.',
     not_your_introduction: 'One of these introductions is not yours to declare. Reload the page and try again.',
     period_out_of_range: 'That month is not open for declarations.',
@@ -1257,8 +1283,10 @@
 
   /* What the declaration form says, row by row (plan 098). Pure: no page and
      no network, so check/review.mjs can run it. Every row is answered: a
-     value, or its Nothing tick. A blank row, a row with units and no value,
-     and a row with figures and a tick are each refused, the first one found. */
+     value, or its Nothing tick. A blank row, a row whose Units is not a whole
+     number (plan 104: a decimal or a minus, which the worker refuses), a row
+     with units and no value, and a row with figures and a tick are each
+     refused, the first one found. */
   function declAnswers(rows) {
     var lines = [], nothingFor = [], blocked = null;
     rows.forEach(function (r) {
@@ -1271,6 +1299,7 @@
         return;
       }
       if (!hasUnits && !hasValue) { blocked = { id: r.id, ref: r.ref, why: 'blank' }; return; }
+      if (hasUnits && !/^\d+$/.test(String(r.units).trim())) { blocked = { id: r.id, ref: r.ref, why: 'units' }; return; }
       if (!hasValue) { blocked = { id: r.id, ref: r.ref, why: 'value' }; return; }
       lines.push({ introduction_id: r.id, units: hasUnits ? Number(r.units) : null,
         value: Number(r.value), currency: r.currency || 'GBP' });
@@ -1326,9 +1355,10 @@
          is no longer a nil return, so the Send button comes back. */
       declNilBack(period);
       say(msg, b.why === 'both' ? b.ref + ' has figures and a Nothing tick. Clear the figures or untick Nothing.'
+        : b.why === 'units' ? 'Enter Units for ' + b.ref + ' as a whole number, such as 12, or leave Units empty.'
         : b.why === 'value' ? 'Enter a value for ' + b.ref + ', or tick Nothing.'
         : 'Answer ' + b.ref + ': enter a value, or tick Nothing if no orders came through.', true);
-      var fix = el(prefix + b.id + '-value');
+      var fix = el(prefix + b.id + (b.why === 'units' ? '-units' : '-value'));
       if (fix) fix.focus();
       return;
     }

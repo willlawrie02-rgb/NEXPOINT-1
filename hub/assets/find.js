@@ -1121,6 +1121,21 @@
     if (e === 'own_listing') {
       return 'That is your own ' + site + ', so we cannot introduce you to it. Pick another ' + site + ' and send again.';
     }
+    /* Plan 104 (R7-20): the worker refuses a pick of a company the account
+       already has an offer waiting with, or an introduction to, on either hub
+       (so "company", not the hub's own word), and an eleventh request in 24
+       hours. */
+    if (e === 'already_introduced') {
+      return d.waiting
+        ? 'You have already asked this company, and it has not answered yet. You will hear by email when it does. Pick another ' + site + ', or search again.'
+        : 'You already have an introduction with this company' + (d.ref ? ' (' + d.ref + ')' : '') +
+          '. Its details are in the introduction email we sent you. Pick another ' + site + ', or search again.';
+    }
+    if (e === 'too_many_picks_today') {
+      return 'Your account has sent ' + (typeof d.limit === 'number' ? d.limit : 10) +
+        ' requests in the last 24 hours, which is the most allowed in a day. Try again tomorrow, or email hello@nexpoint.co.uk.';
+    }
+    if (e === 'lookup failed') return 'We could not check that just now. Try again in a minute, or email hello@nexpoint.co.uk.';
     if (e === 'request_not_open') {
       return 'This request is no longer open. Tell the desk and we will pick it up by hand.';
     }

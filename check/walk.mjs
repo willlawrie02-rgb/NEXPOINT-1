@@ -951,6 +951,33 @@ async function walkDoor() {
     await page.keyboard.press("Escape");
     await page.waitForSelector("#signOverlay.open", { state: "detached" });
   });
+  /* Plan 104 (R7-25): a card that took the form's place ("Check your inbox."
+     here) used to stay in the box until the page was reloaded. The form's
+     own nodes come back each time the box opens, so the eye still works. */
+  await step("the sign-in box gets its form back each time it opens, with the eye still working (plan 104)", async () => {
+    await page.click("[data-np-account-slot] [data-np-signin]");
+    await page.waitForSelector("#signOverlay.open");
+    await page.fill("#sEmail", USER.email);
+    await page.fill("#sPass", "left-behind");
+    await page.click('#signContent a:has-text("Forgotten your password?")');
+    await page.waitForSelector("#signContent .success");
+    has(await page.textContent("#signContent"), "Check your inbox.", "the card");
+    eq(apiCalls(world, "POST /auth/reset-request").map((c) => c.body), [{ email: USER.email }], "the reset asked for");
+    await page.click("#signContent .success button");
+    await page.waitForSelector("#signOverlay.open", { state: "detached" });
+    await page.click("[data-np-account-slot] [data-np-signin]");
+    await page.waitForSelector("#signOverlay.open");
+    eq(await page.locator("#signContent form").count(), 1, "forms in the box");
+    eq([await page.locator("#sEmail").count(), await page.locator("#sPass").count()], [1, 1], "the email and password boxes");
+    eq(await page.inputValue("#sEmail"), USER.email, "the email typed");
+    eq(await page.inputValue("#sPass"), "", "the password box");
+    eq((await page.textContent("#signContent")).includes("Check your inbox."), false, "the old card still in the box");
+    await page.click("#signContent .np-eye__btn");
+    eq(await page.getAttribute("#sPass", "type"), "text", "the password box after one press of the eye");
+    await page.click("#signContent .np-eye__btn");
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("#signOverlay.open", { state: "detached" });
+  });
   // Plan 055: the hero's account-holder line is a button now, and ?join=1
   // (the main site's Join our network) lands with the questionnaire open.
   await step("the hero offers Create your hub account as a button, with Sign in underneath", async () => {
@@ -1957,6 +1984,39 @@ async function walkFindMap() {
     eq(await page.locator("#capGrid input[data-pick]:checked").count(), 1, "ticks");
     const lit = await page.$$eval("#matchMap .np-pin.is-on", (els) => els.map((e) => e.textContent.trim()));
     return eq(lit, ["3"], "the lit pin");
+  });
+  /* Plan 104 (R7-20): the worker refuses a pick of a company the account
+     already has an offer waiting with or an introduction to, and an eleventh
+     request in 24 hours. Each refusal has its own words, and the first two
+     take the seeker back to the card. The stub is put back for the step
+     that sends the request for good. */
+  await step("a repeat pick and an eleventh request in a day are each refused in words, and nothing else changes (plan 104)", async () => {
+    const sendsFor = world.api["POST /seeker-requests"];
+    const refusedWith = async (answer, starts) => {
+      world.api["POST /seeker-requests"] = () => answer;
+      const before = apiCalls(world, "POST /seeker-requests").length;
+      await page.click("#requestSubmit");
+      await until(() => apiCalls(world, "POST /seeker-requests").length === before + 1, "the request");
+      await page.waitForFunction((t) => (document.getElementById("requestErr").textContent || "").startsWith(t), starts);
+      return (await page.textContent("#requestErr")).trim();
+    };
+    try {
+      await page.click("#pickContinue");
+      await page.waitForSelector("#step3:not([hidden]) #requestSubmit");
+      eq(await refusedWith([409, { error: "already_introduced", listing_id: "listing-c", waiting: true, ref: "INTRO-0007" }], "You have already asked"),
+        "You have already asked this company, and it has not answered yet. You will hear by email when it does. Pick another site, or search again.",
+        "the words for an offer still waiting");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.id), "pick-listing-c", "the focus");
+      eq(await refusedWith([409, { error: "already_introduced", listing_id: "listing-c", waiting: false, ref: "INTRO-0007" }], "You already have"),
+        "You already have an introduction with this company (INTRO-0007). Its details are in the introduction email we sent you. Pick another site, or search again.",
+        "the words for an introduction already made");
+      eq(await refusedWith([429, { error: "too_many_picks_today", limit: 10 }], "Your account has sent"),
+        "Your account has sent 10 requests in the last 24 hours, which is the most allowed in a day. Try again tomorrow, or email hello@nexpoint.co.uk.",
+        "the words for the daily limit");
+      eq(await page.locator("#step3Body .success").count(), 0, "a success card after a refusal");
+    } finally {
+      world.api["POST /seeker-requests"] = sendsFor;
+    }
   });
   await step("the request names the site picked and goes to it in one call, and the success card names it", async () => {
     await page.click("#pickContinue");
@@ -3308,10 +3368,11 @@ async function walkAccountAnswers() {
     request: { material: "pa12_nylon12", process: "mjf", quantity: 40, cadence: "one_off", max_lead_time_days: 10, needed_by: "2026-11-03",
       services: ["finishing_dyeing"], notes: "Pairs, boxed per patient.", town: "Bristol", country: "United Kingdom", point: { lat: 51.45, lng: -2.59 } },
     site: { town: "Leeds", country: "United Kingdom", point: { lat: 53.8, lng: -1.55 } } });
-  const summary = (intros, offers) => Object.assign({}, EMPTY_SUMMARY, {
+  /* The third argument is merged over the site (plan 104: a paused or hidden listing). */
+  const summary = (intros, offers, site = {}) => Object.assign({}, EMPTY_SUMMARY, {
     org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", founding: true, host_print: "approved", host_mill: "none", fee_exempt_note: null },
-    site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
-      sub_status: "trial", founding: true, paused: false, removed: false, verified: true },
+    site: Object.assign({ org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
+      sub_status: "trial", founding: true, paused: false, removed: false, verified: true }, site),
     introductions: intros, offers, hubs_used: ["print"],
   });
   const world = newWorld({
@@ -3405,6 +3466,63 @@ async function walkAccountAnswers() {
   });
   clean(world, errors, "answering on the account page");
   await context.close();
+
+  /* Plan 104 (R7-18): a host whose listing is paused by the desk, or hidden
+     for an unpaid membership invoice, may not answer an open offer (the
+     worker refuses, by design). The page used to draw Accept and Decline all
+     the same. It now draws no button the worker would refuse, and says when
+     the offer can be answered. */
+  const introduced8 = intro(8, { stage: "introduced", accepted_a_at: "2026-10-07T10:00:00Z",
+    introduced_at: "2026-10-07T10:00:00Z", acceptance_expires_at: null });
+  const heldButtons = async (page) => [
+    await page.locator('#intro-7 [data-act="intro-accept-open"]').count(),
+    await page.locator('#intro-7 [data-act="intro-decline-open"]').count(),
+    await page.locator('#intro-7 [data-act="intro-resend"]').count(),
+  ];
+  {
+    const world = newWorld({ user: USER, terms: TERMS_STATE({ host: HELD(32) }),
+      summary: summary([intro(7), introduced8], [offer(7), offer(8)], { paused: true, paused_by_desk: true, hidden_unpaid: false }) });
+    const { context, page, errors } = await visit(world);
+    await step("a host paused by the desk is offered no Accept, Decline or Send the email again, and the row says when it can answer (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("#intro-7");
+      eq(await heldButtons(page), [0, 0, 0], "Accept, Decline and Send the email again in the row");
+      has(await page.textContent("#intro-7"), "You can answer this introduction once your listing is back on the hubs.", "the row");
+      const waiting = await page.textContent("#waiting");
+      has(waiting, "1 introduction is waiting for your answer. You can answer it once your listing is back on the hubs.", "Waiting on you");
+      eq(waiting.includes("Answer 1 introduction"), false, "the Answer action");
+      return eq(apiCalls(world, "POST /introductions/accept").length, 0, "accepts sent");
+    });
+    clean(world, errors, "the account page of a paused host with an offer waiting");
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER, terms: TERMS_STATE({ host: HELD(32) }),
+      summary: summary([introduced8], [offer(8)], { paused: true, paused_by_desk: true, hidden_unpaid: false }) });
+    const { context, page, errors } = await visit(world);
+    await step("a paused host with nothing waiting is not told its listing is live (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("#intro-8");
+      const waiting = await page.textContent("#waiting");
+      has(waiting, "Nothing waiting on you. Your listing is not showing on the hubs for now.", "Waiting on you");
+      return eq(waiting.includes("Your listing is live"), false, "the live line");
+    });
+    clean(world, errors, "the account page of a paused host with nothing waiting");
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER, terms: TERMS_STATE({ host: HELD(32) }),
+      summary: summary([intro(7)], [offer(7)], { paused: true, paused_by_desk: false, hidden_unpaid: true, sub_status: "hidden" }) });
+    const { context, page, errors } = await visit(world);
+    await step("a host hidden for an unpaid membership invoice is offered no buttons either, with the same sentence (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("#intro-7");
+      eq(await heldButtons(page), [0, 0, 0], "Accept, Decline and Send the email again in the row");
+      return has(await page.textContent("#intro-7"), "You can answer this introduction once your listing is back on the hubs.", "the row");
+    });
+    clean(world, errors, "the account page of a host hidden for an unpaid invoice");
+    await context.close();
+  }
 
   area = "The account page (sent to one introduction)";
   {
@@ -4396,6 +4514,8 @@ async function walkTerms() {
       await page.waitForSelector("#declTerms [data-np-terms-tick]");
       has(await page.textContent("#declTerms"), DOC_WORDS.host, "the document");
       has(await page.textContent("#declarations .acct-card"), "One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.", "the hint");
+      // Plan 104 (R7-16): what to do about a currency the form does not offer.
+      has(await page.textContent("#declarations .acct-card"), "If you invoiced in any currency other than pounds, euros or US dollars, email hello@nexpoint.co.uk before you send this declaration.", "the line about another currency");
       await shot(page, "declaration-host-agreement", "#declTerms");
       await page.click('[data-act="decl-submit"]');
       await page.waitForFunction(() => /Answer INTRO-0007/.test(document.getElementById("declMsg-2026-10").textContent));
@@ -4433,6 +4553,21 @@ async function walkTerms() {
     const world = termsWorld({ terms: TERMS_STATE({ host: HELD(TERMS_ID.host) }), summary: Object.assign({}, EMPTY_SUMMARY, hostOrg, { declarations: decl }) });
     world.api["POST /declarations"] = () => [200, { ok: true }];
     const { context, page, errors } = await visit(world);
+    /* Plan 104 (R7-25): the worker refuses a decimal in Units with a code the
+       page had no words for. The page now refuses it first, in words, and
+       sends nothing. The step after this one opens the page afresh. */
+    await step("a decimal in Units is refused on the page in words, the focus goes to the Units box, and nothing is sent (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector('[data-act="decl-submit"]');
+      await settled(page);
+      await page.fill("#decl-2026-10-7-units", "1.5");
+      await page.fill("#decl-2026-10-7-value", "120");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /Enter Units/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "Enter Units for INTRO-0007 as a whole number, such as 12, or leave Units empty.", "the words for a decimal in Units");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.id), "decl-2026-10-7-units", "the focus");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations sent");
+    });
     await step("a declaration by a host holding the version shows no block and sends no version; a value goes on the first press", async () => {
       await page.goto(`${APEX}/hub/account/`);
       await page.waitForSelector('[data-act="decl-submit"]');
@@ -5198,6 +5333,26 @@ async function walkLandings() {
       return eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ token_hash: "walk-reset", password: PASSWORD }], "resets sent");
     });
     clean(world, errors, "the reset page's password");
+    await context.close();
+  }
+  {
+    /* Plan 104 (R7-25): a second Enter while the first send was in flight
+       spent a link the first had already spent, and the page could end on
+       "That link has expired" over a password that was set. Both presses go
+       in one turn of the page, so no answer can land between them. */
+    const world = newWorld();
+    world.api["POST /auth/reset-confirm"] = () => [200, { ok: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    await step("Enter pressed twice on the reset page sends the password once (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/reset.html?t=walk-reset`);
+      await page.waitForSelector("#setBtn");
+      await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
+      await page.evaluate(() => { const box = document.getElementById("pass2"); for (let n = 0; n < 2; n += 1) box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); });
+      await page.waitForSelector("text=Your password is set.");
+      await page.waitForTimeout(300);
+      return eq(apiCalls(world, "POST /auth/reset-confirm").length, 1, "resets sent");
+    });
+    clean(world, errors, "the reset page, Enter twice");
     await context.close();
   }
   for (const [name, url, sign] of [
@@ -6906,6 +7061,30 @@ async function walkPeople() {
     /* The browser logs a line of its own for the send the walk dropped on
        purpose; anything the page itself threw still counts. */
     clean(world, errors.filter((e) => !/net::ERR_FAILED/.test(e)), "the invitation page");
+    await context.close();
+  }
+  {
+    /* Plan 104 (R7-25): a second Enter while the first Join was in flight
+       sent the invitation twice, and the second answer said it was used.
+       Both presses go in one turn of the page. */
+    const world = newWorld();
+    world.api["POST /auth/invite"] = (w, req) => (req.body.token === INVITE_TOKEN
+      ? [200, { ok: true, email: "cal@example.com", company: "ZZ Walk Test Ltd", inviter: "Walk Tester" }]
+      : [400, { error: "invite_invalid" }]);
+    world.api["POST /auth/register-invited"] = () => [200, { ok: true, confirm_required: true }];
+    const { context, page, errors } = await visit(world);
+    await step("Enter pressed twice on the invitation page registers once (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/invite.html?t=${INVITE_TOKEN}`);
+      await page.waitForSelector("#invName");
+      await page.fill("#invName", "Cal League");
+      await page.waitForSelector("#invTick");
+      await page.check("#invTick");
+      await page.evaluate(() => { const box = document.getElementById("invName"); for (let n = 0; n < 2; n += 1) box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); });
+      await page.waitForFunction(() => /Check your inbox/.test(document.body.textContent));
+      await page.waitForTimeout(300);
+      return eq(apiCalls(world, "POST /auth/register-invited").length, 1, "registrations sent");
+    });
+    clean(world, errors, "the invitation page, Enter twice");
     await context.close();
   }
 
