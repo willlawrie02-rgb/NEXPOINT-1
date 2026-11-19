@@ -62,7 +62,7 @@
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=6"></script>
 <script src="crm.js?v=097"></script>
-<script src="jobs.js?v=103"></script>
+<script src="jobs.js?v=105"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -224,7 +224,8 @@ function membershipStatus(h){
   if(r.paid_at)return `<span class="st ok">Paid ${esc(fmt(r.paid_at))}${r.paid_source==='hand'?' (by hand)':''}</span>`;
   if(!r.invoiced_at)return r.last_error?`<span class="st err">Not raised: ${esc(r.last_error)}</span>`:'<span class="st">Being raised in Xero</span>';
   if(r.hidden_at&&!r.restored_at)return `<span class="st err">Hidden since ${esc(fmt(r.hidden_at))}: unpaid</span>`;
-  if(r.extended_to)return `<span class="st info">Extended by hand to ${esc(fmt(r.extended_to))}</span>`;
+  /* Plan 105: a hide the engine is holding falls through to the clock, which says so. */
+  if(r.extended_to&&!r.hide_held_at)return `<span class="st info">Extended by hand to ${esc(fmt(r.extended_to))}</span>`;
   const n=NXJOBS.clockDay(r,todayIso());
   return n==null?'<span class="st">Unpaid</span>':NXJOBS.clockHtml(r,n);
 }
@@ -523,7 +524,7 @@ async function raise(type,payload,toastText){
   if(error){sending=sending.filter(x=>x!==temp);watch(readIntents.concat(sending));render();NXShell.toast(`Could not queue it: ${error.message}`);return false;}
   NXShell.toast(toastText);
   checkBack.pressed();
-  setTimeout(load,1500);
+  checkBack.soon();
   return true;
 }
 const queued=v=>`${v}, queued. This page updates by itself.`;

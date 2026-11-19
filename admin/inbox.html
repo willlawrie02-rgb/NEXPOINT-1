@@ -40,7 +40,7 @@
 <script src="crm-shell.js?v=6"></script>
 <script src="crm.js?v=097"></script>
 <script src="save.js?v=0794"></script>
-<script src="jobs.js?v=103"></script>
+<script src="jobs.js?v=105"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -367,9 +367,12 @@ function clocksPanel(){
   const today=NXJOBS.todayIn();
   const body=P.rows.length?P.rows.slice().sort((a,b)=>String(a.clock_start||a.invoice_date||'').localeCompare(String(b.clock_start||b.invoice_date||''))).map(m=>{
     const hidden=!!m.hidden_at&&!m.restored_at, n=NXJOBS.clockDay(m.clock_start?m:{clock_start:m.invoice_date},today)||0, last=m.extended_to||m.hide_on;
-    const right=hidden?`Hidden since ${NXJOBS.day(m.hidden_at)}`:last?`Hides ${NXJOBS.day(last)} if unpaid`:'';
+    /* Plan 105: a hide the engine is holding (the same test clockHtml makes).
+       Hidden, held, extended, in that order: never a hide day that has passed. */
+    const held=!hidden&&!!m.hide_held_at&&!m.paid_at&&!m.voided_at;
+    const right=hidden?`Hidden since ${NXJOBS.day(m.hidden_at)}`:held?(last?`Was due to hide on ${NXJOBS.day(last)}`:'Not hidden'):last?`Hides ${NXJOBS.day(last)} if unpaid`:'';
     const sub=[m.period==='monthly'?'Monthly':'Yearly',money(m.amount,m.currency),m.invoice_date?'invoiced '+NXJOBS.day(m.invoice_date):''].filter(Boolean).join(', ');
-    const clock=m.extended_to&&!hidden?`<span class="clabel">Extended by hand to ${esc(NXJOBS.day(m.extended_to))}</span>`:NXJOBS.clockHtml(m,n);
+    const clock=m.extended_to&&!hidden&&!held?`<span class="clabel">Extended by hand to ${esc(NXJOBS.day(m.extended_to))}</span>`:NXJOBS.clockHtml(m,n);
     return `<div class="item"><span class="ev-icon">${ms('schedule')}</span><div class="item-main" style="gap:5px"><span class="clock-head"><a class="linkish" href="company.html?org=${esc(encodeURIComponent(m.org_id))}">${esc(P.names[m.org_id]||'An account')}</a><span class="item-date">${esc(right)}</span></span><span class="item-sub wrap">${esc(sub)}</span>${clock}</div></div>`;
   }).join(''):emptyMini('Every membership is paid.','paid');
   return `<section class="panel"><h2>Payment clocks <span class="n num">${P.rows.length}</span></h2><div>${body}</div><p class="picker-note">Reminders go to the host on days 7 and 12. On day 14 the listing hides itself, and paying restores it.</p></section>`;
@@ -420,7 +423,7 @@ async function raise(type,payload,spot,verb,toastText){
   }
   NXShell.toast(toastText||`${verb}, queued. This page updates by itself.`);
   checkBack.pressed();
-  setTimeout(load,1500);
+  checkBack.soon();
   return true;
 }
 const val=id=>String(($(id)||{}).value||'');
