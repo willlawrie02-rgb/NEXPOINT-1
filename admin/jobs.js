@@ -2,7 +2,7 @@
    yields, as the Inbox (inbox.html) and the company page's Needs you
    (company.html) show it and decide it.
 
-   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=103">:
+   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=105">:
    shared admin files are cached in browsers for up to four hours, so bump
    ?v= on every change (and on every page that links it).
 
@@ -1418,7 +1418,8 @@ async function read(sb,rows,opt){
    20 s, for 10 minutes of looking; a new press or a row not seen before gives
    10 more. A hidden tab neither looks nor spends them, and looks as soon as it
    is back. A reload redraws the page, so one that falls due while someone is
-   typing, or while hold() says a form is open, waits until they have finished. */
+   typing, or while hold() says a form is open, waits until they have finished.
+   The reload a press asks for (soon) goes through the same guard. */
 const POLL_GAPS=[5000,5000,10000,20000], POLL_LIMIT=6e5;
 const isOpenIntent=s=>s==='pending'||s==='claimed';
 function typing(){
@@ -1455,6 +1456,15 @@ function poll(sb,load,hold){
     clearTimeout(timer);timer=null;
     if(!document.hidden&&(owed||(open.size&&left>0)))return look();
   });
+  /* The reload a press asks for (plan 105): a moment after it, through the
+     same guard as a look. Held, it is owed, and the next look makes it once
+     the box is left and the form is closed. */
+  function soon(ms){
+    setTimeout(()=>{
+      if(typing()||(hold&&hold())){owed=true;arm();return;}
+      return load();
+    },ms==null?1500:ms);
+  }
   return {
     /* A failed read (no rows) says nothing, so the rows already watched stay watched. */
     watch(rows){
@@ -1466,6 +1476,7 @@ function poll(sb,load,hold){
       arm();
     },
     pressed(){clearTimeout(timer);timer=null;step=0;left=POLL_LIMIT;arm(true);},
+    soon,
   };
 }
 
