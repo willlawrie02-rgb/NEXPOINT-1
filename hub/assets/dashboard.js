@@ -32,7 +32,11 @@
     awaiting_acceptance: 2,
   };
 
-  var CURRENCIES = ['GBP', 'EUR', 'USD'];
+  /* The currencies a host declares and is invoiced in (plan 106, D26, which
+     replaced D20's four). Any other: the desk. declare.js keeps the same list. */
+  var CURRENCIES = ['GBP', 'EUR', 'USD', 'CAD', 'AUD', 'ILS'];
+  /* Where a host declares (plan 106, D5): its own page, one month at a time. */
+  var DECLARE_PAGE = 'declare/';
 
   /* The API address the page talks to, by portal.js's own rule (listing-form.js
      and find.js keep the same copy). Plan 095: the Pay the invoice button is
@@ -77,12 +81,34 @@
   /* Money on this page is only ever the account's own number: what it declared,
      or what it has been invoiced. Nothing here prices the network. */
   function money(amount, currency) {
-    var sym = { GBP: '£', EUR: '€', USD: '$' }[currency] || '';
+    /* The six currencies of plan 106 (D26), as the worker's fee.js writes
+       them: three of them are dollars, so each dollar says whose it is. */
+    var sym = { GBP: '£', EUR: '€', USD: 'US$', CAD: 'CA$', AUD: 'A$', ILS: '₪' }[currency] || '';
     var n = Number(amount || 0);
     var s;
     try { s = n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     catch (e) { s = n.toFixed(2); }
     return sym ? sym + s : (currency ? currency + ' ' + s : s);
+  }
+  /* Money on a declaration or a monthly statement, as the approved draft
+     writes it (plan 106): the currency's code, then the figure. */
+  function cash(amount, currency) {
+    var n = Math.round(Number(amount || 0) * 100) / 100, s;
+    try { s = n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    catch (e) { s = n.toFixed(2); }
+    return currency ? currency + ' ' + s : s;
+  }
+  /* A date the worker sends as 2026-11-15 (or a timestamp), read in UTC so
+     it never slips a day on the reader's clock: "15 Nov 2026", or in full,
+     "15 November 2026", or "15 Nov" without the year. */
+  function dayOf(iso, how) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+    if (!m) return '';
+    var d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+    var opt = how === 'long' ? { day: 'numeric', month: 'long', year: 'numeric' }
+      : how === 'noyear' ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' };
+    opt.timeZone = 'UTC';
+    try { return d.toLocaleDateString('en-GB', opt); } catch (e) { return String(iso).slice(0, 10); }
   }
   function list(v) { return Array.isArray(v) ? v.filter(Boolean).join(', ') : (v || ''); }
   function fill(id, html) {
@@ -539,20 +565,22 @@
      closed. */
   function answerPanel(i) {
     var id = esc(i.id);
-    /* On the board the company that asked is told, not a seeker. */
+    /* On the board the company that asked is told, not a seeker. On the
+       hubs the seeker is named (plan 106, D12), when the worker names it. */
     var board = onBoard(i);
+    var named = board ? '' : companyOf(i, offerOf(i.id));
     return '<div class="acct-answer" id="introAnswer-' + id + '" hidden>' +
         '<p class="hint">' + (board
           ? 'Accept and the introduction goes to you both by email, with each other\'s details. ' +
             'Decline and the other company is told only that you said no, never why.'
           : 'Accept and the introduction goes to you both by email, with each other\'s details. ' +
-            'Decline and the seeker is told a site said no, and nothing else.') + '</p>' +
+            'Decline and ' + (named ? esc(named) : 'the seeker') + ' is told a site said no, and nothing else.') + '</p>' +
         '<div class="acct-answer__terms" id="introTerms-' + id + '"></div>' +
         '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-accept-send" data-intro="' + id + '">Accept the introduction</button>' +
       '</div>' +
       '<div class="acct-answer" id="introDecline-' + id + '" hidden>' +
         '<label class="hint" for="introReason-' + id + '">Tell us why, if you like. This goes to the NexPoint desk, not to ' +
-          (board ? 'the other company' : 'the seeker') + '.</label>' +
+          (board ? 'the other company' : named ? esc(named) : 'the seeker') + '.</label>' +
         '<textarea id="introReason-' + id + '" rows="3" placeholder="' + (board ? 'Not the right fit for us at the moment'
           : 'Too far out, wrong material, no capacity that month') + '"></textarea>' +
         '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-decline-send" data-intro="' + id + '">Send my decline</button>' +
@@ -560,9 +588,13 @@
   }
 
   /* The need box (plan 055, decision 7): what the seeker asked for, in the
-     rows the offer email uses, pinned open on the Request pin of the pair
-     map. Nobody is named: a request is a specification. */
-  function needBoxHtml(r, hub) {
+     rows the offer email uses, open on the Request pin of the pair map.
+     Plan 106 (Will, 19 November 2026; D12): it names the company that asked,
+     with its logo, above the town (the person, email and phone still reach
+     the host only on acceptance); its Notes are only what the seeker typed in
+     the notes box (notes_own), and are absent when nothing was typed or the
+     worker does not send them yet; and a cross closes it. */
+  function needBoxHtml(r, hub, company, logoUrl) {
     if (!r) return '';
     var rows = [];
     var one = function (n, s, p) { return Number(n) === 1 ? n + ' ' + s : n + ' ' + p; };
@@ -580,57 +612,286 @@
     var services = (Array.isArray(r.services) ? r.services : []).map(function (s) { return lab('service', hub, s); }).filter(Boolean);
     if (services.length) rows.push(['Services', services.join(', ')]);
     var where = [r.town, r.country].filter(Boolean).join(', ');
-    return '<div class="np-need">' +
+    var notes = typeof r.notes_own === 'string' ? r.notes_own.trim() : '';
+    return '<div class="np-need' + (company ? ' np-need--named' : '') + '">' +
+      '<button class="np-need__x" type="button" data-np-need-close aria-label="Close what they need">' +
+        '<span class="material-symbols-outlined" aria-hidden="true">close</span></button>' +
       '<b class="np-need__head">What they need</b>' +
+      (company ? '<span class="np-need__company">' + logoTile(company, logoUrl) + '<span>' + esc(company) + '</span></span>' : '') +
       (where ? '<span class="np-need__where">' + esc(where) + '</span>' : '') +
       (rows.length ? '<dl>' + rows.map(function (row) {
         return '<dt>' + esc(row[0]) + '</dt><dd>' + esc(row[1]) + '</dd>';
       }).join('') + '</dl>' : '') +
-      (r.notes ? '<p class="np-need__notes"><b>Notes</b>' + esc(r.notes) + '</p>' : '') +
+      (notes ? '<p class="np-need__notes"><b>Notes</b>' + esc(notes) + '</p>' : '') +
     '</div>';
   }
 
-  /* The provider's pair map (plan 052, item 24; plan 055, decision 7): on
-     every provider row that carries an offer, whatever its stage, the
-     request's town and the provider's own site, two pins and nothing to
-     choose, with the need box open on the Request pin. Only a town's point
-     ever reaches it; the box stays hidden until the map script has drawn
-     into it, and never appears without points. */
-  function pairMapBox(i, offer) {
-    if (!offer) return '';
-    var r = offer.request || {};
-    var any = (r.point && typeof r.point.lat === 'number') || (offer.site && offer.site.point);
-    if (!any) return '';
-    return '<div class="np-map np-map--pair np-map--need" id="pairMap-' + esc(i.id) + '" aria-label="Where the request and your site are" hidden></div>';
+  /* ── the introduction card (plan 106, Will, 19 November 2026) ──────
+     A host's row on the 3D Print Hub or the Mill Hub, to the approved draft
+     (advisor-plans/106-account-page-draft.html, "Banner and card titles"):
+     the company that asked and the code in brackets on a navy title strip;
+     the fee year; the status at the top; the facts; the map, which folds
+     away; the four steps only until the introduction is made; the answer;
+     and, once introduced, what was declared for it. Every new field is
+     optional: an older summary with no company titles the card by its
+     reference, as before, and draws no year line or declarations. A board
+     row and a seeker's row are drawn by introRowPlain, as they were. */
+  function companyOf(i, offer) {
+    var c = i && typeof i.company === 'string' ? i.company.trim() : '';
+    if (!c && offer && typeof offer.company === 'string') c = offer.company.trim();
+    return c;
   }
-  var pairMaps = [];
+  function logoOf(i, offer) {
+    var u = i && typeof i.logo_url === 'string' ? i.logo_url : '';
+    if (!u && offer && typeof offer.logo_url === 'string') u = offer.logo_url;
+    return u || '';
+  }
+  /* The company's logo, or its initials when there is none or it does not
+     load (the page's one error listener swaps a broken picture back). */
+  function logoTile(company, url) {
+    var ini = initials(company);
+    return '<span class="intro-logo" aria-hidden="true" data-initials="' + esc(ini) + '">' +
+      (url ? '<img src="' + esc(url) + '" alt="" data-np-logo>' : esc(ini)) + '</span>';
+  }
+  function ms(name) { return '<span class="material-symbols-outlined" aria-hidden="true">' + name + '</span>'; }
+  function monthOf(iso) { return iso ? fmtPeriod(String(iso).slice(0, 7)) : ''; }
+  function stopped(stage) { return stage === 'declined' || stage === 'expired' || stage === 'dead'; }
+
+  /* The fee year (Host Agreement §7; plan 106, C1): counted from the first
+     order, so before one the card reads "from the first order". The figures
+     are the worker's, from the engine's schedule; none here. */
+  function yearLine(i) {
+    var y = Number(i.fee_year);
+    if (!(y >= 1 && y <= 5) || i.fee_rate == null || isNaN(Number(i.fee_rate))) return '';
+    var rest;
+    if (!i.first_order_at) rest = 'from the first order';
+    else {
+      rest = 'First order ' + monthOf(i.first_order_at) + '.';
+      if (i.next_year_from && i.next_rate != null && !isNaN(Number(i.next_rate))) {
+        rest += ' Year ' + (y + 1) + ' (' + rateText(i.next_rate) + ') starts ' + monthOf(i.next_year_from) + '.';
+      }
+    }
+    return '<div class="intro-year"><span class="year-chip">Year ' + y + ' (' + esc(rateText(i.fee_rate)) + ')</span>' +
+      '<span>' + esc(rest) + '</span></div>';
+  }
+
+  /* The status, at the top of the card. Introduced is the green line that
+     used to end the card (inboxLine); the bare "Introduced." has gone. */
+  function statusLine(i, releaseState) {
+    if (acceptedStage(i.stage)) return inboxLine(i.ref || '', introDate(i), releaseState);
+    if (i.stage === 'awaiting_acceptance') {
+      return '<span class="intro-status">Waiting for your answer.' +
+        (i.acceptance_expires_at ? ' Open until ' + esc(fmtDate(i.acceptance_expires_at)) + '.' : '') + '</span>';
+    }
+    if (i.stage === 'declined' && i.declined_at) {
+      return '<span class="intro-status is-stop">Declined on ' + esc(fmtDate(i.declined_at)) + (i.ref ? ', ref ' + esc(i.ref) : '') + '.</span>';
+    }
+    var line = providerLine(i);
+    return line ? '<span class="intro-status' + (stopped(i.stage) ? ' is-stop' : '') + '">' + esc(line) + '</span>' : '';
+  }
+
+  /* The map, open or folded (Table 2): open while the introduction waits for
+     the host's answer, folded once introduced, and the reader's own choice
+     from its top right corner after that, kept for the page's life so a
+     redraw never undoes it. The need box's open or closed is kept the same
+     way. The map is drawn the first time it is opened. */
+  var mapOpen = {}, boxOpen = {}, detailOpen = {};
+  var pairMaps = {}, pairData = {};
+  function isMapOpen(i) {
+    return mapOpen[i.id] != null ? !!mapOpen[i.id] : i.stage === 'awaiting_acceptance';
+  }
+  function hasPairPoints(offer) {
+    if (!offer) return false;
+    var r = offer.request || {};
+    return !!((r.point && typeof r.point.lat === 'number') || (offer.site && offer.site.point));
+  }
+  function mapShell(i, offer) {
+    if (!hasPairPoints(offer)) return '';
+    var id = esc(i.id);
+    var open = isMapOpen(i);
+    var r = offer.request || {};
+    var where = [r.town, r.country].filter(Boolean).join(', ');
+    return '<div class="map-shell" id="mapShell-' + id + '">' +
+      '<div class="map-fold" id="mapFold-' + id + '"' + (open ? ' hidden' : '') + '>' +
+        '<span>' + ms('map') + '<span>' + esc((where || 'The request') + ', and your site') + '</span></span>' +
+        '<button class="map-btn" type="button" data-act="map-toggle" data-intro="' + id + '" aria-expanded="false">' + ms('unfold_more') + 'Show map</button>' +
+      '</div>' +
+      '<div class="map-open" id="mapOpen-' + id + '"' + (open ? '' : ' hidden') + '>' +
+        '<div class="np-map np-map--pair np-map--need" id="pairMap-' + id + '" aria-label="Where the request and your site are"></div>' +
+        '<button class="map-btn map-btn--over" type="button" data-act="map-toggle" data-intro="' + id + '" aria-expanded="true">' + ms('unfold_less') + 'Hide map</button>' +
+        '<span class="map-hint" id="mapHint-' + id + '" hidden>Press Request to see what they need</span>' +
+      '</div>' +
+    '</div>';
+  }
+  function hideShell(id) { var sh = el('mapShell-' + id); if (sh) sh.hidden = true; }
+  function mountPairMap(id) {
+    var d = pairData[id];
+    var box = el('pairMap-' + id);
+    if (!d || !box) return null;
+    if (!window.NPMatchMap || !NPMatchMap.mountPair) { hideShell(id); return null; }
+    var r = d.offer.request || {};
+    var hint = el('mapHint-' + id);
+    var handle = NPMatchMap.mountPair({
+      el: box,
+      seeker: r.point ? { town: r.town || '', country: r.country || '', point: r.point } : null,
+      site: d.offer.site || null,
+      popup: needBoxHtml(r, d.offer.hub || d.intro.hub, companyOf(d.intro, d.offer), logoOf(d.intro, d.offer)),
+      boxOpen: boxOpen[id] !== false,
+      /* on a narrow map the box sits under the Hide map button, not beside it */
+      topClear: box.clientWidth && box.clientWidth < 520 ? 48 : 0,
+      onBox: function (open) { boxOpen[id] = open; if (hint) hint.hidden = open; },
+    });
+    if (!handle) { hideShell(id); return null; }
+    if (hint) hint.hidden = !r.point || (handle.isBoxOpen ? handle.isBoxOpen() : true);
+    handle.refresh();
+    pairMaps[id] = handle;
+    return handle;
+  }
   function mountPairMaps(intros, offerBy) {
-    pairMaps.forEach(function (m) { m.destroy(); });
-    pairMaps = [];
-    if (!window.NPMatchMap) return;
+    Object.keys(pairMaps).forEach(function (k) { pairMaps[k].destroy(); });
+    pairMaps = {};
+    pairData = {};
     intros.forEach(function (i) {
       var o = offerBy[i.id];
-      var box = el('pairMap-' + i.id);
-      if (!o || !box) return;
-      var r = o.request || {};
-      box.hidden = false;
-      var handle = NPMatchMap.mountPair({
-        el: box,
-        seeker: r.point ? { town: r.town || '', country: r.country || '', point: r.point } : null,
-        site: o.site || null,
-        popup: needBoxHtml(r, o.hub || i.hub),
-      });
-      if (!handle) { box.hidden = true; return; }
-      handle.refresh();
-      pairMaps.push(handle);
+      if (!o || !el('mapShell-' + i.id)) return;
+      pairData[i.id] = { intro: i, offer: o };
+      if (!window.NPMatchMap) { hideShell(i.id); return; }
+      if (isMapOpen(i)) mountPairMap(String(i.id));
     });
+  }
+  function toggleMap(btn) {
+    var id = btn.getAttribute('data-intro');
+    var d = pairData[id];
+    if (!d) return;
+    var open = !isMapOpen(d.intro);
+    mapOpen[id] = open;
+    var fold = el('mapFold-' + id), body = el('mapOpen-' + id);
+    if (fold) fold.hidden = open;
+    if (body) body.hidden = !open;
+    if (open) {
+      /* drawn now if it was folded from the start; measured again if it was
+         drawn and then hidden, so Leaflet sizes itself to the open box */
+      if (pairMaps[id]) pairMaps[id].refresh(); else mountPairMap(id);
+    }
+    var next = (open ? body : fold);
+    var other = next && next.querySelector('[data-act="map-toggle"]');
+    if (other) other.focus();
+  }
+
+  /* What was declared for this introduction (Table 3), to look at only:
+     the worker's months, newest first, cut to this introduction's line. A
+     month still open reads "Not yet declared" in the normal colour; from the
+     day the worker calls it not declared, "Not declared" in red. The page
+     writes no day of its own. A summary with no months draws nothing. */
+  function declRowsFor(i, months) {
+    var since = String(introDate(i) || '').slice(0, 7);
+    var rows = [];
+    months.forEach(function (m) {
+      if (!m || !m.period) return;
+      var line = (Array.isArray(m.lines) ? m.lines : []).filter(function (l) {
+        return l && String(l.introduction_id) === String(i.id);
+      })[0];
+      var rate = line && line.rate != null ? line.rate : i.fee_rate;
+      var rateCell = '<td class="num">' + esc(rateText(rate)) + '</td>';
+      var cells;
+      if (line) {
+        if (line.nothing || m.state === 'nothing') {
+          cells = '<td class="num">No revenue</td>' + rateCell + '<td class="num">' + esc(cash(0, line.currency)) + '</td>';
+        } else {
+          cells = '<td class="num">' + esc(cash(line.value, line.currency)) + '</td>' + rateCell +
+            '<td class="num' + (m.state === 'overdue' ? ' is-red' : '') + '">' + esc(cash(line.fee, line.currency)) + '</td>';
+        }
+      } else if (m.state === 'nothing' && Array.isArray(m.lines) && m.lines.length) {
+        /* a nil return that names its lines and has none for this one: this
+           introduction was not in that month */
+        return;
+      } else if (m.state === 'open' || m.state === 'not_declared' || m.state === 'nothing') {
+        /* a month with no line for it. An unsent month names who owes a line
+           in its due[]; without one, this introduction is in it only from the
+           month it was made in (plan 106, C6). */
+        var owed = Array.isArray(m.due) && m.state !== 'nothing'
+          ? m.due.filter(function (r) { return r && String(r.introduction_id) === String(i.id); })[0] : null;
+        if (Array.isArray(m.due) && m.state !== 'nothing') {
+          if (!owed) return;
+          if (owed.rate != null) rateCell = '<td class="num">' + esc(rateText(owed.rate)) + '</td>';
+        } else if (since && m.period < since) return;
+        if (m.state === 'nothing') cells = '<td class="num">No revenue</td>' + rateCell + '<td class="num">' + esc(cash(0, '')) + '</td>';
+        else if (m.state === 'open') cells = '<td class="num is-wait">Not yet declared</td>' + rateCell + '<td class="num is-wait">–</td>';
+        else cells = '<td class="num is-red">Not declared</td>' + rateCell + '<td class="num is-red">–</td>';
+      } else return;
+      rows.push('<tr><td>' + esc(fmtPeriod(m.period)) + '</td>' + cells + '</tr>');
+    });
+    return rows;
+  }
+  function declDetails(i, months) {
+    if (!Array.isArray(months)) return '';
+    var rows = declRowsFor(i, months);
+    var key = 'decl-' + i.id;
+    return '<details class="acct-detail intro-decl" data-key="' + esc(key) + '"' + (detailOpen[key] ? ' open' : '') + '>' +
+      '<summary>Declarations for this introduction</summary>' +
+      (rows.length
+        ? '<div class="acct-scroll"><table class="acct-work"><thead><tr><th>Month</th><th class="num">Value you declared</th>' +
+            '<th class="num">Rate</th><th class="num">Fee</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div>' +
+          '<p class="acct-work-note">To look at only. You declare on the declaration page, once a month.</p>'
+        : empty('Nothing declared yet.', 'event_upcoming')) +
+    '</details>';
+  }
+
+  function introCard(i, offer, tag, months, held, host) {
+    var company = companyOf(i, offer);
+    var accepted = acceptedStage(i.stage);
+    var stop = stopped(i.stage);
+    /* Plan 104 (R7-18): a paused or hidden host is drawn no Accept or Decline,
+       and is told when it can answer instead. */
+    var canAnswer = answerable(i) && !held;
+    var heldLine = held && answerable(i) ? heldRowWords(host) : '';
+    /* Plan 095: the worker says whether the email that gives both sides each
+       other's details went; the host can send it again when it did not. */
+    var releaseFailed = i.stage === 'introduced' && (i.release === 'failed' || i.release === 'unrecorded');
+    var releaseState = releaseFailed ? 'failed-host' : (i.stage === 'introduced' && i.release === 'waiting' ? 'waiting' : '');
+    var title = company
+      ? '<b class="intro-title">' + logoTile(company, logoOf(i, offer)) +
+          '<span class="intro-name">' + esc(company) + (i.ref ? ' <span class="acct-ref">(' + esc(i.ref) + ')</span>' : '') + '</span>' +
+          tagHtml(tag) + hubPill(i.hub) + '</b>'
+      : '<b class="intro-title intro-title--ref">' + refLine(i.ref, i.hub) + tagHtml(tag) + '</b>';
+    var facts = offerLine(offer);
+    return '<div class="acct-row intro-card" id="intro-' + esc(i.id) + '" tabindex="-1">' +
+      '<div class="acct-row__meta">' +
+        title +
+        (stop ? '' : yearLine(i)) +
+        statusLine(i, releaseState) +
+        (heldLine ? '<span class="intro-status">' + esc(heldLine) + '</span>' : '') +
+        (facts ? '<span class="intro-facts">' + esc(facts) + '</span>' : '') +
+        (stop ? '' : mapShell(i, offer)) +
+        (accepted ? '' : statusChain(i.stage)) +
+        (canAnswer ? answerPanel(i) : '') +
+        (accepted ? declDetails(i, months) : '') +
+      '</div>' +
+      '<div class="acct-row__actions">' +
+        (canAnswer
+          ? '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-accept-open" data-intro="' + esc(i.id) + '">Review and accept</button>' +
+            '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-decline-open" data-intro="' + esc(i.id) + '">Decline</button>'
+          : '') +
+        (!held && i.stage === 'awaiting_acceptance'
+          ? '<button class="btn btn-outline acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '">Send the email again</button>'
+          : '') +
+        (releaseFailed
+          ? '<button class="btn btn-primary acct-btn-sm" type="button" data-act="intro-resend" data-intro="' + esc(i.id) + '" data-kind="release">Send the introduction email again</button>'
+          : '') +
+        (i.stage === 'awaiting_acceptance' || releaseFailed
+          ? '<span class="acct-msg" id="introMsg-' + esc(i.id) + '" hidden></span>'
+          : '') +
+      '</div>' +
+    '</div>';
   }
 
   /* The small tag on a card when the account has both kinds of introduction
      (plan 055, decision 8): which side of it the reader is on. */
   function tagHtml(tag) { return tag ? '<span class="acct-tag">' + esc(tag) + '</span>' : ''; }
 
-  function introRow(i, showResend, offer, tag, held, host) {
+  /* A board introduction (either side) and a seeker's introduction with no
+     request card: the row as it was before plan 106. */
+  function introRowPlain(i, showResend, tag, held, host) {
     var extra = [];
     /* Plan 070: a board introduction names its opportunity, and to the owner
        what the company asking said and where it is (never who). */
@@ -642,8 +903,6 @@
         [i.ask.town, i.ask.country].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
       if (said) extra.push(said);
     }
-    var asked = offerLine(offer);
-    if (asked) extra.push(asked);
     if (i.stage === 'awaiting_acceptance' && i.acceptance_expires_at) extra.push('Open until ' + fmtDate(i.acceptance_expires_at) + '.');
     var accepted = acceptedStage(i.stage);
     var canAnswer = showResend && answerable(i) && !held;
@@ -661,7 +920,6 @@
         '<b>' + refLine(i.ref, i.hub) + tagHtml(tag) + '</b>' +
         '<span>' + esc(providerLine(i)) + '</span>' +
         extra.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') +
-        pairMapBox(i, offer) +
         statusChain(i.stage) +
         (accepted ? inboxLine(i.ref || '', introDate(i), releaseState) : '') +
         (canAnswer ? answerPanel(i) : '') +
@@ -713,17 +971,23 @@
     var other = intros.filter(function (i) { return i.role !== 'provider' && !pickIds[i.id]; });
 
     var both = (requests.length || other.length) && provider.length;
+    var months = d.declarations && Array.isArray(d.declarations.months) ? d.declarations.months : null;
     var items = [];
     requests.forEach(function (r) { items.push({ at: when(r.created_at), html: requestCard(r, byId, both ? 'You asked' : '') }); });
-    provider.forEach(function (i) { items.push({ at: when(i.created_at), html: introRow(i, true, offerBy[i.id], both ? 'Asked of you' : '', answersHeld(s), isHost(s)) }); });
-    other.forEach(function (i) { items.push({ at: when(i.created_at), html: introRow(i, false, null, both ? 'You asked' : '') }); });
+    var held = answersHeld(s), host = isHost(s);
+    provider.forEach(function (i) {
+      var tag = both ? 'Asked of you' : '';
+      items.push({ at: when(i.created_at), html: onBoard(i) ? introRowPlain(i, true, tag, held, host)
+        : introCard(i, offerBy[i.id], tag, months, held, host) });
+    });
+    other.forEach(function (i) { items.push({ at: when(i.created_at), html: introRowPlain(i, false, both ? 'You asked' : '') }); });
     items.sort(function (a, b) { return b.at - a.at; });
 
     fill('introductions',
       head('handshake', 'Introductions', 'Once both sides have accepted, the introduction arrives in your inbox, and is listed below.') +
       (items.length ? items.map(function (x) { return x.html; }).join('')
         : empty('No introductions yet. Ask a hub for what you need, or list your site, and they appear here.', 'add_circle')));
-    mountPairMaps(provider, offerBy);
+    mountPairMaps(provider.filter(function (i) { return !onBoard(i); }), offerBy);
     attend();
   }
 
@@ -789,7 +1053,7 @@
       /* A sent month that is being changed (plan 098) has no due line: it is
          not open, overdue or reminded, it is being replaced. */
       '<p class="hint">' + (dec.due_state === 'submitted' ? '' : esc(dueLine(dec.due_state)) + ' ') + 'One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.</p>' +
-      '<p class="hint">If you invoiced in any currency other than pounds, euros or US dollars, email ' + HELLO + ' before you send this declaration.</p>' +
+      '<p class="hint">If you invoiced in any currency that is not on the list, email ' + HELLO + ' before you send this declaration.</p>' +
       '<div class="acct-scroll"><table class="decl-table">' +
         '<thead><tr><th>Introduction</th><th>Units</th><th>Value</th><th>Currency</th><th>Nothing</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
@@ -817,20 +1081,116 @@
     '</div>';
   }
 
+  /* What a month's declaration said (Will, 18 November 2026): each line's
+     introduction, units and value, and the month's total per currency, so the
+     fee on a statement can be followed back to the host's own figures. */
+  function unitsText(n) { return n == null ? '' : n + (Number(n) === 1 ? ' unit' : ' units'); }
+  function sumBy(lines, key) {
+    var out = {}, order = [];
+    lines.forEach(function (l) {
+      var c = l.currency || 'GBP';
+      if (!(c in out)) { out[c] = 0; order.push(c); }
+      out[c] += Math.round(Number(l[key] || 0) * 100);
+    });
+    return order.map(function (c) { return { currency: c, amount: out[c] / 100 }; });
+  }
+  function declLines(h) {
+    var lines = Array.isArray(h.lines) ? h.lines : [];
+    if (h.status === 'nothing') return { total: '', body: '<p class="acct-lines acct-lines--none">Nothing came through this month.</p>' };
+    if (!lines.length) return { total: '', body: '' };
+    var total = sumBy(lines, 'value').map(function (t) { return esc(money(t.amount, t.currency)); }).join(' + ');
+    var body = '<ul class="acct-lines">' + lines.map(function (l) {
+      return '<li><span class="acct-ref">' + esc(l.ref || '') + '</span>' +
+        '<span>' + esc(unitsText(l.units)) + '</span>' +
+        '<span class="acct-lines__value">' + esc(money(l.value, l.currency)) + '</span></li>';
+    }).join('') + '</ul>';
+    return { total: total, body: body };
+  }
   function declHistory(dec) {
     var rows = (dec && Array.isArray(dec.history)) ? dec.history : null;
     var body = (rows && rows.length)
       ? group(rows.map(function (h) {
+          var said = declLines(h);
           return '<div class="acct-row"><div class="acct-row__meta"><b>' + esc(fmtPeriod(h.period)) + '</b>' +
-            '<span>' + esc(h.submitted_at ? 'Sent ' + fmtDate(h.submitted_at) : 'Sent') + '</span></div></div>';
+            '<span>' + esc(h.submitted_at ? 'Sent ' + fmtDate(h.submitted_at) : 'Sent') + '</span></div>' +
+            (said.total ? '<div class="acct-row__actions"><span class="acct-amount" title="The value you declared">' + said.total + '</span></div>' : '') +
+            said.body + '</div>';
         }).join(''))
       : empty('Earlier declarations appear here once you have sent one.', 'history');
-    return '<details class="acct-detail"><summary>Earlier declarations</summary>' + body + '</details>';
+    return '<details class="acct-detail" open><summary>Earlier declarations</summary>' + body + '</details>';
+  }
+
+  /* Plan 106 (D5): with the worker's months, the section is one button to
+     the declaration page. The month to declare is the newest one still open
+     or not declared that owes a line; its words come from the worker's state
+     and declare_by, never from a day this page works out. */
+  function monthsOf(d) {
+    var dec = d && d.declarations;
+    var months = dec && Array.isArray(dec.months) ? dec.months : null;
+    /* An account the worker lists no month for, with declarations or
+       statements already on record, sells through the Opportunities Board
+       alone (the worker's months are the two hubs', D18): it keeps the card
+       and the statements it has, exactly as before this plan. */
+    if (months && !months.length && (dec.period_open || (Array.isArray(dec.history) && dec.history.length) ||
+        (Array.isArray(d.statements) && d.statements.length))) return null;
+    return months;
+  }
+  /* A host on a hub that also sells through the board: the board's month is
+     not on the declaration page while the worker's months leave the board out,
+     so its card stays here, under the button. True only when the worker's own
+     card is for the board and no month names it. */
+  function boardCardDue(d, months) {
+    var dec = d && d.declarations;
+    if (!dec || dec.hub !== 'opportunities' || !Array.isArray(dec.items) || !dec.items.length) return false;
+    if (['due', 'reminder', 'overdue'].indexOf(dec.due_state) === -1) return false;
+    return !(months || []).some(function (m) {
+      return m && [].concat(Array.isArray(m.lines) ? m.lines : [], Array.isArray(m.due) ? m.due : [])
+        .some(function (r) { return r && r.hub === 'opportunities'; });
+    });
+  }
+  function owes(m) {
+    return !!m && (m.state === 'open' || m.state === 'not_declared') && (!Array.isArray(m.due) || m.due.length > 0);
+  }
+  function monthToDeclare(months) { return (months || []).filter(owes)[0] || null; }
+  function declareHref(m) { return DECLARE_PAGE + '?period=' + encodeURIComponent(m.period); }
+  function introsWord(n) { return Number(n) === 1 ? 'One line for your introduction.' : 'One line for each of your ' + n + ' introductions.'; }
+  function declareButton(m) {
+    return '<a class="btn btn-primary acct-btn-sm acct-declare" href="' + esc(declareHref(m)) + '">Declare ' + esc(fmtPeriod(m.period)) + ms('arrow_forward') + '</a>';
+  }
+  function renderMonthsDeclarations(d, s, months) {
+    var m = monthToDeclare(months);
+    var body;
+    if (m) {
+      var by = dayOf(m.declare_by, 'long');
+      var when = m.state === 'not_declared'
+        ? (by ? 'Overdue. It was due by ' + by + '.' : 'Overdue.')
+        : (by ? 'Open now. Declare by ' + by + '.' : 'Open now.');
+      var n = Array.isArray(m.due) ? m.due.length : 0;
+      body = '<div class="acct-row acct-declare-row"><div class="acct-row__meta"><b>' + esc(fmtPeriod(m.period)) + '</b>' +
+        '<span>' + esc(when + (n ? ' ' + introsWord(n) : '')) + '</span></div>' +
+        '<div class="acct-row__actions">' + declareButton(m) + '</div></div>';
+    } else {
+      var last = months.filter(function (x) { return x && x.state && x.state !== 'open' && x.state !== 'not_declared'; })[0];
+      body = last
+        ? empty('Declared for ' + fmtPeriod(last.period) + '. Nothing else to send.', 'task_alt')
+        : empty('Nothing to declare yet. Your first declaration opens after the month of your first introduction.', 'event_upcoming');
+    }
+    var board = boardCardDue(d, months);
+    fill('declarations',
+      head('fact_check', 'Declarations', 'Once a month, the net revenue from each introduction. Your declaration is the record.') + body +
+      (board ? '<h3 class="acct-sub">' + esc(HUB_LABEL.opportunities || 'Opportunities Board') + '</h3>' + declCard(d.declarations, 'opportunities') : ''));
+    declTerms = null;
+    if (board && el('declTerms') && !s.closed && window.NPAccount && NPAccount.termsFor) {
+      NPAccount.termsFor('host').then(function (t) {
+        if (t && t.accepted === false && el('declTerms')) drawDeclTerms();
+      });
+    }
   }
 
   function renderDeclarations(d, s, byId) {
     if (!isHost(s) && !closedHost(d, s) && !boardSeller(d)) { hide('declarations'); return; }
     var dec = d.declarations;
+    if (monthsOf(d)) { renderMonthsDeclarations(d, s, monthsOf(d)); return; }
     var body;
     if (!dec) body = empty('Declarations open soon.', 'event_upcoming');
     else if (dec.due_state === 'submitted') {
@@ -854,8 +1214,8 @@
     else if (dec.due_state === 'due' || dec.due_state === 'reminder' || dec.due_state === 'overdue') {
       body = declCard(dec, declHubOf(dec, byId) || hostHubs(s)[0] || '');
     } else body = empty(isHost(s) || closedHost(d, s)
-      ? 'Nothing due. Declarations open on the 1st for hosts with accepted introductions.'
-      : 'Nothing due. Declarations open on the 1st for what you sell through accepted introductions.', 'task_alt');
+      ? 'Nothing due. Declarations open each month for hosts with accepted introductions.'
+      : 'Nothing due. Declarations open each month for what you sell through accepted introductions.', 'task_alt');
 
     fill('declarations',
       head('fact_check', 'Declarations', 'What came through each introduction. Your declaration is the record.') +
@@ -892,7 +1252,10 @@
     if (s.closed) { hide('waiting'); return 0; }
     var asked = intros.filter(function (i) { return i.role === 'provider' && i.stage === 'awaiting_acceptance'; });
     var held = answersHeld(s);
-    var due = (isHost(s) || boardSeller(d)) && dec && ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
+    var months = monthsOf(d);
+    var toDeclare = months ? monthToDeclare(months) : null;
+    var due = months ? !!((isHost(s) || boardSeller(d)) && toDeclare)
+      : (isHost(s) || boardSeller(d)) && dec && ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
       Array.isArray(dec.items) && dec.items.length;
     /* An account that is not a host and has listed, asked and been
        introduced to nothing yet has one thing to do: choose a hub. The
@@ -903,8 +1266,14 @@
     var acts = [];
     if (asked.length && !held) acts.push({ href: '#intro-' + asked[0].id, icon: 'handshake',
       text: asked.length === 1 ? 'Answer 1 introduction' : 'Answer ' + asked.length + ' introductions' });
-    if (due) acts.push({ href: '#declarations', icon: 'fact_check',
+    if (due && toDeclare) acts.push({ href: declareHref(toDeclare), icon: 'fact_check', leaves: true,
+      text: 'Send your declaration for ' + fmtPeriod(toDeclare.period) +
+        (toDeclare.state === 'not_declared' || dec.due_state === 'overdue' ? ', now overdue' : '') });
+    else if (due) acts.push({ href: '#declarations', icon: 'fact_check',
       text: 'Send your declaration for ' + (fmtPeriod(dec.period_open) || 'this period') + (dec.due_state === 'overdue' ? ', now overdue' : '') });
+    /* the board's own card, for a host that also sells through the board */
+    if (months && boardCardDue(d, months)) acts.push({ href: '#declarations', icon: 'fact_check',
+      text: 'Send your Opportunities Board declaration for ' + (fmtPeriod(dec.period_open) || 'this period') + (dec.due_state === 'overdue' ? ', now overdue' : '') });
     if (nothingYet) acts.push({ href: HUB_DOOR, icon: 'hub', leaves: true,
       text: 'List your site, or ask a hub for what you need' });
     /* Plan 104 (R7-18): an offer a paused or hidden account cannot answer is
@@ -930,16 +1299,156 @@
   }
 
   /* ═══════════ 5. fees and standing (host) ═══════════ */
-  function relationshipLine(r) {
-    var capacity = r.hub !== 'opportunities';
-    if (!r.first_order_at) return 'No order yet.' + (capacity ? ' The five fee years start with the first order.' : '');
-    return 'First order ' + fmtPeriod(String(r.first_order_at).slice(0, 7)) + '.' + (capacity ? ' The five fee years run from there.' : '');
+  /* How a statement's fee is worked out (Will, 18 November 2026): the lines
+     the statement was built from, which are the host's own declarations for
+     the quarter, each at its rate. The newest statement opens unfolded. */
+  function rateText(r) {
+    if (r == null || isNaN(Number(r))) return '';
+    return (Math.round(Number(r) * 10000) / 100) + '%';
   }
+  function statementWorking(f, open) {
+    var lines = Array.isArray(f.lines) ? f.lines : [];
+    if (!lines.length) return '';
+    var periods = lines.map(function (l) { return l.period; }).filter(Boolean).sort();
+    var first = periods[0], last = periods[periods.length - 1];
+    var span = !first ? '' : (first === last ? fmtPeriod(first) : fmtPeriod(first) + ' to ' + fmtPeriod(last));
+    var hubs = {};
+    lines.forEach(function (l) { if (l.hub) hubs[l.hub] = true; });
+    var manyHubs = Object.keys(hubs).length > 1;
+    var units = 0, allUnits = true;
+    lines.forEach(function (l) { if (l.units == null) allUnits = false; else units += Number(l.units); });
+    var value = f.total_value != null ? f.total_value : sumBy(lines, 'value')[0].amount;
+    var rows = lines.map(function (l) {
+      return '<tr><td><span class="acct-ref">' + esc(l.ref || '') + '</span>' +
+          (manyHubs && l.hub ? ' ' + hubPill(l.hub) : '') + '</td>' +
+        '<td>' + esc(fmtPeriod(l.period)) + '</td>' +
+        '<td class="num">' + esc(l.units == null ? '' : String(l.units)) + '</td>' +
+        '<td class="num">' + esc(money(l.value, l.currency)) + '</td>' +
+        '<td class="num">' + esc(rateText(l.rate)) + '</td>' +
+        '<td class="num">' + esc(money(l.fee, l.currency)) + '</td></tr>';
+    }).join('');
+    return '<details class="acct-detail acct-working"' + (open ? ' open' : '') + '>' +
+      '<summary>How this fee is worked out</summary>' +
+      '<div class="acct-scroll"><table class="acct-work">' +
+        '<thead><tr><th>Introduction</th><th>Month</th><th class="num">Units</th>' +
+          '<th class="num">Value you declared</th><th class="num">Rate</th><th class="num">Fee</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot><tr><td>Total</td><td></td><td class="num">' + (allUnits ? esc(String(units)) : '') + '</td>' +
+          '<td class="num">' + esc(money(value, f.currency)) + '</td><td></td>' +
+          '<td class="num">' + esc(money(f.total_fees, f.currency)) + '</td></tr></tfoot>' +
+      '</table></div>' +
+      '<p class="acct-work-note">Worked out from the declarations you sent' + (span ? ' for ' + esc(span) : '') +
+        ': the value you declared each month, at the rate for that introduction. ' +
+        'Your declarations are listed under Declarations, above.</p>' +
+    '</details>';
+  }
+  /* ── the monthly statement (plan 106, D1, D9, D16, D21) ──────────────
+     One block per month, newest first and open, from the worker's months:
+     the invoice line, a payment pill, the total; inside, each introduction's
+     value, rate and fee. Overdue reds the fees; a month not declared reds its
+     value cells and dashes the fees, and carries its own Declare button. */
+  var STMT_PILL = {
+    paid: ['is-paid', 'Paid'], awaiting_payment: ['is-issued', 'Awaiting payment'], overdue: ['is-bad', 'Overdue'],
+    not_declared: ['is-bad', 'Not declared'], invoice_pending: ['is-issued', 'Invoice on its way'], nothing: ['', 'No revenue'],
+  };
+  function stmtPill(m) {
+    var p = m.state === 'open' ? ['', m.declare_by ? 'Declare by ' + dayOf(m.declare_by, 'noyear') : 'Open'] : STMT_PILL[m.state];
+    return p ? '<span class="acct-pill' + (p[0] ? ' ' + p[0] : '') + '">' + esc(p[1]) + '</span>' : '';
+  }
+  function invoiceNumbers(invs) {
+    var nums = invs.map(function (v) { return v && v.number; }).filter(Boolean);
+    if (!nums.length) return 'Invoice';
+    return (nums.length === 1 ? 'Invoice ' : 'Invoices ') + nums.join(', ');
+  }
+  function stmtMeta(m) {
+    var invs = Array.isArray(m.invoices) ? m.invoices : [];
+    var inv = invs[0] || {};
+    if (m.state === 'open') return m.declare_by ? 'No invoice yet. Declare by ' + dayOf(m.declare_by) + '.' : 'No invoice yet.';
+    if (m.state === 'not_declared') return m.declare_by ? 'No invoice yet. The declaration was due by ' + dayOf(m.declare_by) + '.' : 'No invoice yet. The declaration is overdue.';
+    if (m.state === 'nothing') return 'No revenue. No invoice.';
+    if (m.state === 'invoice_pending' || !invs.length) return (m.sent_at ? 'Declared ' + dayOf(m.sent_at) + '. ' : '') + 'The invoice is on its way.';
+    var parts = [invoiceNumbers(invs)];
+    if (inv.raised_at) parts.push('raised ' + dayOf(inv.raised_at));
+    if (m.state === 'paid') { if (inv.paid_at) parts.push('paid ' + dayOf(inv.paid_at)); }
+    else if (inv.due_date) parts.push((m.state === 'overdue' ? 'was due ' : 'due ') + dayOf(inv.due_date));
+    return parts.join(' \u00b7 ');
+  }
+  function sumCash(lines, key) {
+    var out = {}, order = [];
+    lines.forEach(function (l) {
+      var c = l.currency || '';
+      if (!(c in out)) { out[c] = 0; order[order.length] = c; }
+      out[c] += Math.round(Number(l[key] || 0) * 100);
+    });
+    order.sort();
+    return order.map(function (c) { return cash(out[c] / 100, c); }).join(' + ');
+  }
+  function coCell(company, ref, hub, manyHubs) {
+    var who = company
+      ? '<span class="co">' + esc(company) + (ref ? '<small>(' + esc(ref) + ')</small>' : '') + '</span>'
+      : '<span class="co">' + esc(ref || '') + '</span>';
+    return '<td>' + who + (manyHubs && hub ? ' ' + hubPill(hub) : '') + '</td>';
+  }
+  function monthStatement(m, open) {
+    var unsent = m.state === 'open' || m.state === 'not_declared';
+    var red = m.state === 'overdue' || m.state === 'not_declared';
+    var source = unsent ? (Array.isArray(m.due) ? m.due : []) : (Array.isArray(m.lines) ? m.lines : []);
+    var hubs = {};
+    source.forEach(function (r) { if (r && r.hub) hubs[r.hub] = true; });
+    var many = Object.keys(hubs).length > 1;
+    var rows, total, totalValue;
+    if (unsent) {
+      var cls = m.state === 'not_declared' ? 'is-red' : 'is-wait';
+      rows = source.map(function (r) {
+        return '<tr>' + coCell(r.company, r.ref, r.hub, many) +
+          '<td class="num ' + cls + '">' + (m.state === 'not_declared' ? 'Not declared' : 'Not yet declared') + '</td>' +
+          '<td class="num">' + esc(rateText(r.rate)) + '</td><td class="num ' + cls + '">–</td><td></td></tr>';
+      }).join('');
+      total = '–'; totalValue = '–';
+    } else {
+      rows = source.map(function (l) {
+        var none = l.nothing || m.state === 'nothing';
+        return '<tr>' + coCell(l.company, l.ref, l.hub, many) +
+          '<td class="num">' + (none ? 'No revenue' : esc(cash(l.value, l.currency))) + '</td>' +
+          '<td class="num">' + esc(rateText(l.rate)) + '</td>' +
+          '<td class="num' + (red ? ' is-red' : '') + '">' + esc(cash(none ? 0 : l.fee, l.currency)) + '</td><td></td></tr>';
+      }).join('');
+      var paying = source.filter(function (l) { return !(l.nothing || m.state === 'nothing'); });
+      var totals = Array.isArray(m.totals) ? m.totals.filter(function (t) { return t && t.currency; }) : [];
+      var cur0 = (source[0] && source[0].currency) || '';
+      total = totals.length ? sumCash(totals, 'fee') : (paying.length ? sumCash(paying, 'fee') : cash(0, cur0));
+      totalValue = totals.length ? sumCash(totals, 'value') : (paying.length ? sumCash(paying, 'value') : cash(0, cur0));
+    }
+    var key = 'stmt-' + m.period;
+    var isOpen = key in detailOpen ? detailOpen[key] : open;
+    return '<details class="stmt" data-key="' + esc(key) + '" data-state="' + esc(m.state || '') + '"' + (isOpen ? ' open' : '') + '>' +
+      '<summary><span class="stmt__when"><b>' + esc(fmtPeriod(m.period)) + '</b><span>' + esc(stmtMeta(m)) + '</span></span>' + stmtPill(m) +
+        '<span class="acct-amount' + (red ? ' is-red' : '') + '">' + esc(total) + '</span></summary>' +
+      '<div class="stmt__body"><div class="acct-scroll"><table class="acct-work">' +
+        '<thead><tr><th>Introduction</th><th class="num">Value you declared</th><th class="num">Rate</th><th class="num">Fee</th><th class="num">Payment</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot><tr><td>Total</td><td class="num">' + esc(totalValue) + '</td><td></td><td class="num' + (red ? ' is-red' : '') + '">' + esc(total) + '</td><td class="num">' + stmtPill(m) + '</td></tr></tfoot>' +
+      '</table></div>' +
+      (unsent && source.length ? '<div class="stmt__go">' + declareButton(m) + '</div>' : '') +
+      '</div></details>';
+  }
+  function monthlyStatements(months) {
+    var all = months.filter(function (m) { return m && m.period; });
+    if (!all.length) return empty('Your monthly statements appear here once your first month has closed.', 'receipt_long');
+    return all.map(function (m, n) { return monthStatement(m, n === 0); }).join('') +
+      '<p class="acct-work-note">Each month\'s fee is worked out from what you declared, at the rate for that introduction\'s year. ' +
+        'One invoice a month, due 30 days after it is raised.</p>';
+  }
+
   function renderFees(d, s) {
     if (!isHost(s) && !closedHost(d, s) && !boardSeller(d)) { hide('fees'); return; }
     var statements = Array.isArray(d.statements) ? d.statements : null;
+    var months = monthsOf(d);
     var feesBody;
-    if (statements && statements.length) {
+    if (months) {
+      feesBody = monthlyStatements(months);
+    } else if (statements && statements.length) {
+      var newest = statements[0] ? statements[0].id : null;
       feesBody = group(statements.map(function (f) {
         var when = f.paid_at ? fmtDate(f.paid_at)
           : f.issued_at ? fmtDate(f.issued_at)
@@ -951,7 +1460,7 @@
           '<span>' + esc(when) + '</span>' +
         '</div><div class="acct-row__actions">' + pill +
           '<span class="acct-amount">' + esc(money(f.total_fees, f.currency)) + '</span>' +
-        '</div></div>';
+        '</div>' + statementWorking(f, f.id === newest) + '</div>';
       }).join(''));
     } else if (!statements && Array.isArray(d.fees_owed) && d.fees_owed.length) {
       feesBody = group(d.fees_owed.map(function (f) {
@@ -968,44 +1477,15 @@
       ? 'Follow-through: ' + score.value + (score.computed_at ? ' · scored ' + fmtDate(score.computed_at) : '')
       : 'Follow-through: not scored yet.';
 
-    var strikes = (score && Array.isArray(score.open_strikes)) ? score.open_strikes
-      : (Array.isArray(d.open_strikes) ? d.open_strikes : []);
-    var strikesBody = strikes.length
-      ? group(strikes.map(function (st) {
-          var line = [st.cure_by ? 'Cure by ' + fmtDate(st.cure_by) + '.' : '', st.notes || ''].filter(Boolean).join(' ');
-          return '<div class="acct-row"><div class="acct-row__meta">' +
-            '<b>' + esc(st.opened_at ? 'Opened ' + fmtDate(st.opened_at) : 'Open strike') + '</b>' +
-            '<span>' + esc(line || 'Declaring the matching order clears it.') + '</span>' +
-          '</div></div>';
-        }).join(''))
-      : empty('No open strikes.', 'verified');
-
-    /* Introduced customers (plan 055, decision 20): each introduction, and
-       the first order its five fee years run from (Host §7; plan 078). A board
-       fee runs for the period agreed in writing (Host §10), so a board row
-       states the order alone. Older summaries carry no relationships; the
-       provider rows say the same. */
-    var rels = Array.isArray(d.relationships) ? d.relationships
-      : (Array.isArray(d.introductions) ? d.introductions : []).filter(function (i) {
-          return i.role === 'provider' && i.introduced_at;
-        }).map(function (i) { return { introduction_id: i.id, ref: i.ref, hub: i.hub, since: i.introduced_at }; });
-    var relBody = rels.length
-      ? '<h3 class="acct-sub">Introduced customers</h3>' +
-        group(rels.map(function (r) {
-          return '<div class="acct-row"><div class="acct-row__meta">' +
-            '<b>' + refLine(r.ref, r.hub, 'Introduction') + '</b>' +
-            '<span>' + esc(relationshipLine(r)) + '</span>' +
-          '</div></div>';
-        }).join('')) +
-        '<h3 class="acct-sub">Statements</h3>'
-      : '';
-
+    /* Plan 106 (D27): the list that stood here is ours alone now. A host is
+       shown its follow-through score and nothing else about its standing;
+       whatever the worker still sends about it is never read by this page. */
     fill('fees',
       head('receipt_long', 'Fees and standing', scoreLine) +
-      relBody +
-      feesBody +
-      '<h3 class="acct-sub">Open strikes</h3>' +
-      strikesBody);
+      /* "Introduced customers" has gone (plan 106): each introduction's fee
+         year and first order are on its card, under Introductions. */
+      '<h3 class="acct-sub">' + (months ? 'Monthly statements' : 'Statements') + '</h3>' +
+      feesBody);
   }
 
   /* ═══════════ your terms (plan 078) ═══════════ */
@@ -1265,6 +1745,8 @@
     nothing_or_lines: 'Either tick Nothing for every introduction or enter at least one line.',
     introduction_unanswered: 'Every introduction needs an answer: a value, or a tick under Nothing. If you have answered them all, reload the page and declare again.',
     line_and_nothing: 'One introduction has both figures and a Nothing tick. Clear one of them and send again.',
+    /* Plan 106 (D10): a sent month is locked; a correction goes through the desk. */
+    already_sent: 'This month has already been sent. To change it, talk to the desk.',
   };
   function declError(code) { return DECL_ERRORS[code] || GENERIC_ERROR; }
 
@@ -1454,6 +1936,10 @@
     return (lastSummary && Array.isArray(lastSummary.introductions) ? lastSummary.introductions : [])
       .filter(function (x) { return String(x.id) === String(id); })[0];
   }
+  function offerOf(id) {
+    return (lastSummary && Array.isArray(lastSummary.offers) ? lastSummary.offers : [])
+      .filter(function (x) { return String(x.introduction_id) === String(id); })[0] || null;
+  }
   function isBoardIntro(id) {
     var i = introOf(id);
     return onBoard(i) ? i : null;
@@ -1532,10 +2018,19 @@
     post('/introductions/' + action, body).then(function (d) {
       if (d && d.ok) {
         if (body.terms_version_id) NPAccount.noteAccepted(sentLayer);
+        if (action === 'accept' && !board) {
+          /* Plan 106: a notice that fills the page, in place of a line the
+             reload took away. Behind it the card redraws as introduced,
+             with its map folded. */
+          mapOpen[id] = false;
+          showApproved(id);
+          load();
+          return;
+        }
         say(msg, action === 'accept'
           ? 'Accepted. The introduction is on its way to your inbox.'
           : board ? 'Declined. The other company is told only that you said no.'
-            : 'Declined. The seeker is told a site said no, and nothing else.');
+            : 'Declined. ' + (companyOf(introOf(id), offerOf(id)) || 'The seeker') + ' is told a site said no, and nothing else.');
         load();
         return;
       }
@@ -1555,6 +2050,59 @@
     });
   }
 
+  /* ── Introduction approved (plan 106, CONTRACT 4) ──────────────────
+     The notice that fills the page when a host accepts. The first name is
+     the signed-in person's own, as the account module holds it
+     (NPAccount.user.name, from GET /me); with none known the small print
+     starts "Please declare". Keyboard: focus goes to its one button, Tab
+     stays there, Escape closes it as the button does. */
+  var approvedFor = null;
+  function firstName() {
+    var n = window.NPAccount && NPAccount.user && typeof NPAccount.user.name === 'string' ? NPAccount.user.name.trim() : '';
+    return n ? n.split(/\s+/)[0] : '';
+  }
+  function possessive(name) { return /s$/i.test(name) ? name + '\'' : name + '\'s'; }
+  function showApproved(id) {
+    var box = el('approved');
+    if (!box) return;
+    approvedFor = String(id);
+    var company = companyOf(introOf(id), offerOf(id));
+    var first = firstName();
+    var whose = company ? possessive(company) : 'this introduction\'s';
+    box.innerHTML = '<div class="approved__box">' +
+      '<div class="approved__tick">' + ms('check') + '</div>' +
+      '<h2 id="approvedTitle">Introduction approved</h2>' +
+      '<p class="approved__lead">' + (company ? 'You and ' + esc(company) + ' have been introduced.' : 'You have both been introduced.') + '</p>' +
+      '<div class="approved__inbox">' + ms('mail') + '<span><b>Check your email inbox.</b> We have sent one email to you both, with each other\'s details. Reply to all to carry on.</span></div>' +
+      '<button class="btn btn-primary" type="button" data-act="approved-close">Back to my account' + ms('arrow_forward') + '</button>' +
+      '<p class="approved__small">' + (first ? esc(first) + ', please declare ' : 'Please declare ') + esc(whose) +
+        ' orders on your hub account page each month, which keeps your listing in good standing.</p>' +
+    '</div>';
+    box.hidden = false;
+    document.documentElement.classList.add('np-approved-open');
+    var b = box.querySelector('button');
+    if (b) b.focus();
+  }
+  function closeApproved() {
+    var box = el('approved');
+    if (!box || box.hidden) return;
+    box.hidden = true;
+    box.innerHTML = '';
+    document.documentElement.classList.remove('np-approved-open');
+    var card = approvedFor ? el('intro-' + approvedFor) : null;
+    approvedFor = null;
+    if (card) {
+      try { card.scrollIntoView({ block: 'start' }); } catch (e) { card.scrollIntoView(); }
+      try { card.focus({ preventScroll: true }); } catch (e) { card.focus(); }
+    }
+  }
+  function onKey(e) {
+    var box = el('approved');
+    if (!box || box.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeApproved(); return; }
+    if (e.key === 'Tab') { e.preventDefault(); var b = box.querySelector('button'); if (b) b.focus(); }
+  }
+
   function onClick(e) {
     var btn = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
     if (!btn) return;
@@ -1563,6 +2111,8 @@
     if (act === 'join') { if (window.NPAccount) NPAccount.openQuestionnaire({}); return; }
     if (act === 'education') { if (window.openEducationList) openEducationList(); return; }
     if (act === 'reopen') { reopenAccount(); return; }
+    if (act === 'approved-close') { closeApproved(); return; }
+    if (act === 'map-toggle') { toggleMap(btn); return; }
     if (act === 'decl-nil-confirm') { gate(function () { submitDeclaration(btn, true); }); return; }
     if (act === 'decl-nil-back') { declNilBack(btn.getAttribute('data-period') || ''); return; }
     if (act === 'decl-change') { declReopen = btn.getAttribute('data-period') || null; load(); return; }
@@ -1587,7 +2137,27 @@
   function init() {
     var wrap = document.querySelector('.acct-wrap');
     if (wrap) wrap.addEventListener('click', onClick);
+    if (el('approved')) el('approved').addEventListener('click', onClick);
+    document.addEventListener('keydown', onKey);
+    /* a declarations list opened or closed stays so through a redraw */
+    document.addEventListener('toggle', function (e) {
+      var t = e.target;
+      if (t && t.getAttribute && t.getAttribute('data-key')) detailOpen[t.getAttribute('data-key')] = t.open;
+    }, true);
+    /* a company's logo that does not load gives way to its initials */
+    document.addEventListener('error', function (e) {
+      var img = e.target;
+      if (!img || img.tagName !== 'IMG' || !img.hasAttribute('data-np-logo')) return;
+      var tile = img.parentNode;
+      if (tile) tile.textContent = tile.getAttribute('data-initials') || '';
+    }, true);
     window.addEventListener('hashchange', attend);
+    /* No number on this page moves under the mouse wheel (plan 106): a
+       focused number box gives up its focus before the wheel can change it. */
+    document.addEventListener('wheel', function (e) {
+      var t = e.target;
+      if (t && t.tagName === 'INPUT' && t.type === 'number' && document.activeElement === t) t.blur();
+    }, { passive: true });
     if (!window.NPAccount) { showSignedOut(); return; }
     document.addEventListener('npaccount:change', load);
     NPAccount.ready.then(load);

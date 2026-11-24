@@ -339,6 +339,13 @@ for (const f of [...pages, ...scripts]) {
     addAll(/\bicon:\s*'([a-z0-9_]+)'/g, t);
     addAll(/ico \|\| '([a-z0-9_]+)'/g, t);
   }
+  // names passed to ms(), the plain icon helper of the account page and the
+  // declaration page (plan 106), directly or as a helper's fallback
+  if (/function ms\(/.test(t)) {
+    addAll(/\bms\('([a-z0-9_]+)'\)/g, t);
+    addAll(/\bms\(\w+ \|\| '([a-z0-9_]+)'\)/g, t);
+    addAll(/\bplain\([^;\n]*,\s*'([a-z0-9_]+)'\)/g, t);
+  }
   // names drawn by a stylesheet rule
   addAll(/content:\s*"([a-z0-9_]+)"[^}]*Material Symbols/g, t);
 }
@@ -554,6 +561,27 @@ for (const p of pages) {
     if (!seen.size) fail(`${file}: no page asks for it by version (the sweep expected at least one)`);
     if (seen.size > 1) fail(`${file} is asked for at ${seen.size} versions: ` +
       [...seen].map(([v, ps]) => `${v} (${[...new Set(ps)].join(", ")})`).join("; ") + ". One version everywhere it is tagged.");
+  }
+  // Plan 106 (24 November 2026): the account page, the declaration page, the
+  // find form and the listing form changed together, and their scripts read
+  // each other's markup (the map's pin cards, the guard on a number box). Each
+  // is asked for by version wherever it is loaded, and all by the same one.
+  {
+    const TOGETHER = ["dashboard.js", "declare.js", "find.js", "listing-form.js", "match-map.js", "typed-numbers.js"];
+    const versions = new Map();
+    for (const file of TOGETHER) {
+      const name = file.replace(".", "\\.");
+      for (const p of pages) {
+        const live = read(p).replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, "");
+        for (const m of live.matchAll(new RegExp("/" + name + "(\\?v=([\\w.-]+))?['\"]", "g"))) {
+          if (!m[2]) fail(`${p}: ${file} is asked for with no version (plan 106)`);
+          else versions.set(m[2], (versions.get(m[2]) || []).concat(`${file} on ${p}`));
+        }
+      }
+      if (![...versions.values()].flat().some((x) => x.startsWith(file + " on "))) fail(`${file}: no page asks for it (plan 106)`);
+    }
+    if (versions.size > 1) fail(`the plan 106 scripts are asked for at ${versions.size} versions: ` +
+      [...versions].map(([v, xs]) => `${v} (${[...new Set(xs)].join(", ")})`).join("; ") + ". One version everywhere.");
   }
   /* comments name the file too, so they are set aside before the look for a bare one */
   const bare = pages.filter((p) => /hub-account\.js(?!\?v=)/.test(read(p).replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/[^\n]*/g, "$1")));

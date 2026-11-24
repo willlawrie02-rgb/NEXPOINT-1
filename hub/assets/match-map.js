@@ -12,11 +12,20 @@
    says so instead. Choosing on the map ticks the card; ticking a card
    lights its pin.
 
-   The provider's map, on an offer: the seeker's town and the lab's own.
+   The provider's map, on an offer: the seeker's town and the lab's own,
+   with the need box that closes and opens again from the Request pin
+   (plan 106, 19 November 2026).
+
+   Plan 106 (19 November 2026): the seeker's map opens on
+   its own town and the three best sites only, close in, not on the globe;
+   the other pins stay drawn and fall in or out of that view as the map has
+   them. A site among the three carries its company's name (and logo) on
+   its pin's card, its title and its Choose button (C9: the worker names
+   three and no more); every other site keeps "Site 5 · town".
 
    Every point is a town's, rounded by the worker to about a kilometre
    (Will, 8 Oct: every pin sits at town level; the address never reaches a
-   map). Nothing here names a site. Progressive: when Leaflet is missing, or
+   map). Only a name the worker sent is shown. Progressive: when Leaflet is missing, or
    no point is known, mount returns null and the page carries on without a
    map. No search-as-you-type, no geolocation.                           */
 (function () {
@@ -29,6 +38,31 @@
       isFinite(p.lat) && isFinite(p.lng);
   }
   function placeOf(o) { return [o.town, o.country].filter(Boolean).join(', '); }
+  /* A site's name for its pin: its company when the worker named it (one of
+     the three), else its rank, as before ("Site 2"). */
+  function companyOf(s) { return s && typeof s.company === 'string' && s.company.trim() ? s.company.trim() : ''; }
+  function nameOf(s, Noun) { return companyOf(s) || (Noun + ' ' + s.position); }
+  function initials(name) {
+    var w = String(name || '').replace(/[^A-Za-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+    return ((w[0] || '').charAt(0) + (w[1] || '').charAt(0)).toUpperCase() || 'N';
+  }
+  /* The company's logo on a small white tile, whole; its initials when it
+     has none or the link fails (it is signed for a minute). */
+  function logoNode(s) {
+    var tile = document.createElement('span');
+    tile.className = 'np-pop__logo';
+    tile.setAttribute('aria-hidden', 'true');
+    var ini = initials(companyOf(s));
+    var u = typeof s.logo_url === 'string' ? s.logo_url.trim() : '';
+    if (/^(https?:\/\/|data:image\/)/i.test(u)) {
+      var img = document.createElement('img');
+      img.alt = '';
+      img.addEventListener('error', function () { tile.textContent = ini; }, { once: true });
+      img.src = u;
+      tile.appendChild(img);
+    } else tile.textContent = ini;
+    return tile;
+  }
 
   /* A town is a town: same town and country, whatever the case, is one pin.
      A site with no town falls back to its point. */
@@ -70,11 +104,11 @@
      frame reading a pane that had gone: "Cannot read properties of
      undefined (reading '_leaflet_pos')", seen now and then on the account
      page when the machine was busy (12 and 13 October). */
-  function frame(map, points) {
+  function frame(map, points, maxZoom) {
     if (!points.length) return;
     if (points.length === 1) { map.setView([points[0].lat, points[0].lng], 9, { animate: false }); return; }
     map.fitBounds(L.latLngBounds(points.map(function (p) { return [p.lat, p.lng]; })),
-      { padding: [36, 36], maxZoom: 10, animate: false });
+      { padding: [36, 36], maxZoom: maxZoom || 10, animate: false });
   }
   /* Taking a map down: stop whatever it is doing first, then remove it. */
   function takeDown(map) {
@@ -91,9 +125,27 @@
     root.className = 'np-pop';
     var head = document.createElement('p');
     head.className = 'np-pop__head';
-    head.textContent = group.sites.length === 1
-      ? Noun + ' ' + group.sites[0].position + ' · ' + placeOf(group.sites[0])
-      : group.sites.length + ' ' + noun + 's in ' + placeOf(group.sites[0]);
+    var one = group.sites.length === 1;
+    if (one && companyOf(group.sites[0])) {
+      /* plan 106 (C9): a named site leads with its logo and company, the
+         town and country beneath */
+      head.classList.add('np-pop__head--named');
+      head.appendChild(logoNode(group.sites[0]));
+      var who = document.createElement('span');
+      who.className = 'np-pop__who';
+      var nm = document.createElement('b');
+      nm.textContent = companyOf(group.sites[0]);
+      var at = document.createElement('span');
+      at.className = 'np-pop__at';
+      at.textContent = placeOf(group.sites[0]);
+      who.appendChild(nm);
+      who.appendChild(at);
+      head.appendChild(who);
+    } else {
+      head.textContent = one
+        ? Noun + ' ' + group.sites[0].position + ' · ' + placeOf(group.sites[0])
+        : group.sites.length + ' ' + noun + 's in ' + placeOf(group.sites[0]);
+    }
     root.appendChild(head);
     var list = document.createElement('ul');
     list.className = 'np-pop__list';
@@ -101,7 +153,7 @@
       var li = document.createElement('li');
       var facts = document.createElement('span');
       var bits = [];
-      if (group.sites.length > 1) bits.push(Noun + ' ' + s.position);
+      if (group.sites.length > 1) bits.push(nameOf(s, Noun));
       if (s.lead != null) bits.push('Lead time ' + (Number(s.lead) === 1 ? '1 day' : s.lead + ' days'));
       if (s.distance != null) bits.push('~' + s.distance + ' km');
       facts.textContent = bits.join(' · ');
@@ -111,7 +163,7 @@
         btn.type = 'button';
         btn.className = 'btn btn-primary np-pop__go';
         btn.setAttribute('data-choose', String(s.listing_id));
-        btn.textContent = 'Choose ' + Noun + ' ' + s.position;
+        btn.textContent = 'Choose ' + nameOf(s, Noun);
         btn.addEventListener('click', function () { opts.onPick(String(s.listing_id)); });
         li.appendChild(btn);
       } else {
@@ -154,14 +206,16 @@
     var map = baseMap(box);
     var noun = opts.noun || 'site';
     var points = [];
+    var view = [];
     if (hasPoint(opts.seeker)) {
       youMarker(map, opts.seeker, 'Your town', groups.some(function (g) { return near(g.at, opts.seeker); }));
       points.push(opts.seeker);
+      view.push(opts.seeker);
     }
     var markers = groups.map(function (g) {
       var one = g.sites.length === 1;
       var label = one
-        ? noun.charAt(0).toUpperCase() + noun.slice(1) + ' ' + g.sites[0].position + ', ' + placeOf(g.sites[0])
+        ? nameOf(g.sites[0], noun.charAt(0).toUpperCase() + noun.slice(1)) + ', ' + placeOf(g.sites[0])
         : g.sites.length + ' ' + noun + 's in ' + placeOf(g.sites[0]);
       /* a town with one of the best three in it is a filled pin; a town
          with none is outlined, as the shared count pins always were */
@@ -179,9 +233,15 @@
       m.bindPopup(popupFor(g, { noun: noun, onPick: function (id) { m.closePopup(); opts.onPick(id); } }),
         { minWidth: 200, maxWidth: 280 });
       points.push(g.at);
+      if (best) view.push(g.at);
       return { group: g, marker: m };
     });
-    frame(map, points);
+    /* Plan 106 (W5.3): the first view is the seeker's town and the three
+       best sites, close in (no closer than a town's surroundings), never
+       the globe; with none of the three on the map, every pin. */
+    if (view.length === (hasPoint(opts.seeker) ? 1 : 0)) view = points;
+    function first() { frame(map, view, 11); }
+    first();
 
     function select(id) {
       markers.forEach(function (x) {
@@ -193,24 +253,44 @@
     }
 
     var dead = false;
+    /* A map made while its step was hidden has no size, and Leaflet's fit
+       then means nothing: the first time the box gains a size, it measures
+       and takes the first view again (refresh() does the same on demand). */
+    var watch = null;
+    if (window.ResizeObserver) {
+      var sized = box.offsetWidth > 0 && box.offsetHeight > 0;
+      watch = new ResizeObserver(function () {
+        if (dead) return;
+        var now = box.offsetWidth > 0 && box.offsetHeight > 0;
+        if (now && !sized) { map.invalidateSize(); first(); }
+        sized = now;
+      });
+      watch.observe(box);
+    }
     return {
       map: map,
       groups: groups,
       select: select,
       /* The step was hidden when the map was made, so Leaflet measures again;
          not if the map has gone in the meantime (a re-render inside 50 ms). */
-      refresh: function () { setTimeout(function () { if (dead) return; map.invalidateSize(); frame(map, points); }, 50); },
-      destroy: function () { dead = true; takeDown(map); },
+      refresh: function () { setTimeout(function () { if (dead) return; map.invalidateSize(); first(); }, 50); },
+      destroy: function () { dead = true; if (watch) watch.disconnect(); takeDown(map); },
     };
   }
 
   /* The provider's map: the seeker's town and the lab's own, two pins and
      nothing to choose. opts: {el, seeker: {lat,lng,town,country}, site:
-     {lat,lng,town,country}, popup}. `popup` (plan 055, decision 7) is the
-     need box: HTML the page built from the request, pinned open on the
-     Request pin with no close button, and opened again whenever the map is
-     measured afresh. The frame leaves room above the pins for it, so the
-     box never clips. Returns {refresh(), destroy()} or null. */
+     {lat,lng,town,country}, popup, boxOpen, onBox, topClear}. `popup` (plan 055,
+     decision 7) is the need box: HTML the page built from the request, open
+     on the Request pin. Plan 106 (Will, 19 November 2026): the box closes, by
+     any element in it marked data-np-need-close (its cross), and pressing the
+     Request pin opens it again; it never toggles shut from the pin. `boxOpen`
+     (default true) is whether it starts open, and `onBox(open)` is told each
+     time it opens or closes, so the page can keep the reader's choice across
+     a redraw. The box is a popup of the map's own, not bound to the pin, so
+     the pin's press only ever opens it. With the box open, the frame leaves
+     room above the pins for it, so it never clips. Returns {refresh(),
+     destroy(), openBox(), closeBox(), isBoxOpen()} or null. */
   function mountPair(opts) {
     var box = opts && opts.el;
     if (!box || !window.L) return null;
@@ -220,37 +300,94 @@
     var map = baseMap(box);
     var points = [];
     var ask = null;
+    var dead = false;
     if (site) {
       var lab = 'Your site, ' + placeOf(site);
       L.marker([site.point.lat, site.point.lng], { icon: pinIcon('You', 'np-pin--you'), title: lab, alt: lab })
         .addTo(map);
       points.push(site.point);
     }
+    var pop = null;
     if (seeker) {
       var who = 'The request, ' + placeOf(seeker);
       ask = L.marker([seeker.point.lat, seeker.point.lng], {
-        icon: pinIcon('Request', 'np-pin--ask' + (site && near(site.point, seeker.point) ? ' np-pin--beside' : '')),
-        title: who, alt: who })
+        icon: pinIcon('Request', 'np-pin--ask' + (opts.popup ? ' np-pin--press' : '') + (site && near(site.point, seeker.point) ? ' np-pin--beside' : '')),
+        title: opts.popup ? 'Show what they need' : who, alt: who })
         .addTo(map);
       points.push(seeker.point);
       if (opts.popup) {
-        ask.bindPopup(opts.popup, { autoClose: false, closeOnClick: false, closeButton: false, autoPan: false,
-          className: 'np-need-pop', minWidth: 210, maxWidth: 260, offset: [0, 2] });
+        /* The offset is the one the bound popup had: its own [0, 2] on the
+           pin's popupAnchor of [0, -18]. */
+        pop = L.popup({ autoClose: false, closeOnClick: false, closeButton: false, closeOnEscapeKey: false,
+          autoPan: false, className: 'np-need-pop', minWidth: 210, maxWidth: 260, offset: [0, -16] })
+          .setLatLng([seeker.point.lat, seeker.point.lng])
+          .setContent(opts.popup);
       }
     }
-    var hasBox = !!(ask && opts.popup);
-    function openBox() { if (hasBox && !ask.isPopupOpen()) ask.openPopup(); }
+    var hasBox = !!(ask && pop);
+    var boxOpen = hasBox && opts.boxOpen !== false;
+    /* room the page keeps at the map's top for its own control (Hide map) */
+    var topClear = Number(opts.topClear) > 0 ? Number(opts.topClear) : 0;
+    var wired = false;
+    function tell() { if (!dead && typeof opts.onBox === 'function') opts.onBox(boxOpen); }
+    function isOpen() { return !!(pop && map.hasLayer(pop)); }
+    function openBox() {
+      if (!hasBox || dead) return;
+      boxOpen = true;
+      if (!isOpen()) pop.openOn(map);
+      if (!wired && pop.getElement()) {
+        wired = true;
+        /* the container lasts; the content inside it is written again on every open */
+        L.DomEvent.on(pop.getElement(), 'click', function (e) {
+          var t = e.target && e.target.closest ? e.target.closest('[data-np-need-close]') : null;
+          if (!t) return;
+          L.DomEvent.stop(e);
+          closeBox();
+          var pin = ask.getElement && ask.getElement();
+          if (pin && pin.focus) pin.focus();
+        });
+      }
+      tell();
+    }
+    function closeBox() {
+      if (!hasBox || dead) return;
+      boxOpen = false;
+      if (isOpen()) map.closePopup(pop);
+      tell();
+    }
+    /* Where no frame fits both pins and the box (a narrow map, a phone),
+       the box is kept inside the map: the view moves just enough for the
+       box above the Request pin to show whole, the site's pin may go. */
+    function keepBoxIn() {
+      if (!hasBox || !boxOpen || !isOpen()) return;
+      var el = pop.getElement();
+      if (!el) return;
+      var size = map.getSize();
+      var w = el.offsetWidth, h = el.offsetHeight;
+      var p = map.latLngToContainerPoint([seeker.point.lat, seeker.point.lng]);
+      var dx = 0, dy = 0;
+      var minY = Math.min(h + 30 + topClear, size.y - 40);
+      if (p.y < minY) dy = p.y - minY;
+      var minX = w / 2 + 8, maxX = size.x - w / 2 - 8;
+      if (minX <= maxX) { if (p.x < minX) dx = p.x - minX; else if (p.x > maxX) dx = p.x - maxX; }
+      if (dx || dy) map.panBy([dx, dy], { animate: false });
+    }
+    if (hasBox) {
+      ask.on('click', function () { openBox(); keepBoxIn(); });
+      ask.on('keypress', function (e) { if (e.originalEvent && e.originalEvent.keyCode === 13) { openBox(); keepBoxIn(); } });
+    }
     /* With the box open, the frame is chosen by hand: the highest zoom at
        which both pins fit with the box's height above the Request pin, and,
        where one can be found, at which the box does not cover the site's
-       pin (the two separate as the map zooms in). */
+       pin (the two separate as the map zooms in). With it closed, the two
+       pins are simply framed. */
     function framePair() {
       if (!points.length) return;
-      if (!hasBox) { frame(map, points); return; }
-      var pop = ask.getPopup() && ask.getPopup().getElement();
-      var w = pop ? pop.offsetWidth : 260, h = pop ? pop.offsetHeight : 220;
+      if (!hasBox || !boxOpen) { frame(map, points); return; }
+      var el = pop.getElement();
+      var w = el ? el.offsetWidth : 260, h = el ? el.offsetHeight : 220;
       var size = map.getSize();
-      var pins = [{ ll: seeker.point, top: h + 30, side: w / 2 + 12 }];
+      var pins = [{ ll: seeker.point, top: h + 30 + topClear, side: w / 2 + 12 }];
       if (site) pins.push({ ll: site.point, top: 40, side: 40 });
       var fit = null, clear = null;
       for (var z = 2; z <= 11; z++) {
@@ -270,15 +407,26 @@
         if (!covered) clear = view;
       }
       var v = clear || fit;
-      if (!v) { frame(map, points); return; }
+      if (!v) { frame(map, points); keepBoxIn(); return; }
       map.setView(map.unproject([v.x, v.y], v.z), v.z, { animate: false });
     }
-    openBox();
+    if (boxOpen) { boxOpen = false; openBox(); }
     framePair();
-    var dead = false;
     return {
       map: map,
-      refresh: function () { setTimeout(function () { if (dead) return; map.invalidateSize(); openBox(); framePair(); }, 50); },
+      /* The map was hidden or folded when it was made, so Leaflet measures
+         again; the box comes back only if the reader left it open. */
+      refresh: function () {
+        setTimeout(function () {
+          if (dead) return;
+          map.invalidateSize();
+          if (boxOpen && !isOpen()) pop.openOn(map);
+          framePair();
+        }, 50);
+      },
+      openBox: openBox,
+      closeBox: closeBox,
+      isBoxOpen: function () { return boxOpen; },
       destroy: function () { dead = true; takeDown(map); },
     };
   }
