@@ -1383,6 +1383,11 @@
     order.sort();
     return order.map(function (c) { return cash(out[c] / 100, c); }).join(' + ');
   }
+  /* A total in several currencies (six are offered, D26) breaks at the plus,
+     never inside a figure, so a long one does not push the Fee column away. */
+  function plusHtml(text) {
+    return String(text).split(' + ').map(function (x) { return '<span class="nw">' + esc(x) + '</span>'; }).join(' + ');
+  }
   function coCell(company, ref, hub, manyHubs) {
     var who = company
       ? '<span class="co">' + esc(company) + (ref ? '<small>(' + esc(ref) + ')</small>' : '') + '</span>'
@@ -1423,11 +1428,11 @@
     var isOpen = key in detailOpen ? detailOpen[key] : open;
     return '<details class="stmt" data-key="' + esc(key) + '" data-state="' + esc(m.state || '') + '"' + (isOpen ? ' open' : '') + '>' +
       '<summary><span class="stmt__when"><b>' + esc(fmtPeriod(m.period)) + '</b><span>' + esc(stmtMeta(m)) + '</span></span>' + stmtPill(m) +
-        '<span class="acct-amount' + (red ? ' is-red' : '') + '">' + esc(total) + '</span></summary>' +
+        '<span class="acct-amount' + (red ? ' is-red' : '') + '">' + plusHtml(total) + '</span></summary>' +
       '<div class="stmt__body"><div class="acct-scroll"><table class="acct-work">' +
         '<thead><tr><th>Introduction</th><th class="num">Value you declared</th><th class="num">Rate</th><th class="num">Fee</th><th class="num">Payment</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
-        '<tfoot><tr><td>Total</td><td class="num">' + esc(totalValue) + '</td><td></td><td class="num' + (red ? ' is-red' : '') + '">' + esc(total) + '</td><td class="num">' + stmtPill(m) + '</td></tr></tfoot>' +
+        '<tfoot><tr><td>Total</td><td class="num">' + plusHtml(totalValue) + '</td><td></td><td class="num' + (red ? ' is-red' : '') + '">' + plusHtml(total) + '</td><td class="num">' + stmtPill(m) + '</td></tr></tfoot>' +
       '</table></div>' +
       (unsent && source.length ? '<div class="stmt__go">' + declareButton(m) + '</div>' : '') +
       '</div></details>';

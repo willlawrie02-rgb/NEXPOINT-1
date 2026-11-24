@@ -1948,7 +1948,35 @@ async function walkFindMap() {
     const titles = await page.$$eval("#matchMap .leaflet-marker-icon", (els) => els.map((e) => e.getAttribute("title")));
     has(titles.join(" | "), "2 sites in Leeds, United Kingdom", "the Leeds pin's name");
   });
+  await step("the map opens on the seeker's town and the three best, close in, and a named site's pin is titled by its company (plan 106)", async () => {
+    const inView = (sel) => page.evaluate((s) => {
+      const map = document.getElementById("matchMap").getBoundingClientRect();
+      return [...document.querySelectorAll(s)].map((e) => { const r = e.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;
+        return x >= map.left && x <= map.right && y >= map.top && y <= map.bottom; });
+    }, sel);
+    eq(await inView("#matchMap .np-pin--you, #matchMap .np-pin--best"), [true, true, true], "You and the pins of the three best, inside the map");
+    eq(await inView("#matchMap .np-pin--more"), [false], "the fourth site's pin, which is drawn but outside the first view");
+    const titles = await page.$$eval("#matchMap .leaflet-marker-icon", (els) => els.map((e) => e.getAttribute("title")));
+    has(titles.join(" | "), "Charlie Print, Bristol, United Kingdom", "a named site's pin title");
+    has(titles.join(" | "), "Site 4, Glasgow, United Kingdom", "a site beyond the three keeps its rank (C9)");
+    await page.click("#matchMap .np-pin--best:not(.np-pin--group)");
+    await page.waitForSelector("#matchMap .np-pop .np-pop__head--named");
+    eq(await page.textContent("#matchMap .np-pop .np-pop__who b"), "Charlie Print", "the pin card leads with the company");
+    eq(await page.textContent("#matchMap .np-pop .np-pop__at"), "Bristol, United Kingdom", "the town and country beneath");
+    eq(await page.textContent("#matchMap .np-pop .np-pop__logo"), "CP", "its initials, where the worker sent no logo");
+    eq((await page.textContent("#matchMap .np-pop [data-choose]")).trim(), "Choose Charlie Print", "the button");
+    await page.click("#matchMap .leaflet-popup-close-button");
+    await page.waitForSelector("#matchMap .np-pop", { state: "detached" });
+  });
   await step("the Glasgow pin is a town and a rank: no name, no Choose, and the three-best-fits line; no card appears", async () => {
+    /* outside the first view (plan 106): zoom out, as a person would, until it shows */
+    for (let n = 0; n < 6; n++) {
+      const seen = await page.evaluate(() => { const m = document.getElementById("matchMap").getBoundingClientRect(), r = document.querySelector("#matchMap .np-pin--more").getBoundingClientRect();
+        return r.left > m.left + 20 && r.right < m.right - 20 && r.top > m.top + 20 && r.bottom < m.bottom - 20; });
+      if (seen) break;
+      await page.click("#matchMap .leaflet-control-zoom-out");
+      await page.waitForTimeout(400);
+    }
     await page.click("#matchMap .np-pin--more");
     await page.waitForSelector("#matchMap .np-pop");
     const pop = await page.textContent("#matchMap .np-pop");
@@ -1969,7 +1997,8 @@ async function walkFindMap() {
     await page.waitForSelector("#matchMap .np-pop");
     const pop = await page.textContent("#matchMap .np-pop");
     has(pop, "2 sites in Leeds, United Kingdom", "the list's head");
-    has(pop, "Site 2", "the second Leeds site");
+    has(pop, "Bravo Labs · Lead time 6 days", "the second Leeds site, by its company (plan 106, C9)");
+    has(pop, "Choose Bravo Labs", "its button");
     for (const leak of ["listing-", "HP MJF", "Ltd"]) if (pop.includes(leak)) throw new Error(`the list shows ${leak}`);
     eq(await page.locator("#matchMap .np-pop [data-choose]").count(), 2, "Choose buttons");
     await page.click('#matchMap .np-pop [data-choose="listing-b"]');
@@ -2023,7 +2052,7 @@ async function walkFindMap() {
     await page.waitForSelector("#step3:not([hidden]) #requestSubmit");
     const summary = await page.textContent("#pickSummary");
     has(summary, "The site you picked: Site 3, Charlie Print, Bristol, United Kingdom.", "the summary names the site");
-    has(summary, "Your request goes straight to this site. Contact details are exchanged once it accepts.", "the summary's hint");
+    has(summary, "Your request goes straight to this site. It sees your company's name with your request. Contact details are exchanged only once it accepts.", "the summary's hint tells the seeker its company's name is shown (plan 106, D12)");
     eq(await page.locator("#introTermsBlock").count(), 0, "no second terms block");
     has(await page.textContent("#requestSubmit"), "Send my request to Charlie Print", "the button names the site");
     await page.click("#requestSubmit");
@@ -2855,7 +2884,8 @@ async function walkAccount() {
       const closedChains = chains.filter((c) => c.labels[3] === "Closed");
       eq(closedChains.length, 2, "the closed chains (a provider row and a seeker pick)");
       for (const c of closedChains) eq(JSON.stringify(c.classes), JSON.stringify(["is-done", "is-done", "is-done", "is-stop"]), "a closed chain's classes");
-      const rows = await page.$$eval("#introductions .acct-row__meta", (els) => els.map((e) => ({ ref: e.querySelector("b").textContent, line: e.querySelector(":scope > span").textContent })));
+      /* plan 106: a hub row is the introduction card, whose status is a line of its own; a stage the page does not know has none */
+      const rows = await page.$$eval("#introductions .acct-row__meta", (els) => els.map((e) => ({ ref: e.querySelector("b").textContent, line: (e.querySelector(":scope > span") || { textContent: "" }).textContent })));
       const line = (ref) => (rows.find((r) => r.ref.includes(ref)) || { line: null }).line;
       eq(line("INT-0021"), "Closed.", "the closed provider row");
       eq(line("INT-0022"), "", "an unknown stage's line");
@@ -2907,6 +2937,7 @@ async function walkAccount() {
         { introduction_id: 43, ref: "INTRO-0043", hub: "print", since: "2026-09-03T10:00:00Z", first_order_at: "2026-10-01" },
         { introduction_id: 44, ref: "INTRO-0044", hub: "opportunities", since: "2026-09-03T10:00:00Z", first_order_at: "2026-10-01" },
         { introduction_id: 45, ref: "INTRO-0045", hub: "opportunities", since: "2026-09-03T10:00:00Z", first_order_at: null }],
+      open_strikes: [{ opened_at: "2026-11-16T09:00:00Z", cure_by: "2026-11-30", notes: "15 days after the month closed" }],
       hubs_used: ["print"],
     }) });
     const seeker = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
@@ -2925,17 +2956,18 @@ async function walkAccount() {
         eq(await page.locator("#waiting .acct-action").count(), 0, "actions");
         eq(await page.locator("#acctNav .acct-nav__dot").count(), 0, "dots");
       });
-      if (who === "a host") await step("a host's Fees and standing lists its introduced customers, and the first order the five fee years run from (plan 078)", async () => {
+      /* Plan 106: "Introduced customers" has gone (each introduction's fee year
+         and first order are on its own card), and a host is never shown a
+         strike (D27), whatever the worker still sends. Its score stays. */
+      if (who === "a host") await step("a host's Fees and standing has its statements and its score, and no list of introduced customers or of strikes (plan 106)", async () => {
         await page.waitForSelector("#fees:not([hidden])");
         const subs = await page.$$eval("#fees .acct-sub", (els) => els.map((e) => e.textContent.trim()));
-        eq(subs, ["Introduced customers", "Statements", "Open strikes"], "the sub-headings, in order");
-        const text = await page.textContent("#fees .acct-list");
-        has(text, "INTRO-0042", "the ref");
-        has(text, "No order yet. The five fee years start with the first order.", "with no order");
-        has(text, "First order October 2026. The five fee years run from there.", "with an order");
-        eq(text.includes("Relationship since"), false, "the old line");
-        const lines = await page.$$eval("#fees .acct-list .acct-row__meta > span", (els) => els.map((e) => e.textContent));
-        eq(lines.slice(2, 4), ["First order October 2026.", "No order yet."], "a board row promises no five years (Host §10)");
+        eq(subs, ["Statements"], "the sub-headings");
+        const text = await page.textContent("#fees");
+        has(text, "Follow-through: not scored yet.", "the score line");
+        has(text, "Fees appear here once a statement is issued.", "the empty statements");
+        for (const gone of ["Introduced customers", "INTRO-0042", "The five fee years", "Relationship since"]) eq(text.includes(gone), false, `"${gone}"`);
+        eq(/strike/i.test(await page.evaluate(() => document.body.innerText)), false, "the word strike anywhere on the page");
       });
       clean(world, errors, `${who}'s quiet page`);
       await context.close();
@@ -3366,7 +3398,8 @@ async function walkAccountAnswers() {
   // Plan 055, decision 7: the worker sends an offer for every provider introduction, whatever its stage.
   const offer = (id) => ({ introduction_id: id, ref: `INTRO-000${id}`, hub: "print", acceptance_expires_at: id === 8 ? null : soon,
     request: { material: "pa12_nylon12", process: "mjf", quantity: 40, cadence: "one_off", max_lead_time_days: 10, needed_by: "2026-11-03",
-      services: ["finishing_dyeing"], notes: "Pairs, boxed per patient.", town: "Bristol", country: "United Kingdom", point: { lat: 51.45, lng: -2.59 } },
+      services: ["finishing_dyeing"], notes: "Pairs, boxed per patient.\n\nVolume: 40 units, one off.", notes_own: "Pairs, boxed per patient.",
+      town: "Bristol", country: "United Kingdom", point: { lat: 51.45, lng: -2.59 } },
     site: { town: "Leeds", country: "United Kingdom", point: { lat: 53.8, lng: -1.55 } } });
   /* The third argument is merged over the site (plan 104: a paused or hidden listing). */
   const summary = (intros, offers, site = {}) => Object.assign({}, EMPTY_SUMMARY, {
@@ -3404,11 +3437,12 @@ async function walkAccountAnswers() {
     eq(pins.filter((p) => /np-pin--ask/.test(p.cls)).map((p) => p.text), ["Request"], "the request's pin");
     const titles = await page.$$eval("#pairMap-7 .leaflet-marker-icon", (els) => els.map((e) => e.getAttribute("title") || ""));
     has(titles.join(" | "), "Leeds", "the site's town in a pin title");
-    has(titles.join(" | "), "Bristol", "the request's town in a pin title");
+    /* plan 106: the Request pin opens the need box, and says so; the request's town is in the box */
+    has(titles.join(" | "), "Show what they need", "the Request pin's title");
     eq(await page.locator("#pairMap-7 [data-choose]").count(), 0, "Choose buttons on the pair map");
     eq(await page.locator("#introductions .acct-tag").count(), 0, "side tags on an account that is only asked");
   });
-  await step("the need box is open on the Request pin: what they need, row by row, inside the map, with no close button (plan 055, decision 7)", async () => {
+  await step("the need box is open on the Request pin: what they need, row by row, inside the map, with its own cross and only the seeker's own notes (plan 055, decision 7; plan 106)", async () => {
     await page.waitForSelector("#pairMap-7 .leaflet-popup .np-need");
     const need = await page.$eval("#pairMap-7 .leaflet-popup .np-need", (e) => ({
       head: e.querySelector(".np-need__head").textContent, where: e.querySelector(".np-need__where").textContent,
@@ -3423,15 +3457,19 @@ async function walkAccountAnswers() {
     eq(by["Lead time"], "within 10 days", "the lead time");
     eq(by["Needed by"], "3 Nov 2026", "the date");
     for (const v of Object.values(by)) if (v.includes("_")) throw new Error(`a raw term in the box: ${v}`);
-    has(need.notes, "Pairs, boxed per patient.", "the notes");
-    eq(await page.locator("#pairMap-7 .leaflet-popup-close-button").count(), 0, "close buttons");
+    eq(need.notes, "NotesPairs, boxed per patient.", "the notes: what the seeker typed, and nothing the form composed");
+    eq(await page.locator("#pairMap-7 .leaflet-popup-close-button").count(), 0, "Leaflet's own close buttons");
+    eq(await page.locator("#pairMap-7 .np-need [data-np-need-close]").count(), 1, "the box's own cross (plan 106)");
     const map = await page.locator("#pairMap-7").boundingBox();
     const pop = await page.locator("#pairMap-7 .leaflet-popup").boundingBox();
     if (pop.y < map.y || pop.y + pop.height > map.y + map.height || pop.x < map.x || pop.x + pop.width > map.x + map.width)
       throw new Error(`the box (${Math.round(pop.x)},${Math.round(pop.y)} ${Math.round(pop.width)}x${Math.round(pop.height)}) clips the map (${Math.round(map.x)},${Math.round(map.y)} ${Math.round(map.width)}x${Math.round(map.height)})`);
   });
-  await step("an introduced row shows the pair map and the open need box too (plan 055, decision 7)", async () => {
-    await page.waitForSelector("#pairMap-8:not([hidden]) .leaflet-popup .np-need");
+  await step("an introduced row's map is folded away, and Show map opens it with the need box (plan 055, decision 7; plan 106)", async () => {
+    await page.waitForSelector("#mapFold-8:not([hidden])");
+    eq(await page.locator("#mapOpen-8:not([hidden])").count(), 0, "the open map before it is asked for");
+    await page.click('#mapFold-8 [data-act="map-toggle"]');
+    await page.waitForSelector("#mapOpen-8:not([hidden]) #pairMap-8 .leaflet-popup .np-need");
     const pins = await page.$$eval("#pairMap-8 .np-pin", (els) => els.map((e) => e.textContent.trim()));
     eq(pins.sort(), ["Request", "You"], "the pins");
     has(await page.textContent("#pairMap-8 .np-need"), "What they need", "the box");
@@ -3455,6 +3493,13 @@ async function walkAccountAnswers() {
     eq(apiCalls(world, "GET /terms/current").length, 0, "terms read");
     await page.waitForFunction(() => document.querySelectorAll('[data-act="intro-accept-open"][data-intro="7"]').length === 0, null, { timeout: 5000 });
     has(await page.textContent("#introductions"), "The introduction is in your inbox", "the inbox line after accepting");
+    /* plan 106: the answer is a notice that fills the page; with no company from the worker it names nobody */
+    await page.waitForSelector("#approved:not([hidden]) .approved__box");
+    has(await page.textContent("#approved"), "Introduction approved", "the notice");
+    has(await page.textContent("#approved"), "You have both been introduced.", "the notice with no company named");
+    has(await page.textContent("#approved"), "Walk, please declare this introduction's orders on your hub account page each month", "the small print with no company named");
+    await page.click('#approved [data-act="approved-close"]');
+    await page.waitForSelector("#approved", { state: "hidden" });
   });
   await step("Decline opens a reason box; sending it posts the introduction and the reason", async () => {
     await page.click('[data-act="intro-decline-open"][data-intro="9"]');
@@ -4515,7 +4560,7 @@ async function walkTerms() {
       has(await page.textContent("#declTerms"), DOC_WORDS.host, "the document");
       has(await page.textContent("#declarations .acct-card"), "One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.", "the hint");
       // Plan 104 (R7-16): what to do about a currency the form does not offer.
-      has(await page.textContent("#declarations .acct-card"), "If you invoiced in any currency other than pounds, euros or US dollars, email hello@nexpoint.co.uk before you send this declaration.", "the line about another currency");
+      has(await page.textContent("#declarations .acct-card"), "If you invoiced in any currency that is not on the list, email hello@nexpoint.co.uk before you send this declaration.", "the line about another currency");
       await shot(page, "declaration-host-agreement", "#declTerms");
       await page.click('[data-act="decl-submit"]');
       await page.waitForFunction(() => /Answer INTRO-0007/.test(document.getElementById("declMsg-2026-10").textContent));
@@ -7125,6 +7170,636 @@ function findBrowser() {
 const exe = findBrowser();
 if (!exe) { console.error("walk: no browser found. Set WALK_BROWSER to a Chrome or Chromium binary."); process.exit(2); }
 browser = await chromium.launch({ executablePath: exe, headless: true });
+// ================================================================ plan 106: the account page on the worker's months, and the declaration page
+/* Will's demo notes of 19 November 2026 (plan 106), on the worker that sends
+   CONTRACT 1: a host's introduction card names the company that asked, the map
+   folds, accepting fills the page with "Introduction approved", Declarations is
+   one button to the declaration page, and Fees and standing is a block a month.
+   The declaration page takes the value alone, in one of six currencies (D26),
+   and a host is never shown a strike (D27). Every company here is invented.
+   WALK_SHOTS=<folder> saves a desktop and a phone picture of each screen. */
+async function walkPlan106() {
+  area = "Plan 106 (the introduction card)";
+  const soon = new Date(Date.now() + 3 * 864e5).toISOString();
+  const HOST = {
+    org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", host_print: "approved", host_mill: "approved", fee_exempt_note: null },
+    site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "approved",
+      sub_status: "trial", paused: false, removed: false, verified: true },
+    listings: [{ hub: "print", status: "live", live: { approved_at: "2026-03-01T09:00:00Z" } }],
+    hubs_used: ["print", "mill"], score: { value: 98, computed_at: "2026-11-01T09:00:00Z" },
+    /* a worker that still sends the list: the page must not read it (D27) */
+    open_strikes: [{ opened_at: "2026-11-16T09:00:00Z", cure_by: "2026-11-30", notes: "15 days after the month closed" }],
+  };
+  const made = (id, hub, company, rate, year, over) => Object.assign({ id, ref: `INTRO-${id}`, hub, stage: "introduced", role: "provider", asked: true, seller: true,
+    seeker_request_id: id, accepted_a_at: "2026-03-04T09:00:00Z", accepted_b_at: "2026-03-01T09:00:00Z", acceptance_expires_at: null, declined_at: null,
+    created_at: "2026-03-01T09:00:00Z", introduced_at: "2026-03-04T09:00:00Z", company, logo_url: null, fee_year: year, fee_rate: rate,
+    first_order_at: "2026-03-20", next_year_from: "2027-03-01", next_rate: Math.round((rate - 0.01) * 100) / 100 }, over);
+  const asking = (id, company, over) => made(id, "print", company, 0.06, 1, Object.assign({ stage: "awaiting_acceptance", accepted_a_at: null,
+    acceptance_expires_at: soon, introduced_at: null, created_at: new Date().toISOString(), first_order_at: null, next_year_from: null, next_rate: null }, over));
+  const offer = (id, company, over) => ({ introduction_id: id, ref: `INTRO-${id}`, hub: "print", acceptance_expires_at: soon, company, logo_url: null,
+    request: Object.assign({ material: "pa12_nylon12", process: "mjf", quantity: 80, cadence: "one_off", max_lead_time_days: 10, needed_by: null, services: [],
+      notes: "Pairs, boxed per patient.\n\nVolume: 80 units, one off. Materials that would work: PA12, PA11.", notes_own: "Pairs, boxed per patient.",
+      town: "Bristol", country: "United Kingdom", point: { lat: 51.45, lng: -2.59 } }, over),
+    site: { town: "Leeds", country: "United Kingdom", point: { lat: 53.8, lng: -1.55 } } });
+  const due = (id, hub, company, rate, cur) => ({ introduction_id: id, ref: `INTRO-${id}`, company, hub, rate, currency_default: cur });
+  const line = (id, hub, company, value, cur, rate, nothing = false) => ({ introduction_id: id, ref: `INTRO-${id}`, company, hub, nothing,
+    value: nothing ? 0 : value, currency: cur, rate, fee: nothing ? 0 : Math.round(value * rate * 100) / 100 });
+  const inv = (number, cur, raised, dueDate, paid = null) => ({ number, currency: cur, raised_at: raised, due_date: dueDate, paid_at: paid });
+  const A = "ZZ Alder Orthotics", B = "ZZ Birch Podiatry", C = "ZZ Cedar Clinic", D = "ZZ Dune Bracing";
+  /* every one of the seven month states (CONTRACT 1), newest first */
+  const MONTHS = () => {
+    const m = (period, state, over) => Object.assign({ period, state, declare_by: null, sent_at: null, lines: [], totals: [], invoices: [], due: [] }, over);
+    return [
+      m("2026-10", "open", { declare_by: "2026-11-15", due: [due(1011, "print", A, 0.06, "CAD"), due(1012, "print", B, 0.05, "AUD"), due(1020, "mill", C, 0.04, "NZD")] }),
+      m("2026-09", "overdue", { declare_by: "2026-10-15", sent_at: "2026-10-09T10:00:00Z",
+        lines: [line(1011, "print", A, 3848, "CAD", 0.06), line(1012, "print", B, 4056, "AUD", 0.05), line(1020, "mill", C, 3000, "ILS", 0.04)],
+        totals: [{ currency: "CAD", value: 3848, fee: 230.88 }, { currency: "AUD", value: 4056, fee: 202.8 }, { currency: "ILS", value: 3000, fee: 120 }],
+        invoices: [inv("INV-0046", "AUD", "2026-10-09", "2026-11-08"), inv("INV-0047", "CAD", "2026-10-09", "2026-11-08"), inv("INV-0048", "ILS", "2026-10-09", "2026-11-08")] }),
+      m("2026-08", "awaiting_payment", { sent_at: "2026-09-07T10:00:00Z",
+        lines: [line(1011, "print", A, 3680, "CAD", 0.06), line(1012, "print", B, 3680, "CAD", 0.05)],
+        totals: [{ currency: "CAD", value: 7360, fee: 404.8 }], invoices: [inv("INV-0039", "CAD", "2026-09-07", "2026-12-07")] }),
+      m("2026-07", "paid", { sent_at: "2026-08-06T10:00:00Z",
+        lines: [line(1011, "print", A, 3312, "CAD", 0.06), line(1012, "print", B, 0, "CAD", 0.05, true)],
+        totals: [{ currency: "CAD", value: 3312, fee: 198.72 }], invoices: [inv("INV-0031", "CAD", "2026-08-06", "2026-09-05", "2026-08-20")] }),
+      m("2026-06", "invoice_pending", { sent_at: "2026-07-08T10:00:00Z",
+        lines: [line(1011, "print", A, 1000, "CAD", 0.06)], totals: [{ currency: "CAD", value: 1000, fee: 60 }] }),
+      m("2026-05", "nothing", { sent_at: "2026-06-04T10:00:00Z",
+        lines: [line(1011, "print", A, 0, "CAD", 0.06, true), line(1012, "print", B, 0, "CAD", 0.05, true)] }),
+      m("2026-04", "not_declared", { declare_by: "2026-05-15", due: [due(1011, "print", A, 0.06, "CAD"), due(1012, "print", B, 0.05, "CAD")] }),
+    ];
+  };
+  const INTROS = () => [made(1011, "print", A, 0.06, 1), made(1012, "print", B, 0.05, 2), made(1020, "mill", C, 0.04, 3), asking(1030, D)];
+  const OFFERS = () => [offer(1011, A), offer(1030, D)];
+  const summary = (over) => Object.assign({}, EMPTY_SUMMARY, HOST, {
+    introductions: INTROS(), offers: OFFERS(),
+    declarations: { period_open: "2026-10", due_state: "due", hub: "print", items: [], history: [], months: MONTHS() },
+  }, over);
+  const hostWorld = (over) => newWorld(Object.assign({ user: USER, terms: TERMS_STATE({ host: HELD(32) }), summary: summary() }, over));
+  const bothSizes = async (page, name, selector) => {
+    if (!SHOTS) return;
+    for (const [size, viewport] of [["desktop", { width: 1280, height: 900 }], ["phone", { width: 375, height: 760 }]]) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => document.fonts && document.fonts.ready);
+      if (selector) await page.locator(selector).first().evaluate((n) => n.scrollIntoView({ block: "start" })).catch(() => {});
+      await page.waitForTimeout(900);
+      await page.screenshot({ path: join(SHOTS, `106-${name}-${size}.png`) });
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.waitForTimeout(200);
+  };
+  const noSideways = async (page, what) => eq(await page.evaluate(() =>
+    document.documentElement.scrollWidth <= window.innerWidth + 1), true, `${what} scrolling sideways`);
+  /* what a person reads, with the icon names taken out */
+  const reads = (page, selector) => page.evaluate((s) => {
+    const n = document.querySelector(s);
+    if (!n) return "";
+    const c = n.cloneNode(true);
+    c.querySelectorAll(".material-symbols-outlined").forEach((x) => x.remove());
+    return c.textContent.replace(/\s+/g, " ").trim();
+  }, selector);
+  const neverSays = async (page, what) => {
+    const text = await page.evaluate(() => document.body.innerText);
+    for (const bad of [/undefined/, /\bNaN\b/, /\bnull\b/, /strike/i, /\[object/]) {
+      const m = text.match(bad);
+      if (m) throw new Error(`${what} says "${m[0]}"`);
+    }
+    return true;
+  };
+
+  {
+    const world = hostWorld();
+    world.api["POST /introductions/accept"] = (w) => {
+      w.summary = summary({ introductions: INTROS().map((i) => (i.id === 1030 ? made(1030, "print", D, 0.06, 1,
+        { introduced_at: new Date().toISOString(), accepted_a_at: new Date().toISOString(), first_order_at: null, next_year_from: null, next_rate: null }) : i)) });
+      return [200, { ok: true, stage: "introduced", ref: "INTRO-1030" }];
+    };
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/`);
+
+    await step("the page opens on a navy banner behind Your account, the profile card over its lower edge (D6)", async () => {
+      await page.waitForSelector("#profile:not([hidden])");
+      await page.waitForSelector("#intro-1030 .intro-title");
+      eq(await page.$eval(".acct-band", (e) => getComputedStyle(e).backgroundColor), "rgb(14, 22, 38)", "the banner's navy");
+      eq(await page.$eval(".acct-stage .acct-head h1", (e) => getComputedStyle(e).color), "rgb(255, 255, 255)", "the heading, white on it");
+      const band = await page.locator(".acct-band").boundingBox(), card = await page.locator("#profile").boundingBox();
+      if (!(card.y < band.y + band.height && card.y + card.height > band.y + band.height)) throw new Error("the profile card does not sit over the banner's lower edge");
+      await bothSizes(page, "top");
+    });
+    await step("a waiting card names the company that asked, with its initials, the code in brackets and the hub on a navy strip (D12)", async () => {
+      await page.waitForSelector("#intro-1030 .intro-title");
+      eq(await reads(page, "#intro-1030 .intro-name"), `${D} (INTRO-1030)`, "the title");
+      eq(await reads(page, "#intro-1030 .intro-logo"), "ZD", "the initials tile");
+      eq(await page.locator("#intro-1030 .intro-logo img").count(), 0, "a picture where the worker sent no logo");
+      eq(await reads(page, "#intro-1030 .intro-title .acct-hub"), "3D Print Hub", "the hub");
+      eq(await page.$eval("#intro-1030 .intro-title", (e) => getComputedStyle(e).backgroundColor), "rgb(14, 22, 38)", "the strip's navy");
+      eq(await reads(page, "#intro-1030 .year-chip"), "Year 1 (6%)", "the fee year");
+      has(await reads(page, "#intro-1030 .intro-year"), "from the first order", "the year counts from the first order (C1)");
+      has(await reads(page, "#intro-1030 .intro-status"), "Waiting for your answer. Open until ", "the status, at the top");
+      eq(await reads(page, "#intro-1030 .intro-facts"), "PA12 · MJF · 80 · One off · within 10 days · Bristol, United Kingdom", "the facts line");
+      eq(await page.locator("#intro-1030 .status-chain").count(), 1, "the four steps, until the introduction is made (D4)");
+    });
+    await step("nothing on a waiting card is a person, an email address or a phone number", async () => {
+      const text = await page.evaluate(() => document.getElementById("intro-1030").innerText);
+      eq(/@/.test(text), false, "an email address before acceptance");
+      eq(/\+?\d[\d ()-]{8,}\d/.test(text.replace(/INTRO-\d+/g, "")), false, "a phone number before acceptance");
+      eq(await page.locator("#intro-1030 a[href^='mailto:'], #intro-1030 a[href^='tel:']").count(), 0, "mail or phone links");
+    });
+    await step("the map is open while the host has not answered, and the need box names the company and shows only the seeker's own notes", async () => {
+      await page.waitForSelector("#mapOpen-1030:not([hidden]) #pairMap-1030 .leaflet-popup .np-need");
+      eq(await page.locator("#mapFold-1030:not([hidden])").count(), 0, "the folded bar");
+      const need = await page.$eval("#pairMap-1030 .leaflet-popup .np-need", (e) => ({
+        head: e.querySelector(".np-need__head").textContent, company: e.querySelector(".np-need__company span:last-child").textContent,
+        where: e.querySelector(".np-need__where").textContent, notes: (e.querySelector(".np-need__notes") || {}).textContent || "" }));
+      eq(need, { head: "What they need", company: D, where: "Bristol, United Kingdom", notes: "NotesPairs, boxed per patient." }, "the box");
+      const pins = await page.$$eval("#pairMap-1030 .np-pin", (els) => els.map((e) => e.textContent.trim()).sort());
+      eq(pins, ["Request", "You"], "the pins (the host's own keeps the word You, D24)");
+      await bothSizes(page, "card-waiting", "#intro-1030");
+    });
+    await step("the cross closes the need box and shows the map beneath; pressing Request opens it again", async () => {
+      await page.click("#pairMap-1030 [data-np-need-close]");
+      await page.waitForFunction(() => !document.querySelector("#pairMap-1030 .leaflet-popup .np-need"));
+      eq(await reads(page, "#mapHint-1030"), "Press Request to see what they need", "the hint");
+      eq(await page.locator("#mapHint-1030:not([hidden])").count(), 1, "the hint shows");
+      await page.click("#pairMap-1030 .np-pin--ask");
+      await page.waitForSelector("#pairMap-1030 .leaflet-popup .np-need");
+      eq(await page.locator("#mapHint-1030:not([hidden])").count(), 0, "the hint once the box is open");
+    });
+    await step("Hide map folds it away and Show map brings it back", async () => {
+      await page.click('#mapOpen-1030 [data-act="map-toggle"]');
+      await page.waitForSelector("#mapFold-1030:not([hidden])");
+      eq(await page.locator("#mapOpen-1030:not([hidden])").count(), 0, "the open map");
+      has(await reads(page, "#mapFold-1030"), "Bristol, United Kingdom, and your site", "the folded bar's words");
+      await page.click('#mapFold-1030 [data-act="map-toggle"]');
+      await page.waitForSelector("#mapOpen-1030:not([hidden]) .np-pin");
+    });
+    await step("an introduced card: the year and the first order, the status at the top, the map folded, no steps, and what was declared for it", async () => {
+      eq(await reads(page, "#intro-1011 .intro-name"), `${A} (INTRO-1011)`, "the title");
+      eq(await reads(page, "#intro-1011 .intro-year"), "Year 1 (6%)First order March 2026. Year 2 (5%) starts March 2027.", "the year line");
+      eq(await reads(page, "#intro-1011 .acct-released"), "Introduced on 4 Mar 2026, ref INTRO-1011. The introduction is in your inbox; reply to all to carry on.", "the status");
+      eq(await page.$eval("#intro-1011", (e) => {
+        const kids = [...e.querySelector(".acct-row__meta").children];
+        return kids.findIndex((k) => k.classList.contains("acct-released")) < kids.findIndex((k) => k.classList.contains("map-shell"));
+      }), true, "the status sits above the map");
+      eq(await page.locator("#mapFold-1011:not([hidden])").count(), 1, "the map folded once introduced");
+      eq(await page.locator("#intro-1011 .status-chain").count(), 0, "the steps once introduced (D4)");
+      eq(await reads(page, "#intro-1011 .intro-decl summary"), "Declarations for this introduction", "the list's heading");
+      const rows = await page.$$eval("#intro-1011 .intro-decl tbody tr", (trs) => trs.map((tr) => [...tr.children].map((td) => td.textContent.trim()).join(" | ")));
+      eq(rows, ["October 2026 | Not yet declared | 6% | –", "September 2026 | CAD 3,848.00 | 6% | CAD 230.88", "August 2026 | CAD 3,680.00 | 6% | CAD 220.80",
+        "July 2026 | CAD 3,312.00 | 6% | CAD 198.72", "June 2026 | CAD 1,000.00 | 6% | CAD 60.00", "May 2026 | No revenue | 6% | CAD 0.00",
+        "April 2026 | Not declared | 6% | –"], "its months");
+      eq(await page.locator("#intro-1011 .intro-decl input, #intro-1011 .intro-decl select, #intro-1011 .intro-decl button").count(), 0, "anything to type into: it is to look at only");
+      await page.click('#mapFold-1011 [data-act="map-toggle"]');
+      await page.waitForSelector("#mapOpen-1011:not([hidden]) .np-pin");
+      await page.click("#intro-1011 .intro-decl summary");
+      await bothSizes(page, "card-introduced", "#intro-1011");
+    });
+    await step("Declarations is one button to the declaration page: no form, no earlier list, no Keep what I sent (D5)", async () => {
+      await page.waitForSelector("#declarations:not([hidden]) a.acct-declare");
+      eq(await reads(page, "#declarations .acct-declare-row .acct-row__meta"), "October 2026Open now. Declare by 15 November 2026. One line for each of your 3 introductions.", "the row");
+      eq(await reads(page, "#declarations a.acct-declare"), "Declare October 2026", "the button");
+      eq(await page.getAttribute("#declarations a.acct-declare", "href"), "declare/?period=2026-10", "where it goes");
+      eq(await page.locator("#declarations input, #declarations select, #declarations .decl-table, #declarations [data-act]").count(), 0, "a form on the account page");
+      eq((await page.textContent("#declarations")).includes("Earlier declarations"), false, "the earlier list");
+      const acts = await page.$$eval("#waiting .acct-action", (els) => els.map((e) => [e.querySelector("span:nth-child(2)").textContent.trim(), e.getAttribute("href")]));
+      eq(acts, [["Answer 1 introduction", "#intro-1030"], ["Send your declaration for October 2026", "declare/?period=2026-10"]], "Waiting on you");
+    });
+    await step("Fees and standing is a block a month, each with its state, and never the word strike (D27)", async () => {
+      await page.waitForSelector("#fees:not([hidden]) .stmt");
+      eq(await page.$$eval("#fees .acct-sub", (els) => els.map((e) => e.textContent.trim())), ["Monthly statements"], "the sub-headings");
+      has(await reads(page, "#fees .hint"), "Follow-through: 98", "the host still sees its score");
+      const blocks = await page.$$eval("#fees .stmt", (els) => els.map((e) => ({ state: e.getAttribute("data-state"), open: e.open,
+        month: e.querySelector(".stmt__when b").textContent, meta: e.querySelector(".stmt__when span").textContent,
+        pill: e.querySelector("summary .acct-pill").textContent, total: e.querySelector("summary .acct-amount").textContent,
+        red: e.querySelector("summary .acct-amount").classList.contains("is-red") })));
+      eq(blocks.map((b) => [b.month, b.state, b.pill, b.total, b.red]), [
+        ["October 2026", "open", "Declare by 15 Nov", "–", false],
+        ["September 2026", "overdue", "Overdue", "AUD 202.80 + CAD 230.88 + ILS 120.00", true],
+        ["August 2026", "awaiting_payment", "Awaiting payment", "CAD 404.80", false],
+        ["July 2026", "paid", "Paid", "CAD 198.72", false],
+        ["June 2026", "invoice_pending", "Invoice on its way", "CAD 60.00", false],
+        ["May 2026", "nothing", "No revenue", "CAD 0.00", false],
+        ["April 2026", "not_declared", "Not declared", "–", true]], "each month");
+      eq(blocks.map((b) => b.open), [true, false, false, false, false, false, false], "the newest month is open, the rest folded");
+      eq(blocks[1].meta, "Invoices INV-0046, INV-0047, INV-0048 · raised 9 Oct 2026 · was due 8 Nov 2026", "an overdue month's invoice line");
+      eq(blocks[3].meta, "Invoice INV-0031 · raised 6 Aug 2026 · paid 20 Aug 2026", "a paid month's invoice line");
+      eq(blocks[6].meta, "No invoice yet. The declaration was due by 15 May 2026.", "a month not declared");
+      eq(await page.$$eval('#fees .stmt[data-state="open"] thead th', (els) => els.map((e) => e.textContent.trim())),
+        ["Introduction", "Value you declared", "Rate", "Fee", "Payment"], "the columns (C3)");
+      eq(await page.getAttribute('#fees .stmt[data-state="not_declared"] a.acct-declare', "href"), "declare/?period=2026-04", "a month not declared carries its own button (D21)");
+      eq(await page.locator('#fees .stmt[data-state="paid"] a.acct-declare, #fees .stmt[data-state="overdue"] a.acct-declare').count(), 0, "a Declare button on a sent month (D10)");
+      eq((await page.textContent("#fees")).includes("Introduced customers"), false, "Introduced customers");
+      await neverSays(page, "the account page");
+      await page.click('#fees .stmt[data-state="overdue"] summary');
+      await bothSizes(page, "fees", "#fees");
+    });
+    await step("the account page does not scroll sideways on a phone", async () => {
+      await page.setViewportSize({ width: 375, height: 760 });
+      await page.waitForTimeout(300);
+      await noSideways(page, "the account page");
+      await page.setViewportSize({ width: 1280, height: 900 });
+    });
+    await step("accepting asks for no Host Agreement of a host that holds one, and fills the page with Introduction approved (CONTRACT 4)", async () => {
+      await page.click('[data-act="intro-accept-open"][data-intro="1030"]');
+      await page.waitForSelector("#introAnswer-1030:not([hidden])");
+      await settled(page);
+      eq(await page.locator("#introAnswer-1030 .terms-scroll, #introAnswer-1030 [data-np-terms-tick]").count(), 0, "a terms box (D13)");
+      has(await reads(page, "#introAnswer-1030 .hint"), `Decline and ${D} is told a site said no, and nothing else.`, "the panel names the company");
+      await page.click('[data-act="intro-accept-send"][data-intro="1030"]');
+      await page.waitForSelector("#approved:not([hidden]) .approved__box");
+      eq(apiCalls(world, "POST /introductions/accept")[0].body, { introduction_id: 1030 }, "the body");
+      eq(await reads(page, "#approved h2"), "Introduction approved", "the heading");
+      eq(await reads(page, "#approved .approved__lead"), `You and ${D} have been introduced.`, "the lead");
+      eq(await reads(page, "#approved .approved__inbox"), "Check your email inbox. We have sent one email to you both, with each other's details. Reply to all to carry on.", "the inbox line");
+      eq(await reads(page, "#approved .approved__small"), `Walk, please declare ${D}'s orders on your hub account page each month, which keeps your listing in good standing.`, "the small print");
+      eq(await reads(page, "#approved button"), "Back to my account", "the one button");
+      const box = await page.locator("#approved").boundingBox();
+      eq([Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height)], [0, 0, 1280, 900], "the notice fills the page");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-act")), "approved-close", "the focus");
+      if ((await page.textContent("#approved")).includes("—")) throw new Error("an em-dash in the notice");
+      await bothSizes(page, "approved");
+    });
+    await step("Escape closes the notice onto the card, now introduced, with its map folded", async () => {
+      await page.keyboard.press("Escape");
+      await page.waitForSelector("#approved", { state: "hidden" });
+      await page.waitForSelector("#intro-1030 .acct-released");
+      has(await reads(page, "#intro-1030 .acct-released"), "ref INTRO-1030. The introduction is in your inbox; reply to all to carry on.", "the status");
+      eq(await page.locator("#mapFold-1030:not([hidden])").count(), 1, "the map folded");
+      eq(await page.locator("#intro-1030 [data-act='intro-accept-open'], #intro-1030 .status-chain").count(), 0, "an answer or the steps on an introduced card");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.id), "intro-1030", "the focus goes to the card");
+    });
+    clean(world, errors, "the account page on the worker's months");
+    await context.close();
+  }
+
+  /* Round 7 on the new card: a paused or hidden host is drawn no answer (plan
+     104, R7-18), and an introduction email that did not go can be sent again
+     from the card (plan 095). */
+  {
+    const world = hostWorld({ summary: summary({ site: Object.assign({}, HOST.site, { paused: true, paused_by_desk: true, hidden_unpaid: false }) }) });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/`);
+    await step("a paused host's card draws no Accept, Decline or Send the email again, and says when it can answer (R7-18)", async () => {
+      await page.waitForSelector("#intro-1030 .intro-title");
+      eq(await page.locator("#intro-1030 [data-act]:not([data-act='map-toggle'])").count(), 0, "buttons the worker would refuse");
+      has(await reads(page, "#intro-1030"), "You can answer this introduction once your listing is back on the hubs.", "the words");
+      eq(await page.locator("#waiting .acct-action[href^='#intro-']").count(), 0, "an Answer action in Waiting on you");
+    });
+    clean(world, errors, "a paused host's card");
+    await context.close();
+  }
+  {
+    const world = hostWorld({ summary: summary({ introductions: INTROS().map((i) => (i.id === 1011 ? Object.assign(i, { release: "failed" }) : i)) }) });
+    world.api["POST /introductions/:id/resend"] = (w) => {
+      w.summary = summary({ introductions: INTROS().map((i) => (i.id === 1011 ? Object.assign(i, { release: "sent" }) : i)) });
+      return [200, { ok: true }];
+    };
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/`);
+    await step("an introduction email that did not go is said on the card, and can be sent again from it (plan 095)", async () => {
+      await page.waitForSelector("#intro-1011 .acct-released");
+      has(await reads(page, "#intro-1011 .acct-released"), "The email that gives you both each other's details did not go.", "the status");
+      eq(await reads(page, '#intro-1011 [data-act="intro-resend"][data-kind="release"]'), "Send the introduction email again", "the button");
+      await page.click('#intro-1011 [data-act="intro-resend"][data-kind="release"]');
+      await until(() => apiCalls(world, "POST /introductions/1011/resend").length === 1, "the resend");
+      await page.waitForFunction(() => /The introduction is in your inbox/.test(document.querySelector("#intro-1011 .acct-released").textContent));
+    });
+    clean(world, errors, "the card whose introduction email did not go");
+    await context.close();
+  }
+
+  area = "Plan 106 (the declaration page)";
+  {
+    const world = hostWorld();
+    world.api["POST /declarations"] = () => [200, { ok: true }];
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/declare/?period=2026-10`);
+    await step("the page names the month and draws a line for each introduction the month is due for, by company", async () => {
+      await page.waitForSelector("#declCard .decl-table tbody tr");
+      eq(await reads(page, "#declTitle"), "Declare October 2026", "the heading");
+      has(await reads(page, "#declLead"), "the net revenue you invoiced that customer in October", "the lead");
+      eq(await page.$$eval("#declCard thead th", (els) => els.map((e) => e.textContent.trim())), ["Introduction", "Value you declared", "Currency", "No revenue", "Rate", "Fee"], "the columns");
+      const rows = await page.$$eval("#declCard tbody tr", (trs) => trs.map((tr) => ({ who: tr.querySelector(".co").textContent.trim(),
+        hub: (tr.querySelector(".acct-hub") || {}).textContent || "", rate: tr.querySelector(".auto").innerText.replace(/\s+/g, " ").trim(),
+        currency: tr.querySelector("select").value, fee: tr.querySelector(".fee").textContent })));
+      eq(rows, [{ who: `${A}(INTRO-1011)`, hub: "3D Print Hub", rate: "6% Year 1", currency: "CAD", fee: "–" },
+        { who: `${B}(INTRO-1012)`, hub: "3D Print Hub", rate: "5% Year 2", currency: "AUD", fee: "–" },
+        { who: `${C}(INTRO-1020)`, hub: "Mill Hub", rate: "4% Year 3", currency: "GBP", fee: "–" }], "the rows");
+      eq(await page.$$eval("#dc-0 option", (els) => els.map((e) => e.value)), ["GBP", "EUR", "USD", "CAD", "AUD", "ILS"], "the six currencies (D26)");
+      eq(await page.$eval("#dv-0", (e) => [e.type, e.inputMode]), ["text", "decimal"], "the value is a text box with a decimal keypad");
+      eq(await page.locator("#declCard input[type='number']").count(), 0, "number boxes");
+      eq((await page.textContent("#declCard")).includes("Units"), false, "a Units column (D2)");
+      has(await reads(page, "#declOther"), "Invoiced in another currency? Email hello@nexpoint.co.uk before you send this.", "the line for any other currency");
+      eq(await page.$eval("#declOther", (e) => e.classList.contains("notice-warn")), true, "the line stands out for a host whose own currency is not offered");
+      has(await reads(page, "#declFoot"), "Declare by 15 November 2026. When you send it, we raise one invoice for the month, due 30 days after its date", "the foot");
+      await bothSizes(page, "declare-empty");
+    });
+    await step("the fee and the total are worked out as the host types, in each line's own currency", async () => {
+      await page.fill("#dv-0", "3,848");
+      eq(await reads(page, "#df-0"), "CAD 230.88", "the first fee");
+      await page.fill("#dv-1", "4056");
+      eq(await reads(page, "#df-1"), "AUD 202.80", "the second fee, in Australian dollars");
+      await page.selectOption("#dc-2", "ILS");
+      await page.fill("#dv-2", "3666.5");
+      eq(await reads(page, "#df-2"), "ILS 146.66", "the third fee, in shekels");
+      eq(await reads(page, "#declTotal"), "AUD 202.80 + CAD 230.88 + ILS 146.66", "the total, one figure a currency");
+    });
+    await step("a line that is not a value is refused in words and nothing is sent", async () => {
+      await page.fill("#dv-1", "four thousand");
+      eq(await page.$eval("#dv-1", (e) => e.classList.contains("is-bad")), true, "the box is marked");
+      await page.click("#declSend");
+      eq(await reads(page, "#declMsg"), 'Type a value on each line, or tick "No revenue".', "the words");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.id), "dv-1", "the focus");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations sent");
+    });
+    await step("the wheel changes nothing on the page", async () => {
+      await page.fill("#dv-1", "4056");
+      await page.focus("#dv-1");
+      await page.hover("#dv-1");
+      await page.mouse.wheel(0, 240);
+      await page.mouse.wheel(0, -240);
+      eq(await page.inputValue("#dv-1"), "4056", "the value after the wheel");
+    });
+    await step("sending posts once a hub, the value and its currency alone, and names each No revenue line in nothing_for (plan 098)", async () => {
+      await page.check("#dn-1");
+      eq(await page.isDisabled("#dv-1"), true, "the value box of a No revenue line");
+      await page.check("#dn-2");
+      eq(await reads(page, "#declTotal"), "CAD 230.88", "the total");
+      await bothSizes(page, "declare-filled");
+      await page.click("#declSend");
+      await until(() => apiCalls(world, "POST /declarations").length === 2, "the two declarations");
+      const sent = apiCalls(world, "POST /declarations").map((c) => c.body);
+      eq(sent[0], { hub: "print", period: "2026-10", nothing_this_month: false, nothing_for: [1012],
+        lines: [{ introduction_id: 1011, value: 3848, currency: "CAD" }] }, "the 3D Print Hub's declaration");
+      eq(sent[1], { hub: "mill", period: "2026-10", nothing_this_month: true, nothing_for: [1020] }, "the Mill Hub's nil return");
+      eq(JSON.stringify(sent).includes("units"), false, "units in what is sent (D2)");
+      await page.waitForSelector("#declCard .decl-done h2");
+      eq(await reads(page, "#declCard .decl-done h2"), "Declared for October 2026", "the screen after sending");
+      has(await reads(page, "#declCard .decl-done p"), "Your invoice is being raised and will reach you by email, due 30 days after its date.", "the invoice line");
+      eq(await reads(page, "#declCard .decl-done a.btn"), "See it on my account", "the way back");
+      eq(await page.getAttribute("#declCard .decl-done a.btn", "href"), "../", "where it goes");
+      await neverSays(page, "the declaration page");
+      await bothSizes(page, "declare-sent");
+    });
+    clean(world, errors, "the declaration page");
+    await context.close();
+  }
+  {
+    const world = hostWorld();
+    world.api["POST /declarations"] = () => [200, { ok: true }];
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/declare/?period=2026-04`);
+    await step("a month not declared can still be declared (D21); a month of nothing but No revenue is asked once before it goes", async () => {
+      await page.waitForSelector("#declCard .decl-table tbody tr");
+      eq(await reads(page, "#declTitle"), "Declare April 2026", "the heading");
+      has(await reads(page, "#declFoot"), "This declaration was due by 15 May 2026.", "the foot says it is late, from the worker's own date");
+      await page.check("#dn-0");
+      await page.check("#dn-1");
+      await page.click("#declSend");
+      await page.waitForSelector("#declConfirm:not([hidden])");
+      eq(await reads(page, "#declConfirm p"), "Nothing came through any introduction in April? Send a nil return.", "the question");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations before the nil return is confirmed");
+      await bothSizes(page, "declare-nil");
+      await page.click('[data-act="nil-back"]');
+      await page.waitForSelector("#declFoot:not([hidden])");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations after going back");
+      await page.click("#declSend");
+      await page.click('[data-act="nil-send"]');
+      await until(() => apiCalls(world, "POST /declarations").length === 1, "the nil return");
+      eq(apiCalls(world, "POST /declarations")[0].body, { hub: "print", period: "2026-04", nothing_this_month: true, nothing_for: [1011, 1012] }, "the body");
+      await page.waitForSelector("#declCard .decl-done h2");
+      has(await reads(page, "#declCard .decl-done p"), "No revenue this month, so there is no invoice.", "the words after a nil return");
+    });
+    clean(world, errors, "the declaration page, a nil return");
+    await context.close();
+  }
+  {
+    const world = hostWorld();
+    world.api["POST /declarations"] = () => [409, { error: "already_sent" }];
+    const { context, page, errors } = await visit(world);
+    await step("a month the worker says was already sent is refused in words (D10)", async () => {
+      await page.goto(`${APEX}/hub/account/declare/?period=2026-10`);
+      await page.waitForSelector("#declCard .decl-table tbody tr");
+      await page.fill("#dv-0", "10"); await page.fill("#dv-1", "10"); await page.fill("#dv-2", "10");
+      await page.click("#declSend");
+      await page.waitForFunction(() => { const m = document.getElementById("declMsg"); return m && !m.hidden && m.textContent; });
+      eq(await reads(page, "#declMsg"), "This month has already been sent. To change it, talk to the desk.", "the words");
+      eq(await page.isDisabled("#declSend"), false, "the button is given back");
+    });
+    await step("a sent month, a month that is not listed and a month with no introduction in it each say so in one sentence, with the way back", async () => {
+      for (const [period, want] of [["2026-09", "September 2026 has already been declared. To change it, talk to the desk."],
+        ["2025-01", "There is no declaration to make for January 2025. Your account page lists the months that are open."]]) {
+        await page.goto(`${APEX}/hub/account/declare/?period=${period}`);
+        await page.waitForSelector("#declCard .decl-done.is-quiet");
+        eq(await reads(page, "#declCard .decl-done p"), want, `the sentence for ${period}`);
+        eq(await page.getAttribute("#declCard .decl-done a.btn", "href"), "../", "the way back");
+        eq(await page.locator("#declCard input, #declCard select").count(), 0, "a form");
+      }
+    });
+    clean(world, errors, "the declaration page, the months that cannot be declared");
+    await context.close();
+  }
+  {
+    /* A worker from before plan 106 (no months) and a worker that lists an
+       open month without its introductions: neither is an empty form. */
+    const old = hostWorld({ summary: summary({ declarations: { period_open: "2026-10", due_state: "due", hub: "print",
+      items: [{ introduction_id: 1011, ref: "INTRO-1011", seeker_town: "Bristol", seeker_country: "United Kingdom" }], history: [] } }) });
+    const bare = hostWorld({ summary: summary({ declarations: { period_open: "2026-10", due_state: "due", hub: "print", items: [], history: [],
+      months: [{ period: "2026-10", state: "open", declare_by: "2026-11-15", sent_at: null, lines: [], totals: [], invoices: [] }] } }) });
+    for (const [who, world, selector, want] of [
+      ["a worker from before plan 106", old, "#declCard .decl-done p", "Declare from your account page for now."],
+      ["a month the worker lists without its introductions", bare, "#declCard .decl-notice", "We could not list your introductions for October 2026 just now. Try again in a few minutes, or email hello@nexpoint.co.uk."]]) {
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/declare/`);
+      await step(`${who}: the declaration page says what to do, and draws no form`, async () => {
+        await page.waitForSelector(selector);
+        eq(await reads(page, selector), want, "the sentence");
+        eq(await page.locator("#declCard input, #declCard select").count(), 0, "a form");
+        await neverSays(page, "the declaration page");
+      });
+      clean(world, errors, `the declaration page, ${who}`);
+      await context.close();
+    }
+  }
+
+  area = "Plan 106 (the find form and the listing form)";
+  {
+    /* A number changes only by typing (W5.2): not under the wheel, not on the
+       arrow keys. The logo beside a named site is the worker's signed link, or
+       the company's initials when there is none or it does not load (D14). */
+    const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+    const world = newWorld({ user: USER, terms: TERMS_STATE({ seeker: HELD(TERMS_ID.seeker) }) });
+    world.api["GET /terms/current"] = docTerms;
+    world.api["POST /listings/search"] = () => [200, { ok: true, search_id: 79, no_match: false, terms_version: 12,
+      matches: [Object.assign({}, MATCHES[0], { logo_url: PIXEL }), Object.assign({}, MATCHES[1], { logo_url: "data:image/png;base64,AAAA" }), MATCHES[2], MATCHES[3]],
+      seeker_point: { lat: 53.8, lng: -1.55 }, region: "uk", region_unknown: false }];
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${PRINT}/find.html`);
+    await page.waitForSelector("body[data-np-open]");
+    await page.waitForSelector("#findForm");
+    const unmoved = async (selector, typed, what) => {
+      await page.fill(selector, typed);
+      await page.focus(selector);
+      await page.hover(selector);
+      await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(120);
+      await page.mouse.wheel(0, -300);
+      await page.waitForTimeout(120);
+      eq(await page.inputValue(selector), typed, `${what} after the wheel`);
+      await page.focus(selector);
+      await page.keyboard.press("ArrowUp");
+      await page.keyboard.press("ArrowDown");
+      await page.keyboard.press("ArrowDown");
+      eq(await page.inputValue(selector), typed, `${what} after the arrow keys`);
+      eq(await page.$eval(selector, (e) => e.type), "number", `${what} is still a number box (the phone's number keypad)`);
+    };
+    await step("the find form's How many and lead time change only by typing: the wheel and the arrow keys move nothing", async () => {
+      await unmoved("#fQuantity", "200", "How many");
+      await unmoved("#fMaxLead", "10", "the lead time");
+    });
+    await step("each of the three results shows its company's logo beside its name, or its initials, and never a broken picture (D14)", async () => {
+      await page.click(deviceBox("rigid"));
+      await page.fill("#fNotes", "Boxed per patient.");
+      await page.click("#findSubmit");
+      await page.waitForSelector("#step2:not([hidden]) #capGrid .cap");
+      await page.waitForFunction(() => document.querySelectorAll("#capGrid .cap-logo img").length === 1);
+      const tiles = await page.$$eval("#capGrid .cap", (els) => els.map((e) => ({ name: e.querySelector("h3").textContent.trim(),
+        img: e.querySelectorAll(".cap__name .cap-logo img").length, text: e.querySelector(".cap__name .cap-logo").textContent.trim() })));
+      eq(tiles, [{ name: "Acme Orthotics", img: 1, text: "" }, { name: "Bravo Labs", img: 0, text: "BL" }, { name: "Charlie Print", img: 0, text: "CP" }], "the tiles");
+      eq(await page.$eval("#capGrid .cap-logo img", (i) => i.complete && i.naturalWidth > 0), true, "the one picture drawn has loaded");
+      eq(await page.$eval("#capGrid .cap-logo", (e) => { const s = getComputedStyle(e); return [s.width, s.height]; }), ["72px", "44px"], "the tile's size");
+      eq(await page.$eval("#capGrid .cap-logo img", (e) => getComputedStyle(e).objectFit), "contain", "a logo is never cropped or stretched");
+      await bothSizes(page, "find-results", "#step2");
+    });
+    await step("the pick line tells the seeker its company's name is shown, and the search carried the seeker's own notes beside the composed ones (D12, W5.5)", async () => {
+      await page.click('#capGrid [data-card="listing-a"] .cap__tick');
+      await page.click("#pickContinue");
+      await page.waitForSelector("#step3:not([hidden]) #requestSubmit");
+      has(await page.textContent("#pickSummary"), "Your request goes straight to this site. It sees your company's name with your request. Contact details are exchanged only once it accepts.", "the sentence");
+      eq(await page.locator("#pickSummary .cap-logo--small img").count(), 1, "the picked site's logo leads the line");
+      const body = apiCalls(world, "POST /listings/search")[0].body;
+      eq(body.notes_own, "Boxed per patient.", "notes_own: what the seeker typed, on its own");
+      eq(body.notes, "Boxed per patient.\n\nVolume: 200 pairs, one off.", "the composed notes the desk keeps");
+      await bothSizes(page, "find-pick", "#step3");
+    });
+    clean(world, errors, "the find form (plan 106)");
+    await context.close();
+  }
+  for (const [hub, url] of [["3D Print Hub", `${PRINT}/offer.html`], ["Mill Hub", `${MILL}/offer.html`]]) {
+    const world = newWorld({ user: USER });
+    const { context, page, errors } = await visit(world);
+    await page.goto(url);
+    await page.waitForSelector("body[data-np-open]");
+    await page.waitForSelector("#listingForm");
+    await step(`${hub}: no number on the listing form moves under the wheel or the arrow keys`, async () => {
+      const ids = await page.$$eval('#listingForm input[type="number"]', (els) => els.filter((e) => e.id && e.offsetParent !== null).map((e) => e.id));
+      if (!ids.length) throw new Error("the listing form has no number box to try");
+      for (const id of ids.slice(0, 4)) {
+        const sel = "#" + id;
+        await page.fill(sel, "12");
+        await page.focus(sel);
+        await page.hover(sel);
+        await page.mouse.wheel(0, 300);
+        await page.waitForTimeout(120);
+        await page.mouse.wheel(0, -300);
+        await page.waitForTimeout(120);
+        await page.focus(sel);
+        await page.keyboard.press("ArrowUp");
+        eq(await page.inputValue(sel), "12", `${id} after the wheel and an arrow key`);
+      }
+    });
+    clean(world, errors, `the listing form's numbers, ${hub}`);
+    await context.close();
+  }
+
+  area = "Plan 106 (a worker from before it, and the Opportunities Board)";
+  {
+    /* The pages may land before the worker: no company, no fee year, no
+       notes_own, no months. The card is titled by its reference, the account
+       page keeps the declaration card and the statements it has, and nothing
+       reads "undefined". The worker's list of strikes is still never drawn. */
+    const plain = (i) => { const o = Object.assign({}, i); for (const k of ["company", "logo_url", "fee_year", "fee_rate", "first_order_at", "next_year_from", "next_rate"]) delete o[k]; return o; };
+    const world = hostWorld({ summary: summary({
+      introductions: INTROS().map(plain),
+      offers: OFFERS().map((o) => { const r = Object.assign({}, o.request); delete r.notes_own; return Object.assign(plain(o), { request: r }); }),
+      declarations: { period_open: "2026-10", due_state: "due", hub: "print",
+        items: [{ introduction_id: 1011, ref: "INTRO-1011", seeker_town: "Bristol", seeker_country: "United Kingdom" }],
+        history: [{ period: "2026-09", hub: "print", status: "submitted", submitted_at: "2026-10-09T10:00:00Z", lines: [{ ref: "INTRO-1011", units: 3, value: 3848, currency: "AUD" }] }] },
+      statements: [{ id: 1, quarter: "2026-Q3", issued_at: "2026-10-23T09:00:00Z", paid_at: null, status: "issued", total_fees: 230.88, currency: "ILS", lines: [] }],
+    }) });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/`);
+    await step("with no company from the worker the card is titled by its reference, with no year line and no Notes, and nothing reads undefined", async () => {
+      await page.waitForSelector("#intro-1030 .intro-title--ref");
+      has(await reads(page, "#intro-1030 .intro-title--ref"), "INTRO-1030", "the title");
+      eq(await page.locator("#intro-1030 .intro-year, #intro-1030 .intro-logo, #intro-1011 .intro-decl").count(), 0, "a year line, a logo tile or a declarations list");
+      await page.waitForSelector("#pairMap-1030 .leaflet-popup .np-need");
+      eq(await page.locator("#pairMap-1030 .np-need__notes, #pairMap-1030 .np-need__company").count(), 0, "Notes or a company in the need box");
+      has(await reads(page, "#introAnswer-1030 .hint", true), "Decline and the seeker is told a site said no, and nothing else.", "the panel's words with no name");
+      await neverSays(page, "the account page on an older worker");
+    });
+    await step("the account page keeps its declaration card and statements, with six currencies and the line for any other", async () => {
+      await page.waitForSelector('#declarations [data-act="decl-submit"]');
+      eq(await page.$$eval("#decl-2026-10-1011-currency option", (els) => els.map((e) => e.value)), ["GBP", "EUR", "USD", "CAD", "AUD", "ILS"], "the six currencies (D26)");
+      has(await page.textContent("#declarations .acct-card"), "If you invoiced in any currency that is not on the list, email hello@nexpoint.co.uk before you send this declaration.", "the line for any other currency");
+      has(await reads(page, "#declarations .acct-detail"), "A$3,848.00", "an Australian dollar value, with its sign");
+      eq(await page.$$eval("#fees .acct-sub", (els) => els.map((e) => e.textContent.trim())), ["Statements"], "the sub-headings: no list of strikes (D27)");
+      has(await reads(page, "#fees"), "₪230.88", "a shekel fee, with its sign");
+      eq((await page.textContent("#fees")).includes("Introduced customers"), false, "Introduced customers");
+    });
+    clean(world, errors, "the account page on a worker from before plan 106");
+    await context.close();
+  }
+  {
+    /* The worker's months hold the two hubs alone (D18). A company that sells
+       through the Opportunities Board and nothing else is sent no month, and
+       keeps the card it has; a host that also sells through the board keeps
+       the board's card under the button. */
+    const boardIntro = { id: 2001, ref: "INTRO-2001", hub: "opportunities", stage: "introduced", role: "provider", asked: false, seller: true,
+      created_at: "2026-08-01T09:00:00Z", introduced_at: "2026-08-04T09:00:00Z", acceptance_expires_at: null,
+      opportunity: { ref: "NX-0007", title: "A distributor for a carbon AFO range" } };
+    const boardDecl = { period_open: "2026-10", due_state: "due", hub: "opportunities",
+      items: [{ introduction_id: 2001, ref: "INTRO-2001", seeker_town: "Lyon", seeker_country: "France" }],
+      history: [{ period: "2026-09", hub: "opportunities", status: "nothing", submitted_at: "2026-10-05T10:00:00Z", lines: [] }] };
+    const alone = newWorld({ user: USER, terms: TERMS_STATE({ host: HELD(32) }), summary: Object.assign({}, EMPTY_SUMMARY, {
+      org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "none", host_print: "none", host_mill: "none" },
+      introductions: [boardIntro], declarations: Object.assign({ months: [] }, boardDecl), hubs_used: ["opportunities"] }) });
+    const mixed = hostWorld({ summary: summary({ introductions: INTROS().concat([boardIntro]),
+      declarations: Object.assign({ months: MONTHS() }, boardDecl) }) });
+    {
+      const { context, page, errors } = await visit(alone);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a company that sells through the board alone keeps its declaration card when the worker lists no month for it", async () => {
+        await page.waitForSelector('#declarations [data-act="decl-submit"][data-hub="opportunities"]');
+        eq(await page.locator("#declarations a.acct-declare").count(), 0, "a button to the declaration page");
+        has(await reads(page, "#declarations"), "INTRO-2001", "its introduction");
+        eq(/[A-Z]{2} [A-Z]\w+ (Orthotics|Podiatry|Clinic|Bracing)/.test(await reads(page, "#introductions")), false, "a company named on a board row (D18)");
+        await neverSays(page, "the board seller's account page");
+      });
+      await step("the declaration page sends a board seller to its account page", async () => {
+        await page.goto(`${APEX}/hub/account/declare/`);
+        await page.waitForSelector("#declCard .decl-done.is-quiet");
+        eq(await reads(page, "#declCard .decl-done p"), "Declare from your account page for now.", "the sentence");
+      });
+      clean(alone, errors, "the board seller's pages");
+      await context.close();
+    }
+    {
+      const { context, page, errors } = await visit(mixed);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a host that also sells through the board has the button for its hubs and the board's card beneath it", async () => {
+        await page.waitForSelector("#declarations a.acct-declare");
+        await page.waitForSelector('#declarations [data-act="decl-submit"][data-hub="opportunities"]');
+        eq(await page.$$eval("#declarations .acct-sub", (els) => els.map((e) => e.textContent.trim())), ["Opportunities Board"], "the board's heading");
+        eq(await page.locator("#intro-2001 .intro-title").count(), 0, "the new card on a board row (D18)");
+        const acts = await page.$$eval("#waiting .acct-action", (els) => els.map((e) => e.querySelector("span:nth-child(2)").textContent.trim()));
+        eq(acts, ["Answer 1 introduction", "Send your declaration for October 2026", "Send your Opportunities Board declaration for October 2026"], "Waiting on you");
+      });
+      clean(mixed, errors, "the host that also sells through the board");
+      await context.close();
+    }
+  }
+}
+
 const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
@@ -7150,6 +7825,8 @@ if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountAnswers) + 1, 0, wa
 /* The membership beside the terms and an edit as a change (plan 068) walk straight after the ship picker. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkOfferMap) + 1, 0, walkOfferCommit);
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountBoard) + 1, 0, walkTerms);
+/* The account page on the worker's months and the declaration page (plan 106) walk straight after the terms. */
+if (ONLY !== "boards") parts.splice(parts.indexOf(walkTerms) + 1, 0, walkPlan106);
 /* The Consultancy agreements page (plan 086) walks straight after the Inbox and System. */
 if (ONLY !== "public") parts.splice(parts.indexOf(walkInboxAndSystem) + 1, 0, walkConsultancy);
 if (ONLY === "sign") parts.splice(0, parts.length, walkSign);
