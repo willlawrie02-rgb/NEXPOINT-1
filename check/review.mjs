@@ -744,6 +744,10 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
     if (m) fail(`${page}: says "${m[0]}"; the site a seeker picks sees its company's name (plan 106, D12)`);
   }
   if (!read("millhub/index.html").includes("It sees your company's name with your request")) fail("millhub/index.html: does not say the cell sees the company's name (plan 106, W4)");
+  for (const page of ["printhub/find.html", "millhub/find.html"]) {
+    if (!read(page).includes("it sees your company's name with your request. It has 14 days to answer. Your contact details are exchanged only once it accepts."))
+      fail(`${page}: the form's hint does not say the site sees the company's name, and contact details only on acceptance (plan 106, W4)`);
+  }
 }
 
 if (fails.length) {

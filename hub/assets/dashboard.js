@@ -668,7 +668,11 @@
     else {
       rest = 'First order ' + monthOf(i.first_order_at) + '.';
       if (i.next_year_from && i.next_rate != null && !isNaN(Number(i.next_rate))) {
-        rest += ' Year ' + (y + 1) + ' (' + rateText(i.next_rate) + ') starts ' + monthOf(i.next_year_from) + '.';
+        /* after year 5 there is no fee (Host Agreement 7): the worker sends a
+           next rate of nil, which is said in words, never as "Year 6 (0%)" */
+        rest += Number(i.next_rate) > 0 && y < 5
+          ? ' Year ' + (y + 1) + ' (' + rateText(i.next_rate) + ') starts ' + monthOf(i.next_year_from) + '.'
+          : ' No fee from ' + monthOf(i.next_year_from) + '.';
       }
     }
     return '<div class="intro-year"><span class="year-chip">Year ' + y + ' (' + esc(rateText(i.fee_rate)) + ')</span>' +
@@ -1127,18 +1131,20 @@
   function monthsOf(d) {
     var dec = d && d.declarations;
     var months = dec && Array.isArray(dec.months) ? dec.months : null;
-    /* An account the worker lists no month for, with declarations or
-       statements already on record, sells through the Opportunities Board
-       alone (the worker's months are the two hubs', D18): it keeps the card
-       and the statements it has, exactly as before this plan. */
+    /* The worker lists the Opportunities Board's months too (C7), with
+       `company` null on every board line (D18). An account it lists no month
+       for, with declarations or statements already on record, is read as a
+       worker that leaves the board out: it keeps the card and the statements
+       it has, exactly as before this plan. */
     if (months && !months.length && (dec.period_open || (Array.isArray(dec.history) && dec.history.length) ||
         (Array.isArray(d.statements) && d.statements.length))) return null;
     return months;
   }
-  /* A host on a hub that also sells through the board: the board's month is
-     not on the declaration page while the worker's months leave the board out,
-     so its card stays here, under the button. True only when the worker's own
-     card is for the board and no month names it. */
+  /* A host on a hub that also sells through the board: the worker's months
+     name the board's lines (C7), so the board is declared on the declaration
+     page with the rest. Only for a worker whose months leave the board out
+     does its card stay here, under the button: true only when the worker's
+     own card is for the board and no month names it. */
   function boardCardDue(d, months) {
     var dec = d && d.declarations;
     if (!dec || dec.hub !== 'opportunities' || !Array.isArray(dec.items) || !dec.items.length) return false;
@@ -1461,7 +1467,9 @@
         var pill = f.paid_at ? '<span class="acct-pill is-paid">Paid</span>'
           : f.issued_at ? '<span class="acct-pill is-issued">Issued</span>' : '';
         return '<div class="acct-row"><div class="acct-row__meta">' +
-          '<b>' + esc(f.quarter || '') + '</b>' +
+          /* a monthly statement (plan 106) carries `period` and its month in
+             `quarter`; one from before monthly invoicing, its quarter alone */
+          '<b>' + esc(/^\d{4}-\d{2}$/.test(String(f.period || '')) ? fmtPeriod(f.period) : (f.quarter || '')) + '</b>' +
           '<span>' + esc(when) + '</span>' +
         '</div><div class="acct-row__actions">' + pill +
           '<span class="acct-amount">' + esc(money(f.total_fees, f.currency)) + '</span>' +

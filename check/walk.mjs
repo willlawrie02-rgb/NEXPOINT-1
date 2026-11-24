@@ -7394,9 +7394,13 @@ async function walkPlan106() {
     });
     await step("the account page does not scroll sideways on a phone", async () => {
       await page.setViewportSize({ width: 375, height: 760 });
-      await page.waitForTimeout(300);
-      await noSideways(page, "the account page");
-      await page.setViewportSize({ width: 1280, height: 900 });
+      try {
+        await page.waitForTimeout(300);
+        await noSideways(page, "the account page");
+      } finally {
+        /* back to the desktop size whatever happened, so the next step is not measured on a phone */
+        await page.setViewportSize({ width: 1280, height: 900 });
+      }
     });
     await step("accepting asks for no Host Agreement of a host that holds one, and fills the page with Introduction approved (CONTRACT 4)", async () => {
       await page.click('[data-act="intro-accept-open"][data-intro="1030"]');
@@ -7599,6 +7603,34 @@ async function walkPlan106() {
     await context.close();
   }
   {
+    /* The engine's emails link to the page with no ?period= (the worker adds
+       one only when the engine sends no link): the page opens on the newest
+       month not yet sent, and with none says so in one sentence. */
+    const sentOnly = MONTHS().filter((m) => m.state !== "open" && m.state !== "not_declared");
+    for (const [who, months, want] of [
+      ["the newest month open", MONTHS(), { title: "Declare October 2026" }],
+      ["a month not declared behind months already sent", MONTHS().slice(1), { title: "Declare April 2026" }],
+      ["every month sent", sentOnly, { text: "Declared for September 2026. Nothing else to send." }]]) {
+      const world = hostWorld({ summary: summary({ declarations: { period_open: "2026-10", due_state: "due", hub: "print", items: [], history: [], months } }) });
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/declare/`);
+      await step(`opened with no month in the address, ${who}: ${want.title || "nothing to declare"}`, async () => {
+        if (want.title) {
+          await page.waitForSelector("#declCard .decl-table tbody tr");
+          eq(await reads(page, "#declTitle"), want.title, "the month it opens on");
+        } else {
+          await page.waitForSelector("#declCard .decl-done.is-quiet");
+          eq(await reads(page, "#declCard .decl-done p"), want.text, "the sentence");
+          eq(await page.locator("#declCard input, #declCard select").count(), 0, "a form");
+          eq(await page.getAttribute("#declCard .decl-done a.btn", "href"), "../", "the way back");
+        }
+        await neverSays(page, "the declaration page");
+      });
+      clean(world, errors, `the declaration page with no month in the address, ${who}`);
+      await context.close();
+    }
+  }
+  {
     /* A worker from before plan 106 (no months) and a worker that lists an
        open month without its introductions: neither is an empty form. */
     const old = hostWorld({ summary: summary({ declarations: { period_open: "2026-10", due_state: "due", hub: "print",
@@ -7750,10 +7782,12 @@ async function walkPlan106() {
     await context.close();
   }
   {
-    /* The worker's months hold the two hubs alone (D18). A company that sells
-       through the Opportunities Board and nothing else is sent no month, and
-       keeps the card it has; a host that also sells through the board keeps
-       the board's card under the button. */
+    /* The worker being built beside this lists the board's months too (C7),
+       with `company` null on every board line (D18): the last case below. The
+       first two are a worker whose months leave the board out: a company that
+       sells through the Opportunities Board and nothing else is sent no month,
+       and keeps the card it has; a host that also sells through the board
+       keeps the board's card under the button. */
     const boardIntro = { id: 2001, ref: "INTRO-2001", hub: "opportunities", stage: "introduced", role: "provider", asked: false, seller: true,
       created_at: "2026-08-01T09:00:00Z", introduced_at: "2026-08-04T09:00:00Z", acceptance_expires_at: null,
       opportunity: { ref: "NX-0007", title: "A distributor for a carbon AFO range" } };
@@ -7795,6 +7829,50 @@ async function walkPlan106() {
         eq(acts, ["Answer 1 introduction", "Send your declaration for October 2026", "Send your Opportunities Board declaration for October 2026"], "Waiting on you");
       });
       clean(mixed, errors, "the host that also sells through the board");
+      await context.close();
+    }
+    {
+      /* The worker's months with the board in them: the board's line is named
+         by its reference alone, declared on the declaration page with the rest,
+         and no board card is left on the account page. */
+      const boardDue = { introduction_id: 2001, ref: "INTRO-2001", company: null, hub: "opportunities", rate: 0.06, currency_default: "GBP" };
+      const boardLine = { introduction_id: 2001, ref: "INTRO-2001", company: null, hub: "opportunities", nothing: false, value: 500, currency: "GBP", rate: 0.06, fee: 30 };
+      const months = MONTHS().map((m) => {
+        if (m.period === "2026-10") return Object.assign({}, m, { due: m.due.concat([boardDue]) });
+        if (m.period === "2026-08") return Object.assign({}, m, { lines: m.lines.concat([boardLine]),
+          totals: m.totals.concat([{ currency: "GBP", value: 500, fee: 30 }]) });
+        return m;
+      });
+      const inMonths = hostWorld({ summary: summary({ introductions: INTROS().concat([boardIntro]),
+        declarations: Object.assign({ months }, boardDecl) }) });
+      inMonths.api["POST /declarations"] = () => [200, { ok: true }];
+      const { context, page, errors } = await visit(inMonths);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("with the board's line in the worker's months: one button, no board card, and the line named by its reference alone (D18)", async () => {
+        await page.waitForSelector("#declarations a.acct-declare");
+        eq(await page.locator('#declarations [data-act="decl-submit"]').count(), 0, "a board card beside the button");
+        eq(await reads(page, "#declarations .acct-declare-row .acct-row__meta"), "October 2026Open now. Declare by 15 November 2026. One line for each of your 4 introductions.", "the row");
+        const acts = await page.$$eval("#waiting .acct-action", (els) => els.map((e) => e.querySelector("span:nth-child(2)").textContent.trim()));
+        eq(acts, ["Answer 1 introduction", "Send your declaration for October 2026"], "Waiting on you");
+        await page.click('#fees .stmt[data-state="awaiting_payment"] summary');
+        const rows = await page.$$eval('#fees .stmt[data-state="awaiting_payment"] tbody tr td:first-child', (tds) => tds.map((td) => td.textContent.replace(/\s+/g, " ").trim()));
+        eq(rows[rows.length - 1], "INTRO-2001 Opportunities Board", "the board's line in the statement");
+        await neverSays(page, "the account page with the board in the months");
+      });
+      await step("the declaration page, opened with no month, draws the board's line by reference and sends the board its own declaration", async () => {
+        await page.goto(`${APEX}/hub/account/declare/`);
+        await page.waitForSelector("#declCard .decl-table tbody tr");
+        eq(await reads(page, "#declTitle"), "Declare October 2026", "the month");
+        const last = await page.$eval("#declCard tbody tr:last-child td:first-child", (td) => td.textContent.replace(/\s+/g, " ").trim());
+        eq(last, "INTRO-2001 Opportunities Board", "the board's row: its reference and the board, no company");
+        await page.fill("#dv-0", "100"); await page.fill("#dv-1", "100"); await page.fill("#dv-2", "100"); await page.fill("#dv-3", "500");
+        await page.click("#declSend");
+        await until(() => apiCalls(inMonths, "POST /declarations").length === 3, "the three declarations");
+        const board = apiCalls(inMonths, "POST /declarations").map((c) => c.body).find((b) => b.hub === "opportunities");
+        eq(board, { hub: "opportunities", period: "2026-10", nothing_this_month: false, nothing_for: [],
+          lines: [{ introduction_id: 2001, value: 500, currency: "GBP" }] }, "the board's declaration");
+      });
+      clean(inMonths, errors, "the pages with the board in the worker's months");
       await context.close();
     }
   }

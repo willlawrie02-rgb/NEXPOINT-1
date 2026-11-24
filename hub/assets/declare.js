@@ -157,17 +157,22 @@
       plain('Your declaration', 'Declare from your account page for now.', 'fact_check');
       return;
     }
+    /* With ?period=YYYY-MM, that month. Without one (the engine's emails link
+       here bare), the newest month not yet sent that owes a line, else the
+       newest not yet sent; the worker lists the months newest first. */
     var asked = wantedPeriod();
+    var unsent = months.filter(openState);
     var month = asked
       ? months.filter(function (m) { return m && m.period === asked; })[0]
-      : months.filter(openState)[0];
+      : unsent.filter(function (m) { return !Array.isArray(m.due) || m.due.length > 0; })[0] || unsent[0];
     if (asked && !month) {
       plain(fmtPeriod(asked), 'There is no declaration to make for ' + fmtPeriod(asked) + '. Your account page lists the months that are open.', 'event_upcoming');
       return;
     }
-    /* The Opportunities Board's month is declared on the account page while
-       the worker's months hold the two hubs alone (D18): an account with
-       nothing to declare here and a board declaration due is sent there. */
+    /* The worker's months name the Opportunities Board's lines too (C7), by
+       reference alone (D18), and they are declared here with the rest. For a
+       worker whose months leave the board out, an account with nothing to
+       declare here and a board declaration due is sent to its account page. */
     var legacyDue = ['due', 'reminder', 'overdue'].indexOf(dec.due_state) !== -1 &&
       Array.isArray(dec.items) && dec.items.length > 0;
     if (!month && !asked && legacyDue) {
