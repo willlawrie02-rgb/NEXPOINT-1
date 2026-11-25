@@ -1264,6 +1264,11 @@
 
   function init() {
     if (!body()) return;
+    /* Plan 106 (W5.2): every number on the form (a machine's count, lead
+       time, capacity and minimum order, and any number the vocabulary adds)
+       changes only by typing, never under the wheel or the arrow keys. One
+       guard on the panel covers every form drawn into it (typed-numbers.js). */
+    if (window.NPTypedNumbers) NPTypedNumbers.guard(body());
     document.addEventListener('npaccount:change', load);
     load();
   }

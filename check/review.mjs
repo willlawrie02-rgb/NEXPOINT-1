@@ -431,7 +431,14 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
   };
 
   // R7-16: the declaration form says what to do about a currency it does not offer.
-  wordsIn(DASH, dash, ["If you invoiced in any currency other than pounds, euros or US dollars, email "], "R7-16");
+  // Plan 106 (D26) offers six currencies, so the line no longer names three: the
+  // account page's own card (kept for the Opportunities Board and for a worker
+  // from before plan 106) and the declaration page each carry it.
+  wordsIn(DASH, dash, ["If you invoiced in any currency that is not on the list, email "], "R7-16");
+  wordsIn("hub/assets/declare.js", read("hub/assets/declare.js"), ["Invoiced in another currency? Email "], "R7-16");
+  for (const f of [DASH, "hub/assets/declare.js"]) {
+    if (read(f).includes("pounds, euros or US dollars")) fail(`${f}: still names three currencies; six are offered (plan 106, D26)`);
+  }
 
   // R7-25: four small slips where a person is told the wrong thing.
   // (c) A decimal or a minus in Units gets words, and is not sent. The three
@@ -591,6 +598,155 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
     ]) {
       if (!read(page).includes("noindex")) fail(`${page}: this page has lost its noindex (plan 104, R7-26)`);
     }
+  }
+}
+
+// ---------------------------------------------------------------- Plan 106: the account page, the declaration page, the find form
+// Will's demo notes of 19 November 2026 and the decisions since (D26, D27).
+// Each rule is one of the plan's own: where a function can be lifted out of
+// its file and run, it is run, and the rest is read.
+{
+  const DASH = "hub/assets/dashboard.js", DECL = "hub/assets/declare.js", FIND = "hub/assets/find.js";
+  const dash = read(DASH), decl = read(DECL), find = read(FIND);
+  const declPage = read("hub/account/declare/index.html"), acctPage = read("hub/account/index.html");
+  const code = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+
+  // D26: six currencies, the same six on the account page and the declaration page.
+  const SIX = "['GBP', 'EUR', 'USD', 'CAD', 'AUD', 'ILS']";
+  for (const [f, t] of [[DASH, dash], [DECL, decl]]) {
+    const m = t.match(/var CURRENCIES = (\[[^\]]*\]);/);
+    if (!m || m[1] !== SIX) fail(`${f}: CURRENCIES is ${m ? m[1] : "not found"}; plan 106 (D26) offers GBP, EUR, USD, CAD, AUD and ILS`);
+  }
+  // money(), lifted out: each of the six has its own sign, and a currency the
+  // page does not know keeps its code, never "undefined".
+  {
+    const m = dash.match(/function money\(amount, currency\) \{[\s\S]*?\n  \}/);
+    if (!m) fail(`${DASH}: money was not found`);
+    else {
+      const money = new Function(`${m[0]}; return money;`)();
+      for (const [cur, want] of [["GBP", "£1,234.50"], ["EUR", "€1,234.50"], ["USD", "US$1,234.50"], ["CAD", "CA$1,234.50"],
+        ["AUD", "A$1,234.50"], ["ILS", "₪1,234.50"], ["NZD", "NZD 1,234.50"], ["", "1,234.50"]]) {
+        const got = money(1234.5, cur);
+        if (got !== want) fail(`${DASH}: money(1234.5, "${cur}") reads "${got}", not "${want}" (plan 106, D26)`);
+      }
+    }
+  }
+
+  // D27: a host is never shown a strike. The word is in nothing a visitor can
+  // read on the hub's pages or in the scripts that draw them, and the account
+  // page reads no list of them from the summary.
+  for (const f of [DASH, DECL, FIND, "hub/assets/listing-form.js", "hub/assets/match-map.js", "hub/assets/portal.js", "assets/hub-account.js",
+    "hub/account/index.html", "hub/account/declare/index.html", "hub/account/settings/index.html", "hub/index.html",
+    "printhub/index.html", "printhub/find.html", "printhub/offer.html", "millhub/index.html", "millhub/find.html", "millhub/offer.html"]) {
+    const t = f.endsWith(".js") ? code(read(f)) : read(f).replace(/<!--[\s\S]*?-->/g, "");
+    if (/strike/i.test(t)) fail(`${f}: says "strike"; a host is never shown one (plan 106, D27)`);
+  }
+  if (/open_strikes/.test(code(dash))) fail(`${DASH}: still reads open_strikes from the summary (plan 106, D27)`);
+  if (!dash.includes("'Follow-through: '")) fail(`${DASH}: the follow-through score line has gone; a host still sees its score (plan 106, D27)`);
+
+  // CONTRACT 3: a page never writes a clock day. Every date on these pages is
+  // the worker's (declare_by, sent_at, an invoice's dates).
+  for (const [f, t] of [[DASH, code(dash)], [DECL, code(decl)], ["hub/account/declare/index.html", declPage], ["hub/account/index.html", acctPage]]) {
+    const m = t.match(/\b(?:on|by|from|before|after) the (?:\d{1,2}(?:st|nd|rd|th)\b|(?:first|third|tenth|fifteenth|sixteenth)(?= of\b| day\b))|\b\d{1,2}(?:st|nd|rd|th) of (?:the|each|every) month\b/i);
+    if (m) fail(`${f}: writes a clock day ("${m[0]}"); the page reads the worker's dates (plan 106, CONTRACT 3)`);
+  }
+  for (const want of ["m.declare_by", "DECLARE_PAGE = 'declare/'"]) {
+    if (!dash.includes(want)) fail(`${DASH}: missing ${want} (plan 106)`);
+  }
+
+  // CONTRACT 4: the notice's sentences, word for word, and no em-dash.
+  for (const want of [
+    "Introduction approved",
+    "'You and ' + esc(company) + ' have been introduced.'",
+    "<b>Check your email inbox.</b> We have sent one email to you both, with each other\\'s details. Reply to all to carry on.",
+    "', please declare '",
+    " orders on your hub account page each month, which keeps your listing in good standing.",
+    "Back to my account",
+  ]) {
+    if (!dash.includes(want)) fail(`${DASH}: the "Introduction approved" notice is missing ${want} (plan 106, CONTRACT 4)`);
+  }
+
+  // The card keeps round 7's two rules (plan 104, R7-18; plan 095): a paused or
+  // hidden host is drawn no answer, and an introduction email that did not go
+  // can be sent again from the card.
+  {
+    const m = dash.match(/function introCard\(i, offer, tag, months, held, host\) \{[\s\S]*?\n  \}/);
+    if (!m) fail(`${DASH}: introCard(i, offer, tag, months, held, host) was not found (plan 106)`);
+    else {
+      if (!/var canAnswer = answerable\(i\) && !held;/.test(m[0])) fail(`${DASH}: the introduction card draws Accept for a paused or hidden host (plan 104, R7-18)`);
+      if (!m[0].includes("heldRowWords(host)")) fail(`${DASH}: the introduction card does not say when a held host can answer (plan 104, R7-18)`);
+      if (!m[0].includes('data-kind="release"')) fail(`${DASH}: the introduction card cannot send the introduction email again (plan 095)`);
+    }
+    if (!/introCard\(i, offerBy\[i\.id\], tag, months, held, host\)/.test(dash)) fail(`${DASH}: the introduction card is not told whether the host is held (plan 104, R7-18)`);
+  }
+  // "Introduced customers" has gone, with the function that worded it.
+  for (const gone of ["Introduced customers", "relationshipLine"]) {
+    if (code(dash).includes(gone)) fail(`${DASH}: still has ${gone} (plan 106, W1)`);
+  }
+
+  // The declaration page (D2, D10, C5; plan 098; R7-25's place): value only,
+  // typed into a text box, every introduction answered, a nil month confirmed.
+  if (/\bunits\b/.test(code(decl).replace(/No units/g, ""))) fail(`${DECL}: the declaration page still knows units; it asks for the value only (plan 106, D2)`);
+  if (!decl.includes('<input type="text" inputmode="decimal"')) fail(`${DECL}: the value is not a text box with a decimal keypad (plan 106, W5.2)`);
+  if (/type="number"/.test(decl) || /type="number"/.test(declPage)) fail(`${DECL}: a number box on the declaration page (plan 106, W5.2)`);
+  if (!decl.includes("nothing_for: ls.filter(isNil).map(idOf)")) fail(`${DECL}: a "No revenue" line is not named in nothing_for (plan 098)`);
+  for (const want of [
+    "Send this declaration", "Send a nil return", "Go back",
+    'Type a value on each line, or tick "No revenue".',
+    "This month has already been sent. To change it, talk to the desk.",
+    'Every introduction needs an answer: a value, or a tick under "No revenue". If you have answered them all, reload the page and declare again.',
+    "post('/declarations', b)",
+  ]) {
+    if (!decl.includes(want)) fail(`${DECL}: missing "${want}" (plan 106)`);
+  }
+  for (const [f, t] of [[DECL, decl], [DASH, dash], ["hub/account/declare/index.html", declPage]]) {
+    if (/>\s*Submit\b|'Submit\b|"Submit\b/.test(t)) fail(`${f}: a button says Submit (plan 106, C5)`);
+  }
+  // parseValue and feeOf, lifted out and run on the plan's table (Table 4)
+  // and on what a host might type that is not a value.
+  {
+    const pv = decl.match(/function parseValue\(raw\) \{[\s\S]*?\n  \}/), fo = decl.match(/function feeOf\(p, rate\) \{[\s\S]*?\n  \}/);
+    if (!pv || !fo) fail(`${DECL}: parseValue or feeOf was not found`);
+    else {
+      const parse = new Function(`${pv[0]}; return parseValue;`)(), fee = new Function(`${fo[0]}; return feeOf;`)();
+      for (const [raw, want] of [["3848", 384800], ["3,848", 384800], ["4,056.00", 405600], ["3666.5", 366650], ["0", 0], ["0.01", 1],
+        ["1,234,567.89", 123456789], ["", null], [" ", null], ["-5", null], ["12.345", null], ["1,23", null], ["abc", null], ["1e3", null], ["£40", null]]) {
+        const got = parse(raw);
+        if (got !== want) fail(`${DECL}: parseValue("${raw}") gives ${got}, not ${want}`);
+      }
+      for (const [p, rate, want] of [[384800, 0.06, 23088], [405600, 0.05, 20280], [366650, 0.04, 14666], [331200, 0.06, 19872],
+        [1, 0.06, 0], [8, 0.06, 0], [9, 0.06, 1], [25, 0.02, 1], [0, 0.06, 0], [100000, 0, 0]]) {
+        const got = fee(p, rate);
+        if (got !== want) fail(`${DECL}: feeOf(${p}, ${rate}) gives ${got}, not ${want}`);
+      }
+    }
+  }
+
+  // The find form (W5): the guard is in each form's chain before its module,
+  // a named site's pin and card carry its company, and the seeker is told its
+  // company's name is shown (D12).
+  for (const page of ["printhub/find.html", "millhub/find.html", "printhub/offer.html", "millhub/offer.html"]) {
+    const t = read(page);
+    const guard = t.indexOf("/hub/assets/typed-numbers.js?v="), mod = Math.max(t.indexOf("/hub/assets/find.js?v="), t.indexOf("/hub/assets/listing-form.js?v="));
+    if (guard < 0 || mod < 0 || guard > mod) fail(`${page}: typed-numbers.js is not loaded before the form's own module (plan 106, W5.2)`);
+  }
+  for (const [f, t, wants] of [
+    [FIND, find, ["NPTypedNumbers.guard(el('findForm'))", "It sees your company\\'s name with your request. Contact details are exchanged only once it accepts.",
+      "company: companyOf(c) || null", "notes_own: notes || null"]],
+    ["hub/assets/listing-form.js", read("hub/assets/listing-form.js"), ["NPTypedNumbers.guard(body())"]],
+    ["hub/assets/typed-numbers.js", read("hub/assets/typed-numbers.js"), ["window.NPTypedNumbers = { guard: guard }"]],
+  ]) {
+    for (const want of wants) if (!t.includes(want)) fail(`${f}: missing ${want} (plan 106, W5)`);
+  }
+  // W4: no hub page promises that a seeker's name is kept back.
+  for (const page of ["printhub/index.html", "millhub/index.html", "printhub/find.html", "millhub/find.html", "hub/index.html"]) {
+    const m = read(page).replace(/<!--[\s\S]*?-->/g, "").match(/keeps? your name back|your name is (?:never|not) (?:shown|shared)|without (?:your|a) name/i);
+    if (m) fail(`${page}: says "${m[0]}"; the site a seeker picks sees its company's name (plan 106, D12)`);
+  }
+  if (!read("millhub/index.html").includes("It sees your company's name with your request")) fail("millhub/index.html: does not say the cell sees the company's name (plan 106, W4)");
+  for (const page of ["printhub/find.html", "millhub/find.html"]) {
+    if (!read(page).includes("it sees your company's name with your request. It has 14 days to answer. Your contact details are exchanged only once it accepts."))
+      fail(`${page}: the form's hint does not say the site sees the company's name, and contact details only on acceptance (plan 106, W4)`);
   }
 }
 
