@@ -1086,7 +1086,11 @@ async function orgPress(ctx, org, name, act, field, confirm) {
   /* The company's own heading. "#page h1" read "ZFZZ Full Test Host" on the first live run
      (13 November): the page puts the initials badge beside the name, and the runner then
      refused to take its own ZZ accounts off the hub. */
-  const heading = await text(w.page, ".co-name-row h1").catch(() => "");
+  /* A company the engine has not yet adopted into Contacts has a plainer page: the
+     account's name as the page's one heading, with no badge and no name row. The first
+     live run of 25 November 2026 read "" there and refused to take the new ZZ account off. */
+  const plain = !(await w.page.locator(".co-name-row").count());
+  const heading = await text(w.page, plain ? "#page h1" : ".co-name-row h1").catch(() => "");
   mustBeZZ(heading, "the company page");
   await w.page.click(sel);
   if (field) await w.page.fill(field, `${MARK} ${ctx.stamp}: removed at the end of the full test, so no ZZ site stays in front of seekers`);

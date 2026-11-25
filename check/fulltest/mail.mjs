@@ -53,7 +53,13 @@ export class Mail {
   }
   /* The one way this file talks to a mailbox. */
   async get(path) {
-    const r = await fetch(`${GRAPH}${path}`, { method: "GET", headers: { Authorization: `Bearer ${await this.auth()}` } });
+    let r = await fetch(`${GRAPH}${path}`, { method: "GET", headers: { Authorization: `Bearer ${await this.auth()}` } });
+    /* A token lasts about an hour and a run can last three: the first live run of
+       25 November 2026 lost the mailbox at the very end. Ask once more with a new one. */
+    if (r.status === 401) {
+      this.token = "";
+      r = await fetch(`${GRAPH}${path}`, { method: "GET", headers: { Authorization: `Bearer ${await this.auth()}` } });
+    }
     if (!r.ok) throw new Error(`Graph answered ${r.status} for ${path.split("?")[0]}`);
     return r.json();
   }

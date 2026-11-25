@@ -354,7 +354,9 @@ export function wantDirect(saved, what) {
 /* Polls until check() answers something truthy, or the time is up (then ""
    or false). Every admin request wakes the engine within about a minute
    (the worker's /intents/ping), so most waits are a few minutes at most. */
-export async function pollUntil(check, { ms = 4 * 60 * 1000, every = 10000 } = {}) {
+/* Six minutes: the engine's wake-up took up to three on the first live run of
+   25 November 2026, and one press waited five for it to start at all. */
+export async function pollUntil(check, { ms = 6 * 60 * 1000, every = 10000 } = {}) {
   const until = Date.now() + ms;
   for (;;) {
     const got = await check().catch(() => null);
