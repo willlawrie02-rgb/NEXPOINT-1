@@ -4560,7 +4560,7 @@ async function walkTerms() {
       has(await page.textContent("#declTerms"), DOC_WORDS.host, "the document");
       has(await page.textContent("#declarations .acct-card"), "One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.", "the hint");
       // Plan 104 (R7-16): what to do about a currency the form does not offer.
-      has(await page.textContent("#declarations .acct-card"), "If you invoiced in any currency that is not on the list, email hello@nexpoint.co.uk before you send this declaration.", "the line about another currency");
+      has(await page.textContent("#declarations .acct-card"), "If you invoiced in any currency that is not on the list, convert the amount and declare it in US dollars. Any question, email hello@nexpoint.co.uk.", "the line about another currency");
       await shot(page, "declaration-host-agreement", "#declTerms");
       await page.click('[data-act="decl-submit"]');
       await page.waitForFunction(() => /Answer INTRO-0007/.test(document.getElementById("declMsg-2026-10").textContent));
@@ -7175,7 +7175,7 @@ browser = await chromium.launch({ executablePath: exe, headless: true });
    CONTRACT 1: a host's introduction card names the company that asked, the map
    folds, accepting fills the page with "Introduction approved", Declarations is
    one button to the declaration page, and Fees and standing is a block a month.
-   The declaration page takes the value alone, in one of six currencies (D26),
+   The declaration page takes the value alone, in one of five currencies (D26),
    and a host is never shown a strike (D27). Every company here is invented.
    WALK_SHOTS=<folder> saves a desktop and a phone picture of each screen. */
 async function walkPlan106() {
@@ -7480,19 +7480,19 @@ async function walkPlan106() {
     await step("the page names the month and draws a line for each introduction the month is due for, by company", async () => {
       await page.waitForSelector("#declCard .decl-table tbody tr");
       eq(await reads(page, "#declTitle"), "Declare October 2026", "the heading");
-      has(await reads(page, "#declLead"), "the net revenue you invoiced that customer in October", "the lead");
+      has(await reads(page, "#declLead"), "the net revenue you invoiced that customer in October, which is the total sale less taxes and shipping.", "the lead, with what net revenue is");
       eq(await page.$$eval("#declCard thead th", (els) => els.map((e) => e.textContent.trim())), ["Introduction", "Value you declared", "Currency", "No revenue", "Rate", "Fee"], "the columns");
       const rows = await page.$$eval("#declCard tbody tr", (trs) => trs.map((tr) => ({ who: tr.querySelector(".co").textContent.trim(),
         hub: (tr.querySelector(".acct-hub") || {}).textContent || "", rate: tr.querySelector(".auto").innerText.replace(/\s+/g, " ").trim(),
         currency: tr.querySelector("select").value, fee: tr.querySelector(".fee").textContent })));
       eq(rows, [{ who: `${A}(INTRO-1011)`, hub: "3D Print Hub", rate: "6% Year 1", currency: "CAD", fee: "–" },
         { who: `${B}(INTRO-1012)`, hub: "3D Print Hub", rate: "5% Year 2", currency: "AUD", fee: "–" },
-        { who: `${C}(INTRO-1020)`, hub: "Mill Hub", rate: "4% Year 3", currency: "GBP", fee: "–" }], "the rows");
-      eq(await page.$$eval("#dc-0 option", (els) => els.map((e) => e.value)), ["GBP", "EUR", "USD", "CAD", "AUD", "ILS"], "the six currencies (D26)");
+        { who: `${C}(INTRO-1020)`, hub: "Mill Hub", rate: "4% Year 3", currency: "USD", fee: "–" }], "the rows: a currency not offered starts on US dollars");
+      eq(await page.$$eval("#dc-0 option", (els) => els.map((e) => e.value)), ["GBP", "EUR", "USD", "CAD", "AUD"], "the five currencies (D26; shekels dropped 25 November 2026)");
       eq(await page.$eval("#dv-0", (e) => [e.type, e.inputMode]), ["text", "decimal"], "the value is a text box with a decimal keypad");
       eq(await page.locator("#declCard input[type='number']").count(), 0, "number boxes");
       eq((await page.textContent("#declCard")).includes("Units"), false, "a Units column (D2)");
-      has(await reads(page, "#declOther"), "Invoiced in another currency? Email hello@nexpoint.co.uk before you send this.", "the line for any other currency");
+      has(await reads(page, "#declOther"), "Invoiced in another currency? Convert the amount and declare it in US dollars. Any question, email hello@nexpoint.co.uk.", "the line for any other currency");
       eq(await page.$eval("#declOther", (e) => e.classList.contains("notice-warn")), true, "the line stands out for a host whose own currency is not offered");
       has(await reads(page, "#declFoot"), "Declare by 15 November 2026. When you send it, we raise one invoice for the month, due 30 days after its date", "the foot");
       await bothSizes(page, "declare-empty");
@@ -7502,10 +7502,10 @@ async function walkPlan106() {
       eq(await reads(page, "#df-0"), "CAD 230.88", "the first fee");
       await page.fill("#dv-1", "4056");
       eq(await reads(page, "#df-1"), "AUD 202.80", "the second fee, in Australian dollars");
-      await page.selectOption("#dc-2", "ILS");
+      await page.selectOption("#dc-2", "USD");
       await page.fill("#dv-2", "3666.5");
-      eq(await reads(page, "#df-2"), "ILS 146.66", "the third fee, in shekels");
-      eq(await reads(page, "#declTotal"), "AUD 202.80 + CAD 230.88 + ILS 146.66", "the total, one figure a currency");
+      eq(await reads(page, "#df-2"), "USD 146.66", "the third fee, in US dollars");
+      eq(await reads(page, "#declTotal"), "AUD 202.80 + CAD 230.88 + USD 146.66", "the total, one figure a currency");
     });
     await step("a line that is not a value is refused in words and nothing is sent", async () => {
       await page.fill("#dv-1", "four thousand");
@@ -7769,13 +7769,13 @@ async function walkPlan106() {
       has(await reads(page, "#introAnswer-1030 .hint", true), "Decline and the seeker is told a site said no, and nothing else.", "the panel's words with no name");
       await neverSays(page, "the account page on an older worker");
     });
-    await step("the account page keeps its declaration card and statements, with six currencies and the line for any other", async () => {
+    await step("the account page keeps its declaration card and statements, with five currencies and the line for any other", async () => {
       await page.waitForSelector('#declarations [data-act="decl-submit"]');
-      eq(await page.$$eval("#decl-2026-10-1011-currency option", (els) => els.map((e) => e.value)), ["GBP", "EUR", "USD", "CAD", "AUD", "ILS"], "the six currencies (D26)");
-      has(await page.textContent("#declarations .acct-card"), "If you invoiced in any currency that is not on the list, email hello@nexpoint.co.uk before you send this declaration.", "the line for any other currency");
+      eq(await page.$$eval("#decl-2026-10-1011-currency option", (els) => els.map((e) => e.value)), ["GBP", "EUR", "USD", "CAD", "AUD"], "the five currencies (D26; shekels dropped 25 November 2026)");
+      has(await page.textContent("#declarations .acct-card"), "If you invoiced in any currency that is not on the list, convert the amount and declare it in US dollars. Any question, email hello@nexpoint.co.uk.", "the line for any other currency");
       has(await reads(page, "#declarations .acct-detail"), "A$3,848.00", "an Australian dollar value, with its sign");
       eq(await page.$$eval("#fees .acct-sub", (els) => els.map((e) => e.textContent.trim())), ["Statements"], "the sub-headings: no list of strikes (D27)");
-      has(await reads(page, "#fees"), "₪230.88", "a shekel fee, with its sign");
+      has(await reads(page, "#fees"), "₪230.88", "a shekel fee raised before 25 November 2026 still reads, with its sign");
       eq((await page.textContent("#fees")).includes("Introduced customers"), false, "Introduced customers");
     });
     clean(world, errors, "the account page on a worker from before plan 106");

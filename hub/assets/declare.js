@@ -10,9 +10,11 @@
 (function () {
   'use strict';
 
-  /* The currencies a host declares and is invoiced in (plan 106, D26).
+  /* The currencies a host declares and is invoiced in (plan 106, D26; five
+     since the money system call of 25 November 2026, which dropped shekels:
+     any other currency is converted and declared in US dollars).
      dashboard.js keeps the same list; check/review.mjs holds the two equal. */
-  var CURRENCIES = ['GBP', 'EUR', 'USD', 'CAD', 'AUD', 'ILS'];
+  var CURRENCIES = ['GBP', 'EUR', 'USD', 'CAD', 'AUD'];
   var HUB_LABEL = { print: '3D Print Hub', mill: 'Mill Hub', opportunities: 'Opportunities Board' };
   var HELLO = 'hello@nexpoint.co.uk';
   var GENERIC_ERROR = 'That did not go through. Try again, or email ' + HELLO + '.';
@@ -216,16 +218,18 @@
     var hubs = {};
     due.forEach(function (r) { if (r.hub) hubs[r.hub] = true; });
     view.manyHubs = Object.keys(hubs).length > 1;
-    /* A host whose own currency is not one of the six: the line starts on
-       GBP and the line about another currency stands out. */
+    /* A host whose own currency is not one of the five: the line starts on
+       US dollars, the currency any other is declared in (25 November 2026),
+       and the line about another currency stands out. A host with no
+       currency yet starts on pounds. */
     var foreign = due.some(function (r) { return r.currency_default && CURRENCIES.indexOf(r.currency_default) === -1; });
     view.rows = due.map(function (r) {
       return { id: r.introduction_id, ref: r.ref || '', company: r.company || '', hub: r.hub || '', rate: Number(r.rate) || 0,
-        currency: CURRENCIES.indexOf(r.currency_default) !== -1 ? r.currency_default : 'GBP', year: yearOf(d, r.introduction_id) };
+        currency: CURRENCIES.indexOf(r.currency_default) !== -1 ? r.currency_default : (r.currency_default ? 'USD' : 'GBP'), year: yearOf(d, r.introduction_id) };
     });
     var name = fmtPeriod(month.period), short = fmtPeriod(month.period, 'month');
     setHead('Declare ' + name,
-      'One line for each introduction: the net revenue you invoiced that customer in ' + short + '. ' +
+      'One line for each introduction: the net revenue you invoiced that customer in ' + short + ', which is the total sale less taxes and shipping. ' +
       'Tick "No revenue" where nothing came through. The rate and the fee fill in by themselves.');
     var body = view.rows.map(function (r, n) {
       var who = r.company
@@ -254,7 +258,7 @@
         '<tfoot><tr><td colspan="5" class="num">Total fee for ' + esc(short) + '</td><td class="num" id="declTotal">–</td></tr></tfoot>' +
       '</table></div>' +
       '<p class="decl-other' + (foreign ? ' notice-warn notice-warn--block' : '') + '" id="declOther">' +
-        '<span>Invoiced in another currency? Email <a href="mailto:' + HELLO + '">' + HELLO + '</a> before you send this.</span></p>' +
+        '<span>Invoiced in another currency? Convert the amount and declare it in US dollars. Any question, email <a href="mailto:' + HELLO + '">' + HELLO + '</a>.</span></p>' +
       '<div class="decl-terms" id="declTerms"></div>' +
       '<div class="decl-foot" id="declFoot"><p>' + esc(when) + 'When you send it, we raise one invoice for the month, due 30 days after its date, and it shows on your account page.</p>' +
         '<div class="decl-send"><button class="btn btn-primary" type="button" id="declSend" data-act="decl-send">Send this declaration</button>' +
