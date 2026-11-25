@@ -286,6 +286,13 @@ export async function signOut(w) {
      page a confirmation link leaves it on has none (the first live run of 25
      November 2026 timed out here, straight after the seeker was confirmed).
      The hub's own page always carries the chip for a signed-in window. */
+  /* Straight after signing in from the door, a "Welcome back" box covers the page and
+     the chip under it cannot be pressed (the second live run of 25 November 2026). */
+  const box = w.page.locator("#signOverlay.open button.close");
+  if (await box.isVisible().catch(() => false)) {
+    await box.click();
+    await w.page.locator("#signOverlay.open").waitFor({ state: "hidden", timeout: 10000 }).catch(() => {});
+  }
   if (!(await w.page.locator(".np-chip__out").count())) {
     await go(w.page, `${APEX}/hub/`);
     await w.page.locator(".np-chip__out").first().waitFor({ state: "visible", timeout: 25000 });

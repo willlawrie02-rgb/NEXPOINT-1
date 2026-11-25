@@ -1239,7 +1239,12 @@ const moneyAdmin = {
         const w = await adminGo(ctx, "money.html?tab=memberships");
         const row = w.page.locator("tr", { has: w.page.locator(`a[href=${quote(`company.html?org=${encodeURIComponent(org.id)}`)}]`) }).first();
         await row.waitFor({ state: "visible", timeout: 25000 }).catch(() => differs("the ZZ host on Memberships", "not listed", org.name));
-        mustBeZZ((await row.locator("a.linkish").first().textContent()).trim(), "the membership row");
+        /* Money puts the initials badge inside the name's link since the Cards look: the
+           link read "ZFZZ Full Test Host" on the second live run of 25 November 2026 and
+           the step refused. The badge is taken off only when it is this name's own initials. */
+        const shown = (await row.locator("a.linkish").first().textContent()).trim();
+        const badge = String(org.name).trim().split(/\s+/).slice(0, 2).map((x) => x[0] || "").join("").toUpperCase();
+        mustBeZZ(shown === `${badge}${org.name}` ? org.name : shown, "the membership row");
         const open = row.locator(`[data-act="openUi"][data-ui="extend:${inv.id}"]`);
         if (!(await open.count())) differs("Extend the clock", await row.textContent(), "the button on the unpaid invoice");
         await open.click();

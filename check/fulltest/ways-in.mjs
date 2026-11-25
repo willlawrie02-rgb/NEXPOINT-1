@@ -782,7 +782,13 @@ const terms = [{
         for (const h of HUBS) {
           await go(w.page, `${h.base}/offer.html`);
           await w.page.locator("#hostTermsBlock").waitFor({ state: "visible", timeout: 25000 })
-            .catch(() => differs(`the ${h.name} listing form`, "no terms block (is the listing under review?)", "the Host Agreement line"));
+            .catch(async () => {
+              /* A listing that waits for its first approval shows "under review" and no form,
+                 so no terms line: that is a wait, not a difference (second live run, 25 November 2026). */
+              const page = (await text(w.page, "body").catch(() => "")) || "";
+              if (/under review|waiting for (review|approval)|being reviewed/i.test(page)) wait(`the ${h.name} listing is still under review, so its form is not shown yet`);
+              differs(`the ${h.name} listing form`, "no terms block", "the Host Agreement line");
+            });
           /* A host that has not listed yet is shown the tick, not the line: it accepts at its
              first listing (hubs.print), so on a first run this step waits for the next one. */
           if (!(await shows(w.page, "#hostTermsBlock .np-terms-held", 4000)) && (await shows(w.page, "#hostTick", 1500)))
