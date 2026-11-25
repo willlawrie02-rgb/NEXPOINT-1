@@ -848,6 +848,12 @@ const monthToDeclare = (months) => months.filter(unsent).filter((m) => !Array.is
 async function hostMonths(ctx) {
   const w = await signIn(ctx, "host");
   const r = await apiGet(w.page, "/declarations");
+  /* The last full run took the ZZ accounts off the hub (admin.orgs), and the
+     worker refuses a removed account everything, its declaration too. A run
+     of this journey alone must put the host back first. */
+  if (r.status === 403 && r.body && r.body.error === "account_removed") {
+    wait("the ZZ host is removed from the hub, so it cannot declare: run admin.restore first (a full run does; with --only, name it too: --only admin.restore,money)");
+  }
   if (r.status !== 200 || !r.body || !r.body.declarations) differs("the host's declarations", `the API answered ${r.status}`, "what is open");
   const months = r.body.declarations.months;
   if (!Array.isArray(months)) differs("the host's declarations", "no list of months", "declarations.months, newest first (plan 106)");
