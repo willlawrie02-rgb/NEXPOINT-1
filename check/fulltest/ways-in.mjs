@@ -597,6 +597,7 @@ const joining = {
       run: async (ctx) => {
         const n = invitee(ctx);
         const link = await emailLink(ctx, { to: n.email, subject: INVITE_SUBJECT, part: "/hub/invite.html", what: "the withdrawn invitation" });
+        made(ctx).withdrawnLink = link;       // the join step must not open this one again
         const w = ctx.lastWindow = await windowFor(ctx, "stranger", { fresh: true });
         await go(w.page, link);
         await see(w.page, "#inviteBody h1", "used or has expired", "the withdrawn invitation's page", 30000);
@@ -614,7 +615,18 @@ const joining = {
     { id: "join", once: true, does: "Opens the new invitation and joins: name and the Platform Terms tick, no password", shows: "\"Join <ZZ host>\" with no password box; then \"Check your inbox.\"",
       run: async (ctx) => {
         const n = invitee(ctx), w = ctx.lastWindow = await windowFor(ctx, "joiner");
-        const link = await linkSince(ctx, { to: n.email, subject: INVITE_SUBJECT, part: "/hub/invite.html", what: "the second invitation email", since: made(ctx).invitedAt });
+        /* The two invitations can be seconds apart, and a mailbox stamps mail to
+           the second: on the first live run of 25 November 2026 the withdrawn
+           invitation's email arrived inside the window and was the only one
+           there yet, so its dead link was opened. Wait for a link that is not
+           the withdrawn one. */
+        let link = "";
+        for (const end = Date.now() + 120000; ;) {
+          link = await linkSince(ctx, { to: n.email, subject: INVITE_SUBJECT, part: "/hub/invite.html", what: "the second invitation email", since: made(ctx).invitedAt });
+          if (link !== made(ctx).withdrawnLink) break;
+          if (Date.now() > end) differs("the second invitation email", "only the withdrawn invitation's email after two minutes", "a second email with a new link");
+          await pause(5000);
+        }
         await go(w.page, link);
         const head = await see(w.page, "h1", "Join", "the invitation page", 30000);
         if (!head.toLowerCase().includes(acct(ctx, "host").company.toLowerCase())) throw new Refused("refused: the invitation is not to the ZZ host's account");
