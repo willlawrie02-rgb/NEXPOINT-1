@@ -81,13 +81,30 @@ async function openAnswer(ctx, w, id) {
   await w.page.locator(`#introAnswer-${id}`).waitFor({ state: "visible" });
   await w.page.waitForLoadState("networkidle").catch(() => {});
   const ticks = await w.page.locator(`#introTerms-${id} input[type=checkbox]`).count();
-  if (ctx.world.terms2 && ticks) differs("the answer on Terms 2.0", "a terms tick", "no terms at all");
-  if (!ctx.world.terms2 && !ticks) differs(`the answer on Terms ${ctx.world.termsVersion}`, "no terms tick", "the terms and a tick");
+  if (!ctx.world.terms2) {
+    if (!ticks) differs(`the answer on Terms ${ctx.world.termsVersion}`, "no terms tick", "the terms and a tick");
+    return ticks;
+  }
+  /* The Host Agreement is accepted on the listing form (plan 106, D13), so an
+     answer asks for nothing. The safety net stays (dashboard.js openAnswer):
+     a seller that does not hold the current Host Agreement is asked here,
+     once. Host Agreement 2.1 has been current since 25 November 2026, so an
+     account that accepted 2.0 and has not listed or declared since meets it. */
+  if (ticks) {
+    const held = await termsOf(w, "host");
+    if (!held || held.accepted !== false) differs("the answer, for an account that holds the current Host Agreement", "a terms tick", "no terms at all");
+    ctx.notes.push(`The ZZ host did not hold Host Agreement ${held.version} when it opened its answer, so the page asked for it there, once (plan 106, D13: the safety net).`);
+  }
   return ticks;
 }
 /* Declines or accepts. Accepting sends the introduction email to both sides
-   with Will and Chris copied in (allowed since Will's decisions of 12 November). */
-async function answer(ctx, w, id, { accept, ref, seeker, host }) {
+   with Will and Chris copied in (allowed since Will's decisions of 12 November).
+   `named` is the company that asked, on the 3D Print Hub and the Mill Hub:
+   since plan 106 (live 25 November 2026) accepting there fills the page with
+   "Introduction approved", naming that company, and one button back to the
+   account (dashboard.js showApproved). On the Opportunities Board there is no
+   such notice, and `named` is left out. */
+async function answer(ctx, w, id, { accept, ref, seeker, host, named = "" }) {
   if (accept) {
     const tick = w.page.locator(`#introTerms-${id} input[type=checkbox]`);
     if (await tick.count()) await tick.first().check();
@@ -96,6 +113,17 @@ async function answer(ctx, w, id, { accept, ref, seeker, host }) {
     const sent = await done;
     if (!sent.ok()) differs("accepting", await text(w.page, `#introMsg-${id}`).catch(() => "refused"), "Accepted");
     ctx.did();
+    let late = "";
+    if (named) {
+      await see(w.page, "#approved h2", "Introduction approved", "the notice that fills the page after accepting", 20000);
+      const lead = await text(w.page, "#approved .approved__lead").catch(() => "");
+      const small = await text(w.page, "#approved .approved__small").catch(() => "");
+      if (!lead.toLowerCase().includes(`you and ${named.trim().toLowerCase()} have been introduced.`)) late = `the notice reads ${JSON.stringify(lead)}, expected it to name ${named}`;
+      else if (!/please declare .+ orders on your hub account page each month/i.test(small)) late = `the notice's small print reads ${JSON.stringify(small.slice(0, 160))}, expected the line about declaring each month`;
+      await w.page.click('#approved [data-act="approved-close"]');
+      await w.page.locator("#approved").waitFor({ state: "hidden", timeout: 10000 })
+        .catch(() => differs("Back to my account, on the notice", "the notice stayed", "the account page again"));
+    }
     await see(w.page, `#intro-${id}`, "Introduced on", "the row after accepting", 20000);
     /* The contact-release email copies the two directors in (portal worker,
        commercial.js DESK_COPY). Their addresses are in the settings
@@ -103,7 +131,10 @@ async function answer(ctx, w, id, { accept, ref, seeker, host }) {
     const cc = { cc: [].concat((ctx.settings.mail || {}).copied || []), from: (ctx.settings.mail || {}).intro_from || "" };
     ctx.mail.expect(`The introduction email, ${ref} (to the seeker)`, seeker, `Introduction ${ref}`, cc);
     ctx.mail.expect(`The introduction email, ${ref} (to the host)`, host, `Introduction ${ref}`, cc);
-    return "accepted: the introduction email went to both, with Will and Chris copied in";
+    /* Said last, so the emails above are still looked for. */
+    if (late) throw new Soft(late);
+    return named ? "accepted: \"Introduction approved\" filled the page, and the introduction email went to both, with Will and Chris copied in"
+      : "accepted: the introduction email went to both, with Will and Chris copied in";
   }
   await w.page.click(`[data-act="intro-decline-open"][data-intro="${id}"]`);
   await w.page.fill(`#introReason-${id}`, `${MARK}: a test, please ignore.`);

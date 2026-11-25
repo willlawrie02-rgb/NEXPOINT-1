@@ -49,10 +49,15 @@ ok("a note passes", v("admin", "POST", `${DB}/engine_intents`, intent("add-note"
 for (const type of ["add-campaign-member", "change-campaign", "switch-campaign", "link-campaign-version", "approve-template", "delete-campaign",
   "rerun-job", "reroute-introduction", "mark-paid", "record-fee-paid", "record-sub-paid", "erase-account", "delete-account", "remove-dormant-account",
   "update-linkedin-queue", "set-opportunity",
+  /* Plan 106 (live 25 November 2026): the engine raises a month's fee invoice by itself and holds a test account's, so the runner no longer asks for one, nor for any other Money correction but a line's. */
+  "raise-fee-invoice", "void-statement", "void-fee-invoice", "mark-invoiced",
   "no-such-intent", ""]) {
   ok(`${type || "an empty type"} is stopped`, v("admin", "POST", `${DB}/engine_intents`, intent(type, {})) !== "");
 }
 ok("delete-user passes", v("admin", "POST", `${DB}/engine_intents`, intent("delete-user", {})) === "");
+ok("a fee invoice marked as a test is stopped too", v("admin", "POST", `${DB}/engine_intents`, intent("raise-fee-invoice", { statement_ids: [1], test: true })) !== "");
+ok("the desk's correction of a declared line passes", v("admin", "POST", `${DB}/engine_intents`, intent("edit-declaration-line", { line_id: 1, value: 12, reason: "x" })) === "");
+ok("a declaration passes, from an account window only", v("account", "POST", `${API}/declarations`) === "" && v("admin", "POST", `${API}/declarations`) !== "");
 ok("accept with no campaign passes", v("admin", "POST", `${DB}/engine_intents`, intent("accept-prospect", { campaign_ids: [] })) === "");
 ok("accept onto a campaign is stopped", v("admin", "POST", `${DB}/engine_intents`, intent("accept-prospect", { campaign_ids: [3] })) !== ""
   && v("admin", "POST", `${DB}/engine_intents`, intent("accept-prospect", {})) !== ""
@@ -100,6 +105,14 @@ const off = JOURNEYS.filter((j) => j.optIn);
 ok("journeys that are off unless named stay off", off.every((j) => /uses up an account/.test(leftOut(j, args, {}, { termsVersion: "1.3" }))));
 ok("terms journeys are off on 1.3", JOURNEYS.filter((j) => (j.needs || []).includes("terms2")).every((j) => /not switched on/.test(leftOut(j, args, { host: true, seeker: true, veteran: true }, { termsVersion: "1.3", terms2: false }))));
 ok("unknown names are caught", unknownNames(JOURNEYS, ["hubs", "accept", "nonsense"]).join() === "accept,nonsense");
+// The script as the site stands since plan 106: a month is declared on its own page, and no step raises its invoice.
+const step = (journey, id) => ((JOURNEYS.find((j) => j.id === journey) || { steps: [] }).steps.find((x) => x.id === id) || null);
+ok("money.declare declares, finds the month locked and its invoice held", ["card", "declare", "locked", "orders", "statement", "edit-line", "host-month", "held"].every((id) => step("money.declare", id)));
+ok("no step raises a fee invoice or changes a sent declaration", !step("money.declare", "raise") && !step("money.declare", "raised") && !step("money.declare", "change")
+  && !JOURNEYS.some((j) => j.steps.some((x) => /Raise invoice in Xero/.test(x.does))));
+ok("one hub's offer is accepted and the other's declined (a second pick of the same company is refused)", !!step("hubs.mill", "answer") && /accepts/.test(step("hubs.mill", "answer").does)
+  && /declines/.test(step("hubs.print", "answer").does) && !!step("hubs.print", "reissue") && !step("hubs.mill", "reissue"));
+ok("a host is shown no strike", !!step("money.admin", "host-blind"));
 ok("options", parseArgs(["--dry", "--only", "hubs,board", "--with=accept"]).only.length === 2 && parseArgs(["--with=accept"]).with[0] === "accept");
 
 // allow() refuses the never-list, whatever a journey file asks.

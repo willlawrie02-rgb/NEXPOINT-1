@@ -39,8 +39,12 @@ const phone = [{
 }, {
   id: "phone.host", title: "The phone pass: the host", pass: "phone", needs: ["host"],
   steps: [(() => {
+    /* The declaration page is the host's own since plan 106 (live 25 November
+       2026). Opened with no month in its address it shows the form, or one
+       sentence when nothing is open; either way its card is on the screen. */
     const pages = [[`${PRINT}/offer.html`, "#hostAppBody", "the 3D Print Hub's listing form"], [`${MILL}/offer.html`, "#hostAppBody", "the Mill Hub's listing form"],
-      [`${APEX}/hub/account/`, "#introductions, #profile", "the account page"]];
+      [`${APEX}/hub/account/`, "#introductions, #profile", "the account page"],
+      [`${APEX}/hub/account/declare/`, "#declCard", "the declaration page"]];
     return { ...phoneStep("pages", "the host", pages), run: async (ctx) => {
       const w = await signIn(ctx, "host");
       for (const [url, main] of pages) await fits(w, url, main);
@@ -83,12 +87,15 @@ export const JOURNEYS = [].concat(ACCOUNT_JOURNEYS, ADMIN_RESTORE, WAYS_IN, HUB_
 export const BY_HAND = [
   "Registering: the site's human check refuses an automated browser, so each new account is registered by you, in your own Chrome, with details the runner hands you (no password: the runner chooses it from the email's link). The new account's Resend the email countdown is seen by you on that card.",
   "A real phone: the phone pass is Chrome at phone width, not a phone.",
-  "Money: voiding in Xero each invoice the run raised (listed below), a card payment, and how each invoice and statement reads in Xero.",
+  "Money: voiding in Xero each invoice the run raised (listed below), a card payment, and how each invoice reads in Xero.",
+  "A month's fee invoice: the engine raises it in Xero by itself for a real host and holds it for a test account, so the runner sees a statement built and no invoice. How a raised one reads in Xero, its email to the host, and Paid read back from Xero are seen on the first real host's.",
+  "The engine's two declaration emails to a host, on the 3rd and the 10th: the runner looks for them in the ZZ host's mailbox and notes what it finds, but which day they go and how they read is yours to check.",
   "Smartlead: accepting a prospect onto one or two campaigns, and the turn passing between them (queue DA9).",
   "How each screen and each email reads. The runner checks an email arrived, not that it reads well.",
   "Queue CY10b case 3 (a login deleted in the Supabase dashboard) and CY10c (the count, in the SQL editor).",
   "Queue CY11's proof of the fallback: turning fast saves off and on again is a change in the SQL editor.",
   "The home page's desk form and the Education sign-up. The daily canary posts one each morning.",
-  "A monthly declaration, and that the seeker gets no email when a host declares.",
+  "That the seeker gets no email when a host declares (the runner makes the declaration, and does not read the seeker's mailbox for what should not be there).",
+  "An overdue month: from the 16th an undeclared month reads Not declared and the engine opens a strike the host is never shown. The runner declares as soon as a month opens, so it does not wait for the 16th.",
   "Queue DB5, the ZZ clear-out, including what this run left behind (listed below).",
 ];

@@ -1,5 +1,5 @@
 // The full test: before anything, every way in, the account's settings and
-// people, closing and reopening, and Terms 2.0 (action list groups 1.1-1.3,
+// people, closing and reopening, and the terms (action list groups 1.1-1.3,
 // 2, 3, 4, 10 and 11).
 import { randomBytes } from "node:crypto";
 import { APEX, PRINT, MILL, OPPS, API, Refused, Soft, mustBeZZ, isZZ, isZZSlug, differs, wait, skip, hand, askEnter, askLine, askYesNo } from "./core.mjs";
@@ -83,6 +83,13 @@ async function mailCount(ctx, { to, subject, since, want, ms = 90000 }) {
   }
 }
 
+/* The invitation's subject since plan 102 (live 19 November 2026; worker
+   emails.js invite_received): one fixed sentence, with nothing the inviter
+   typed, because it goes to an address nobody has proved. Until then it read
+   "<name> has invited you to ...". The body still names the inviter and the
+   company. */
+const INVITE_SUBJECT = "You have been invited to join a company account";
+
 /* The newcomer: the one account registered on every run (in.register).
    Its stamp is kept for the other journeys of this run, which read it here. */
 const REG = "in.register";
@@ -142,12 +149,21 @@ const WALLED = [`${PRINT}/`, `${MILL}/`, `${PRINT}/find.html`, `${MILL}/find.htm
 const start = [{
   id: "start.checks", title: "Before anything", pass: "computer", needs: [],
   steps: [
-    { id: "live", does: "Reads the live terms version, and the site's build if it publishes one",
-      shows: "Terms 2.0 is live",
+    /* The three documents each carry their own version. Since 25 November
+       2026 (queue DX6, with plan 106) the Host Agreement and the Seeker
+       Agreement are 2.1 and the Platform Terms stay 2.0: a host and a seeker
+       each accept 2.1 once, the next time it applies, and nobody is asked for
+       the Platform Terms again. */
+    { id: "live", does: "Reads the live version of each of the three documents, and the site's build if it publishes one",
+      shows: "Platform Terms 2.0 or later; Host Agreement and Seeker Agreement 2.1 or later",
       run: async (ctx) => {
-        if (!ctx.world.termsVersion) differs("the live terms version", "could not be read", "a version");
-        if (!ctx.world.terms2) differs("the live terms version", ctx.world.termsVersion, "2.0, with a Seeker Agreement");
-        return `build ${ctx.world.build || "not published by the live site"}; terms ${ctx.world.termsVersion}`;
+        const v = ctx.world;
+        if (!v.termsVersion) differs("the live terms version", "could not be read", "a version");
+        if (!v.terms2) differs("the live Platform Terms", v.termsVersion, "2.0 or later, with a Seeker Agreement");
+        for (const [name, got] of [["Host Agreement", v.hostVersion], ["Seeker Agreement", v.seekerVersion]]) {
+          if (!(parseFloat(got) >= 2.1)) differs(`the live ${name}`, got || "could not be read", "2.1 or later (2.1 has been current since 25 November 2026)");
+        }
+        return `build ${v.build || "not published by the live site"}; Platform Terms ${v.termsVersion}, Host Agreement ${v.hostVersion}, Seeker Agreement ${v.seekerVersion}`;
       } },
     { id: "pages", does: "Opens the home page, the portal door, the terms and privacy pages as a stranger",
       shows: "Each page loads with its heading and no script errors",
@@ -161,16 +177,33 @@ const start = [{
           pageErrors(w, url);
         }
       } },
+    /* Plan 102 (live 19 November 2026; portal.js signBoxForNewcomer): a
+       signed-out visitor a hub page sent to the door is told why, and offered
+       Create your hub account beside Sign in. Any other way in, the account
+       pages among them, keeps "Welcome back". */
     { id: "wall", does: "Opens every walled page as a stranger: both hub doors, both find forms, both listing forms, the board, the account page and its settings",
-      shows: "Sent to the sign-in box each time, with the way back kept",
+      shows: "Sent to the sign-in box each time, with the way back kept. From a hub page the box reads \"Sign in or create your hub account\", names the hub and offers Create your hub account; from an account page it reads \"Welcome back\"",
       run: async (ctx) => {
         const w = ctx.lastWindow = await windowFor(ctx, "stranger");
+        const hubs = { "printhub.nexpoint.co.uk": "the 3D Print Hub", "millhub.nexpoint.co.uk": "the Mill Hub", "opportunities.nexpoint.co.uk": "the Opportunities Board" };
+        const odd = [];
         for (const url of WALLED) {
           await go(w.page, url);
           await w.page.waitForURL(/\/hub\/\?signin=1/, { timeout: 25000 }).catch(() => differs(`the wall on ${url}`, w.page.url(), "/hub/?signin=1&return=…"));
           if (!w.page.url().includes(`return=${encodeURIComponent(url)}`)) differs("the way back", w.page.url(), `return=${url}`);
           await w.page.locator("#signOverlay.open").waitFor({ state: "visible" });
+          const hub = hubs[new URL(url).hostname] || "";
+          const title = await text(w.page, "#signTitle").catch(() => ""), offered = await w.page.locator("#signCreate").isVisible().catch(() => false);
+          if (hub) {
+            const lead = await text(w.page, "#signLead").catch(() => "");
+            if (title !== "Sign in or create your hub account" || !lead.includes(`You need a hub account to use ${hub}.`) || !offered) {
+              odd.push(`from ${url} the box reads ${JSON.stringify(title)}${offered ? "" : ", with no Create your hub account"}, expected "Sign in or create your hub account", naming ${hub}`);
+            }
+          } else if (title !== "Welcome back" || offered) {
+            odd.push(`from ${url} the box reads ${JSON.stringify(title)}${offered ? ", with Create your hub account" : ""}, expected "Welcome back" alone`);
+          }
         }
+        if (odd.length) throw new Soft(odd.join("; "));
       } },
   ],
 }];
@@ -255,6 +288,45 @@ const registering = {
         if (counted === null || said === null) hand("Resend the email's countdown and its words: not answered at the prompt");
         return count === null ? "the countdown and the words as you saw them; the second email is for you to check by hand"
           : `the countdown and the words as you saw them; ${count} confirmation emails arrived`;
+      } },
+    /* Plan 102 (live 19 November 2026; worker auth.js handleResetRequest): a
+       new account has no password until its confirmation link is opened, and
+       the link lasts an hour. Someone who came back later and pressed
+       Forgotten your password? was told a link was on its way and sent
+       nothing. Now a reset asked for an address that has never confirmed
+       sends the confirmation link again, under that email's own two-minute
+       clock, and never a reset link. The page says the same thing whatever
+       the address. Taken only when the runner can read the mailbox: it could
+       not tell the two emails apart otherwise. */
+    { id: "reset-unconfirmed", once: true, does: "Before the address is confirmed: Forgotten your password? for the new account, two minutes after its last confirmation email",
+      shows: "\"Check your inbox.\" and \"a link to set your password is on its way\", as for any address; one more confirmation email arrives, and no reset email",
+      run: async (ctx) => {
+        const n = reg(ctx), m = made(ctx);
+        if (((ctx.state.at[REG] || {}).done || []).includes("confirm")) skip("the address is confirmed already, so a reset now would be a real one (reset-ask takes that)");
+        const box = ctx.mail.on ? ctx.mail.boxFor(n.email) : "";
+        if (!box) skip("the runner cannot read this address's mailbox, so it could not tell a confirmation email from a reset email; nothing was asked for");
+        const last = await ctx.mail.find(box, { to: n.email, subject: "Confirm your email", since: m.since });
+        if (!last) wait("no confirmation email has arrived for the new account yet");
+        const before = await mailCount(ctx, { to: n.email, subject: "Confirm your email", since: m.since, want: 0, ms: 0 });
+        /* The worker sends this address one confirmation email in two minutes, whichever way it was asked for. */
+        const left = Date.parse(last.received) + 130000 - Date.now();
+        if (left > 0) { ctx.log(`  waiting ${Math.ceil(left / 1000)} seconds: a confirmation email can go again two minutes after the last`); await pause(left); }
+        const asked = new Date(Date.now() - 2000).toISOString();
+        const w = ctx.lastWindow = await windowFor(ctx, "stranger", { fresh: true });
+        await go(w.page, `${APEX}/hub/?signin=1`);
+        await w.page.locator("#signOverlay.open").waitFor({ state: "visible", timeout: 25000 });
+        await w.page.fill("#sEmail", n.email);
+        const sent = posted(w.page, "/auth/reset-request");
+        await w.page.getByText("Forgotten your password?").first().click();
+        if ((await sent).ok()) ctx.did();
+        await see(w.page, "#signContent", "Check your inbox", "after asking for a reset, unconfirmed");
+        await see(w.page, "#signContent", "a link to set your password is on its way", "the words after asking, the same for any address");
+        const count = await mailCount(ctx, { to: n.email, subject: "Confirm your email", since: m.since, want: before + 1, ms: 120000 });
+        if (count < before + 1) differs("confirmation emails after a reset asked for an unconfirmed address", `${count}`, `${before + 1}: the confirmation link, sent again`);
+        const reset = await ctx.mail.find(box, { to: n.email, subject: "Set a new password", since: asked });
+        if (reset) differs("a reset email to an address that has never confirmed", `sent ("${reset.subject}")`, "none");
+        ctx.mail.expect("Confirm your email (sent again by a reset, before confirming)", n.email, "Confirm your email");
+        return `${count} confirmation emails now, and no reset email`;
       } },
     { id: "confirm", once: true, does: "Opens the newest confirmation link (read from the mailbox, or pasted by you): \"Choose your password\", tries a password with no symbol and two that differ, then chooses the account's password",
       shows: "The rule stated on the page; \"Add a symbol.\" and \"do not match\" with nothing sent; then \"You're confirmed.\"; the account-ready email and the desk's \"Account created\" notice",
@@ -503,7 +575,7 @@ const joining = {
       run: async (ctx) => {
         const n = invitee(ctx);
         await invite(ctx, n.email);
-        ctx.mail.expect("Invitation to join (the one withdrawn)", n.email, "has invited you to");
+        ctx.mail.expect("Invitation to join (the one withdrawn)", n.email, INVITE_SUBJECT);
       } },
     { id: "withdraw", once: true, does: "Withdraws that invitation under Invitations waiting", shows: "The invitation goes from the list",
       run: async (ctx) => {
@@ -524,7 +596,7 @@ const joining = {
       shows: "\"This invitation has been used or has expired.\"",
       run: async (ctx) => {
         const n = invitee(ctx);
-        const link = await emailLink(ctx, { to: n.email, subject: "has invited you to", part: "/hub/invite.html", what: "the withdrawn invitation" });
+        const link = await emailLink(ctx, { to: n.email, subject: INVITE_SUBJECT, part: "/hub/invite.html", what: "the withdrawn invitation" });
         const w = ctx.lastWindow = await windowFor(ctx, "stranger", { fresh: true });
         await go(w.page, link);
         await see(w.page, "#inviteBody h1", "used or has expired", "the withdrawn invitation's page", 30000);
@@ -537,12 +609,12 @@ const joining = {
         /* The join step opens only an invitation sent after this moment, not the withdrawn one. */
         made(ctx).invitedAt = new Date(Date.now() - 2000).toISOString();
         await invite(ctx, n.email);
-        ctx.mail.expect("Invitation to join", n.email, "has invited you to");
+        ctx.mail.expect("Invitation to join", n.email, INVITE_SUBJECT);
       } },
     { id: "join", once: true, does: "Opens the new invitation and joins: name and the Platform Terms tick, no password", shows: "\"Join <ZZ host>\" with no password box; then \"Check your inbox.\"",
       run: async (ctx) => {
         const n = invitee(ctx), w = ctx.lastWindow = await windowFor(ctx, "joiner");
-        const link = await linkSince(ctx, { to: n.email, subject: "has invited you to", part: "/hub/invite.html", what: "the second invitation email", since: made(ctx).invitedAt });
+        const link = await linkSince(ctx, { to: n.email, subject: INVITE_SUBJECT, part: "/hub/invite.html", what: "the second invitation email", since: made(ctx).invitedAt });
         await go(w.page, link);
         const head = await see(w.page, "h1", "Join", "the invitation page", 30000);
         if (!head.toLowerCase().includes(acct(ctx, "host").company.toLowerCase())) throw new Refused("refused: the invitation is not to the ZZ host's account");
@@ -555,6 +627,12 @@ const joining = {
         await w.page.click("#joinBtn:not([disabled])");
         if ((await sent).ok()) ctx.did();
         await see(w.page, "h1", "Check your inbox", "after joining", 30000);
+        /* Plan 102 (invite.js wireResend): the card has a Resend the email
+           of its own, greyed and counting down from 2:10. Not pressed. */
+        const resend = await text(w.page, "#resendBtn").catch(() => "");
+        if (!/^Resend the email in [0-2]:\d\d$/.test(resend) || !(await w.page.locator("#resendBtn").isDisabled().catch(() => false))) {
+          throw new Soft(`the card after joining shows ${JSON.stringify(resend || "no Resend the email")}, expected Resend the email greyed and counting down from 2:10`);
+        }
       } },
     { id: "join-confirm", once: true, does: "Confirms the invited user's address, choosing its password on \"Choose your password\"", shows: "\"You're confirmed.\"",
       run: async (ctx) => {
@@ -631,7 +709,7 @@ const joining = {
 
 const waysIn = [signingIn, registering, settings, joining, inContacts];
 
-// ================================================================ 10. Terms 2.0
+// ================================================================ 10. the terms (Platform 2.0; Host and Seeker 2.1 since 25 November 2026)
 const terms = [{
   /* Will, 12 November 2026 (the code audit's decision B; website #226): the
      box "Our Platform Terms have changed" is gone. The Platform Terms are
@@ -639,7 +717,7 @@ const terms = [{
      else, so an account still on 1.3 signs in and meets nothing. Until that
      day this journey waited for the box, accepted it once and looked for it
      never to come back. */
-  id: "terms.platform", title: "Terms 2.0: no box for the Platform Terms at sign-in", pass: "computer", needs: ["terms2", "veteran"],
+  id: "terms.platform", title: "The terms: no box for the Platform Terms at sign-in", pass: "computer", needs: ["terms2", "veteran"],
   from: "plan 078, W5 (queue DH9); Will's decision B of 12 November 2026",
   steps: [
     { id: "no-box", does: "Veteran signs in", shows: "No \"Our Platform Terms have changed\" box",
@@ -662,7 +740,7 @@ const terms = [{
       } },
   ],
 }, {
-  id: "terms.rest", title: "Terms 2.0: each agreement once, and a copy everywhere", pass: "computer", needs: ["terms2", "host", "seeker"],
+  id: "terms.rest", title: "The terms: each agreement once, and a copy everywhere", pass: "computer", needs: ["terms2", "host", "seeker"],
   from: "plan 078, W5 (queue DH9)",
   steps: [
     { id: "seeker-twice", does: "Seeker searches twice on the 3D Print Hub (nothing is sent)",
@@ -686,7 +764,7 @@ const terms = [{
         if (await search(w)) differs("the second search", "the agreement again", "straight to the sites");
         return gate ? "shown once, then never" : "already held: not shown either time";
       } },
-    { id: "host-held", does: "Host opens the listing form on both hubs", shows: "\"Your Host Agreement v2.0 still applies\", Read it, Download a copy",
+    { id: "host-held", does: "Host opens the listing form on both hubs", shows: "\"Your Host Agreement v<the current version> still applies\", Read it, Download a copy",
       run: async (ctx) => {
         const w = await signIn(ctx, "host");
         for (const h of HUBS) {

@@ -9,10 +9,13 @@
 // Unlike the scripted walk (check/walk.mjs), nothing here is stubbed: it
 // signs in, searches, posts and saves for real. So it only ever acts on
 // records whose name starts ZZ, then a space or a hyphen, and it refuses to
-// start when it cannot confirm that. Approving a first listing, signing a
-// consultancy agreement and raising a fee invoice make real Xero invoices
-// (Will, 12 November 2026): each is listed, and the run stops for every one
-// to be voided. It never puts a company on a campaign (Smartlead). See
+// start when it cannot confirm that. Approving a first listing and signing a
+// consultancy agreement make real Xero invoices (Will, 12 November 2026):
+// each is listed, and the run stops for every one to be voided. A month's
+// fee invoice is not one of them: since plan 106 (live 25 November 2026) the
+// engine raises it by itself and holds it for a test account, and the runner
+// never presses Raise invoice in Xero. It never puts a company on a campaign
+// (Smartlead). See
 // check/fulltest/browser.mjs for the locks and check/fulltest/journeys.mjs
 // for the script.
 //
@@ -32,7 +35,7 @@ const pad = (n) => String(n).padStart(2, "0");
 const stampNow = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
 /* What the live site says of itself. Two reads, no session, nothing sent. */
 async function readWorld() {
-  const world = { build: "", termsVersion: "", terms2: false };
+  const world = { build: "", termsVersion: "", hostVersion: "", seekerVersion: "", terms2: false };
   const get = (url) => fetch(url, { signal: AbortSignal.timeout(10000) });
   try {
     /* build.txt names the commit the site was built from. A site that does not publish one answers its 404 page. */
@@ -45,6 +48,11 @@ async function readWorld() {
     const platform = await (await get(`${API}/terms/current?layer=platform`)).json();
     world.termsVersion = String(platform.version || "");
     world.terms2 = seeker.ok && parseFloat(world.termsVersion) >= 2;
+    /* Each document has its own version since 25 November 2026: the Host and
+       Seeker Agreements moved to 2.1 and the Platform Terms stayed at 2.0. */
+    if (seeker.ok) world.seekerVersion = String((await seeker.json().catch(() => ({}))).version || "");
+    const host = await get(`${API}/terms/current?layer=host`);
+    if (host.ok) world.hostVersion = String((await host.json().catch(() => ({}))).version || "");
   } catch { /* reported by the first step */ }
   return world;
 }
@@ -77,12 +85,12 @@ async function main() {
   if (problems.length) throw new Refused(`the settings file will not do:\n  - ${problems.join("\n  - ")}`);
 
   if (args.dry) {
-    const world = { build: "", termsVersion: null, terms2: false };
+    const world = { build: "", termsVersion: null, hostVersion: "", seekerVersion: "", terms2: false };
     console.log("The full test: every step it would take. Nothing is opened and nothing is sent.");
     const n = dryList(JOURNEYS, args, have, world);
     console.log(`\n${n} steps in ${JOURNEYS.length} journeys, listed in script order; a run takes them by pass (computer, then phone, then last).`);
     if (JOURNEYS.some((j) => j.optIn)) console.log("Journeys marked [uses up an account] run only when named with --with.");
-    console.log("Terms 2.0 journeys (terms.*) are skipped until the live site reports version 2.0.");
+    console.log("The terms journeys (terms.*) are skipped unless the live site reports Platform Terms 2.0 or later, with a Seeker Agreement.");
     return 0;
   }
 
@@ -103,7 +111,8 @@ async function main() {
     mail: new Mail(settings, started), pass: "computer", size: "computer",
   };
   ctx.shot = (name) => shot(ctx, name);
-  console.log(`The full test, on ZZ accounts only. Site build: ${world.build || "not read"}. Terms live: ${world.termsVersion || "not read"}.`);
+  const termsLive = world.termsVersion ? `Platform ${world.termsVersion}, Host ${world.hostVersion || "not read"}, Seeker ${world.seekerVersion || "not read"}` : "";
+  console.log(`The full test, on ZZ accounts only. Site build: ${world.build || "not read"}. Terms live: ${termsLive || "not read"}.`);
   console.log(`Report: ${dir}`);
   let crashed = "";
   try {
@@ -125,7 +134,7 @@ async function main() {
   for (const r of results.filter((x) => x.status === "by hand")) byHand.push(`${r.step.does}: ${r.detail}`);
   for (const n of ctx.notes) byHand.push(`Note: ${n}`);
   if (crashed) byHand.unshift(`The run stopped early (${crashed}); the steps after it were not taken.`);
-  const run = { results, byHand, mail: ctx.mailRows, invoices: state.invoices || [], left: [...new Set(ctx.left)], meta: { when: when.replace("_", " "), build: world.build, termsVersion: world.termsVersion,
+  const run = { results, byHand, mail: ctx.mailRows, invoices: state.invoices || [], left: [...new Set(ctx.left)], meta: { when: when.replace("_", " "), build: world.build, termsVersion: termsLive,
     browser: `Chrome ${browser.version()}${args.headless ? ", no window" : ""}`, command: `npm run fulltest${process.argv.length > 2 ? ` -- ${process.argv.slice(2).join(" ")}` : ""}` } };
   const html = writeHtml(dir, run);
   writeMarkdown(dir, run);

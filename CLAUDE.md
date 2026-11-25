@@ -52,9 +52,11 @@ each journey file names the requests its own steps make, and a short
 never-list stays shut whatever a file asks (a campaign, which goes into
 Smartlead; re-running a job; re-routing an introduction; marking anything
 paid; erasing an account). Since Will's decisions of 12 November 2026 it
-approves a first listing, signs a consultancy agreement and raises a fee
-invoice, each a real Xero invoice: the run lists every one and stops for
-Will to void them in Xero. `npm run fulltest -- --dry` lists every step and
+approves a first listing and signs a consultancy agreement, each a real Xero
+invoice: the run lists every one and stops for Will to void them in Xero. It
+no longer raises a fee invoice: since plan 106 (25 November 2026) the engine
+raises a month's by itself and holds a test account's, so the run checks the
+statement was built and that nothing was raised. `npm run fulltest -- --dry` lists every step and
 opens nothing. Settings (accounts, passwords,
 keys) live in `~/.nexpoint/full-test.json`; this repo is public and holds
 only the empty template, `check/fulltest.example.json`. `check:fulltest`
