@@ -28,7 +28,7 @@
   .tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .tbl td .inline-choice { position: sticky; left: 0; max-width: calc(100vw - 64px); }
   .tbl .line-why { font-size: 12px; color: var(--fg-2); }
-  .quarters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .months { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .fail-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12.5px; color: var(--err-ink); }
   .note-line { font-size: 12.5px; color: var(--fg-2); display: flex; gap: 6px; align-items: center; }
   .note-line .ms { width: auto; font-size: 16px; }
@@ -93,10 +93,16 @@ function showAdmin(u){$('login').style.display='none';$('admin').style.display='
 
 /* Money (plan 075, D11): what is owed to us, and by whom. Four tabs.
    Memberships are 049's membership_invoices, in pounds; Statements are the
-   quarter's statements with Raise invoice in Xero (the engine inserts the
-   fee_invoices rows, the worker raises them, and the statement follows its
-   invoices through fee-invoice-sync), the lines edited in place before they
-   are invoiced (D5), Void (D6), and the discount-code reports (D7); Xero
+   month's statements (plan 106: one per host per month, built once the
+   month's declaration is in, its invoice raised in Xero by the engine with
+   no press; a statement from before keeps its quarter), with Raise invoice
+   in Xero as the fallback for a raise that was held or an invoice voided to
+   correct a line (the engine inserts the fee_invoices rows, the worker
+   raises them, and the statement follows its invoices through
+   fee-invoice-sync), the lines edited in place before they are invoiced
+   (D5; a host's correction, plan 106 D10, is: void the invoice in Xero,
+   record the void, edit the line, raise it again), Void (D6), and the
+   discount-code reports (D7); Xero
    invoices is every invoice of every kind with its Xero state; Consultancy
    fees are the agreement links' invoices. Every write is a literal raise of
    one intent; the browser writes engine_intents and nothing else. */
@@ -106,10 +112,11 @@ const MONEY_INTENTS=['raise-fee-invoice','void-statement','edit-declaration-line
 const TABS=[['memberships','Memberships'],['statements','Statements'],['invoices','Xero invoices'],['fees','Consultancy fees']];
 /* statements.status, as the page words it */
 const ST_BADGE={draft:'Being drafted',issued:'Ready to invoice',invoiced:'Invoiced',paid:'Paid',void:'Void'};
+const STATEMENT_COLS='id,org_id,quarter,status,currency,lines,totals,issued_at,invoiced_at,paid_at,invoice_ref,voided_at';
 const XERO_ADMIN='https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=';
-const UI={tab:'statements',quarter:null,open:null,picked:new Set()};
+const UI={tab:'statements',period:null,open:null,picked:new Set()};
 const checkBack=NXJOBS.poll(sb,load,()=>!!UI.open);
-let state='loading', problem='', banners=[], missing084=false;
+let state='loading', problem='', banners=[], missing084=false, missing0107=false;
 let D={orgs:{},invoices:[],statements:[],lines:[],declarations:{},intros:{},fees:[],reports:[],opps:{},companies:{},orgCompany:{},links:[],reveals:{},disputes:{}};
 let intentByKey={}, readIntents=[], sending=[], seq=0;
 const todayIso=()=>NXJOBS.todayIn();
@@ -122,15 +129,16 @@ const orgName=id=>(D.orgs[id]||{}).name||'(no name)';
 const orgLink=id=>D.orgs[id]?`<a class="linkish" href="company.html?org=${esc(encodeURIComponent(id))}">${esc(orgName(id))}</a>`:esc(orgName(id));
 
 async function load(){
-  banners=[];missing084=false;
+  banners=[];missing084=false;missing0107=false;
   const q=new URLSearchParams(location.search);
   const tab=q.get('tab');UI.tab=TABS.some(t=>t[0]===tab)?tab:'statements';
-  UI.quarter=q.get('quarter')||UI.quarter;
+  /* ?period=YYYY-MM for a month; ?quarter=YYYY-Qn, the old links, for a statement from before */
+  UI.period=q.get('period')||q.get('quarter')||UI.period;
   const all=(table,cols,order)=>NXCRM.readAll(()=>sb.from(table).select(cols).order(order||'id',{ascending:true}));
   const [oq,mq,sq,dq,iq,fq,rq,bq,cq,xq,lq,vq,nq]=await Promise.all([
     all('organisations','id,name,sub_status,sub_period,sub_rate_gbp,billing_from,billing_started_at,sub_due_at,fee_exempt_note,host_print,host_mill,hidden_at,paused_by,removed_at,closed_at,deleted_at,erased_at'),
     all('membership_invoices','id,org_id,kind,period,period_start,period_end,amount,currency,invoicing_started_at,xero_invoice_id,xero_invoice_number,xero_online_url,invoice_date,due_date,invoiced_at,clock_start,hide_on,hidden_at,restored_at,extended_to,paid_at,paid_source,voided_at,last_error,reminder_7_at,reminder_12_at,hide_held_at,hide_held_reason'),
-    all('statements','id,org_id,quarter,status,currency,lines,totals,issued_at,invoiced_at,paid_at,invoice_ref,voided_at'),
+    all('statements',STATEMENT_COLS+',period'),
     all('declarations','id,org_id,hub,period,status'),
     all('introductions','id,ref,hub,org_a'),
     all('fee_invoices','id,statement_id,code_report_id,org_id,currency,amount,lines,requested_at,requested_by,invoicing_started_at,xero_invoice_id,xero_invoice_number,xero_online_url,invoice_date,due_date,invoiced_at,paid_at,paid_source,voided_at,last_error'),
@@ -142,6 +150,13 @@ async function load(){
     all('board_code_reveals','id,opportunity_id'),
     sb.from('inbox').select('*').eq('kind','dispute').limit(1000),
   ]);
+  /* Before migration 0107 there is no statements.period: read the quarters alone, and say so. */
+  if(sq.error&&/period/.test(sq.error.message||'')&&/does not exist|schema cache|Could not find/i.test(sq.error.message||'')){
+    missing0107=true;
+    const again=await all('statements',STATEMENT_COLS);
+    if(!again.error){sq.error=null;sq.data=again.data;}
+    banners.push('Migration 0107 has not been applied: statements show by quarter until it is, and the engine builds no monthly statement.');
+  }
   for(const [what,r] of [['accounts',oq],['membership invoices',mq],['statements',sq],['declarations',dq],['introductions',iq],['code-sales reports',rq],['opportunities',bq],['companies',cq],['sites',xq],['consultancy links',lq],['code reveals',vq],['disputes',nq]])
     if(r.error)banners.push(`Could not read the ${what}: ${r.error.message}.`);
   if(fq.error){
@@ -170,7 +185,7 @@ async function load(){
   if((pq.data||[]).length===1000)banners.push('Showing the newest 1,000 queued actions; older ones are not on this page.');
   readIntents=pq.data||[];sending=[];watch(readIntents);
   checkBack.watch(pq.data);
-  if(!UI.quarter)UI.quarter=defaultQuarter();
+  if(!UI.period||!periods().includes(UI.period))UI.period=defaultPeriod();
   state='ready';render();
 }
 
@@ -271,10 +286,16 @@ function membershipsTab(){
 }
 
 /* ---------- statements ---------- */
-const quarters=()=>[...new Set(D.statements.map(s=>s.quarter).filter(Boolean))].sort().reverse();
-function defaultQuarter(){
-  const qs=quarters();
-  return qs.find(q=>D.statements.some(s=>s.quarter===q&&s.status==='issued'))||qs[0]||null;
+/* Plan 106: a statement covers a month ('YYYY-MM' in period); one from
+   before keeps its quarter ('YYYY-Qn'). The picker lists both, newest first,
+   a quarter just after the last month in it. */
+const periodOf=s=>s.period||s.quarter||'';
+const periodLabel=p=>/^\d{4}-Q[1-4]$/.test(String(p||''))?String(p):NXJOBS.monthName(p);
+const periodSort=p=>{const q=/^(\d{4})-Q([1-4])$/.exec(String(p||''));return q?`${q[1]}-${String(Number(q[2])*3).padStart(2,'0')}~`:String(p||'');};
+const periods=()=>[...new Set(D.statements.map(periodOf).filter(Boolean))].sort((a,b)=>periodSort(b).localeCompare(periodSort(a)));
+function defaultPeriod(){
+  const ps=periods();
+  return ps.find(p=>D.statements.some(s=>periodOf(s)===p&&s.status==='issued'&&!liveFees(s).length&&owed(s).length))||ps[0]||null;
 }
 const linesOf=s=>D.lines.filter(l=>l.statement_id===s.id);
 const liveFees=s=>D.fees.filter(f=>f.statement_id===s.id&&!f.voided_at);
@@ -305,6 +326,9 @@ function lineRows(s){
   });
   return out;
 }
+/* Plan 106 (D10): a sent declaration is locked, and a host's correction goes
+   through the desk. It is the existing pieces, in order. */
+const CORRECT_NOTE='<span class="picker-note">To correct a line: void the invoice in Xero, record the void under Xero invoices, then edit the line here and raise the invoice again.</span>';
 function canEdit(s){return (s.status==='draft'||s.status==='issued')&&!liveFees(s).length;}
 function statementActions(s){
   const q=intentByKey['st:'+s.id];
@@ -316,6 +340,7 @@ function statementActions(s){
     out.push(raised.length===fees.length?'<span class="st info">Raised in Xero; the statement follows within the hour</span>'
       :`<span class="st info">Raising in Xero: ${raised.length} of ${fees.length} ${fees.length===1?'invoice':'invoices'} raised</span>`);
     fees.forEach(f=>{if(f.last_error&&!f.invoiced_at)out.push(`<span class="st err">Not raised: ${esc(f.last_error)}</span><span class="picker-note">The worker tries again; record a void under Xero invoices to raise it afresh.</span>`);});
+    out.push(CORRECT_NOTE);
   }else if(s.status==='issued'){
     if(held.length){
       const d=D.disputes['line:'+held[0].id];
@@ -323,18 +348,22 @@ function statementActions(s){
       out.push(`<span class="st err">Held: ${held.length===1?'one line':held.length+' lines'} disputed</span>`+link(href,'Open the dispute in the Inbox','open_in_new','quiet'));
     }else{
       const two=owed(s).length>1;
+      if(s.period&&owed(s).length)out.push('<span class="picker-note">The engine raises a month’s invoice by itself. This one waits for a person: its raise was held, or its invoice was voided to correct a line.</span>');
       out.push(btn('raiseStatement',isTestOrg(o)?'Raise invoice in Xero (test account)':'Raise invoice in Xero','receipt_long',{statement:s.id},'primary')
         +(two?`<span class="picker-note">${owed(s).length===2?'two invoices, one per currency':owed(s).length+' invoices, one per currency'}</span>`:''));
     }
     out.push(btn('openUi','Void','block',{ui:'void:'+s.id},'quiet'));
     out.push(btn('openUi','Mark invoiced by hand','',{ui:'hand:'+s.id},'quiet'));
   }else if(s.status==='draft'){
-    out.push('<span class="st">Being drafted: the engine issues it on the 23rd</span>'+btn('openUi','Void','block',{ui:'void:'+s.id},'quiet'));
+    out.push((s.period?'<span class="st">Being built: the engine issues it and raises its invoice at its next run</span>'
+      :'<span class="st">A quarterly draft from before monthly statements: nothing issues it now. Void it, and its lines join the host’s next monthly statement.</span>')
+      +btn('openUi','Void','block',{ui:'void:'+s.id},'quiet'));
   }else if(s.status==='invoiced'){
     const live=fees.filter(f=>f.invoiced_at);
     out.push(`<span class="st info">Invoiced ${esc(fmt(s.invoiced_at))}${s.invoice_ref?': '+esc(s.invoice_ref):''}</span>`);
     live.forEach(f=>out.push(xeroLink(f.xero_invoice_id)));
     out.push(btn('openUi','Mark paid by hand','',{ui:'hand:'+s.id},'quiet'));
+    out.push(CORRECT_NOTE);
   }else if(s.status==='paid'){
     out.push(`<span class="st ok">Paid ${esc(fmt(s.paid_at))}</span>`);
   }else if(s.status==='void'){
@@ -344,7 +373,7 @@ function statementActions(s){
 }
 function statementChoice(s){
   const o=D.orgs[s.org_id]||{};
-  if(UI.open==='void:'+s.id)return `<div class="inline-choice"><span>Void ${esc(o.name||'this')}’s ${esc(s.quarter)} statement? Its lines go back into the pool and join the next statement; nothing is deleted.</span>${input('vs-why-'+s.id,'Why? Kept on the statement')}${btn('voidStatement','Void the statement','block',{statement:s.id},'danger')}${cancel()}</div>`;
+  if(UI.open==='void:'+s.id)return `<div class="inline-choice"><span>Void ${esc(o.name||'this')}’s ${esc(periodLabel(periodOf(s)))} statement? Its lines go back into the pool and join the next statement; nothing is deleted.</span>${input('vs-why-'+s.id,'Why? Kept on the statement')}${btn('voidStatement','Void the statement','block',{statement:s.id},'danger')}${cancel()}</div>`;
   if(UI.open==='hand:'+s.id){
     if(s.status==='invoiced')return `<div class="inline-choice"><span>Mark it paid by hand? For an invoice raised outside the CRM and settled outside Xero’s read-back.</span>${btn('markByHand','Mark paid by hand','',{statement:s.id,what:'paid'},'primary')}${cancel()}</div>`;
     return `<div class="inline-choice"><span>Mark invoiced by hand? Only for an invoice raised outside the CRM: Raise invoice in Xero does this for you.</span>${input('mh-ref-'+s.id,'The Xero invoice number (optional)')}${btn('markByHand','Mark invoiced by hand','',{statement:s.id,what:'invoiced'},'primary')}${cancel()}</div>`;
@@ -422,11 +451,11 @@ function codeReports(){
   return `<section class="panel"><h2>Discount-code reports <span class="n num">${offers.length}</span></h2><div class="tscroll"><table class="tbl"><thead><tr><th>Supplier</th><th>Offer</th><th>Quarter</th><th>Uses</th><th>Report</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div></section>`;
 }
 function statementsTab(){
-  const qs=quarters();
-  if(!qs.length)return '<section class="panel"><div class="empty-state">'+ms('request_quote')+'<h3>No statements yet</h3><p>The engine drafts one per host per quarter from the declared lines, and issues it on the 23rd of the month after the quarter.</p></div></section>'+codeReports();
-  const picker=`<div class="quarters" role="group" aria-label="Quarter">${qs.map(q=>`<button type="button" class="opt" data-act="pickQuarter" data-q="${esc(q)}" aria-pressed="${UI.quarter===q}">${esc(q)}</button>`).join('')}</div>`;
-  const shown=D.statements.filter(s=>s.quarter===UI.quarter).sort((a,b)=>String(orgName(a.org_id)).localeCompare(String(orgName(b.org_id))));
-  return picker+selbar()+(shown.length?shown.map(statementPanel).join(''):'<section class="panel"><div class="empty-state"><p>No statement for this quarter.</p></div></section>')+codeReports();
+  const ps=periods();
+  if(!ps.length)return '<section class="panel"><div class="empty-state">'+ms('request_quote')+'<h3>No statements yet</h3><p>The engine builds one per host per month once the month’s declaration is in, and raises its invoice in Xero by itself.</p></div></section>'+codeReports();
+  const picker=`<div class="months" role="group" aria-label="Month">${ps.map(p=>`<button type="button" class="opt" data-act="pickPeriod" data-period="${esc(p)}" aria-pressed="${UI.period===p}">${esc(periodLabel(p))}</button>`).join('')}</div>`;
+  const shown=D.statements.filter(s=>periodOf(s)===UI.period).sort((a,b)=>String(orgName(a.org_id)).localeCompare(String(orgName(b.org_id))));
+  return picker+selbar()+(shown.length?shown.map(statementPanel).join(''):'<section class="panel"><div class="empty-state"><p>No statement for this month.</p></div></section>')+codeReports();
 }
 
 /* ---------- Xero invoices ---------- */
@@ -436,7 +465,7 @@ function allInvoices(){
     what:`Membership, ${r.period==='monthly'?'monthly':'yearly'} from ${esc(fmt(r.period_start))}`,amount:pounds(r.amount),issued:r.invoice_date,due:r.due_date,row:r,xero:r.xero_invoice_id}));
   D.fees.forEach(f=>{
     const s=f.statement_id!=null?D.statements.find(x=>x.id===f.statement_id):null, rep=f.code_report_id!=null?D.reports.find(x=>x.id===f.code_report_id):null;
-    const what=s?`Statement ${esc(s.quarter)}`:rep?`Code sales ${esc(rep.quarter)}${D.opps[rep.opportunity_id]?', '+esc(D.opps[rep.opportunity_id].ref):''}`:'Fee';
+    const what=s?`Statement ${esc(periodLabel(periodOf(s)))}`:rep?`Code sales ${esc(rep.quarter)}${D.opps[rep.opportunity_id]?', '+esc(D.opps[rep.opportunity_id].ref):''}`:'Fee';
     rows.push({kind:'fee',at:f.invoice_date||String(f.requested_at||'').slice(0,10),number:f.xero_invoice_number,company:orgLink(f.org_id),what,amount:fee(f.amount,f.currency),issued:f.invoice_date,due:f.due_date,row:f,xero:f.xero_invoice_id});
   });
   D.links.filter(l=>!l.is_test&&l.invoiced_at).forEach(l=>rows.push({kind:'consultancy',at:String(l.invoiced_at||'').slice(0,10),number:l.xero_invoice_number,
@@ -496,7 +525,7 @@ function feesTab(){
 function tiles(){
   const hs=hosts(), t=todayIso();
   const unpaid=hs.filter(h=>h.unpaid.length).length;
-  const toInvoice=D.statements.filter(s=>s.status==='issued'&&!liveFees(s).length).length;
+  const toInvoice=D.statements.filter(s=>s.status==='issued'&&!liveFees(s).length&&owed(s).length).length;
   const awaiting=allInvoices().filter(x=>x.row.invoiced_at&&!x.row.paid_at&&!x.row.voided_at).length;
   const tile=(n,label,cls)=>`<div class="stat${cls?' '+cls:''}"><span class="stat-n num">${n}</span><span class="stat-l">${esc(label)}</span></div>`;
   return `<div class="stat-row">${tile(hs.length,'Memberships')}${tile(unpaid,'Memberships unpaid',unpaid?'problem':'')}${tile(toInvoice,'Statements to invoice','money')}${tile(awaiting,'Invoices awaiting payment','money')}</div>`;
@@ -534,7 +563,7 @@ const feeById=id=>D.fees.find(f=>String(f.id)===String(id));
 function raiseStatements(list){
   const ok=[];
   for(const s of list){
-    if(!s||s.status!=='issued'){NXShell.toast('Only a statement marked Ready to invoice is raised in Xero: the engine issues it on the 23rd.');return false;}
+    if(!s||s.status!=='issued'){NXShell.toast('Only a statement marked Ready to invoice is raised in Xero: the engine issues a month’s statement once its declaration is in.');return false;}
     if(disputedLines(s).length){NXShell.toast(`Held: ${disputedLines(s).length===1?'one line':disputedLines(s).length+' lines'} disputed on ${orgName(s.org_id)}’s statement. Resolve the dispute in the Inbox first.`);return false;}
     if(liveFees(s).length){NXShell.toast(`${orgName(s.org_id)}’s statement already has a live fee invoice: see it under Xero invoices.`);return false;}
     if(!owed(s).length){NXShell.toast(`${orgName(s.org_id)}’s statement has no fee to invoice: nothing to raise. Void it if it should not stand.`);return false;}
@@ -551,7 +580,7 @@ function raiseStatements(list){
 const ACT={
   openUi(el){UI.open=el.dataset.ui;render();},
   closeUi(){UI.open=null;render();},
-  pickQuarter(el){UI.quarter=el.dataset.q;UI.picked=new Set();UI.open=null;render();},
+  pickPeriod(el){UI.period=el.dataset.period;UI.picked=new Set();UI.open=null;render();},
   pickStatement(el){const id=Number(el.dataset.statement);if(UI.picked.has(id))UI.picked.delete(id);else UI.picked.add(id);render();},
   clearPicked(){UI.picked=new Set();render();},
   raiseStatement(el){return raiseStatements([stById(el.dataset.statement)]);},
@@ -567,7 +596,7 @@ const ACT={
     const s=stById(el.dataset.statement);if(!s)return false;
     const reason=val('vs-why-'+s.id);
     if(!reason){NXShell.toast('Give a reason: a voided statement keeps one on the record.');return false;}
-    return raise('void-statement',{statement_id:s.id,reason},queued(`Voided ${orgName(s.org_id)}’s ${s.quarter} statement`));
+    return raise('void-statement',{statement_id:s.id,reason},queued(`Voided ${orgName(s.org_id)}’s ${periodLabel(periodOf(s))} statement`));
   },
   saveLine(el){
     const line=D.lines.find(l=>String(l.id)===String(el.dataset.line));if(!line)return false;
