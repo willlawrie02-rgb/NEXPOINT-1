@@ -6,12 +6,14 @@
     "check:html": "html-validate 'index.html' '404.html' 'hub/**/*.html' 'printhub/*.html' 'millhub/*.html' 'opportunities/*.html' 'portal/*.html' 'admin/*.html' 'sign/*.html'",
     "check:links": "node check/links.mjs",
     "check:inline": "node check/inline.mjs",
-    "check": "npm run check:js && npm run check:inline && npm run check:html && npm run check:links && npm run check:sweep && npm run check:review && npm run check:dist",
+    "check": "npm run check:js && npm run check:inline && npm run check:html && npm run check:links && npm run check:sweep && npm run check:review && npm run check:fulltest && npm run check:dist",
     "check:sweep": "node check/sweep.mjs",
     "check:review": "node check/review.mjs",
     "build": "node check/build.mjs",
     "check:dist": "npm run build && LINKS_ROOT=dist node check/links.mjs",
-    "walk": "node check/walk.mjs"
+    "check:fulltest": "node check/fulltest/selftest.mjs",
+    "walk": "node check/walk.mjs",
+    "fulltest": "node check/fulltest.mjs"
   },
   "devDependencies": {
     "html-validate": "^8.29.0",
