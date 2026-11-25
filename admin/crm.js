@@ -1,6 +1,6 @@
 /* Plan 071 PR 3: what the Contacts page and the company page share.
 
-   Loaded after crm-shell.js as <script src="crm.js?v=071">: shared admin
+   Loaded after crm-shell.js as <script src="crm.js?v=097">: shared admin
    files are cached in browsers for up to four hours, so bump ?v= on every
    later change.
 
@@ -67,9 +67,12 @@
   }
 
   /* An account's state (Will, 10 September 2026: only a person moves it; plan
-     069 adds Closed and Erased). Erased first: a stub keeps its closed_at. */
-  const ORG_STATE = { on: 'On the hub', paused: 'Paused', removed: 'Removed from the hub', closed: 'Closed', deleted: 'Deleted', erased: 'Erased' };
-  function orgState(o){return o.erased_at?'erased':o.deleted_at?'deleted':o.closed_at?'closed':o.removed_at?'removed':o.hidden_at?'paused':'on';}
+     069 adds Closed and Erased). Erased first: a stub keeps its closed_at.
+     The payment clock's hide (plan 049) is its own state, 'unpaid' (plan 097):
+     hidden_at set, sub_status 'hidden' and no person's pause. A person's pause
+     over it is Paused. Resume does not lift 'unpaid'; payment does. */
+  const ORG_STATE = { on: 'On the hub', paused: 'Paused', unpaid: 'Hidden: membership unpaid', removed: 'Removed from the hub', closed: 'Closed', deleted: 'Deleted', erased: 'Erased' };
+  function orgState(o){return o.erased_at?'erased':o.deleted_at?'deleted':o.closed_at?'closed':o.removed_at?'removed':o.hidden_at?(o.sub_status==='hidden'&&!o.paused_by?'unpaid':'paused'):'on';}
   const offHub = (o) => ['removed', 'deleted', 'closed', 'erased'].includes(orgState(o));
   const isHost = (o) => o.host_print === 'approved' || o.host_mill === 'approved';
 
@@ -83,8 +86,10 @@
     if (s === 'deleted') return pill('s-known', 'no_accounts', 'Account deleted');
     if (s === 'closed') return pill('s-known', 'no_accounts', 'Account closed');
     if (s === 'removed') return pill('s-known', 'block', isHost(o) ? 'Host removed' : 'Removed from the hub');
-    if (s === 'paused') return pill('s-killed', 'pause_circle', isHost(o) ? 'Live host, paused' : 'Paused');
-    if (isHost(o) && o.sub_status === 'hidden') return pill('s-killed', 'visibility_off', 'Live host, hidden: unpaid');
+    /* Plan 097: a person's pause laid over the payment clock's hide says both. */
+    const feeToo = o.sub_status === 'hidden';
+    if (s === 'paused') return pill('s-killed', 'pause_circle', (isHost(o) ? 'Live host, paused' : 'Paused') + (feeToo ? (isHost(o) ? ', hidden: unpaid' : ', hidden: membership unpaid') : ''));
+    if (s === 'unpaid') return pill('s-killed', 'visibility_off', isHost(o) ? 'Live host, hidden: unpaid' : 'Hidden: membership unpaid');
     if (isHost(o)) return pill('s-agreed', 'storefront', 'Live host');
     if (o.host_print === 'applied' || o.host_mill === 'applied') return pill('s-talking', 'storefront', 'Host applied');
     return pill('s-tocontact', 'hub', 'On the portal');

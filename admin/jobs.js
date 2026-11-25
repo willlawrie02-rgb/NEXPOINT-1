@@ -2,7 +2,7 @@
    yields, as the Inbox (inbox.html) and the company page's Needs you
    (company.html) show it and decide it.
 
-   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=092">:
+   Loaded after crm-shell.js and crm.js as <script src="jobs.js?v=105">:
    shared admin files are cached in browsers for up to four hours, so bump
    ?v= on every change (and on every page that links it).
 
@@ -135,7 +135,7 @@ const KINDS={
   membership_unpaid:{group:'money',icon:'payments',label:'Membership unpaid',
     line:r=>{const d=Number(r.status);
       return isNaN(d)?`${who(r)} has not paid its membership invoice`
-        :d>14?`${who(r)} has not paid its membership: its clock was extended past day 14`
+        :d>14?`${who(r)} has not paid its membership: past day 14 and still showing`
         :`${who(r)} has not paid its membership: day ${d} of 14`;},panel:membershipPanel},
   listing_hidden:{group:'money',icon:'visibility_off',label:'Listing hidden',
     line:r=>`${who(r)} is hidden: its membership is unpaid`,panel:membershipPanel},
@@ -518,8 +518,15 @@ const QUEUED='<span class="status-line">'+ms('schedule','sm')+'Queued, moments a
 /* ── The deciding panels ──────────────────────────────────────────────── */
 
 /* A first listing (068, register D5): the whole submission and the period
-   the host chose. Approve is one click; the board never chooses the period,
-   so a submission with none, on a site not yet billed, is withheld (P8). */
+   the host chose. The board never chooses the period, so a submission with
+   none, on a site not yet billed, is withheld (P8).
+   Will, 12 November 2026 (the code audit's decision C): Approve asks once
+   more in place, saying what this approval does to the money, because it
+   puts the listing live, raises a real invoice and emails the host, and
+   nothing un-approves. A first listing is approved after a call with the
+   host, so the card also offers Ask for a call, which emails the host and
+   leaves the listing waiting; the listing keeps when it was asked and by
+   whom (migration 0102). */
 function listingPanel(r,ctx){
   const l=listingById(r.item_id);
   if(!l)return missing('This listing');
@@ -534,14 +541,38 @@ function listingPanel(r,ctx){
   const period=chosen?(pending.billing_period==='monthly'?'Monthly, £100 a month, chosen by the host':'Yearly, £1,000 a year, chosen by the host')
     :billed?'Already billed: one membership covers both hubs':'';
   const k=r.item_key;
+  const may=billed||chosen;
+  /* What this approval does to the money: the engine's three cases (_make_host). */
+  const money=billed?'It goes live and the host is emailed. The membership it already has carries on, with no new invoice.'
+    :org.billing_from==='first_introduction'?'It goes live and the host is emailed. This site is invoiced at its first introduction, not now.'
+    :'It goes live, the first membership invoice is raised in Xero and the host is emailed.';
+  const askedOn=l.call_asked_at?day(l.call_asked_at):'';
+  /* Will, 17 November 2026: a third outcome, the first period free. No
+     invoice is raised; the day paid membership starts and the reason are
+     kept. Only for a site not yet billed, whose host chose a period, and
+     which is not billed from its first introduction; the engine refuses
+     the rest. */
+  const canFree=chosen&&!billed&&org.billing_from!=='first_introduction';
   return {intent:'listing:'+l.id,
-    body:para(`Submitted ${esc(day(rev.submitted_at||l.created_at))}. Approving puts it live and starts the membership; the host is emailed once.`)
+    body:para(`Submitted ${esc(day(rev.submitted_at||l.created_at))}. Approving puts it live and starts the membership; the host is emailed once. Approve after the call with the host.`)
+      +(askedOn?para(esc(`Call asked for on ${askedOn}${l.call_asked_by?' by '+l.call_asked_by:''}.`)):'')
       +kv(submittedTable(rev).concat(period?[['Membership',esc(period)]]:[]))
-      +(billed||chosen?'':`<div class="hint">${ms('info')}<span>No billing period on this submission: the host chooses yearly or monthly on the listing form. Decline with a note asking them to choose.</span></div>`),
-    actions:((billed||chosen)?btn('jobApproveListing','Approve','check',{key:k},'primary'):'')
+      +(may?'':`<div class="hint">${ms('info')}<span>No billing period on this submission: the host chooses yearly or monthly on the listing form. Decline with a note asking them to choose.</span></div>`),
+    actions:(may?btn('jobOpen','Approve','check',{key:k,ui:'approve'},'primary'):'')
+      +btn('jobOpen',askedOn?'Ask for a call again':'Ask for a call','call',{key:k,ui:'call'})
       +btn('jobOpen','Decline with a note','',{key:k,ui:'decline'}),
-    choice:isOpen(ctx,'decline',r)?choice('What needs changing before this listing can go live? The host is sent this note.',
-      input(fid('jb-note',r),'What needs changing')+btn('jobDeclineListing','Decline the listing','',{key:k},'danger')+cancel()):''};
+    choice:canFree&&isOpen(ctx,'approvefree',r)?choice(esc('Approve this listing with the first period free? It goes live and the host is emailed. No invoice is raised now: the first invoice is raised on the day paid membership starts, and the email tells the host that day. Give the day and the reason. There is no un-approve.'),
+        input(fid('jb-freeuntil',r),'Paid membership starts on, as YYYY-MM-DD',yearOn(ctx.today||todayIn()))
+        +input(fid('jb-freewhy',r),'Why the first period is free, kept on the account')
+        +btn('jobApproveFree','Approve with no invoice','',{key:k},'primary')+cancel())
+      :may&&isOpen(ctx,'approve',r)?choice(esc(`Approve this listing? ${money} There is no un-approve.`),
+        btn('jobApproveListing','Yes, approve it','',{key:k},'primary')
+        +(canFree?btn('jobOpen','Approve with the first period free','',{key:k,ui:'approvefree'}):'')+cancel())
+      :isOpen(ctx,'call',r)?choice(esc(askedOn?`Email the host again to ask for a call? It was last asked on ${askedOn}. The listing stays waiting until it is approved.`
+          :'Email the host to ask for a call? The listing stays waiting until it is approved.'),
+        btn('jobAskCall','Send the email','',{key:k},'primary')+cancel())
+      :isOpen(ctx,'decline',r)?choice('What needs changing before this listing can go live? The host is sent this note.',
+        input(fid('jb-note',r),'What needs changing')+btn('jobDeclineListing','Decline the listing','',{key:k},'danger')+cancel()):''};
 }
 
 /* A change to a live listing (068 D6): field by field and machine by
@@ -556,8 +587,12 @@ function changePanel(r,ctx){
     body:para('The live listing stays as it is until you approve.')
       +(mixesNoReview(live,pending)?para('This save mixes a change that goes live on its own with one we review, so it waits as a whole.'):'')
       +(changes.length?diffTable(changes,mixesNoReview(live,pending)):para('Nothing differs from the live listing.')),
-    actions:btn('jobApproveChange','Approve the change','check',{key:k},'primary')+btn('jobOpen','Decline the change','',{key:k,ui:'decline'}),
-    choice:isOpen(ctx,'decline',r)?choice('What needs changing? The host is sent this note; the live listing stays as it is.',
+    /* Will, 17 November 2026: approving emails the host and nothing
+       un-approves, so the button asks first in place, naming the site. */
+    actions:btn('jobOpen','Approve the change','check',{key:k,ui:'approvechange'},'primary')+btn('jobOpen','Decline the change','',{key:k,ui:'decline'}),
+    choice:isOpen(ctx,'approvechange',r)?choice(esc(`Approve this change to ${orgName(l.org_id)||'this site'}’s listing? It goes live now and the host is emailed that the change was approved. There is no un-approve.`),
+        btn('jobApproveChange','Yes, approve the change','',{key:k},'primary')+cancel())
+      :isOpen(ctx,'decline',r)?choice('What needs changing? The host is sent this note; the live listing stays as it is.',
       input(fid('jb-note',r),'What needs changing')+btn('jobDeclineChange','Decline the change','',{key:k},'danger')+cancel()):''};
 }
 
@@ -588,8 +623,11 @@ function seekerPanel(r,ctx){
     const rev=revById[l.live_revision_id]||{}, cap=capacityOf(rev,l), town=[rev.town,rev.country].filter(Boolean).join(', ');
     const sub=[cap!=null?`${cap} a month`:'',(rev.services||[]).map(t=>lab('service',t)).join(', '),shipsToUnset(l)?'Ships to: not set':''].filter(Boolean).join(', ');
     return `<div class="mini"><span><span><span class="rank num">${n+1}</span><span class="strong">${esc(orgName(l.org_id)||'(host)')}</span>${town?', '+esc(town):''}</span>${
-      sub?`<span class="item-sub">${esc(sub)}</span>`:''}</span>${btn('jobIntroduce','Introduce by hand','',{key:k,listing:l.id})}</div>`;
+      sub?`<span class="item-sub">${esc(sub)}</span>`:''}</span>${btn('jobOpen','Introduce by hand','',{key:k,ui:'introduce-'+l.id})}</div>`;
   };
+  /* Will, 17 November 2026: Introduce by hand emails that site the request
+     and nothing takes an offer back, so each site asks first in place. */
+  const asking=spare.slice(0,8).find(l=>isOpen(ctx,'introduce-'+l.id,r));
   return {intent:'seeker:'+req.id,
     body:(req.status==='desk'?para('The seeker told the desk the shortlist did not fit.'):req.no_match?para('The search matched nobody.'):'')
       +kv(needLines(req).concat(where?[['Where',esc(where)]]:[]))
@@ -600,7 +638,9 @@ function seekerPanel(r,ctx){
         :para(`No live site on the ${esc(hubName(req.hub))} ships there. Paused and removed hosts are left out.`)),
     actions:waiting?'':btn('jobOpen','Decline with a reason','',{key:k,ui:'decline'}),
     choice:!waiting&&isOpen(ctx,'decline',r)?choice('Why can we not match this request? Kept on the record; the seeker is told only that we could not match it.',
-      input(fid('jb-note',r),'Reason, kept on the request')+btn('jobDeclineRequest','Decline the request','',{key:k},'danger')+cancel()):''};
+      input(fid('jb-note',r),'Reason, kept on the request')+btn('jobDeclineRequest','Decline the request','',{key:k},'danger')+cancel())
+      :asking?choice(esc(`Email the offer to ${[orgName(asking.org_id)||'this site',(revById[asking.live_revision_id]||{}).town].filter(Boolean).join(', ')}? It is emailed this request now and has 14 days to answer. An offer cannot be taken back once it is sent.`),
+        btn('jobIntroduce','Yes, email the offer','',{key:k,listing:asking.id},'primary')+cancel()):''};
 }
 
 /* A declined or expired offer with nothing after it (067 Q7, D9): re-route
@@ -620,17 +660,30 @@ function reroutePanel(r,ctx){
   const {best,options}=rerouteControl(i);
   const k=r.item_key;
   let actions='';
-  if(best)actions+=btn('jobReroute',`Re-route to ${orgName(best.org_id)||'the next best'}, next best`,'alt_route',{key:k,listing:best.id},'primary');
+  /* Will, 17 November 2026: re-routing emails the next site its offer and
+     nothing takes an offer back, so the button asks first in place. */
+  if(best)actions+=btn('jobOpen',`Re-route to ${orgName(best.org_id)||'the next best'}, next best`,'alt_route',{key:k,ui:'reroutebest'},'primary');
   if(options.length)actions+=btn('jobOpen','Re-route to another site','',{key:k,ui:'reroute'});
   if(!best&&!options.length)actions+='<span class="status-line">No other visible listing to re-route to. Paused and removed hosts are left out.</span>';
-  if(REISSUABLE_STAGES.includes(i.stage))actions+=btn('jobOpen',`Resend to ${provider}`,'replay',{key:k,ui:'resend'});
+  /* Plan 094: a paused or removed host cannot answer, and a resend to one
+     re-opened a finished offer that could not be re-routed until it ran out
+     again. The engine refuses it too (handlers._reissue_acceptance). The
+     company checked is the one asked, as the engine and the worker check
+     it: asked_org (the Opportunities Board's owner, in either slot), then
+     the listing's company, then org_a. */
+  const askedId=i.asked_org||(l||{}).org_id||i.org_a;
+  const canResend=REISSUABLE_STAGES.includes(i.stage)&&orgVisible(orgById[askedId]);
+  if(canResend)actions+=btn('jobOpen',`Resend to ${provider}`,'replay',{key:k,ui:'resend'});
+  else if(REISSUABLE_STAGES.includes(i.stage))actions+=`<span class="status-line">${esc(orgName(askedId)||'The site')} is paused or removed, so the offer cannot be sent to it again.</span>`;
   let ui='';
-  if(isOpen(ctx,'resend',r))ui=choice(`Send the offer for ${esc(introRef(i))} to the same site again? A fresh 14-day window; nothing else on the introduction changes.`,
+  if(canResend&&isOpen(ctx,'resend',r))ui=choice(`Send the offer for ${esc(introRef(i))} to the same site again? A fresh 14-day window; nothing else on the introduction changes.`,
     btn('jobResend','Resend the offer','',{key:k},'primary')+cancel());
   else if(isOpen(ctx,'reroute',r))ui=choice('Re-route to which site? That site is emailed the offer, and the seeker is told which site it went to.',
     `<label class="sr" for="${fid('jb-site',r)}">Site</label><select class="input" id="${fid('jb-site',r)}"><option value="">Choose a site</option>${
       options.map(o=>{const rev=revById[o.live_revision_id]||{};return `<option value="${esc(o.id)}">${esc([orgName(o.org_id)||'(host)',rev.town].filter(Boolean).join(', '))}</option>`;}).join('')}</select>`
     +btn('jobRerouteTo','Re-route','',{key:k},'primary')+cancel());
+  else if(best&&isOpen(ctx,'reroutebest',r))ui=choice(esc(`Re-route ${introRef(i)} to ${orgName(best.org_id)||'this site'}? It is emailed the offer now and has 14 days to answer, and ${seeker} is told which site it went to. An offer cannot be taken back once it is sent.`),
+    btn('jobReroute','Yes, re-route it','',{key:k,listing:best.id},'primary')+cancel());
   return {intent:'intro:'+i.id,
     body:para(`${esc(seeker)} picked ${esc(provider)}, who ${i.stage==='declined'?'said no':'did not answer within 14 days'}. A request goes to one site at a time, so it is waiting on us.`)
       +kv([['Reference',esc(introRef(i))],[i.stage==='declined'?'Declined':'Expired',esc(day(spentAt)||'Date not recorded')]]
@@ -641,6 +694,16 @@ function reroutePanel(r,ctx){
 /* An offer the desk approved whose email has not gone (plan 023): the
    06:15 retry sends it; Send it now is the same reissue the board offered. */
 function introductionPanel(r){
+  /* Plan 094: the 06:15 run does not try a host that is paused or removed
+     (commercial.unsent_notices), so the card does not offer to either. */
+  const i=intros.find(x=>String(x.id)===String(r.item_id));
+  const l=i?listingById(i.listing_id):null;
+  const askedId=i?i.asked_org||(l||{}).org_id||i.org_a:null;   /* the company asked, as in reroutePanel */
+  if(i&&!orgVisible(orgById[askedId])){
+    const provider=orgName(askedId)||'the site';
+    return {intent:'intro:'+r.item_id,
+      body:para(`The offer email has not gone, and ${esc(provider)} is paused or removed. The offer runs out at the end of its 14 days and then comes here to be re-routed.`)};
+  }
   return {intent:'intro:'+r.item_id,
     body:para('The offer email has not gone. The 06:15 run tries again.'),
     actions:btn('jobSendNow','Send it now','send',{key:r.item_key},'primary')};
@@ -786,14 +849,18 @@ function flaggedPanel(r,ctx){
 
 /* The payment clock (the design's): a bar for the 14 days with ticks at days
    7 and 12, blue until day 14, red once the listing has hidden itself; the
-   label says which reminders have gone. `n` is the clock's day. */
+   label says which reminders have gone. `n` is the clock's day. A hide the
+   engine is holding (plan 097: Xero has not confirmed the invoice unpaid, or
+   an email is not on record as sent) is red and says so, with the reason. */
 function clockHtml(inv,n){
   const hidden=!!inv.hidden_at&&!inv.restored_at, d=Math.max(0,Math.min(n,14));
+  const held=!hidden&&!!inv.hide_held_at&&!inv.paid_at&&!inv.voided_at;
   const text=hidden?'Day 14 passed: hidden until paid'
+    :held?`Day ${n} of 14: not hidden, ${inv.hide_held_reason||'held'}`
     :inv.extended_to&&n>14?`Extended by hand to ${day(inv.extended_to)}`
     :n>14?`Day ${n} of 14: it hides at the next scheduled check`
     :`Day ${n} of 14${inv.reminder_12_at?', reminders sent on days 7 and 12':inv.reminder_7_at?', reminder sent on day 7':''}`;
-  return `<div class="clock ${hidden||(n>14&&!inv.extended_to)?'red':'blue'}" role="img" aria-label="${esc(text)}"><div class="cbar"><i style="width:${(d/14*100).toFixed(1)}%"></i><b style="left:50%"></b><b style="left:85.7%"></b></div><span class="clabel">${esc(text)}</span></div>`;
+  return `<div class="clock ${hidden||held||(n>14&&!inv.extended_to)?'red':'blue'}" role="img" aria-label="${esc(text)}"><div class="cbar"><i style="width:${(d/14*100).toFixed(1)}%"></i><b style="left:50%"></b><b style="left:85.7%"></b></div><span class="clabel">${esc(text)}</span></div>`;
 }
 /* The clock's day: London today less its start, the engine's count. */
 const clockDay=(inv,today)=>inv.clock_start?Math.round((Date.parse(today+'T12:00:00Z')-Date.parse(String(inv.clock_start).slice(0,10)+'T12:00:00Z'))/864e5):null;
@@ -811,7 +878,14 @@ function membershipPanel(r,ctx){
   else{
     rows.push(['Reminders',esc(sent.length?'Sent on '+sent.join(' and '):'None yet')]);
     if(inv.hidden_at&&!inv.restored_at)rows.push(['Hidden since',esc(day(inv.hidden_at))]);
-    else if(inv.extended_to||inv.hide_on)rows.push(['Hides on',esc(day(inv.extended_to||inv.hide_on)+', unless paid')]);
+    else{
+      /* Plan 097: a hide that was due and is being held says the day it was due and the engine's reason,
+         never "Hides on" a day already past. */
+      const last=inv.extended_to||inv.hide_on;
+      if(inv.hide_held_at&&!inv.paid_at&&!inv.voided_at)
+        rows.push(['Not hidden',esc((last?`Was due to hide on ${day(last)}; held: `:'Held: ')+(inv.hide_held_reason||'no reason recorded'))]);
+      else if(last)rows.push(['Hides on',esc(day(last)+', unless paid')]);
+    }
   }
   const k=r.item_key, unpaid=r.kind!=='invoice_not_raised'&&!inv.paid_at&&!inv.voided_at;
   /* Plan 075: Record payment (by hand) and Extend the clock here, as on Money. */
@@ -945,6 +1019,23 @@ const ACT={
     const r=rowOf(el,ctx);if(!r)return;
     return ctx.raise('approve-listing',{listing_id:r.item_id},spot(r),'Approved');
   },
+  /* Will, 17 November 2026: approve with the first period free. The day paid
+     membership starts (after today, within two years) and the reason go
+     with the listing; the engine checks both again before it writes. */
+  jobApproveFree(el,ctx){
+    const r=rowOf(el,ctx);if(!r)return;
+    const until=String(ctx.val(fid('jb-freeuntil',r))||'').trim(), reason=String(ctx.val(fid('jb-freewhy',r))||'').trim();
+    const today=ctx.today||todayIn();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(until)||until<=today)return ctx.need(fid('jb-freeuntil',r),'Give the day paid membership starts: a day after today, as YYYY-MM-DD.');
+    if(until>yearOn(yearOn(today)))return ctx.need(fid('jb-freeuntil',r),'That day is more than two years away. Give a day within two years.');
+    if(!reason)return ctx.need(fid('jb-freewhy',r),'Give the reason: it is kept on the account.');
+    return ctx.raise('approve-listing',{listing_id:r.item_id,free_until:until,free_reason:reason},spot(r),'Approved, first period free');
+  },
+  /* Will, 12 November 2026: the email that asks a new host for a call. */
+  jobAskCall(el,ctx){
+    const r=rowOf(el,ctx);if(!r)return;
+    return ctx.raise('ask-listing-call',{listing_id:r.item_id},spot(r),'Call asked for');
+  },
   jobDeclineListing(el,ctx){
     const r=rowOf(el,ctx);if(!r)return;
     const note=ctx.val(fid('jb-note',r)).trim();
@@ -1053,6 +1144,24 @@ function dueText(due){
 }
 const BUCKETS=['Overdue','Today','This week','Later'];
 const todayIn=now=>(london(now||new Date())||{}).iso;
+/* The same day one year on, as YYYY-MM-DD; 29 February gives 28 February,
+   as the engine counts a year (commercial._plus_years). */
+function yearOn(iso){
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||''));
+  if(!m)return '';
+  return `${Number(m[1])+1}-${m[2]}-${m[2]==='02'&&m[3]==='29'?'28':m[3]}`;
+}
+/* The day paid membership starts for a host in a free first period, else
+   null: the twin of membership.free_until in the engine, so change them
+   together. A host is in one when it is active, is not billed from its
+   first introduction, has no billing_started_at, and sub_due_at holds the
+   day. ONLY for a page whose own read of organisations holds all four
+   columns (Money, the company page). The read in this file has no
+   billing_started_at, so every active host would look free: nothing in
+   this file may call it on orgById, and that read is not to be widened
+   for it. */
+const freeUntil=o=>o&&o.sub_status==='active'&&o.billing_from!=='first_introduction'&&!o.billing_started_at&&o.sub_due_at
+  ?String(o.sub_due_at).slice(0,10):null;
 const coOf=(ctx,id)=>id==null?null:((ctx.companies||{})[id]||null);
 function companyField(ctx,id,value){
   const names=(ctx.companyList||[]).map(c=>`<option value="${esc(c.name)}"></option>`).join('');
@@ -1143,8 +1252,10 @@ const TYPES=['approve-listing','decline-listing','approve-listing-revision','dec
   /* plan 092: a possible order confirmed, or marked not an order */
   'confirm-order-evidence',
   /* plan 075: the membership jobs' by-hand controls */
-  'record-sub-paid','extend-membership-clock'];
-const LISTING_TYPES=TYPES.slice(0,4);
+  'record-sub-paid','extend-membership-clock',
+  /* Will, 12 November 2026: a new host asked for a call, from the listing's card */
+  'ask-listing-call'];
+const LISTING_TYPES=TYPES.slice(0,4).concat('ask-listing-call');
 /* The key a job looks its newest open intent up by (the page reduces the
    intents newest-wins, then calls this for each). */
 function intentKey(i){
@@ -1168,6 +1279,7 @@ const DONE_WORDS={
   'decline-listing':['approve','Listing declined'],
   'approve-listing-revision':['approve','Listing change approved'],
   'decline-listing-revision':['approve','Listing change declined'],
+  'ask-listing-call':['approve','Call asked for'],
   'add-provider':['waiting','Introduced by hand'],
   'decline-intro-request':['waiting','Request declined'],
   'reroute-introduction':['waiting','Offer re-routed'],
@@ -1224,7 +1336,7 @@ async function read(sb,rows,opt){
     evIds.length?sb.from('order_evidence').select('*').in('id',evIds):none,
     runIds.length?sb.from('engine_steps').select('run_id,seq,name,status,detail').in('run_id',runIds):none,
     flagged.length?sb.from('strikes').select('*').in('org_id',flagged):none,
-    invIds.length?sb.from('membership_invoices').select('id,org_id,period,amount,currency,xero_invoice_number,xero_online_url,invoice_date,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at,last_error,last_error_at').in('id',invIds):none,
+    invIds.length?sb.from('membership_invoices').select('id,org_id,period,amount,currency,xero_invoice_number,xero_online_url,invoice_date,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at,last_error,last_error_at,hide_held_at,hide_held_reason').in('id',invIds):none,
   ]);
   got('the vocabulary',vq).forEach(v=>{(out.vocab[v.kind]=out.vocab[v.kind]||{})[v.term]=v.label;});
   out.listings=got('the listings',lq);
@@ -1285,7 +1397,7 @@ async function read(sb,rows,opt){
   const [rvq,mcq,orq,xq]=await Promise.all([
     revIds.length?sb.from('listing_revisions').select('*').in('id',revIds):none,
     revIds.length?sb.from('listing_machines').select('*').in('revision_id',revIds).order('position',{ascending:true}):none,
-    allOrgs.length?sb.from('organisations').select('id,name,hidden_at,removed_at,sub_status,sub_period,sub_due_at,sub_rate_gbp').in('id',allOrgs):none,
+    allOrgs.length?sb.from('organisations').select('id,name,hidden_at,removed_at,sub_status,sub_period,sub_due_at,sub_rate_gbp,billing_from').in('id',allOrgs):none,
     msgIds.length?sb.from('crm_email_index').select('internet_message_id,web_links').in('internet_message_id',msgIds):none,
   ]);
   got('the listing revisions',rvq).forEach(r=>{out.revisions[r.id]=r;});
@@ -1306,7 +1418,8 @@ async function read(sb,rows,opt){
    20 s, for 10 minutes of looking; a new press or a row not seen before gives
    10 more. A hidden tab neither looks nor spends them, and looks as soon as it
    is back. A reload redraws the page, so one that falls due while someone is
-   typing, or while hold() says a form is open, waits until they have finished. */
+   typing, or while hold() says a form is open, waits until they have finished.
+   The reload a press asks for (soon) goes through the same guard. */
 const POLL_GAPS=[5000,5000,10000,20000], POLL_LIMIT=6e5;
 const isOpenIntent=s=>s==='pending'||s==='claimed';
 function typing(){
@@ -1343,6 +1456,15 @@ function poll(sb,load,hold){
     clearTimeout(timer);timer=null;
     if(!document.hidden&&(owed||(open.size&&left>0)))return look();
   });
+  /* The reload a press asks for (plan 105): a moment after it, through the
+     same guard as a look. Held, it is owed, and the next look makes it once
+     the box is left and the form is closed. */
+  function soon(ms){
+    setTimeout(()=>{
+      if(typing()||(hold&&hold())){owed=true;arm();return;}
+      return load();
+    },ms==null?1500:ms);
+  }
   return {
     /* A failed read (no rows) says nothing, so the rows already watched stay watched. */
     watch(rows){
@@ -1354,11 +1476,12 @@ function poll(sb,load,hold){
       arm();
     },
     pressed(){clearTimeout(timer);timer=null;step=0;left=POLL_LIMIT;arm(true);},
+    soon,
   };
 }
 
 window.NXJOBS={GROUPS,KINDS,TYPES,TASK_TYPES,BUCKETS,kindOf,lineOf,ageText,day,sentence,clockHtml,clockDay,boardLabel,runTime,hubName,hrefOf,inPlace,domId,
-  read,poll,use,body,item,ACT,intentKey,doneWords,london,todayIn,dueBucket,dueText,sundayOf,taskRow,taskForm,
+  read,poll,use,body,item,ACT,intentKey,doneWords,london,todayIn,freeUntil,dueBucket,dueText,sundayOf,taskRow,taskForm,
   humanise,lab,fmtVal,monthName,revisionDiff,machineDiff,mixesNoReview,diffTable,submittedTable,machineLines,needLines,
   shipsTo,shipsToUnset,capacityOf,successorOf,rerouteControl,partyGuess,
   SPENT_STAGES,REISSUABLE_STAGES,REV_FIELDS,KIND_OF,CADENCE_LABEL};

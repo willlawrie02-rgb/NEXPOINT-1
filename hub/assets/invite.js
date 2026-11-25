@@ -1,11 +1,18 @@
 /* The invitation landing (plan 052, task 3.2). A user invited a colleague
    into their account; the link in the invitation carries a one-time token.
    This page asks the worker who is asking and for which account
-   (POST /auth/invite), then takes the colleague's name, a password and the
-   Platform Terms, and posts them with the token (POST /auth/register-invited).
+   (POST /auth/invite), then takes the colleague's name and the Platform
+   Terms, and posts them with the token (POST /auth/register-invited).
    The worker creates the sign-in inside the existing account and sends the
    ordinary confirmation email: like every account, this one can act once the
    address is confirmed (one-door register, 2026-09-17).
+
+   No password is asked for here (plan 093, 14 November 2026). The colleague
+   chooses it on the page the confirmation link opens, as a new registrant
+   does. This page used to take a password the sign-in service could refuse
+   (its rule as read on 14 November 2026: 8 characters with a lower-case
+   letter, a capital, a number and a symbol), with no words for the refusal,
+   so a colleague whose password was refused could never join.
 
    Standalone, like confirm.html and reset.html: someone arriving from an
    email client may have no session and nothing cached, so the page carries
@@ -15,7 +22,6 @@
   var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   var API = local ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
   var TERMS_URL = 'https://nexpoint.co.uk/hub/terms/';
-  var MIN_LENGTH = 8;
   var token = new URLSearchParams(location.search).get('t') || '';
   var invite = null;
   var termsId = null;
@@ -52,31 +58,6 @@
     });
   }
 
-  /* The same eye every other password field has (plan 046), inlined
-     because this page loads no shared script. */
-  function passwordEye(input) {
-    if (!input || input.dataset.npEye) return;
-    input.dataset.npEye = '1';
-    var wrap = document.createElement('div');
-    wrap.className = 'np-eye';
-    input.parentNode.insertBefore(wrap, input);
-    wrap.appendChild(input);
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'np-eye__btn';
-    btn.setAttribute('aria-label', 'Show password');
-    btn.setAttribute('aria-pressed', 'false');
-    btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">visibility</span>';
-    btn.addEventListener('click', function () {
-      var show = input.type === 'password';
-      input.type = show ? 'text' : 'password';
-      btn.setAttribute('aria-pressed', show ? 'true' : 'false');
-      btn.firstChild.textContent = show ? 'visibility_off' : 'visibility';
-      input.focus();
-    });
-    wrap.appendChild(btn);
-  }
-
   function renderUsed() {
     render('<h1>This invitation has been used or has expired.</h1>' +
       '<p>An invitation works once and lasts seven days. Ask the colleague who sent it for a new one, or email ' +
@@ -88,19 +69,17 @@
     render(
       '<h1>Join ' + esc(invite.company || 'your colleagues') + '.</h1>' +
       '<p>' + who + ' to join the ' + esc(invite.company || 'company') + ' account on the NexPoint Global Portal. ' +
-        'Choose your name and a password; we then send one email to confirm the address.</p>' +
+        'Tell us your name; we then send one email to confirm the address, and you choose your password there.</p>' +
       '<div class="panel">' +
         '<div class="field"><label>Email</label><div class="fixed" id="invEmail">' + esc(invite.email) + '</div></div>' +
         '<div class="field"><label for="invName">Your name</label><input id="invName" type="text" autocomplete="name" maxlength="200"></div>' +
         '<div class="field"><label for="invPhone">Phone (optional)</label><input id="invPhone" type="tel" autocomplete="tel" maxlength="50"></div>' +
-        '<div class="field"><label for="invPass">Password</label><input id="invPass" type="password" autocomplete="new-password" minlength="' + MIN_LENGTH + '"></div>' +
         '<div id="invTerms"><p>Loading the Platform Terms…</p></div>' +
         '<p class="err" id="formErr"></p>' +
         '<div class="actions"><button class="yes" type="button" id="joinBtn" disabled>Join ' + esc(invite.company || 'the account') + '</button></div>' +
       '</div>');
-    passwordEye($('invPass'));
     $('joinBtn').addEventListener('click', join);
-    $('invPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') join(); });
+    $('invName').addEventListener('keydown', function (e) { if (e.key === 'Enter') join(); });
     $('invName').focus();
     call('/terms/current?layer=platform', undefined, 'GET').then(function (o) {
       if (!o.r.ok || !o.d || !o.d.id) {
@@ -126,6 +105,66 @@
     e.style.display = 'block';
   }
 
+  /* The Resend on the card after Join (plan 102, R7-01). An invited colleague
+     who missed the confirmation email had no way to ask for another: the
+     invitation is spent, and a fresh one is refused. The worker answers a
+     resend the same way whatever the address, so the card says only what is
+     true either way.
+
+     These two mirror assets/hub-account.js (this page loads no shared
+     script, so the copy lives here). The worker's CONFIRM_RESEND_COOLDOWN_MS
+     is 120 seconds, but its clock starts when the email log row is written
+     after the send, a second or two after this card appears. Counting exactly
+     120 from here would end inside the worker's window: nothing sent, and the
+     card saying a link is on its way. So ten seconds more. */
+  var RESEND_WAIT_S = 130;
+  var RESEND_LABEL = 'Resend the email';
+  function wireResend(btn, note, email) {
+    if (!btn || !note) return;
+    var timer = null;
+    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function show(words) { note.textContent = words; note.hidden = false; }
+    /* Counted against the clock, not by ticks, so a tab left in the
+       background comes back to the right number. A button no longer in the
+       page stops its own timer. */
+    function wait() {
+      stop();
+      var until = Date.now() + RESEND_WAIT_S * 1000;
+      function tick() {
+        if (!btn.isConnected) { stop(); return; }
+        var left = Math.ceil((until - Date.now()) / 1000);
+        if (left <= 0) {
+          stop();
+          btn.disabled = false; btn.textContent = RESEND_LABEL;
+          return;
+        }
+        var m = Math.floor(left / 60);
+        var s = left % 60;
+        btn.disabled = true;
+        btn.textContent = RESEND_LABEL + ' in ' + m + ':' + (s < 10 ? '0' + s : s);
+      }
+      tick();
+      timer = setInterval(tick, 1000);
+    }
+    btn.addEventListener('click', function () {
+      if (btn.disabled) return;
+      btn.disabled = true; btn.textContent = 'Sending…';
+      call('/auth/resend-confirmation', { email: email })
+        .then(function () {
+          /* Any answer is "sent": the worker says the same thing whatever it
+             found. */
+          show('If that address still needs confirming, a new link is on its way. It can take a minute to arrive, and it may be in your junk folder.');
+          wait();
+        })
+        .catch(function () {
+          /* It never left this device, so there is nothing to wait out. */
+          show('That did not send. Check your connection and try again.');
+          btn.disabled = false; btn.textContent = RESEND_LABEL;
+        });
+    });
+    wait();
+  }
+
   var ERRORS = {
     'name required': 'Enter your name.',
     'invalid terms_version_id': 'The Platform Terms have just changed. Refresh the page and accept the new version.',
@@ -133,25 +172,25 @@
   };
   function join() {
     var name = ($('invName').value || '').trim();
-    var pass = $('invPass').value || '';
     if (!name) { showError('Enter your name.'); $('invName').focus(); return; }
-    if (pass.length < MIN_LENGTH) { showError('Use at least ' + MIN_LENGTH + ' characters for the password.'); $('invPass').focus(); return; }
-    if (pass.length > 72) { showError('Use 72 characters or fewer for the password.'); return; }
     if (!termsId || !$('invTick') || !$('invTick').checked) { showError('Tick the box to accept the Platform Terms.'); return; }
     var btn = $('joinBtn');
+    if (btn.disabled) return;
     var label = btn.textContent;
     btn.disabled = true; btn.textContent = 'Setting up…';
-    call('/auth/register-invited', { token: token, name: name, phone: $('invPhone').value, password: pass, terms_version_id: termsId })
+    call('/auth/register-invited', { token: token, name: name, phone: $('invPhone').value, terms_version_id: termsId })
       .then(function (o) {
         if (o.r.ok && o.d && o.d.ok) {
           render('<h1>Check your inbox.</h1><p>We have sent one email to <strong>' + esc(invite.email) +
-            '</strong>. Open the link in it to confirm the address, and you are in.</p>');
+            '</strong>. Open the link in it, choose your password, and you are in.</p>' +
+            '<p id="resendNote" role="status" hidden></p>' +
+            '<div class="actions"><button class="yes" type="button" id="resendBtn" disabled>Resend the email in 2:10</button></div>');
+          wireResend($('resendBtn'), $('resendNote'), invite.email);
           return;
         }
         btn.disabled = false; btn.textContent = label;
         if (o.d && o.d.error === 'invite_invalid') { renderUsed(); return; }
-        showError(ERRORS[o.d && o.d.error] || (/^password/.test((o.d && o.d.error) || '')
-          ? 'Use a password of 8 to 72 characters.' : 'That did not go through. Try again, or email hello@nexpoint.co.uk.'));
+        showError(ERRORS[o.d && o.d.error] || 'That did not go through. Try again, or email hello@nexpoint.co.uk.');
       })
       .catch(function () {
         btn.disabled = false; btn.textContent = label;

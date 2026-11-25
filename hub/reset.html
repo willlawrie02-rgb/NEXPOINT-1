@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_back,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,map,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,unfold_less,unfold_more,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet">
 <style>
   :root{--canvas:#F5F7FA;--ink:#0E1626;--muted:#5A6B84;--blue:#005CC8;--blue-hover:#0066DC;--green:#8BC53F;--border:#E3E8EF;--red:#B3261E}
   *{margin:0;padding:0;box-sizing:border-box}
@@ -73,7 +73,34 @@ const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const API = local ? 'http://localhost:8787' : 'https://api.nexpoint.co.uk';
 const ACCOUNT_URL = /\.nexpoint\.co\.uk$/.test(location.hostname)
   ? 'https://nexpoint.co.uk/hub/account/' : '/hub/account/';
+/* The password rule: the live sign-in service's own, as read on 14 November
+   2026, and the worker's (auth.js PASSWORD_MIN, passwordMissingKind). At
+   least 8 characters, with a lower-case letter, a capital letter, a number
+   and a symbol from the sign-in service's own set. Copied on each page that
+   takes a password, since these pages share no script; change both, and the
+   worker, together. */
 const MIN_LENGTH = 8;
+const RULE = 'Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.';
+const SYMBOLS = "!@#$%^&*()_+-=[]{};'\\:\"|<>?,./`~";
+const KINDS = [
+  ['a lower-case letter', (c) => c >= 'a' && c <= 'z'],
+  ['a capital letter', (c) => c >= 'A' && c <= 'Z'],
+  ['a number', (c) => c >= '0' && c <= '9'],
+  ['a symbol', (c) => SYMBOLS.includes(c)],
+];
+/* "Add a capital letter." for the first kind missing, or null. */
+function missingKindLine(pw){
+  const chars = [...pw];
+  const miss = KINDS.find(([, has]) => !chars.some(has));
+  return miss ? 'Add ' + miss[0] + '.' : null;
+}
+/* The sign-in service's own refusal, kept as the backstop: when it is the
+   character rule, our sentence is shown, not its list of characters. */
+function weakLine(detail){
+  const lead = 'That password does not meet the rules for hub passwords.';
+  if (/^password should contain at least one character of each/i.test(String(detail || ''))) return lead + ' ' + RULE;
+  return lead + (detail ? ' ' + detail : '');
+}
 /* Set once the worker has answered past verifying the link. From then on the
    device is signed in on that link's session and further attempts go up on
    the session alone: the link is spent, but no fresh one is needed. */
@@ -119,7 +146,7 @@ async function postJson(path, payload){
 function renderForm(token){
   render(`
     <h1>Set a new password.</h1>
-    <p>Choose a new password for your hub account. At least ${MIN_LENGTH} characters.</p>
+    <p>Choose a new password for your hub account. ${RULE}</p>
     <div class="panel">
       <div class="field">
         <label for="pass1">New password</label>
@@ -173,11 +200,14 @@ function showError(text){
 }
 
 async function setPassword(token){
+  const btn = document.getElementById('setBtn');
+  if (!btn || btn.disabled) return;
   const p1 = document.getElementById('pass1').value;
   const p2 = document.getElementById('pass2').value;
-  const btn = document.getElementById('setBtn');
   if (p1.length < MIN_LENGTH){ showError(`Use at least ${MIN_LENGTH} characters.`); return; }
   if (p1.length > 72){ showError('Use 72 characters or fewer.'); return; }
+  const kind = missingKindLine(p1);
+  if (kind){ showError(kind); return; }
   if (p1 !== p2){ showError('The two passwords do not match.'); return; }
   btn.disabled = true; btn.textContent = 'Setting…';
   const back = () => { btn.disabled = false; btn.textContent = 'Set password and sign in'; };
@@ -192,6 +222,8 @@ async function setPassword(token){
   const { r, d } = out;
   if (r.ok && d && d.ok){ renderDone(); return; }
   if (d && d.error === 'password_too_short'){ back(); showError(`Use at least ${MIN_LENGTH} characters.`); return; }
+  /* The character rule, refused before the link was spent (plan 093). */
+  if (d && d.error === 'password_needs_each_kind'){ back(); showError(RULE); return; }
   if (d && d.error === 'reset_invalid'){ renderExpired(); return; }
   /* Plan 037: the retry rides on the session the spent link minted, and the
      worker allows that for fifteen minutes; after that it asks for the
@@ -207,7 +239,7 @@ async function setPassword(token){
   }
   linkUsed = true;
   if (d.error === 'same_password'){ showError('That is the password already on this account. Choose a different one.'); return; }
-  if (d.error === 'weak_password'){ showError('That password does not meet the rules for hub passwords.' + (d.detail ? ' ' + d.detail : '')); return; }
+  if (d.error === 'weak_password'){ showError(weakLine(d.detail)); return; }
   showError('That did not go through. Try again, or email hello@nexpoint.co.uk.');
 }
 
@@ -238,7 +270,7 @@ async function sendAgain(){
   try {
     await postJson('/auth/reset-request', { email });
   } catch (e) { /* the worker answers every address the same way; so does this */ }
-  render(`<h1>Check your inbox.</h1><p>If that address holds an account, a reset link is on its way to it.</p>`);
+  render(`<h1>Check your inbox.</h1><p>If that address holds an account, a link to set your password is on its way to it.</p>`);
 }
 
 /* ── boot ────────────────────────────────────────────────────────── */

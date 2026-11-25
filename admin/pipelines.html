@@ -77,9 +77,9 @@
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=6"></script>
-<script src="crm.js?v=071"></script>
+<script src="crm.js?v=097"></script>
 <script src="save.js?v=0794"></script>
-<script src="jobs.js?v=092"></script>
+<script src="jobs.js?v=105"></script>
 <script src="pipelines.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -148,7 +148,7 @@ async function load(){
     NXCRM.readAll(()=>sb.from('crm_companies').select('id,name,slug,archived_at').order('id',{ascending:true})),
     NXCRM.readAll(()=>sb.from('crm_sites').select('id,company_id,org_id,name,town,country').order('id',{ascending:true})),
     NXCRM.readAll(()=>sb.from('crm_email_index').select('company_id,sent_at').is('gone_at',null).order('sent_at',{ascending:false})),
-    sb.from('membership_invoices').select('id,org_id,kind,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at').order('id',{ascending:false}).limit(1000),
+    sb.from('membership_invoices').select('id,org_id,kind,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at,hide_held_at,hide_held_reason').order('id',{ascending:false}).limit(1000),
     sb.from('consultancy_links').select('id,company_slug,created_at,opened_at,signed_at,invoiced_at,paid_at,revoked_at,is_test').order('id',{ascending:false}).limit(500),
     sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,brief_id,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,seeker_request_id,rerouted_from,updated_at').order('id',{ascending:false}).limit(1000),
     NXCRM.readAll(()=>sb.from('declaration_lines').select('introduction_id,superseded_at,seeker_disputed_at,resolved_at').order('introduction_id',{ascending:true})),

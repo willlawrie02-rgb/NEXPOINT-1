@@ -15,7 +15,7 @@
 <script src="https://nexpoint.co.uk/hub/assets/site-map.js" defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_back,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,map,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,unfold_less,unfold_more,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet">
 <script>
   /* One portal.css for the whole hub, served from the apex and linked statically
      above, before the fonts, so the page is styled without waiting for this
@@ -90,7 +90,7 @@ fee) so a host knows the structure before committing.
 <section class="page-head">
   <div class="container">
     <span class="eyebrow"><span class="live-dot"></span>I have capacity</span>
-    <h1>Own 3D printers? <em>Host certified work for the network.</em></h1>
+    <h1>Own 3D printers? <em>Host work for the network.</em></h1>
   </div>
 </section>
 
@@ -105,8 +105,8 @@ fee) so a host knows the structure before committing.
           <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Backup production when a machine goes down, yours or theirs</li>
         </ul>
         <div class="locked" style="margin-top:24px">
-          <span class="label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Certification, in plain terms</span>
-          <div class="note" style="margin-top:0;font-size:13px;line-height:20px">Approved 3D printers and materials (Nylon 11, Nylon 12, Nylon 12 Tough and Polypropylene) plus calibration, accuracy, inspection, packaging and delivery standards. Hosts warrant the service as well as the parts they print.</div>
+          <span class="label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>What NexPoint reviews, in plain terms</span>
+          <div class="note" style="margin-top:0;font-size:13px;line-height:20px">Your 3D printers and materials, plus calibration, accuracy, inspection, packaging and delivery standards. Hosts warrant the service as well as the parts they print.</div>
         </div>
       </div>
 
@@ -178,7 +178,6 @@ fee) so a host knows the structure before committing.
     <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
     <div id="signContent">
       <h2>Welcome back</h2>
-      <p class="body" style="margin-bottom:4px">Sign in to see the board matched to your profile.</p>
       <form onsubmit="event.preventDefault();signSubmit()">
       <div class="form-grid" style="grid-template-columns:1fr;margin-top:24px">
         <div class="field"><label for="sEmail">Email</label><input id="sEmail" name="email" type="email" autocomplete="username" placeholder="you@company.com"></div>
@@ -201,12 +200,13 @@ fee) so a host knows the structure before committing.
   (function () {
     var apex = window.NP_APEX || '';
     var srcs = [
-      '/assets/hub-account.js?v=20261111-audit',
+      '/assets/hub-account.js?v=20261114-password',
       '/hub/assets/portal.js',
       '/hub/assets/vocab.js',
-      '/hub/assets/typeahead.js',
+      '/hub/assets/typeahead.js?v=20261114-095',
       '/hub/assets/world-map.js',
-      '/hub/assets/listing-form.js?v=20261103-078'
+      '/hub/assets/typed-numbers.js?v=20261124-106',
+      '/hub/assets/listing-form.js?v=20261124-106'
     ];
     (function next(i) {
       if (i >= srcs.length) { done(); return; }

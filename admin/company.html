@@ -39,6 +39,19 @@
   .steps button.current { color: var(--fg); font-weight: 700; }
   .steps button.current::before { background: var(--green); box-shadow: 0 0 0 3px var(--ok-wash); }
   .steps button:focus-visible { box-shadow: var(--ring); }
+  /* Plan 106: an introduction's progress, the same bars as a card's stepper, to look at only. */
+  .intro-row { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border-faint); }
+  .intro-row:last-child { border-bottom: 0; }
+  .intro-row .mini { padding: 0; border-bottom: 0; }
+  .intro-row .steps { min-width: 0; grid-auto-columns: minmax(0, 1fr); }
+  .steps .step { display: grid; gap: 7px; align-content: start; font: 600 12px/1.25 var(--font-body); color: var(--fg-2); }
+  .steps .step::before { content: ""; height: 8px; border-radius: 999px; background: var(--bg-alt); }
+  .steps .step.done { color: var(--fg); }
+  .steps .step.done::before { background: var(--blue); }
+  .steps .step.current { color: var(--fg); font-weight: 700; }
+  .steps .step.current::before { background: var(--green); box-shadow: 0 0 0 3px var(--ok-wash); }
+  .steps .step.past { visibility: hidden; }
+  .intro-end { font-size: 12px; color: var(--fg-1); }
   .auto-note { font-size: 12.5px; color: var(--fg-2); display: flex; gap: 6px; align-items: center; }
   .auto-note .ms { font-size: 16px; color: var(--blue); }
   .held { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
@@ -74,9 +87,9 @@
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=6"></script>
-<script src="crm.js?v=071"></script>
+<script src="crm.js?v=097"></script>
 <script src="save.js?v=0794"></script>
-<script src="jobs.js?v=092"></script>
+<script src="jobs.js?v=105"></script>
 <script src="pipelines.js?v=086"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
@@ -316,7 +329,7 @@ async function loadPipes(cid){
   const [mq,lq,iq,kq,aq,bq]=await Promise.all([
     ids.length?sb.from('crm_card_moves').select('id,card_id,from_stage,to_stage,how,evidence,by,at').in('card_id',ids).order('at',{ascending:false}).limit(500):none,
     linkIds.length?sb.from('consultancy_links').select('id,company_slug,created_at,opened_at,signed_at,invoiced_at,paid_at,revoked_at').in('id',linkIds):none,
-    orgIds.length?sb.from('membership_invoices').select('id,org_id,kind,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at').in('org_id',orgIds):none,
+    orgIds.length?sb.from('membership_invoices').select('id,org_id,kind,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at,hide_held_at,hide_held_reason').in('org_id',orgIds):none,
     linkedIds.length?sb.from('crm_pipeline_cards').select('id,company_id').in('id',linkedIds):none,
     orgIds.length?sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,updated_at').in('org_a',orgIds):none,
     orgIds.length?sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,updated_at').in('org_b',orgIds):none,
@@ -483,7 +496,8 @@ const input=(id,ph,v)=>`<label class="sr" for="${id}">${esc(ph)}</label><input c
 function stateWord(o){
   const s=NXCRM.orgState(o);
   if(s==='on')return '<span class="st ok">On the portal</span>';
-  if(s==='paused')return '<span class="st err">Paused</span>';
+  if(s==='paused')return o.sub_status==='hidden'?'<span class="st err">Paused, and hidden: membership unpaid</span>':'<span class="st err">Paused</span>';
+  if(s==='unpaid')return '<span class="st err">Hidden: membership unpaid</span>';
   if(s==='removed')return '<span class="st">Removed from the hub</span>';
   if(s==='closed')return `<span class="st">${ms('no_accounts')}Closed by the account</span>`;
   if(s==='deleted')return '<span class="st">Deleted</span>';
@@ -493,8 +507,14 @@ function subLine(o){
   const s=o.sub_status||'none';
   if(s==='none'&&!o.sub_period)return 'No membership yet';
   const rate=o.sub_rate_gbp!=null?`, £${Number(o.sub_rate_gbp).toLocaleString('en-GB')}`:'';
-  const pill=s==='active'?'<span class="st ok">Paid</span>':s==='hidden'?'<span class="st err">Unpaid, hidden</span>':s==='overdue'?'<span class="st">Overdue</span>':'';
-  return `${esc((o.sub_period==='monthly'?'Monthly':'Annual')+rate)} ${pill}`;
+  const pill=s==='active'?'<span class="st ok">Active</span>':s==='hidden'?'<span class="st err">Unpaid, hidden</span>':s==='overdue'?'<span class="st">Overdue</span>':'';
+  /* Plan 103: a host approved with its first period free (NXJOBS.freeUntil,
+     the engine's rule) says so, with the day paid membership starts (always
+     with its year) and the reason kept on the account. */
+  const free=NXJOBS.freeUntil(o);
+  const freeLines=free?`<br><span class="muted-t">First period free. Paid membership starts ${esc(NXCRM.fmtDate(free,new Date(0)))}.</span>`
+    +(o.fee_exempt_note?`<br><span class="muted-t">${esc(o.fee_exempt_note)}</span>`:''):'';
+  return `${esc((o.sub_period==='monthly'?'Monthly':'Annual')+rate)} ${pill}${freeLines}`;
 }
 function scoreLine(o){
   if(o.score==null)return '<span class="st">Not scored yet</span>';
@@ -653,6 +673,9 @@ function accountBlock(o){
       const who=s==='paused'?o.paused_by:o.removed_by, why=s==='paused'?o.paused_reason:o.removed_reason, when=s==='paused'?o.hidden_at:o.removed_at;
       rows.push([s==='paused'?'Paused':'Removed',`<span style="display:flex;flex-direction:column;gap:2px"><span>${esc(fmt(when))}${who?', by '+esc(NXShell.personOf(who)):''}</span>${why?`<span class="muted-t">${esc(why)}</span>`:''}</span>`]);
     }
+    /* Plan 097: the payment clock's hide is not a person's pause, and says so; where both apply both are said. */
+    if(s==='unpaid')rows.push(['Hidden',`${esc(fmt(o.hidden_at))}, by the payment clock. Its membership invoice is unpaid.`]);
+    if(s==='paused'&&o.sub_status==='hidden')rows.push(['Hidden','Also by the payment clock. Its membership invoice is unpaid, and paying does not lift the pause.']);
     if(onCheck(o))rows.push(['Three-year check',dormantLines(o)]);
     rows.push(['Listings',listingsLine(o.id)]);
     const reqs=A.requests.filter(r=>r.org_id===o.id);
@@ -669,19 +692,24 @@ function accountBlock(o){
   let buttons='';
   if(s==='on')buttons=btn('pauseOrg','Pause','pause_circle',{'org-id':o.id})+btn('openAuditStrike','Open audit strike','flag',{'org-id':o.id})+btn('removeOrg','Remove from the hub','remove_circle',{'org-id':o.id})+del;
   else if(s==='paused')buttons=btn('resumeOrg','Resume','play_circle',{'org-id':o.id})+btn('openAuditStrike','Open audit strike','flag',{'org-id':o.id})+btn('removeOrg','Remove from the hub','remove_circle',{'org-id':o.id})+del;
+  /* Plan 097 (D5): no Resume for the payment clock's hide, which the engine refuses; Money has the two things that work. */
+  else if(s==='unpaid')buttons=`<a class="btn sm primary" href="money.html?tab=memberships">${ms('payments','sm')}Extend the clock or record a payment</a>`+btn('pauseOrg','Pause','pause_circle',{'org-id':o.id})+btn('openAuditStrike','Open audit strike','flag',{'org-id':o.id})+btn('removeOrg','Remove from the hub','remove_circle',{'org-id':o.id})+del;
   else if(s==='removed')buttons=btn('restoreOrg','Restore to the hub','undo',{'org-id':o.id})+del;
-  if(s==='on'||s==='paused'||s==='removed')buttons=dormantButtons(o)+buttons;
+  if(s==='on'||s==='paused'||s==='unpaid'||s==='removed')buttons=dormantButtons(o)+buttons;
   else if(s==='closed')buttons=del+erase;
   else if(s==='deleted'&&retentionDue(o))buttons=erase;
   if(buttons)h+=`<div class="panel-actions acct-actions"><div class="actions">${manageFor(q,buttons)}</div></div>`;
   h+=orgChoice(o)+dormantChoice(o);
   if(s==='on'||s==='paused')h+='<p class="picker-note">Pausing for strikes is always a person’s decision. Only the day-14 payment hide is automatic.</p>';
+  if(s==='unpaid')h+='<p class="picker-note">Resume does not lift this. Paying restores the listing within fifteen minutes; Extend the clock or Record payment (by hand) on Money brings it back sooner.</p>';
   return h;
 }
 function orgChoice(o){
   const id=o.id, name=esc(o.name||'this account');
   if(UI.open==='pause:'+id)return choice(`Why is ${name} being paused? Seekers stop seeing it and the desk stops routing to it; the record and its listings stay.`,input('pa-why','Reason, kept on the account')+btn('confirmPause','Pause','',{'org-id':id},'primary')+cancel());
-  if(UI.open==='resume:'+id)return choice(`Resume ${name}? It goes back into search and the desk’s pickers straight away.`,btn('confirmResume','Resume','',{'org-id':id},'primary')+cancel());
+  if(UI.open==='resume:'+id)return choice(o.sub_status==='hidden'
+    ?`Resume ${name}? The pause is lifted, but it stays hidden until its membership invoice is paid.`
+    :`Resume ${name}? It goes back into search and the desk’s pickers straight away.`,btn('confirmResume','Resume','',{'org-id':id},'primary')+cancel());
   if(UI.open==='remove:'+id)return choice(`Why is ${name} being removed from the hub? Its people can still sign in to read, and can no longer act; the record is kept and you can restore it.`,input('rm-why','Reason, kept on the account')+btn('confirmRemove','Remove from the hub','',{'org-id':id},'danger')+cancel());
   if(UI.open==='restore:'+id)return choice(`Restore ${name} to the hub? A pause recorded before the removal stands until you resume it.`,btn('confirmRestore','Restore to the hub','',{'org-id':id},'primary')+cancel());
   if(UI.open==='audit:'+id)return choice(`Why is an audit strike being opened against ${name}? Kept on the strike.`,input('au-why','Reason, kept on the strike')+btn('confirmAudit','Open audit strike','',{'org-id':id},'danger')+cancel());
@@ -1062,7 +1090,27 @@ function campaignsPanel(){
   return `<section class="panel"><h2>Campaigns <span class="n num">${live.length}</span></h2><div>${live.length?live.map(row).join(''):'<p class="fact muted">Not on any campaign. One picked on the Prospects page joins at Accept.</p>'}</div>${arch}`+
     `<div class="panel-actions"><a class="btn sm" href="marketing-campaigns.html">${ms('campaign','sm')}Open Campaigns</a></div></section>`;
 }
-/* The company's introductions, as either party, with their board stage and the other company. */
+/* The company's introductions, as either party, with their board stage and the other company.
+   Plan 106: each with the same bars as a pipeline card's stepper, on Offered, Introduced and
+   Trading (NXPIPE.introStage), to look at only. A declined, expired or closed one shows where it
+   stopped and its end in words, and no bar beyond. */
+const INTRO_STEPS=['offered','introduced','trading'];
+/* How far a closed introduction got before it stopped. */
+const introReached=i=>i.first_order_at||PL.declared[i.id]?'trading':i.introduced_at?'introduced':'offered';
+function introEnd(i){
+  const at=i.stage==='declined'?(i.declined_at||i.updated_at):i.stage==='expired'?(i.acceptance_expires_at||i.updated_at):i.updated_at;
+  const word=i.stage==='declined'?'Declined':i.stage==='expired'?'Expired: no answer in time':'Closed';
+  return at?`${word}, ${fmt(at)}`:word;
+}
+function introStepper(i,s){
+  const closed=s==='closed', upto=INTRO_STEPS.indexOf(closed?introReached(i):s);
+  const steps=INTRO_STEPS.map((x,j)=>{
+    const cls=closed?(j<=upto?'done':'past'):j<upto?'done':j===upto?'current':'';
+    return `<span class="step${cls?' '+cls:''}"${cls==='past'?' aria-hidden="true"':''}>${esc(PIPE.INTRO_NAMES[x])}</span>`;
+  }).join('');
+  return `<div class="steps" role="img" aria-label="${esc(closed?`Stopped at ${PIPE.INTRO_NAMES[INTRO_STEPS[upto]]}`:`At ${PIPE.INTRO_NAMES[s]}`)}">${steps}</div>`+
+    (closed?`<span class="intro-end">${esc(introEnd(i))}</span>`:'');
+}
 function introPanel(){
   const orgIds=C.sites.map(s=>s.org_id).filter(Boolean);
   const stageOf=i=>PIPE.introStage(i,!!PL.declared[i.id]);
@@ -1073,7 +1121,7 @@ function introPanel(){
     const name=PL.orgCompany[other]?`<a class="linkish" href="company.html?id=${esc(PL.orgCompany[other])}">${esc((PL.orgs[other]||{}).name||'Company')}</a>`:esc((PL.orgs[other]||{}).name||'Not known');
     const s=stageOf(i);
     const word=i.stage==='expired'?'Expired':i.stage==='declined'?'Declined':PIPE.INTRO_NAMES[s];
-    return `<div class="mini"><span><span>${role}: ${name}</span><span class="item-sub">${esc(i.ref||'INTRO-'+String(i.id).padStart(4,'0'))}, ${esc((HUB[i.hub]||['Opportunities Board'])[0])}</span></span><span class="st ${s==='offered'?'info':s==='closed'?'':'ok'}">${esc(word)}</span></div>`;
+    return `<div class="intro-row"><div class="mini"><span><span>${role}: ${name}</span><span class="item-sub">${esc(i.ref||'INTRO-'+String(i.id).padStart(4,'0'))}, ${esc((HUB[i.hub]||['Opportunities Board'])[0])}</span></span><span class="st ${s==='offered'?'info':s==='closed'?'':'ok'}">${esc(word)}</span></div>${introStepper(i,s)}</div>`;
   };
   return `<section class="panel"><h2>Introductions <span class="n num">${open.length}</span></h2><div>${open.length?open.map(row).join(''):'<p class="fact muted">None open.</p>'}</div>`+
     (closed.length?`<details class="archive inpanel"><summary>Closed (${closed.length})</summary><div class="arch-body">${closed.map(row).join('')}</div></details>`:'')+
@@ -1085,7 +1133,7 @@ function jumpToCard(){
   if(el&&el.scrollIntoView){el.scrollIntoView({block:'start'});UI.cardDone=true;}
 }
 
-/* ---------- the timeline: newest first, filtered All, Emails, Notes, Changes, Account ---------- */
+/* ---------- the timeline: newest first, filtered All, Emails, Notes, Changes, Account, Introductions ---------- */
 const SOURCE_WORD={folder:'the workspace folder',portal:'a portal account',pipedrive:'Pipedrive',admin:'the admin',profile:'the profile'};
 const FIELD_WORD={name:'Name changed',website:'Website changed'};
 const DONE_WORD={'pause-org':'Paused','resume-org':'Resumed','remove-org':'Removed from the hub','restore-org':'Restored to the hub',
@@ -1105,11 +1153,12 @@ function timelineItems(){
   });
   C.notes.forEach(n=>out.push({when:n.dated,cat:'note',icon:'sticky_note_2',cls:'',kind:'Note',title:n.title||n.path.split('/').pop(),
     extra:n.body?`<details class="more"><summary>Read the note</summary><p class="ev-body">${esc(n.body)}</p></details>`:''}));
-  C.pnotes.forEach(n=>out.push({when:n.at,cat:'note',icon:'sticky_note_2',cls:'',kind:'Prospects note',title:`Note from ${NXShell.personOf(n.by)}`,body:n.body}));
+  C.pnotes.forEach(n=>out.push({when:n.at,cat:'note',icon:'sticky_note_2',cls:'',kind:'Prospects note',title:n.by==='claude'?'Claude answered a note':`Note from ${NXShell.personOf(n.by)}`,body:n.body}));
   C.newNotes.forEach(n=>out.push({when:n.at,cat:'note',icon:'sticky_note_2',cls:'',kind:'Note',title:`Note from ${NXShell.personOf(n.by)}`,body:n.body,
     extra:n.file_error?`<div class="fail-line"><span>Could not file it: ${esc(n.file_error)}</span>${btn('retryNote','Try again','',{note:n.id},'quiet')}</div>`
       :`<span class="picker-note">${noteFolder()?'Filing to the folder.':'Waiting for a workspace folder.'}</span>`}));
   C.events.forEach(e=>{
+    if(e.kind==='profile-written')return; // the profile writer's own line, not a change (Will, 13 Nov 2026; migration 0104)
     const d=e.detail||{};let title='',body='';
     if(e.kind==='imported'||e.kind==='adopted'){title=e.person_id?`${personName(e.person_id)} added`:'Added to Contacts';body=SOURCE_WORD[d.source]?`From ${SOURCE_WORD[d.source]}.`:'';}
     else if(e.kind==='company-edited'){
@@ -1125,7 +1174,6 @@ function timelineItems(){
     else if(e.kind==='person-restored')title=`${personName(e.person_id)} restored`;
     else if(e.kind==='site-added')title=`Site added: ${d.name||siteName(d.site_id)||'a site'}`;
     else if(e.kind==='site-edited')title=`Site changed: ${siteName(d.site_id)||'a site'}`;
-    else if(e.kind==='profile-written')title='Profile written from Contacts';
     else if(e.kind==='hand-edit-kept')title='A hand edit kept as a note';
     else if(e.kind==='login-deleted'){title='A portal login was deleted';body={removed:'They came only from the portal, so they left Contacts with their addresses and activity.',kept:`${personName(e.person_id)} was already a contact, so they stay and only their portal activity went.`,'no-person':'They were not in Contacts.'}[d.outcome]||'';}
     else title=e.kind;
@@ -1136,7 +1184,31 @@ function timelineItems(){
     if(r.decided_at&&QUEUE_WORD[r.status])out.push({when:r.decided_at,cat:'change',icon:'how_to_reg',cls:'chg',kind:'Prospects',title:QUEUE_WORD[r.status],body:by(r.decided_by).trim()});
   });
   accountItems().forEach(i=>out.push(i));
+  introItems().forEach(i=>out.push(i));
   return out.filter(i=>i.when).sort((a,b)=>String(b.when).localeCompare(String(a.when)));
+}
+/* Plan 106: each introduction's events, in words from this company's side. On the hubs org_a
+   is the host and org_b the seeker (the worker's convention); on the Opportunities Board org_a
+   owns the opportunity and org_b asks, as the Introductions panel names them. */
+function introItems(){
+  const out=[], orgIds=C.sites.map(s=>s.org_id).filter(Boolean);
+  PL.intros.forEach(i=>{
+    const host=orgIds.includes(i.org_a), other=host?i.org_b:i.org_a, them=(PL.orgs[other]||{}).name||'the other company';
+    const ref=i.ref||'INTRO-'+String(i.id).padStart(4,'0'), hub=(HUB[i.hub]||['Opportunities Board'])[0];
+    const add=(when,icon,title)=>{if(when)out.push({when,cat:'intro',icon,cls:'portal',kind:'Introduction',title,body:hub});};
+    if(host){
+      add(i.created_at,'connect_without_contact',`${them} asked to be introduced (${ref})`);
+      add(i.introduced_at,'handshake',`Accepted: introduced to ${them} (${ref})`);
+      if(i.stage==='declined')add(i.declined_at||i.updated_at,'do_not_disturb_on',`Declined ${them} (${ref})`);
+      if(i.stage==='expired')add(i.acceptance_expires_at||i.updated_at,'schedule',`Did not answer ${them} in time: expired (${ref})`);
+    }else{
+      add(i.created_at,'connect_without_contact',`Asked to be introduced to ${them} (${ref})`);
+      add(i.introduced_at,'handshake',`Introduced to ${them}: ${them} accepted (${ref})`);
+      if(i.stage==='declined')add(i.declined_at||i.updated_at,'do_not_disturb_on',`${them} declined (${ref})`);
+      if(i.stage==='expired')add(i.acceptance_expires_at||i.updated_at,'schedule',`No answer from ${them} in time: expired (${ref})`);
+    }
+  });
+  return out;
 }
 function accountItems(){
   const out=[], orgIds=new Set(A.orgs.map(o=>o.id)), strikeIds=new Set(A.strikes.map(s=>s.id)), userIds=new Set(A.users.map(u=>u.user_id));
@@ -1189,7 +1261,7 @@ function timelinePanel(){
   const all=timelineItems();
   aimAtMail(all);
   const shown=all.filter(i=>UI.tl==='all'||i.cat===UI.tl), marked=i=>!!UI.mail&&!UI.mailDone&&i.mid===UI.mail;
-  const kinds=[['all','All'],['email','Emails'],['note','Notes'],['change','Changes'],['account','Account']];
+  const kinds=[['all','All'],['email','Emails'],['note','Notes'],['change','Changes'],['account','Account'],['intro','Introductions']];
   const capped=C.capped.length?`<p class="picker-note">Showing the newest 500 ${esc(C.capped.join(', the newest 500 '))}; older ones are in the workspace folder.</p>`:'';
   return `<section class="panel"><div class="composer-row"><h2>Timeline <span class="n num">${all.length}</span></h2><div class="filters-mini" role="group" aria-label="Show on the timeline">`+
     kinds.map(([f,l])=>`<button type="button" class="opt" data-act="tlFilter" data-f="${f}" aria-pressed="${UI.tl===f}">${l}</button>`).join('')+'</div></div>'+capped+
@@ -1240,7 +1312,7 @@ async function raise(type,payload,verb,toastText){
   }
   NXShell.toast(toastText||`${/queued$/i.test(verb)?verb:verb+', queued'}. This page updates by itself.`);
   checkBack.pressed();
-  setTimeout(load,1500);
+  checkBack.soon();
   return true;
 }
 /* Every Contacts payload is built from what changed, so it goes through NXCRM.pick. */

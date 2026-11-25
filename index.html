@@ -24,7 +24,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_back,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,map,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,unfold_less,unfold_more,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet" />
 <link rel="stylesheet" href="assets/film-tags.css?v=1" />
 <script src="assets/film-tags.js?v=1" defer></script>
 
@@ -845,9 +845,6 @@
      (see the hero script). Without this class (reduced motion, or no script)
      the hero shows the film alone. -->
 <script>if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches))document.documentElement.classList.add('np-reveal');</script>
-<!-- Lead Forensics tracking -->
-<script type="text/javascript" src="https://www.365-syndicate.com/js/818863.js"></script>
-<noscript><img src="https://www.365-syndicate.com/818863.png" style="display:none;" alt="" width="1" height="1" /></noscript>
 </head>
 <body>
 <!-- No flash of the wrong account state (Will, 30 October 2026): the header's account
@@ -860,7 +857,7 @@
 <header class="navbar">
   <nav class="navbar__inner">
     <a href="#top" class="navbar__brand" data-nav="top">
-      <img src="assets/nexpoint-logo.png" alt="NexPoint" width="52" height="52" />
+      <img src="assets/nexpoint-logo-156.png" alt="NexPoint" width="52" height="52" />
     </a>
     <div class="navbar__links">
       <a href="#hub"       class="navbar__link" data-nav="hub">The Global Portal</a>
@@ -959,7 +956,7 @@
     </div>
     <div class="proof__item">
       <div class="proof__num">4</div>
-      <div class="proof__label">Hubs, one network</div>
+      <div class="proof__label">Areas, one network</div>
     </div>
     <div class="proof__item">
       <div class="proof__num">6</div>
@@ -996,7 +993,7 @@
         </div>
         <div class="door__body">
           <h3>3D Print Hub</h3>
-          <p>Certified labs with production 3D printers offer spare capacity to the clinics and labs around them, so printed devices arrive without buying a 3D printer.</p>
+          <p>Qualified labs with production 3D printers offer spare capacity to the clinics and labs around them, so printed devices arrive without buying a 3D printer.</p>
           <span class="go">Enter the 3D Print Hub <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
         </div>
       </a>
@@ -1068,7 +1065,7 @@
       <div class="how-step enter enter--up" style="--d:70ms;">
         <div class="how-step__num"><span class="material-symbols-outlined" aria-hidden="true">travel_explore</span>02</div>
         <h3>The unseen supply</h3>
-        <p>Somewhere in the network a certified lab has exactly that capacity, or a partner is looking for exactly that product. You have never met.</p>
+        <p>Somewhere in the network a lab has exactly that capacity, or a partner is looking for exactly that product. You have never met.</p>
       </div>
       <div class="how-step enter enter--up" style="--d:140ms;">
         <div class="how-step__num"><span class="material-symbols-outlined" aria-hidden="true">person</span>03</div>
@@ -1399,7 +1396,7 @@
 <footer class="footer">
   <div class="footer__inner">
     <div class="footer__brand">
-      <img src="assets/nexpoint-logo.png" alt="NexPoint" width="44" height="44" loading="lazy" />
+      <img src="assets/nexpoint-logo-156.png" alt="NexPoint" width="44" height="44" loading="lazy" />
       <p>The commercial bridge for Orthotics &amp; Prosthetics worldwide. Global reach across UK, EU, North America, Middle East, Australia and Asia.</p>
     </div>
     <div class="footer__col">
@@ -1453,7 +1450,7 @@
      the hero, and a module the browser has to fetch or recheck would hold it back
      while the page painted unpinned (30 October 2026). -->
 <script>window.NP_ACCOUNT_LINKS = { signin: '/hub/?signin=1&return=' + encodeURIComponent(location.href), join: '/hub/?join=1' };</script>
-<script src="assets/hub-account.js?v=20261111-audit" defer></script>
+<script src="assets/hub-account.js?v=20261114-password" defer></script>
 <script src="hub/assets/world-map.js" defer></script>
 <script>
 (function () {
@@ -2209,5 +2206,10 @@
   render();
 })();
 </script>
+<!-- Lead Forensics tracking. At the foot and async, so a slow or blocked
+     answer from its server cannot hold up the page (plan 104). The tag is
+     kept on purpose: do not remove it. -->
+<script async type="text/javascript" src="https://www.365-syndicate.com/js/818863.js"></script>
+<noscript><img src="https://www.365-syndicate.com/818863.png" style="display:none;" alt="" width="1" height="1" /></noscript>
 </body>
 </html>

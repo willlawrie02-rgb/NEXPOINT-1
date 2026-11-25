@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_back,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,map,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,unfold_less,unfold_more,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet">
 <link rel="stylesheet" href="../assets/portal.css">
 <link rel="stylesheet" href="../assets/vendor/leaflet/leaflet.css">
 <style>
@@ -52,7 +52,10 @@
   .acct-section:first-of-type{padding-top:0;margin-top:0;border-top:none}
   .acct-h{display:flex;align-items:center;gap:10px;margin:0 0 4px}
   .acct-h h2,.acct-section h2{font:600 19px/1.3 var(--font-display);letter-spacing:-.01em;color:#0E1626;margin:0}
-  .acct-ico{font-size:28px;line-height:1;color:var(--blue);flex-shrink:0}
+  /* width:1em holds an icon to its square while the icon font is still on its
+     way, so its name, drawn in the fallback font, never pushes a row wider
+     than a phone (plan 106) */
+  .acct-ico{font-size:28px;line-height:1;color:var(--blue);flex-shrink:0;width:1em;overflow:hidden}
   .acct-section .hint{font-size:13.5px;line-height:1.55;color:var(--on-surface-var);margin:0 0 16px;max-width:68ch}
   .acct-sub{font:600 11.5px/1 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-var);margin:26px 0 12px}
   .acct-section > .acct-sub:first-of-type{margin-top:18px}
@@ -151,6 +154,21 @@
   .acct-msg{font-size:13px;color:var(--on-surface-var);margin-top:8px;width:100%}
   .acct-msg.is-bad{color:#C2363B}
   .acct-scroll{overflow-x:auto}
+  /* What was declared each month, and how a statement's fee is worked out (18 November 2026). */
+  .acct-lines,.acct-working{flex:0 0 100%;min-width:0;margin:0}
+  .acct-lines{list-style:none;padding:10px 0 0;border-top:1px solid var(--border-soft);font-size:13px;line-height:1.5;color:var(--on-surface-var);font-variant-numeric:tabular-nums}
+  .acct-lines li{display:flex;gap:6px 18px;flex-wrap:wrap;align-items:baseline;padding:2px 0}
+  .acct-lines li > span:first-child{color:#0E1626;font-weight:600;min-width:104px}
+  .acct-lines__value{margin-left:auto;color:#0E1626}
+  .acct-lines--none{padding-top:0;border-top:none}
+  .acct-working{margin-top:2px}
+  .acct-work{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;margin-top:6px}
+  .acct-work th{text-align:left;font:600 11px/1.2 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-var);padding:8px 14px 9px 0;border-bottom:1px solid var(--border);white-space:nowrap}
+  .acct-work td{padding:10px 14px 10px 0;border-bottom:1px solid var(--border-soft);color:var(--on-surface);white-space:nowrap}
+  .acct-work .num{text-align:right}
+  .acct-work th:last-child,.acct-work td:last-child{padding-right:0}
+  .acct-work tfoot td{font-weight:600;color:#0E1626;border-bottom:none;border-top:1px solid var(--border)}
+  .acct-work-note{font-size:13px;line-height:1.55;color:var(--on-surface-var);margin:12px 0 2px;max-width:68ch}
   .acct-wrap .decl-table{font-variant-numeric:tabular-nums}
   .acct-wrap .decl-table td span{color:var(--on-surface-var);font-size:12.5px}
   .acct-wrap input[type="checkbox"]{width:17px;height:17px;accent-color:var(--blue)}
@@ -168,6 +186,112 @@
     .acct-row__actions{width:100%}
     .acct-amount{text-align:left;min-width:0}
     .acct-pick dl{grid-template-columns:84px minmax(0,1fr)}
+  }
+  /* ── plan 106 (19 November 2026): the approved account page,
+     advisor-plans/106-account-page-draft.html, with its "Banner and card titles" colour ── */
+  /* the navy banner behind "Your account" (D6): solid, the profile card over its lower edge */
+  .acct-stage{position:relative}
+  .acct-band{position:absolute;inset:0 0 auto;height:236px;background:#0E1626;z-index:0}
+  .acct-stage > .acct-wrap{position:relative;z-index:1}
+  .acct-stage .acct-head h1{color:#FFFFFF}
+  .acct-stage .acct-head p{color:rgba(255,255,255,.72)}
+
+  /* the introduction card */
+  .intro-card{padding-top:0;overflow:hidden;scroll-margin-top:100px}
+  .intro-card:focus{outline:none}
+  .intro-card:focus-visible{outline:2px solid var(--blue-bright);outline-offset:2px}
+  .intro-card > .acct-row__meta{flex-basis:100%;gap:8px}
+  .acct-row__meta b.intro-title{align-self:stretch;margin:0 -18px 6px;padding:13px 18px;background:#0E1626;color:#FFFFFF;font:600 16px/1.3 var(--font-display);letter-spacing:-.005em;flex-wrap:nowrap;gap:6px 10px}
+  .intro-title .intro-name{min-width:0;overflow-wrap:anywhere}
+  .intro-title .acct-ref{font:500 14px/1.3 var(--font-body);color:rgba(255,255,255,.72)}
+  .intro-title .acct-hub{margin-left:auto;flex-shrink:0;border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#FFFFFF}
+  .intro-title .acct-tag{flex-shrink:0;background:rgba(255,255,255,.12);color:#FFFFFF}
+  .intro-title--ref .acct-ref{font:600 15px/1.3 var(--font-body);color:#FFFFFF}
+  .intro-logo{flex-shrink:0;display:grid;place-items:center;width:28px;height:28px;border-radius:6px;background:var(--surface);border:1px solid rgba(14,22,38,.14);color:var(--blue);font:700 11px/1 var(--font-display);letter-spacing:.02em;overflow:hidden}
+  .intro-logo img{display:block;width:100%;height:100%;object-fit:contain;background:#FFFFFF}
+  .intro-year{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+  .intro-year > span:last-child{font-size:13px;line-height:1.5;color:var(--on-surface-var)}
+  .year-chip{display:inline-flex;align-items:center;font:600 11.5px/1 var(--font-body);padding:6px 10px;border-radius:9999px;color:var(--blue);border:1px solid rgba(0,92,200,.25);background:rgba(0,92,200,.08);font-variant-numeric:tabular-nums}
+  .acct-row__meta > span.intro-status{font-size:13.5px;color:#0E1626;font-weight:500}
+  .acct-row__meta > span.intro-status.is-stop{color:#C2363B}
+  .acct-row__meta > span.intro-facts{font-size:13.5px;color:var(--on-surface)}
+  .intro-card .acct-released{margin-top:0;padding:11px 14px;line-height:1.55}
+  .intro-card .acct-released span:last-child{color:#0E1626}
+  .intro-card .status-chain{margin:14px 0 2px}
+  .intro-decl{margin-top:6px}
+  .acct-work .is-red{color:#C2363B;font-weight:600}
+  .acct-work .is-wait{color:var(--on-surface-var)}
+
+  /* the map: open or folded away, the choice at its top right corner */
+  .map-shell{width:100%;margin-top:4px}
+  .map-open{position:relative}
+  .map-fold{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border-soft);border-radius:var(--radius-lg);background:rgba(14,22,38,.025);padding:8px 8px 8px 14px;font-size:13px;color:var(--on-surface-var)}
+  .map-fold > span{display:inline-flex;align-items:center;gap:8px;min-width:0}
+  .map-fold .material-symbols-outlined{font-size:20px;color:rgba(14,22,38,.45)}
+  .map-btn{display:inline-flex;align-items:center;gap:6px;font:600 12.5px/1 var(--font-body);color:#0E1626;background:var(--surface);border:1px solid rgba(14,22,38,.16);border-radius:var(--radius);padding:8px 11px;cursor:pointer;white-space:nowrap;transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease)}
+  .map-btn:hover{border-color:var(--blue);color:var(--blue)}
+  .map-btn:focus-visible{outline:2px solid var(--blue-bright);outline-offset:2px}
+  .map-btn .material-symbols-outlined{font-size:18px;color:inherit}
+  .map-btn--over{position:absolute;top:10px;right:10px;z-index:1000;box-shadow:0 2px 8px rgba(14,22,38,.14)}
+  .intro-card .np-map--pair{height:440px;margin:0}
+  .map-hint{position:absolute;left:10px;bottom:10px;z-index:1000;font:500 11.5px/1.3 var(--font-body);color:var(--on-surface);background:rgba(255,255,255,.86);border-radius:4px;padding:5px 8px;pointer-events:none}
+  .np-pin--press{cursor:pointer}
+  .np-need{position:relative}
+  .np-need__head{margin-right:28px}
+  .np-need__company{display:flex;align-items:center;gap:8px;font:700 14.5px/1.3 var(--font-display);color:#0E1626;margin:0 0 1px}
+  .np-need--named .np-need__where{font:500 12.5px/1.3 var(--font-body);color:var(--on-surface-var)}
+  .np-need__x{position:absolute;top:-5px;right:-7px;display:grid;place-items:center;width:26px;height:26px;padding:0;border-radius:50%;border:1px solid rgba(14,22,38,.1);background:#EFF2F6;color:var(--on-surface-var);cursor:pointer}
+  .np-need__x:hover{color:#0E1626;border-color:rgba(14,22,38,.3)}
+  .np-need__x:focus-visible{outline:2px solid var(--blue-bright);outline-offset:2px}
+  .np-need__x .material-symbols-outlined{font-size:16px}
+
+  /* Introduction approved: the notice that fills the page when a host accepts */
+  .approved{position:fixed;inset:0;z-index:2000;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:32px var(--side-pad)}
+  .approved__box{max-width:560px;width:100%;text-align:left;animation:np-rise .3s var(--ease)}
+  @keyframes np-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){.approved__box{animation:none}}
+  .approved__tick{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:rgba(139,197,63,.14);border:1px solid rgba(139,197,63,.4);color:var(--green-deep);margin-bottom:24px}
+  .approved__tick .material-symbols-outlined{font-size:34px}
+  .approved h2{font:700 clamp(30px,5vw,44px)/1.1 var(--font-display);letter-spacing:-.025em;color:#0E1626;margin:0 0 14px}
+  .approved__lead{font-size:17px;line-height:1.55;color:var(--on-surface);margin:0 0 26px;max-width:46ch}
+  .approved__inbox{display:flex;align-items:flex-start;gap:12px;border:1px solid var(--border-card);border-radius:var(--radius-lg);background:var(--surface);padding:14px 16px;font-size:14px;line-height:1.5;color:#0E1626;margin-bottom:26px}
+  .approved__inbox .material-symbols-outlined{font-size:22px;color:var(--blue);flex-shrink:0}
+  .approved .btn .material-symbols-outlined{font-size:20px}
+  .approved__small{font-size:12.5px;line-height:1.55;color:var(--on-surface-var);margin:22px 0 0;max-width:60ch}
+  html.np-approved-open{overflow:hidden}
+
+  /* the monthly statement (plan 106): one block a month, folded but for the newest */
+  .acct-pill{white-space:nowrap}
+  .acct-pill.is-bad{color:#C2363B;border-color:rgba(229,72,77,.4);background:rgba(229,72,77,.08)}
+  .acct-amount{white-space:nowrap}
+  .acct-amount.is-red{color:#C2363B}
+  .stmt{border:1px solid var(--border-card);border-radius:var(--radius-lg);background:var(--surface);margin-bottom:10px}
+  .stmt > summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:14px 18px;cursor:pointer;list-style:none;border-radius:var(--radius-lg)}
+  .stmt > summary::-webkit-details-marker{display:none}
+  .stmt > summary::before{content:"expand_more";font-family:'Material Symbols Outlined';font-weight:400;font-size:20px;line-height:1;color:var(--blue);transition:transform var(--dur) var(--ease)}
+  .stmt[open] > summary::before{transform:rotate(180deg)}
+  .stmt > summary:focus-visible{outline:2px solid var(--blue-bright);outline-offset:2px}
+  .stmt__when{display:flex;flex-direction:column;gap:3px;flex:1 1 220px;min-width:0}
+  .stmt__when b{font:600 14.5px/1.3 var(--font-body);color:#0E1626}
+  .stmt__when span{font-size:12.5px;line-height:1.45;color:var(--on-surface-var);font-variant-numeric:tabular-nums}
+  .stmt__body{padding:0 18px 16px;border-top:1px solid var(--border-soft)}
+  .stmt .acct-work{margin-top:4px}
+  .stmt .acct-work tfoot td{padding-top:12px;white-space:normal}
+  .stmt .nw{white-space:nowrap}
+  .stmt > summary .acct-amount{white-space:normal;line-height:1.35}
+  .stmt__go{margin-top:14px}
+  /* the introduction column wraps, so the figures keep their room on a narrow column */
+  .stmt .acct-work td:first-child{white-space:normal;min-width:150px}
+  .stmt .acct-work .acct-hub{margin-top:2px}
+  .acct-work .co,.co{font-weight:600;color:#0E1626}
+  .co small{font:400 12.5px/1.3 var(--font-body);color:var(--on-surface-var);margin-left:4px;white-space:nowrap}
+  .acct-declare .material-symbols-outlined{font-size:18px}
+  .acct-declare{display:inline-flex;align-items:center;gap:6px}
+
+  @media(max-width:560px){
+    .intro-card .np-map--pair{height:440px}
+    .intro-card .np-map--pair .leaflet-control-zoom{display:none}
+    .acct-row__meta b.intro-title{flex-wrap:wrap}
   }
 </style>
 <script>
@@ -210,6 +334,8 @@ details and the account's users are on settings/ (plan 055).
   <a href="https://opportunities.nexpoint.co.uk/">Opportunities Board</a>
 </nav>
 
+<div class="acct-stage">
+<div class="acct-band" aria-hidden="true"></div>
 <div class="acct-wrap">
   <div class="acct-head">
     <h1>Your account</h1>
@@ -235,6 +361,10 @@ details and the account's users are on settings/ (plan 055).
     <section class="acct-section" id="education" hidden></section>
   </div>
 </div>
+</div>
+
+<!-- Introduction approved (plan 106): the notice that fills the page when a host accepts. -->
+<div id="approved" class="approved" role="dialog" aria-modal="true" aria-labelledby="approvedTitle" hidden></div>
 
 <div class="overlay" id="introOverlay" onclick="if(event.target===this)closeAll()">
   <div class="modal" role="dialog" aria-modal="true" aria-label="Ask us to introduce you">
@@ -267,13 +397,13 @@ details and the account's users are on settings/ (plan 055).
      module, then this page's own module. The page is on the apex, so the tags are
      plain and ordered; np:modules is what starts the page module, and portal.js
      only listens for it once the document is ready to be written into. -->
-<script src="../../assets/hub-account.js?v=20261111-audit"></script>
+<script src="../../assets/hub-account.js?v=20261114-password"></script>
 <script src="../assets/vendor/leaflet/leaflet.js" defer></script>
 <script src="../assets/site-map.js" defer></script>
-<script src="../assets/match-map.js" defer></script>
+<script src="../assets/match-map.js?v=20261124-106" defer></script>
 <script src="../assets/portal.js"></script>
 <script src="../assets/vocab.js"></script>
-<script src="../assets/dashboard.js?v=20261103-078"></script>
+<script src="../assets/dashboard.js?v=20261124-106"></script>
 <script>
 (function(){
   function fire(){ document.dispatchEvent(new CustomEvent('np:modules')); }

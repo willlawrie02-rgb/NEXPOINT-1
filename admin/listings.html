@@ -63,8 +63,8 @@
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=6"></script>
-<script src="crm.js?v=071"></script>
-<script src="jobs.js?v=092"></script>
+<script src="crm.js?v=097"></script>
+<script src="jobs.js?v=105"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -149,7 +149,7 @@ async function load(){
     all('organisations','id,name,host_print,host_mill,sub_status,sub_period,hidden_at,paused_by,paused_reason,removed_at,removed_reason,closed_at,deleted_at,erased_at,score'),
     all('listings','id,org_id,hub,status,live_revision_id,pending_revision_id,created_at'),
     sb.from('vocab_terms').select('kind,term,label'),
-    sb.from('membership_invoices').select('id,org_id,kind,period,period_start,period_end,amount,xero_invoice_number,invoice_date,due_date,invoiced_at,clock_start,hide_on,hidden_at,restored_at,extended_to,paid_at,paid_source,voided_at,reminder_7_at,reminder_12_at').order('id',{ascending:false}).limit(1000),
+    sb.from('membership_invoices').select('id,org_id,kind,period,period_start,period_end,amount,xero_invoice_number,invoice_date,due_date,invoiced_at,clock_start,hide_on,hidden_at,restored_at,extended_to,paid_at,paid_source,voided_at,reminder_7_at,reminder_12_at,hide_held_at,hide_held_reason').order('id',{ascending:false}).limit(1000),
     sb.from('declarations').select('id,org_id,hub,period,status').in('period',lastPeriods()),
     sb.from('strikes').select('id,org_id,source,opened_at,cured_at').limit(1000),
     sb.from('crm_pipeline_cards').select('id,board,company_id,site_id,stage,won_at,dead_at').eq('board','hub'),
@@ -589,7 +589,7 @@ async function raise(type,payload,toastText){
   if(error){sending=sending.filter(x=>x!==temp);watch(readIntents.concat(sending));render();NXShell.toast(`Could not queue it: ${error.message}`);return false;}
   if(toastText)NXShell.toast(toastText);
   checkBack.pressed();
-  setTimeout(load,1500);
+  checkBack.soon();
   return true;
 }
 const queued=v=>`${v}, queued. This page updates by itself.`;

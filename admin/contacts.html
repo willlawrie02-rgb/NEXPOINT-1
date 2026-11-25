@@ -57,9 +57,9 @@
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=6"></script>
-<script src="crm.js?v=071"></script>
+<script src="crm.js?v=097"></script>
 <script src="save.js?v=0794"></script>
-<script src="jobs.js?v=092"></script>
+<script src="jobs.js?v=105"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -123,7 +123,7 @@ async function load(){
     NXCRM.readAll(()=>sb.from('crm_people').select('id,company_id,site_id,name,role,phones,kind,position,user_id,archived_at,archived_reason').order('id',{ascending:true})),
     NXCRM.readAll(()=>sb.from('crm_person_emails').select('person_id,email,is_primary,retired_at').order('id',{ascending:true})),
     NXCRM.readAll(()=>sb.from('crm_email_index').select('company_id,sent_at,gone_at').order('id',{ascending:true})),
-    sb.from('organisations').select('id,name,host_print,host_mill,hidden_at,removed_at,closed_at,deleted_at,erased_at,sub_status'),
+    sb.from('organisations').select('id,name,host_print,host_mill,hidden_at,removed_at,closed_at,deleted_at,erased_at,sub_status,paused_by'),
     sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at')
       .in('status',['pending','claimed','failed','done']).in('type',CRM_INTENTS)
       .order('id',{ascending:false}).limit(1000),

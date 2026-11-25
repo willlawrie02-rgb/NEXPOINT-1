@@ -174,13 +174,25 @@
       '<a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.</p>';
   }
 
+  /* A first listing sent back for changes (plan 102, R7-02). Decline with a
+     note is the desk's only way to ask a host to change a listing that is
+     waiting, and the engine's decline clears the listing's pointers, so the
+     worker hands back the host's own newest declined revision as
+     `d.declined`. The page says what the email says and refills the form
+     from what was sent. With a worker from before plan 102 there is no
+     `d.declined`: the words show, with no summary, and the form opens empty. */
   function renderDeclined(d) {
-    const rev = (d && (d.pending || d.live)) || null;
+    const rev = (d && (d.declined || d.pending || d.live)) || null;
     const accepted = (d && d.host_terms_accepted_version_id) || null;
     body().innerHTML =
-      '<p class="body">This listing was not approved this time. Email ' +
-      '<a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a> if anything has changed and we will talk it through.</p>' +
-      '<div class="modal-actions"><button class="btn btn-outline" type="button" id="listingDeclinedEdit">Edit and resubmit</button></div>';
+      '<div class="notice-warn notice-warn--block" id="listingDeclinedNotice"><span>' +
+      'Changes needed. We have looked at your listing and it needs a few changes before it can go live. ' +
+      'We have emailed what to change to the person who created your account. ' +
+      'Change your listing and send it back to us. Nothing is listed in the meantime. ' +
+      'If you cannot find the email, write to <a href="mailto:hello@nexpoint.co.uk">hello@nexpoint.co.uk</a>.' +
+      '</span></div>' +
+      (rev ? '<div class="lsec"><div class="lsec__h">What you sent us</div>' + revisionSummary(rev) + '</div>' : '') +
+      '<div class="modal-actions"><button class="btn btn-primary" type="button" id="listingDeclinedEdit">Change your listing and send it back</button></div>';
     const btn = el('listingDeclinedEdit');
     if (btn) btn.addEventListener('click', () => {
       renderForm({ live: null, prefill: rev, host_terms_accepted_version_id: accepted });
@@ -362,9 +374,14 @@
       if (def.type === 'number') {
         return '<div class="field full">' + label + '<input id="' + esc(id) + '" type="number" step="1" inputmode="numeric"></div>';
       }
-      /* text and multiselect both take an input; multiselect gets a type-ahead */
+      /* text and multiselect both take an input; multiselect gets a type-ahead.
+         A fixed list does not invite typing (plan 095): only a field with no
+         list of its own takes the host's own words. */
       return '<div class="field full">' + label + '<input id="' + esc(id) + '"' +
-        (def.type === 'multiselect' ? ' placeholder="Select from the list or type your own"' : '') + '></div>';
+        (def.type === 'multiselect'
+          ? ' placeholder="' + (Array.isArray(def.options) && def.options.length
+            ? 'Select from the list' : 'Select from the list or type your own') + '"'
+          : '') + '></div>';
     }).join('');
   }
 
@@ -385,6 +402,24 @@
       if (def.type === 'boolean') { node.checked = !!v; return; }
       if (v != null) node.value = String(v);
     });
+  }
+
+  /* The first fixed-list field with words still in its box, or null (plan
+     095). A field that takes typed words has none left after commit(), so
+     this only ever speaks for a fixed list, where words that are not on it
+     would otherwise be dropped without a word. */
+  function leftoverIn(defs, idFor) {
+    for (let i = 0; i < defs.length; i += 1) {
+      const def = defs[i];
+      if (def.type !== 'multiselect') continue;
+      const id = idFor(def.key);
+      const left = TA[id] && TA[id].pending ? TA[id].pending() : '';
+      if (left) {
+        return { focus: id, error: '"' + left + '" is not on the ' + String(def.label || def.key).toLowerCase() +
+          ' list. Choose from the list, or clear the box and name it under Quality systems and standards.' };
+      }
+    }
+    return null;
   }
 
   function readAttrFields(defs, idFor) {
@@ -858,6 +893,8 @@
     const capRaw = val('m-' + n + '-capacity');
     const minRaw = val('m-' + n + '-minorder');
     const attributes = readAttrFields(defs, (k) => 'm-' + n + '-attr-' + k);
+    const found = leftoverIn(defs, (k) => 'm-' + n + '-attr-' + k);
+    if (found) return { missing: found.focus, why: found.error };
 
     const empty = !name && !materials.length && !process && !notes && leadRaw === '' &&
       capRaw === '' && minRaw === '' && !Object.keys(attributes).length;
@@ -898,6 +935,9 @@
      is not ready. Client validation is short on purpose: the worker is the
      authority, and every message it sends back is shown as written. */
   function buildPayload() {
+    /* Settle every type-ahead first (plan 095), so words typed and not yet a
+       chip are read, and a read never depends on a field having been left. */
+    Object.keys(TA).forEach((k) => { if (TA[k] && TA[k].commit) TA[k].commit(); });
     const country = TA.siteCountry ? TA.siteCountry.value() : val('siteCountry');
     const town = val('siteTown');
     if (!town) return { error: 'Which town or city is the site in?', focus: 'siteTown' };
@@ -937,6 +977,8 @@
 
     const line1 = [val('siteAddress1'), val('siteAddress2')].filter(Boolean).join(', ');
     const listingDefs = ((vocab && vocab.attributes && vocab.attributes.listing) || []).filter((d) => d.key !== 'min_order_units');
+    const leftover = leftoverIn(listingDefs, (k) => 'attr-' + k);
+    if (leftover) return { error: leftover.error, focus: leftover.focus };
 
     const payload = {
       hub: HUB,
@@ -1222,6 +1264,11 @@
 
   function init() {
     if (!body()) return;
+    /* Plan 106 (W5.2): every number on the form (a machine's count, lead
+       time, capacity and minimum order, and any number the vocabulary adds)
+       changes only by typing, never under the wheel or the arrow keys. One
+       guard on the panel covers every form drawn into it (typed-numbers.js). */
+    if (window.NPTypedNumbers) NPTypedNumbers.guard(body());
     document.addEventListener('npaccount:change', load);
     load();
   }

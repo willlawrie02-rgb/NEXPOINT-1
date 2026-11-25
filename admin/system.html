@@ -109,6 +109,7 @@ const NO_RERUN={'portal-publish-watch':'Publishing runs only when someone presse
   'intent-drain':'This job starts on its own within a minute of any button being pressed, so it has no Re-run here.'};
 const NOT_SCHEDULED='This job is not in the schedule, so it has no Re-run here.';
 const RERUN_WAIT_MS=15*60*1000;   // a re-run that has not started by then says so
+const UNFINISHED_AFTER_MS=30*60*1000;   // the page's twin of health.UNFINISHED_AFTER: change them together
 const STALE_HOURS=26;             // a morning report older than this is a finding, as on Health
 const LIMITS={tavily:1000,sessions:60};   // set by Will, as Health had them
 const SESSION_JOBS=['discovery-judge','mmm-deck','summaries','drains','judge'];
@@ -288,9 +289,13 @@ function stepLine(r){
 
 // The engine's states, and the newest run: a newest run that failed always
 // reads Failed (failedSince), a run newer than the report decides, and
-// otherwise the report does, with its own words under the pill.
+// otherwise the report does, with its own words under the pill. A run with
+// no result this long after it started died half way: it reads Failed, not
+// Running for ever.
+const unfinished=r=>!!r&&!r.status&&Date.now()-Date.parse(r.started_at)>UNFINISHED_AFTER_MS;
 function resultOf(j,r,reportAt){
   if(r&&r.status==='failed')return res(FAILED.label,FAILED.tone,FAILED.icon,reportAt!=null&&Date.parse(r.started_at)>reportAt?'Since the morning report':'');
+  if(unfinished(r))return res(FAILED.label,FAILED.tone,FAILED.icon,`Did not finish: started ${whenShort(r.started_at)} and no end was recorded`);
   const newer=r&&(reportAt==null||Date.parse(r.started_at)>reportAt);
   if(newer&&!r.status)return RUNNING;
   if(newer&&RUN_RESULT[r.status])return RUN_RESULT[r.status];

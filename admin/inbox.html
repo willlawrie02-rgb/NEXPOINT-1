@@ -10,6 +10,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,300..500,0..1,0&display=block" rel="stylesheet">
 <link rel="stylesheet" href="crm.css?v=3">
+<style>
+  /* Activity (plan 106): the queue's look, in the page's own blue, with no button column.
+     A list of its own under the queue's four groups, at a group's distance from them. */
+  .desk.activity { margin-top: -6px; }
+  .gdot.activity { background: var(--info-ink); }
+  .qicon.activity { background: var(--info-wash); color: var(--info-ink); }
+  .phase.activity .phase-head .sub { font-size: var(--t-label); color: var(--fg-2); }
+  .qitem.activity { box-shadow: none; border: 1px solid var(--border-faint); }
+  /* The other company, named inside the sentence: a link to its own page, with the tile the shell gives it. */
+  .qitem.activity .ditem-title a.linkish { font-weight: 600; }
+  .qitem.activity .ditem-title .tile { width: 18px; height: 18px; border-radius: 6px; font-size: 8.5px; margin-right: 6px; }
+</style>
 </head>
 <body>
 <div id="login" class="door" style="display:none">
@@ -38,9 +50,9 @@
         integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script src="admin-auth.js"></script>
 <script src="crm-shell.js?v=6"></script>
-<script src="crm.js?v=071"></script>
+<script src="crm.js?v=097"></script>
 <script src="save.js?v=0794"></script>
-<script src="jobs.js?v=092"></script>
+<script src="jobs.js?v=105"></script>
 <script>
 const SUPABASE_URL='https://synywukadvjpjjxjylwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_a2-WFA1i5tqkoHy52_aGzQ_6Yx3xtNo';
@@ -92,6 +104,8 @@ let T={missing:false,error:'',open:[],done:[]}, WS={error:'',rows:[]}, M={error:
 let SA={ok:false,rows:[]};
 let companies={}, companyList=[], companyBySlug={};
 let deskCo={};
+/* Activity (plan 106): the introduction events of the last 14 days, and the names they need. */
+let ACT_LOG={ok:false,events:[],orgs:{},orgCompany:{},opps:{}};
 
 const isMissing=e=>!!e&&/does not exist|schema cache|Could not find/i.test(e.message||'');
 
@@ -107,7 +121,7 @@ async function load(){
     NXCRM.readAll(()=>sb.from('crm_companies').select('id,name,slug,archived_at').order('id',{ascending:true})),
     sb.from('crm_email_index').select('company_id,sent_at,subject,from_text,direction,gone_at').gte('sent_at',since30).order('sent_at',{ascending:false}).limit(1000),
     /* Plan 049's invoices (0075): probed, a missing table hides the panel. */
-    sb.from('membership_invoices').select('id,org_id,period,amount,currency,xero_invoice_number,xero_online_url,invoice_date,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at,last_error,last_error_at').is('paid_at',null).is('voided_at',null).limit(CAP),
+    sb.from('membership_invoices').select('id,org_id,period,amount,currency,xero_invoice_number,xero_online_url,invoice_date,invoiced_at,clock_start,hide_on,reminder_7_at,reminder_12_at,hidden_at,restored_at,extended_to,paid_at,voided_at,last_error,last_error_at,hide_held_at,hide_held_reason').is('paid_at',null).is('voided_at',null).limit(CAP),
     sb.from('engine_intents').select('id,type,payload_json,status,result_note,requested_at,requested_by')
       .in('status',['pending','claimed','failed','done']).in('type',[...NXJOBS.TYPES,...NXJOBS.TASK_TYPES,'restore-inbox-item','tick-task','rerun-job'])
       .order('id',{ascending:false}).limit(1000),
@@ -150,12 +164,54 @@ async function load(){
   watch(NXSAVE.live(nq.data));
   checkBack.watch(nq.data);
 
+  await loadActivity(since14);
+
   /* The jobs decided in place read what their panels need, once. */
   J=await NXJOBS.read(sb,rows.filter(NXJOBS.inPlace),{});
   J.problems.forEach(p=>banners.push(['info',p]));
   loaded=true;
   render();
 }
+
+/* Activity (plan 106, C8): every introduction event of the last 14 days,
+   read here from `introductions` as the Introductions board reads it, with
+   the accounts' names, the company pages they belong to and, on the
+   Opportunities Board, which side owns the opportunity. Nothing in it is a
+   job: it has no button, no Not now, and no tile or total counts it.
+   The company page of BOTH sides is read (N1, 24 November 2026): crm_sites
+   ties an account (org_id) to its company in Contacts, as the company page's
+   own Introductions panel reads it. crm-sync writes that tie every two hours,
+   so an account newer than the last sync has none yet. */
+async function loadActivity(since){
+  ACT_LOG={ok:false,events:[]};
+  const nq=await sb.from('introductions').select('id,ref,hub,stage,org_a,org_b,brief_id,created_at,introduced_at,acceptance_expires_at,first_order_at,declined_at,seeker_request_id,rerouted_from,updated_at').order('id',{ascending:false}).limit(1000);
+  if(nq.error){banners.push(['info',`Could not read the introductions for Activity: ${nq.error.message}.`]);return;}
+  const intros=nq.data||[], now=Date.now(), from=Date.parse(since);
+  const inWindow=v=>{const t=Date.parse(v);return !isNaN(t)&&t>=from&&t<=now;};
+  const events=[];
+  intros.forEach(i=>{
+    if(inWindow(i.created_at))events.push({i,what:'asked',at:i.created_at});
+    if(i.introduced_at&&inWindow(i.introduced_at))events.push({i,what:'introduced',at:i.introduced_at});
+    if(i.declined_at&&inWindow(i.declined_at))events.push({i,what:'declined',at:i.declined_at});
+    if(i.stage==='expired'&&i.acceptance_expires_at&&inWindow(i.acceptance_expires_at))events.push({i,what:'expired',at:i.acceptance_expires_at});
+  });
+  const shown=[...new Set(events.map(e=>e.i))];
+  const orgIds=[...new Set(shown.flatMap(i=>[i.org_a,i.org_b]).filter(Boolean))];
+  const briefIds=[...new Set(shown.filter(i=>i.hub==='opportunities'&&i.brief_id).map(i=>i.brief_id))];
+  const [oq,sq,bq]=await Promise.all([
+    orgIds.length?sb.from('organisations').select('id,name').in('id',orgIds):none,
+    orgIds.length?sb.from('crm_sites').select('org_id,company_id').in('org_id',orgIds):none,
+    briefIds.length?sb.from('board_opportunities').select('id,ref,owner_company_id,owner_org_id').in('id',briefIds):none,
+  ]);
+  for(const [what,e] of [['accounts',oq.error],['company pages',sq.error],['opportunities',bq.error]])
+    if(e)banners.push(['info',`Could not read the ${what} for Activity: ${e.message}.`]);
+  ACT_LOG.orgs={};(oq.data||[]).forEach(o=>{ACT_LOG.orgs[o.id]=o;});
+  ACT_LOG.orgCompany={};(sq.data||[]).forEach(s=>{if(s.company_id!=null)ACT_LOG.orgCompany[s.org_id]=s.company_id;});
+  ACT_LOG.opps={};(bq.data||[]).forEach(o=>{ACT_LOG.opps[o.id]=o;});
+  ACT_LOG.events=events.sort((a,b)=>Date.parse(b.at)-Date.parse(a.at)||b.i.id-a.i.id);
+  ACT_LOG.ok=true;
+}
+const none={data:[],error:null};
 
 /* The newest intent for a job decides what it shows (ascending id, last
    write wins; a done one clears it, so the job's own state decides its
@@ -249,6 +305,68 @@ function queueHtml(){
   });
   if(!shown)h+=emptyMini(rows.length?'Nothing in this group.':'Nothing needs us.','task_alt');
   return h+'</section>';
+}
+
+/* Activity (plan 106, C8): one line per introduction event, newest first,
+   in the queue's own look, in a section of its own under the queue's four
+   groups and not one of them: no button, no Not now, and nothing here is
+   counted as a job. It shows under All only. On the hubs
+   org_a is the host and org_b the seeker; on the Opportunities Board the
+   owner is the side its opportunity names (org_a until it is read), as the
+   Introductions board has it. */
+const ACT_HUB={print:'3D Print Hub',mill:'Mill Hub',opportunities:'Opportunities Board'};
+const actRef=i=>i.ref||'INTRO-'+String(i.id).padStart(4,'0');
+const actName=o=>(ACT_LOG.orgs[o]||{}).name||'A company';
+function actSides(i){
+  if(i.hub!=='opportunities')return {asked:i.org_a,asker:i.org_b,opp:false};
+  const o=i.brief_id?ACT_LOG.opps[i.brief_id]:null, asked=o&&o.owner_org_id&&o.owner_org_id===i.org_b?i.org_b:i.org_a;
+  return {asked,asker:asked===i.org_b?i.org_a:i.org_b,opp:true};
+}
+/* When: "today 14:02", "yesterday 09:10", else "17 Nov 14:02". */
+function actWhen(v){
+  const at=NXJOBS.london(v);if(!at)return '';
+  const today=NXJOBS.todayIn(), y=NXJOBS.london(new Date(Date.now()-864e5));
+  return (at.iso===today?'today':y&&at.iso===y.iso?'yesterday':NXJOBS.day(v))+' '+at.hm;
+}
+/* What happened, as the company that acted (by), the words before the other
+   company's name, the other company, and any words after it. */
+function actLine(e){
+  const {asked,asker,opp}=actSides(e.i);
+  if(e.what==='asked')return {by:asker,other:asked,before:'Asked to be introduced to ',after:opp?' on its opportunity':'',icon:'connect_without_contact',
+    whole:`${actName(asker)} asked to be introduced to ${actName(asked)}`};
+  if(e.what==='introduced')return {by:asked,other:asker,before:'Accepted: introduced to ',after:'',icon:'handshake',
+    whole:`${actName(asked)} accepted: introduced to ${actName(asker)}`};
+  if(e.what==='declined')return {by:asked,other:asker,before:'Declined the introduction to ',after:'',icon:'do_not_disturb_on',
+    whole:`${actName(asked)} declined the introduction to ${actName(asker)}`};
+  return {by:asked,other:asker,before:'No answer in time: the introduction to ',after:' expired',icon:'schedule',
+    whole:`${actName(asked)}: no answer in time: the introduction to ${actName(asker)} expired`};
+}
+/* A company on a line (N1): BOTH names are links, each to its own company
+   page, on every line, old or new. An account crm-sync has not yet tied to a
+   company (a sign-up of the last two hours) has no page to open, so its name
+   is plain words until the next sync ties it; it is never a link that leads
+   nowhere. */
+const actPage=org=>{const cid=ACT_LOG.orgCompany[org];return cid!=null?'company.html?id='+encodeURIComponent(cid):null;};
+function actLead(org){
+  const name=actName(org), href=actPage(org);
+  return href?`<a class="linkish qco" href="${esc(href)}">${esc(name)}</a>`:`<span class="qco">${NXShell.tileHtml(name)}${esc(name)}</span>`;
+}
+function actNamed(org){
+  const name=actName(org), href=actPage(org);
+  return href?`<a class="linkish" href="${esc(href)}">${esc(name)}</a>`:esc(name);
+}
+function actItem(e){
+  const l=actLine(e);
+  const meta=`${actRef(e.i)} \u00b7 ${ACT_HUB[e.i.hub]||'3D Print Hub'}`;
+  const when=actWhen(e.at);
+  return `<div class="qitem activity" role="group" aria-label="${esc(`${l.whole} \u00b7 ${meta} \u00b7 ${when}`)}"><span class="qicon activity">${ms(l.icon)}</span>`+
+    `<span class="qmain">${actLead(l.by)}<span class="ditem-title">${esc(l.before)}${actNamed(l.other)}${esc(l.after)}</span><span class="ditem-meta">${esc(meta)}</span></span><span class="st num">${esc(when)}</span><span></span></div>`;
+}
+function activityHtml(){
+  if(!ACT_LOG.ok)return '';
+  const list=ACT_LOG.events;
+  return `<section class="desk activity" aria-labelledby="activity-h"><div class="phase activity"><div class="phase-head"><span class="gdot activity"></span><h2 class="pname" id="activity-h">Activity</h2><span class="pcount num">${list.length}</span><span class="sub">Introductions in the last 14 days. Nothing here needs us.</span></div>`+
+    (list.length?list.map(actItem).join(''):emptyMini('No introductions in the last 14 days.','connect_without_contact'))+'</div></section>';
 }
 
 /* Done today: today's done intents of the deciding types, each with its
@@ -367,9 +485,12 @@ function clocksPanel(){
   const today=NXJOBS.todayIn();
   const body=P.rows.length?P.rows.slice().sort((a,b)=>String(a.clock_start||a.invoice_date||'').localeCompare(String(b.clock_start||b.invoice_date||''))).map(m=>{
     const hidden=!!m.hidden_at&&!m.restored_at, n=NXJOBS.clockDay(m.clock_start?m:{clock_start:m.invoice_date},today)||0, last=m.extended_to||m.hide_on;
-    const right=hidden?`Hidden since ${NXJOBS.day(m.hidden_at)}`:last?`Hides ${NXJOBS.day(last)} if unpaid`:'';
+    /* Plan 105: a hide the engine is holding (the same test clockHtml makes).
+       Hidden, held, extended, in that order: never a hide day that has passed. */
+    const held=!hidden&&!!m.hide_held_at&&!m.paid_at&&!m.voided_at;
+    const right=hidden?`Hidden since ${NXJOBS.day(m.hidden_at)}`:held?(last?`Was due to hide on ${NXJOBS.day(last)}`:'Not hidden'):last?`Hides ${NXJOBS.day(last)} if unpaid`:'';
     const sub=[m.period==='monthly'?'Monthly':'Yearly',money(m.amount,m.currency),m.invoice_date?'invoiced '+NXJOBS.day(m.invoice_date):''].filter(Boolean).join(', ');
-    const clock=m.extended_to&&!hidden?`<span class="clabel">Extended by hand to ${esc(NXJOBS.day(m.extended_to))}</span>`:NXJOBS.clockHtml(m,n);
+    const clock=m.extended_to&&!hidden&&!held?`<span class="clabel">Extended by hand to ${esc(NXJOBS.day(m.extended_to))}</span>`:NXJOBS.clockHtml(m,n);
     return `<div class="item"><span class="ev-icon">${ms('schedule')}</span><div class="item-main" style="gap:5px"><span class="clock-head"><a class="linkish" href="company.html?org=${esc(encodeURIComponent(m.org_id))}">${esc(P.names[m.org_id]||'An account')}</a><span class="item-date">${esc(right)}</span></span><span class="item-sub wrap">${esc(sub)}</span>${clock}</div></div>`;
   }).join(''):emptyMini('Every membership is paid.','paid');
   return `<section class="panel"><h2>Payment clocks <span class="n num">${P.rows.length}</span></h2><div>${body}</div><p class="picker-note">Reminders go to the host on days 7 and 12. On day 14 the listing hides itself, and paying restores it.</p></section>`;
@@ -397,7 +518,7 @@ function render(){
   if(!loaded){page.innerHTML=head+`<section class="panel"><div class="empty-state">${ms('hourglass_top')}<span>Reading the queue.</span></div></section>`;return;}
   const bn=banners.map(([tone,b])=>`<div class="banner${tone==='err'?' err':''}">${ms(tone==='err'?'error':'info')}<div class="banner-text"><span>${esc(b)}</span></div></div>`).join('');
   /* A queue that could not be read shows its banner and nothing that reads as an empty queue. */
-  page.innerHTML=head+bn+(queueError?'':statTiles())+`<div class="today-grid"><div class="col-stack">${queueError?'':queueHtml()}${doneTodayHtml()}${setAsideHtml()}</div><div class="col-stack">${tasksPanel()}${wrotePanel()}${clocksPanel()}</div></div>`;
+  page.innerHTML=head+bn+(queueError?'':statTiles())+`<div class="today-grid"><div class="col-stack">${queueError?'':queueHtml()+(UI.filter==='all'?activityHtml():'')}${doneTodayHtml()}${setAsideHtml()}</div><div class="col-stack">${tasksPanel()}${wrotePanel()}${clocksPanel()}</div></div>`;
 }
 
 /* ---------- raising ---------- */
@@ -420,7 +541,7 @@ async function raise(type,payload,spot,verb,toastText){
   }
   NXShell.toast(toastText||`${verb}, queued. This page updates by itself.`);
   checkBack.pressed();
-  setTimeout(load,1500);
+  checkBack.soon();
   return true;
 }
 const val=id=>String(($(id)||{}).value||'');

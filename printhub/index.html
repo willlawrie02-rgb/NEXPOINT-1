@@ -6,6 +6,18 @@
 <meta name="robots" content="noindex">
 <title>3D Print Hub · The NexPoint Global Portal</title>
 <meta name="description" content="The 3D Print Hub: enabling 3D printing within the O&amp;P community. Find 3D print capacity for insoles, AFOs, braces and prosthetics, or offer your own.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://printhub.nexpoint.co.uk/">
+<meta property="og:title" content="3D Print Hub · The NexPoint Global Portal">
+<meta property="og:description" content="The 3D Print Hub: enabling 3D printing within the O&amp;P community. Find 3D print capacity for insoles, AFOs, braces and prosthetics, or offer your own.">
+<meta property="og:image" content="https://nexpoint.co.uk/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="NexPoint: the commercial bridge for Orthotics and Prosthetics worldwide">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="3D Print Hub · The NexPoint Global Portal">
+<meta name="twitter:description" content="The 3D Print Hub: enabling 3D printing within the O&amp;P community. Find 3D print capacity for insoles, AFOs, braces and prosthetics, or offer your own.">
+<meta name="twitter:image" content="https://nexpoint.co.uk/assets/og-image.png">
 <link rel="icon" href="assets/nexpoint-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +29,7 @@
 <script src="https://nexpoint.co.uk/hub/assets/site-map.js" defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- One icon subset for the whole site (check/sweep.mjs keeps it in step): a page that gains an icon adds its name here, on every page. -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=add_circle,arrow_back,arrow_downward,arrow_forward,arrow_outward,check,check_circle,close,conveyor_belt,event_upcoming,expand_more,fact_check,factory,family_restroom,gavel,grid_view,group_off,groups,handshake,handyman,history,hourglass_top,hub,inbox,layers,local_shipping,mail,map,medical_services,menu,monitor_heart,my_location,payments,pending_actions,person,precision_manufacturing,print_disabled,progress_activity,public,receipt_long,school,science,storefront,swap_horiz,sync_alt,task_alt,travel_explore,trending_up,tune,unfold_less,unfold_more,verified,view_in_ar,visibility,visibility_off,warehouse&display=block" rel="stylesheet">
 <script>
   /* One portal.css for the whole hub, served from the apex and linked statically
      above, before the fonts, so the page is styled without waiting for this
@@ -59,15 +71,22 @@
   .hub-hero .door h3 { font-weight: 700; }
 
   /* The choice cards' pictures (Will, 30 Oct 2026): the work you receive and the machine you
-     own, in a panel on the right that fades in from the card's white. Hidden on phones, where
-     the card is the full width and the words need it. */
+     own, in a panel on the right that fades in from the card's white. On phones the picture
+     sits above the words as a band that fades down into the card's white (Will, 13 Nov 2026:
+     the cards had no picture on a phone). */
   .door--pic { flex-direction: row; }
   .door--pic .door__body { flex: 1 1 0; min-width: 0; }
   .door--pic .door__media { position: relative; flex: 0 0 36%; }
   .door--pic .door__media img { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; object-position: 58% 50%; }
   .door--pic .door__media::after { content: ""; position: absolute; inset: 0; pointer-events: none;
     background: linear-gradient(90deg, var(--surface) 0%, rgba(255, 255, 255, .55) 22%, rgba(255, 255, 255, 0) 50%); }
-  @media (max-width: 640px) { .door--pic .door__media { display: none; } }
+  @media (max-width: 640px) {
+    .door--pic { flex-direction: column-reverse; }
+    .door--pic .door__body { flex: 1 1 auto; }
+    .door--pic .door__media { flex: 0 0 auto; height: clamp(190px, 56vw, 240px); }
+    .door--pic .door__media img { object-position: 50% 50%; }
+    .door--pic .door__media::after { background: linear-gradient(0deg, var(--surface) 0%, rgba(255, 255, 255, .55) 20%, rgba(255, 255, 255, 0) 46%); }
+  }
 
   /* the proof band: a hairline grid with the numerals at full strength */
   .net-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0; padding: 0; }
@@ -363,7 +382,6 @@ own pages · logo path fixed.
     <button class="close" onclick="closeAll()" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
     <div id="signContent">
       <h2>Welcome back</h2>
-      <p class="body" style="margin-bottom:4px">Sign in to see the board matched to your profile.</p>
       <form onsubmit="event.preventDefault();signSubmit()">
       <div class="form-grid" style="grid-template-columns:1fr;margin-top:24px">
         <div class="field"><label for="sEmail">Email</label><input id="sEmail" name="email" type="email" autocomplete="username" placeholder="you@company.com"></div>
@@ -386,7 +404,7 @@ own pages · logo path fixed.
   (function () {
     var apex = window.NP_APEX || '';
     var srcs = [
-      '/assets/hub-account.js?v=20261111-audit',
+      '/assets/hub-account.js?v=20261114-password',
       '/hub/assets/portal.js'
     ];
     (function next(i) {

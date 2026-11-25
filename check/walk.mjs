@@ -114,7 +114,9 @@ async function trapUnreachable(trap) {
 }
 
 // ---------------------------------------------------------------- the people
-const PASSWORD = "walk-password-1";
+/* Meets the live password rule (plan 093, 14 November 2026): 8 or more,
+   with a lower-case letter, a capital, a number and a symbol. */
+const PASSWORD = "Walk-password-1";
 const USER = {
   id: "00000000-0000-4000-8000-000000000001", name: "Walk Tester", company: "ZZ Walk Test Ltd",
   email: "walk@example.com", town: "Leeds", country: "United Kingdom", region: "Europe",
@@ -943,6 +945,36 @@ async function walkDoor() {
   await step("Sign in opens the sign-in box", async () => {
     await page.click("[data-np-account-slot] [data-np-signin]");
     await page.waitForSelector("#signOverlay.open");
+    /* Plan 102 (R7-04): the door's own Sign in keeps the box as it was. */
+    eq((await page.textContent("#signTitle")).trim(), "Welcome back", "the heading");
+    eq(await page.isVisible("#signCreate"), false, "Create your hub account beside Sign in");
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("#signOverlay.open", { state: "detached" });
+  });
+  /* Plan 104 (R7-25): a card that took the form's place ("Check your inbox."
+     here) used to stay in the box until the page was reloaded. The form's
+     own nodes come back each time the box opens, so the eye still works. */
+  await step("the sign-in box gets its form back each time it opens, with the eye still working (plan 104)", async () => {
+    await page.click("[data-np-account-slot] [data-np-signin]");
+    await page.waitForSelector("#signOverlay.open");
+    await page.fill("#sEmail", USER.email);
+    await page.fill("#sPass", "left-behind");
+    await page.click('#signContent a:has-text("Forgotten your password?")');
+    await page.waitForSelector("#signContent .success");
+    has(await page.textContent("#signContent"), "Check your inbox.", "the card");
+    eq(apiCalls(world, "POST /auth/reset-request").map((c) => c.body), [{ email: USER.email }], "the reset asked for");
+    await page.click("#signContent .success button");
+    await page.waitForSelector("#signOverlay.open", { state: "detached" });
+    await page.click("[data-np-account-slot] [data-np-signin]");
+    await page.waitForSelector("#signOverlay.open");
+    eq(await page.locator("#signContent form").count(), 1, "forms in the box");
+    eq([await page.locator("#sEmail").count(), await page.locator("#sPass").count()], [1, 1], "the email and password boxes");
+    eq(await page.inputValue("#sEmail"), USER.email, "the email typed");
+    eq(await page.inputValue("#sPass"), "", "the password box");
+    eq((await page.textContent("#signContent")).includes("Check your inbox."), false, "the old card still in the box");
+    await page.click("#signContent .np-eye__btn");
+    eq(await page.getAttribute("#sPass", "type"), "text", "the password box after one press of the eye");
+    await page.click("#signContent .np-eye__btn");
     await page.keyboard.press("Escape");
     await page.waitForSelector("#signOverlay.open", { state: "detached" });
   });
@@ -1061,24 +1093,17 @@ async function walkRegister() {
   await step("an empty form does not move on", async () => { await submit(); return (await onStep(1)) && (await page.locator("#qName:invalid").count()) === 1; });
   await step("a bad email does not move on", async () => {
     await page.fill("#qName", "Walk Tester"); await page.fill("#qCompany", "ZZ Walk Test Ltd");
-    await page.fill("#qEmail", "not-an-email"); await page.locator("#qPass").pressSequentially("long-enough-1");
+    await page.fill("#qEmail", "not-an-email");
     await submit();
     return (await onStep(1)) && (await page.locator("#qEmail:invalid").count()) === 1;
   });
-  await step("a seven-character password does not move on", async () => {
+  /* Plan 093 (14 November 2026): no password is typed before the address is
+     confirmed. It is chosen on the page the confirmation link opens. */
+  await step("the form asks for no password (plan 093)", async () => {
     await page.fill("#qEmail", "walk@example.com");
-    await page.fill("#qPass", ""); await page.locator("#qPass").pressSequentially("short-7");
-    await submit();
-    return (await onStep(1)) && (await page.locator("#qPass:invalid").count()) === 1;
-  });
-  await step("the eye shows the password and hides it again (plan 046)", async () => {
-    await page.fill("#qPass", ""); await page.locator("#qPass").pressSequentially(PASSWORD);
-    eq(await page.getAttribute("#qPass", "type"), "password", "before the eye");
-    await page.click('#npAccountContent .np-eye__btn');
-    eq(await page.getAttribute("#qPass", "type"), "text", "after one press");
-    eq(await page.getAttribute('#npAccountContent .np-eye__btn', "aria-pressed"), "true", "the eye's state");
-    await page.click('#npAccountContent .np-eye__btn');
-    eq(await page.getAttribute("#qPass", "type"), "password", "after the second press");
+    eq(await page.locator("#qPass").count(), 0, "the old password box");
+    eq(await page.locator('#npAccountContent input[type="password"]').count(), 0, "password boxes on the form");
+    eq(await page.locator("#npAccountContent .np-eye__btn").count(), 0, "show-password eyes on the form");
     return has(await page.textContent('#npAccountContent button[type=submit]'), "Continue", "the button");
   });
   await step("a complete first step moves on to where the site is", async () => {
@@ -1150,12 +1175,14 @@ async function walkRegister() {
     const sent = apiCalls(world, "POST /auth/register");
     eq(sent.length, 1, "registrations sent");
     const b = sent[0].body;
-    eq([b.name, b.company, b.email, b.password, b.website, b.country, b.town, b.terms_version_id, b.turnstile_token, b.company_url],
-      ["Walk Tester", "ZZ Walk Test Ltd", "walk@example.com", PASSWORD, "example.com", "United Kingdom", "Leeds", 12, "walk-turnstile-token", ""], "the register body");
+    eq([b.name, b.company, b.email, b.website, b.country, b.town, b.terms_version_id, b.turnstile_token, b.company_url],
+      ["Walk Tester", "ZZ Walk Test Ltd", "walk@example.com", "example.com", "United Kingdom", "Leeds", 12, "walk-turnstile-token", ""], "the register body");
+    eq("password" in b, false, "a password on the register body");
   });
   await step("it says check your inbox, and signs nobody in", async () => {
     has(await page.textContent("#npAccountContent .success"), "Check your inbox", "the card");
     has(await page.textContent("#npAccountContent .success"), "walk@example.com", "the card");
+    has(await page.textContent("#npAccountContent .success"), "Open it, choose your password, and your account is ready.", "where the password is chosen");
     await page.click("#npAccountContent [data-np-done]");
     return has(await page.textContent("[data-np-account-slot]"), "Sign in", "the header slot");
   });
@@ -1163,7 +1190,6 @@ async function walkRegister() {
     world.api["POST /auth/register"] = () => [409, { error: "account_exists" }];
     await page.click("[data-np-account-slot] [data-np-join]");
     await page.waitForSelector('form[data-np-step="1"]');
-    await page.locator("#qPass").pressSequentially(PASSWORD);
     await submit();
     await page.waitForSelector("#qTerms");
     await page.check("#qTerms");
@@ -1172,10 +1198,10 @@ async function walkRegister() {
     await page.waitForSelector("#npAccountContent .np-sign-error:visible");
     return has(await page.textContent("#npAccountContent form .np-sign-error"), "already an account", "the refusal");
   });
-  /* 15 Oct 2026: a password the sign-in service refused showed only "Check
-     the details". Each refusal the registrant can put right is named, and
-     anything else carries the server's reason for the desk. The form is
-     still on step 2 from the step above, so each case just submits again. */
+  /* Each refusal the registrant can put right is named, and anything else
+     carries the server's reason for the desk. The form is still on step 2
+     from the step above, so each case just submits again. (No password is
+     typed here since plan 093, so there is no refused password to name.) */
   const refusedWith = async (status, body, needle, label) => {
     world.api["POST /auth/register"] = () => [status, body];
     await page.waitForSelector('form[data-np-step="2"] button[type=submit]:not([disabled])');
@@ -1183,9 +1209,6 @@ async function walkRegister() {
     await page.waitForFunction((n) => (document.querySelector("#npAccountContent form .np-sign-error") || {}).textContent?.includes(n), needle);
     return has(await page.textContent("#npAccountContent form .np-sign-error"), needle, label);
   };
-  await step("a password the sign-in service refuses is named, with its rule", () =>
-    refusedWith(422, { error: "weak_password", detail: "Password should be at least 12 characters." },
-      "That password was not accepted. Password should be at least 12 characters. Choose Go back", "the refusal"));
   await step("an address the sign-in service refuses is named", () =>
     refusedWith(422, { error: "email_invalid" }, "could not use that email address", "the refusal"));
   await step("terms that changed under the form ask for a refresh", () =>
@@ -1203,6 +1226,82 @@ async function walkRegister() {
   });
   clean(world, errors, "the register form");
   await context.close();
+
+  /* Audit of 14 November 2026, item 8 (plan 093). The worker never sends two
+     confirmation emails to one address inside two minutes, and the card
+     appears the moment registration has sent one: a press on Resend then
+     said a new link was on its way when nothing had gone, and the button
+     left the card. It now waits the two minutes out, and ten seconds more
+     because the worker's clock starts a moment later, counting down, and
+     stays. The clock is the walk's, so the wait takes no time. */
+  area = "Create an account (the Resend button on Check your inbox)";
+  {
+    const world = newWorld();
+    const { context, page, errors } = await visit(world);
+    const resend = "#npAccountContent [data-np-resend]";
+    const label = async () => (await page.textContent(resend)).trim();
+    await page.clock.install();
+    await page.goto(`${APEX}/hub/`);
+    await page.click("[data-np-account-slot] [data-np-join]");
+    await page.waitForSelector('form[data-np-step="1"]');
+    await page.fill("#qName", "Walk Tester"); await page.fill("#qCompany", "ZZ Walk Test Ltd"); await page.fill("#qEmail", "walk@example.com");
+    await page.click("#npAccountContent button[type=submit]");
+    await page.waitForSelector('form[data-np-step="2"]');
+    await page.fill("#qCountry", "United Kingdom");
+    await page.waitForSelector("#qTerms");
+    await page.check("#qTerms");
+    await page.waitForSelector('form[data-np-step="2"] button[type=submit]:not([disabled])');
+    /* From here time moves only when the walk moves it. */
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
+    await page.click("#npAccountContent button[type=submit]");
+    await page.waitForSelector("#npAccountContent .success");
+    await step("the Resend button starts disabled, counting down from 2:10", async () => {
+      eq(await label(), "Resend the email in 2:10", "the button");
+      eq(await page.isDisabled(resend), true, "the button is disabled");
+      await page.clock.runFor(61000);
+      eq(await label(), "Resend the email in 1:09", "the button a minute on");
+      await page.clock.runFor(59000);
+      eq(await label(), "Resend the email in 0:10", "the button at the worker's two minutes");
+      eq(await page.isDisabled(resend), true, "the button is disabled at two minutes");
+      return eq(apiCalls(world, "POST /auth/resend-confirmation").length, 0, "resends sent");
+    });
+    await step("after 2:10 it can be pressed", async () => {
+      await page.clock.runFor(10000);
+      eq(await label(), "Resend the email", "the button");
+      return eq(await page.isDisabled(resend), false, "the button is disabled");
+    });
+    await step("a press sends once, says so, and the button stays, counting down again", async () => {
+      await page.click(resend);
+      await page.waitForSelector("#npAccountContent [data-np-resend-note]");
+      eq(apiCalls(world, "POST /auth/resend-confirmation").map((c) => c.body), [{ email: "walk@example.com" }], "the resend");
+      has(await page.textContent("#npAccountContent [data-np-resend-note]"),
+        "If that address still needs confirming, a new link is on its way. It can take a minute to arrive, and it may be in your junk folder.", "the line");
+      eq(await page.locator(resend).count(), 1, "Resend buttons on the card");
+      eq(await label(), "Resend the email in 2:10", "the button");
+      return eq(await page.isDisabled(resend), true, "the button is disabled");
+    });
+    await step("a send that never left the device says so, and gives the button back at once", async () => {
+      await page.clock.runFor(130000);
+      world.dropOnce = new Set(["POST /auth/resend-confirmation"]);
+      await page.click(resend);
+      await page.waitForFunction(() => /That did not send/.test((document.querySelector("#npAccountContent [data-np-resend-note]") || {}).textContent || ""));
+      has(await page.textContent("#npAccountContent [data-np-resend-note]"), "That did not send. Check your connection and try again.", "the line");
+      eq(await page.locator("#npAccountContent [data-np-resend-note]").count(), 1, "lines on the card");
+      eq(await label(), "Resend the email", "the button");
+      return eq(await page.isDisabled(resend), false, "the button is disabled");
+    });
+    await step("closing the card stops the countdown, and nothing throws afterwards", async () => {
+      await page.click(resend);
+      await page.waitForFunction((sel) => /in 2:10/.test(document.querySelector(sel).textContent), resend);
+      await page.click("#npAccountContent [data-np-done]");
+      await page.clock.runFor(140000);
+      return eq(await label(), "Resend the email in 2:10", "the button, left where it was");
+    });
+    /* The browser logs a line of its own for the send the walk dropped on
+       purpose; anything the page itself threw still counts. */
+    clean(world, errors.filter((e) => !/net::ERR_FAILED/.test(e)), "the Check your inbox card");
+    await context.close();
+  }
 }
 
 /* Plan 073 (D7): NexPoint's invitation email opens the door with ?join=. The
@@ -1218,7 +1317,6 @@ async function walkJoin() {
   const submit = () => page.click("#npAccountContent button[type=submit]");
   const toStepTwo = async () => {
     await page.fill("#qName", "Walk Tester");
-    await page.locator("#qPass").pressSequentially(PASSWORD);
     await submit();
     await page.waitForSelector('form[data-np-step="2"]');
     await page.fill("#qCountry", "United Kingdom");
@@ -1319,9 +1417,71 @@ async function walkWall() {
       await page.waitForURL((u) => u.origin === APEX && u.pathname === "/hub/" && u.searchParams.get("signin") === "1");
       eq(new URL(page.url()).searchParams.get("return"), url, "the return address");
       await page.waitForSelector("#signOverlay.open");
+      /* Plan 102 (R7-04): a hub page sent this visitor, so the box says what
+         happened and offers Create your hub account beside Sign in. The
+         account page's way in keeps "Welcome back". Nothing is pressed here:
+         the next step holds the page to one API call. */
+      const hub = url.startsWith(PRINT) ? "the 3D Print Hub" : url.startsWith(MILL) ? "the Mill Hub" : url.startsWith(OPPS) ? "the Opportunities Board" : "";
+      if (hub) {
+        eq((await page.textContent("#signTitle")).trim(), "Sign in or create your hub account", "the heading");
+        eq(await page.isVisible("#signLead"), true, "the line is shown");
+        eq((await page.textContent("#signLead")).trim(),
+          `You need a hub account to use ${hub}. Sign in, or create your account in about two minutes, and you go on to the page you asked for.`, "the line");
+        eq(await page.isVisible("#signCreate"), true, "Create your hub account is shown");
+        eq((await page.textContent("#signCreate")).trim(), "Create your hub account", "the second button");
+      } else {
+        eq((await page.textContent("#signTitle")).trim(), "Welcome back", "the heading");
+        eq(await page.isVisible("#signLead"), false, "the line is shown");
+        eq(await page.isVisible("#signCreate"), false, "Create your hub account is shown");
+      }
     });
     await step(`${name} asked the API for nothing but who is signed in`, async () =>
       eq([...new Set(world.calls.map((c) => `${c.method} ${c.path}`))].filter((k) => k !== "GET /auth/me"), [], "other API calls"));
+    await context.close();
+  }
+
+  /* Plan 102 (R7-04): the second button is the way in for a first-time
+     visitor. It closes the box and opens the Create account questionnaire,
+     which carries the return address. */
+  {
+    const world = newWorld();
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${MILL}/find.html`);
+    await page.waitForSelector("#signOverlay.open");
+    await step("the two buttons sit in one row, the same height: Sign in solid, Create your hub account outlined", async () => {
+      const row = await page.$$eval("#signContent .modal-actions button", (els) => els.map((b) => {
+        const r = b.getBoundingClientRect();
+        return { words: b.textContent.trim(), type: b.type, cls: b.className, top: Math.round(r.top), height: Math.round(r.height) };
+      }));
+      eq(row.map((b) => b.words), ["Sign in", "Create your hub account"], "the buttons");
+      eq(row.map((b) => b.type), ["submit", "button"], "the button types");
+      eq(row.map((b) => b.cls), ["btn btn-primary", "btn btn-outline"], "the button classes");
+      eq(row[0].height, row[1].height, "the heights");
+      eq(row[0].top, row[1].top, "side by side");
+      return has(await page.textContent("#signContent .privacy span"), "New here? Create your hub account. Two minutes, in confidence.", "the small line, still there");
+    });
+    await step("Create your hub account closes the box and opens the questionnaire", async () => {
+      await page.click("#signCreate");
+      await page.waitForSelector("#signOverlay.open", { state: "detached" });
+      await page.waitForSelector('form[data-np-step="1"]');
+      return true;
+    });
+    clean(world, errors, "the newcomer's box");
+    await context.close();
+  }
+  /* The home page's own Sign in link carries the home page's address as the
+     return address: that is not a hub page, and the box stays as it was. */
+  {
+    const world = newWorld();
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/?signin=1&return=${encodeURIComponent(`${APEX}/`)}`);
+    await page.waitForSelector("#signOverlay.open");
+    await step("the home page's Sign in link keeps Welcome back, with one button", async () => {
+      eq((await page.textContent("#signTitle")).trim(), "Welcome back", "the heading");
+      eq(await page.isVisible("#signLead"), false, "the line is shown");
+      return eq(await page.isVisible("#signCreate"), false, "Create your hub account is shown");
+    });
+    clean(world, errors, "the home page's way in");
     await context.close();
   }
 
@@ -1356,7 +1516,7 @@ async function walkWall() {
     eq((await page.textContent("#signContent .np-sign-resend button")).trim(), "Send a new confirmation link", "the button");
     await page.click("#signContent .np-sign-resend button");
     await page.waitForSelector("#signContent .np-sign-resend [role=status]:visible");
-    has(await page.textContent("#signContent .np-sign-resend"), "If that address still needs confirming, a link is on its way.", "the line after");
+    has(await page.textContent("#signContent .np-sign-resend"), "If that address still needs confirming, a link is on its way. If one was sent in the last two minutes, use that one.", "the line after");
     eq(apiCalls(world, "POST /auth/resend-confirmation").map((c) => c.body.email), [USER.email], "the resend");
     eq(await page.locator("#signContent .np-sign-resend button").count(), 0, "the button, once used");
     return eq(await page.locator("#signContent form").count(), 1, "the sign-in form, still there");
@@ -1609,14 +1769,20 @@ async function walkWaits() {
   {
     const world = newWorld({ hang: new Set(["POST /auth/confirm"]) });
     const { context, page } = await visit(world);
-    await step("a confirmation link whose answer never comes is given up at 20 s, with the way on", async () => {
+    await step("a confirmation whose answer never comes is given up at 20 s, and the button comes back with the reason", async () => {
       await page.clock.install();
       await page.goto(`${APEX}/hub/confirm.html?t=walk-token&type=signup`);
+      await page.waitForSelector("#setBtn");
+      await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
+      await page.click("#setBtn");
       await until(() => apiCalls(world, "POST /auth/confirm").length === 1, "the link being posted");
-      has(await page.textContent("#confirmBody"), "One moment", "the page while it waits");
+      has(await page.textContent("#setBtn"), "Confirming…", "the button while it waits");
+      eq(await page.isDisabled("#setBtn"), true, "the button while it waits");
       await page.clock.runFor(21000);
-      await page.waitForFunction(() => document.getElementById("confirmBody").textContent.includes("That did not go through."));
-      return has(await page.textContent("#confirmBody"), "Check your connection and open the link again, or email hello@nexpoint.co.uk.", "the way on");
+      await page.waitForSelector("#formErr:visible");
+      has(await page.textContent("#formErr"), "That did not send. Check your connection and try again.", "the reason");
+      has(await page.textContent("#setBtn"), "Confirm and sign in", "the button afterwards");
+      return eq(await page.isDisabled("#setBtn"), false, "the button afterwards");
     });
     await context.close();
   }
@@ -1782,7 +1948,35 @@ async function walkFindMap() {
     const titles = await page.$$eval("#matchMap .leaflet-marker-icon", (els) => els.map((e) => e.getAttribute("title")));
     has(titles.join(" | "), "2 sites in Leeds, United Kingdom", "the Leeds pin's name");
   });
+  await step("the map opens on the seeker's town and the three best, close in, and a named site's pin is titled by its company (plan 106)", async () => {
+    const inView = (sel) => page.evaluate((s) => {
+      const map = document.getElementById("matchMap").getBoundingClientRect();
+      return [...document.querySelectorAll(s)].map((e) => { const r = e.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;
+        return x >= map.left && x <= map.right && y >= map.top && y <= map.bottom; });
+    }, sel);
+    eq(await inView("#matchMap .np-pin--you, #matchMap .np-pin--best"), [true, true, true], "You and the pins of the three best, inside the map");
+    eq(await inView("#matchMap .np-pin--more"), [false], "the fourth site's pin, which is drawn but outside the first view");
+    const titles = await page.$$eval("#matchMap .leaflet-marker-icon", (els) => els.map((e) => e.getAttribute("title")));
+    has(titles.join(" | "), "Charlie Print, Bristol, United Kingdom", "a named site's pin title");
+    has(titles.join(" | "), "Site 4, Glasgow, United Kingdom", "a site beyond the three keeps its rank (C9)");
+    await page.click("#matchMap .np-pin--best:not(.np-pin--group)");
+    await page.waitForSelector("#matchMap .np-pop .np-pop__head--named");
+    eq(await page.textContent("#matchMap .np-pop .np-pop__who b"), "Charlie Print", "the pin card leads with the company");
+    eq(await page.textContent("#matchMap .np-pop .np-pop__at"), "Bristol, United Kingdom", "the town and country beneath");
+    eq(await page.textContent("#matchMap .np-pop .np-pop__logo"), "CP", "its initials, where the worker sent no logo");
+    eq((await page.textContent("#matchMap .np-pop [data-choose]")).trim(), "Choose Charlie Print", "the button");
+    await page.click("#matchMap .leaflet-popup-close-button");
+    await page.waitForSelector("#matchMap .np-pop", { state: "detached" });
+  });
   await step("the Glasgow pin is a town and a rank: no name, no Choose, and the three-best-fits line; no card appears", async () => {
+    /* outside the first view (plan 106): zoom out, as a person would, until it shows */
+    for (let n = 0; n < 6; n++) {
+      const seen = await page.evaluate(() => { const m = document.getElementById("matchMap").getBoundingClientRect(), r = document.querySelector("#matchMap .np-pin--more").getBoundingClientRect();
+        return r.left > m.left + 20 && r.right < m.right - 20 && r.top > m.top + 20 && r.bottom < m.bottom - 20; });
+      if (seen) break;
+      await page.click("#matchMap .leaflet-control-zoom-out");
+      await page.waitForTimeout(400);
+    }
     await page.click("#matchMap .np-pin--more");
     await page.waitForSelector("#matchMap .np-pop");
     const pop = await page.textContent("#matchMap .np-pop");
@@ -1803,7 +1997,8 @@ async function walkFindMap() {
     await page.waitForSelector("#matchMap .np-pop");
     const pop = await page.textContent("#matchMap .np-pop");
     has(pop, "2 sites in Leeds, United Kingdom", "the list's head");
-    has(pop, "Site 2", "the second Leeds site");
+    has(pop, "Bravo Labs · Lead time 6 days", "the second Leeds site, by its company (plan 106, C9)");
+    has(pop, "Choose Bravo Labs", "its button");
     for (const leak of ["listing-", "HP MJF", "Ltd"]) if (pop.includes(leak)) throw new Error(`the list shows ${leak}`);
     eq(await page.locator("#matchMap .np-pop [data-choose]").count(), 2, "Choose buttons");
     await page.click('#matchMap .np-pop [data-choose="listing-b"]');
@@ -1819,12 +2014,45 @@ async function walkFindMap() {
     const lit = await page.$$eval("#matchMap .np-pin.is-on", (els) => els.map((e) => e.textContent.trim()));
     return eq(lit, ["3"], "the lit pin");
   });
+  /* Plan 104 (R7-20): the worker refuses a pick of a company the account
+     already has an offer waiting with or an introduction to, and an eleventh
+     request in 24 hours. Each refusal has its own words, and the first two
+     take the seeker back to the card. The stub is put back for the step
+     that sends the request for good. */
+  await step("a repeat pick and an eleventh request in a day are each refused in words, and nothing else changes (plan 104)", async () => {
+    const sendsFor = world.api["POST /seeker-requests"];
+    const refusedWith = async (answer, starts) => {
+      world.api["POST /seeker-requests"] = () => answer;
+      const before = apiCalls(world, "POST /seeker-requests").length;
+      await page.click("#requestSubmit");
+      await until(() => apiCalls(world, "POST /seeker-requests").length === before + 1, "the request");
+      await page.waitForFunction((t) => (document.getElementById("requestErr").textContent || "").startsWith(t), starts);
+      return (await page.textContent("#requestErr")).trim();
+    };
+    try {
+      await page.click("#pickContinue");
+      await page.waitForSelector("#step3:not([hidden]) #requestSubmit");
+      eq(await refusedWith([409, { error: "already_introduced", listing_id: "listing-c", waiting: true, ref: "INTRO-0007" }], "You have already asked"),
+        "You have already asked this company, and it has not answered yet. You will hear by email when it does. Pick another site, or search again.",
+        "the words for an offer still waiting");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.id), "pick-listing-c", "the focus");
+      eq(await refusedWith([409, { error: "already_introduced", listing_id: "listing-c", waiting: false, ref: "INTRO-0007" }], "You already have"),
+        "You already have an introduction with this company (INTRO-0007). Its details are in the introduction email we sent you. Pick another site, or search again.",
+        "the words for an introduction already made");
+      eq(await refusedWith([429, { error: "too_many_picks_today", limit: 10 }], "Your account has sent"),
+        "Your account has sent 10 requests in the last 24 hours, which is the most allowed in a day. Try again tomorrow, or email hello@nexpoint.co.uk.",
+        "the words for the daily limit");
+      eq(await page.locator("#step3Body .success").count(), 0, "a success card after a refusal");
+    } finally {
+      world.api["POST /seeker-requests"] = sendsFor;
+    }
+  });
   await step("the request names the site picked and goes to it in one call, and the success card names it", async () => {
     await page.click("#pickContinue");
     await page.waitForSelector("#step3:not([hidden]) #requestSubmit");
     const summary = await page.textContent("#pickSummary");
     has(summary, "The site you picked: Site 3, Charlie Print, Bristol, United Kingdom.", "the summary names the site");
-    has(summary, "Your request goes straight to this site. Contact details are exchanged once it accepts.", "the summary's hint");
+    has(summary, "Your request goes straight to this site. It sees your company's name with your request. Contact details are exchanged only once it accepts.", "the summary's hint tells the seeker its company's name is shown (plan 106, D12)");
     eq(await page.locator("#introTermsBlock").count(), 0, "no second terms block");
     has(await page.textContent("#requestSubmit"), "Send my request to Charlie Print", "the button names the site");
     await page.click("#requestSubmit");
@@ -2371,6 +2599,85 @@ async function walkOfferCommit() {
     clean(world, errors, "the pending edit");
     await context.close();
   }
+
+  // 6. words typed and not clicked (plan 095; audit of 14 November 2026)
+  {
+    const { world, context, page, errors } = await open(MINE_LIVE);
+    world.api["POST /listings"] = () => [200, { ok: true, listing_id: "listing-1", revision_id: 3, live_revision_id: 2, revision_no: 3, status: "pending", geocoded: true,
+      live_now: [], waiting: [] }];
+    await step("the certifications box is a fixed list, so it does not invite typing", async () => {
+      await page.waitForSelector("#attr-certifications");
+      return eq(await page.getAttribute("#attr-certifications", "placeholder"), "Select from the list", "the placeholder");
+    });
+    await step("a certification typed that is not on the list is refused in words, and nothing is posted", async () => {
+      await page.fill("#attr-certifications", "ISO 14001");
+      await page.click("#listingSubmit");
+      await page.waitForSelector("#listingErr:not([style*='display: none'])");
+      eq((await page.textContent("#listingErr")).trim(),
+        '"ISO 14001" is not on the certifications list. Choose from the list, or clear the box and name it under Quality systems and standards.', "the error line");
+      eq(await page.inputValue("#attr-certifications"), "ISO 14001", "the words stay in the box");
+      return eq(posted(world).length, 0, "posts");
+    });
+    await step("a certification typed that is on the list becomes a chip when the box is left", async () => {
+      await page.fill("#attr-certifications", "iso 9001");
+      await page.click("#siteTown");
+      await page.waitForFunction(() => /ISO 9001/.test(document.getElementById("attr-certifications").closest(".field").textContent));
+      return eq(await page.inputValue("#attr-certifications"), "", "the box is empty again");
+    });
+    await step("a material typed and not clicked is sent with the listing: no Enter, straight to the send button", async () => {
+      await page.fill("#m-1-materials", "TPU 95A");
+      await page.click("#listingSubmit");
+      await until(() => posted(world).length > 0, "the POST");
+      const body = posted(world)[0].body;
+      eq(body.machines[0].materials, ["pa12_nylon12", "TPU 95A"], "the materials sent");
+      return eq(body.attributes.certifications, ["ISO 9001"], "the certifications sent");
+    });
+    clean(world, errors, "the form with words typed and not clicked");
+    await context.close();
+  }
+
+  // 7. a first listing sent back for changes (plan 102, R7-02)
+  {
+    /* Decline with a note is the desk's only way to ask a host to change a
+       listing that is waiting. The engine's decline clears the pointer, so
+       the host opened an empty form under "not approved this time". The
+       worker now hands back the host's own declined revision, and the page
+       says what the email says and refills the form from it. */
+    const world = newWorld({ user: USER });
+    world.api["GET /listings/mine"] = () => [200, { ...MINE_NONE, listing: { id: "listing-1", hub: "print", status: "declined" },
+      status: "declined", declined: { ...LIVE_REV, id: 4, revision_no: 1, status: "declined" }, host_terms_accepted_version_id: 12 }];
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${PRINT}/offer.html`);
+    await page.waitForSelector("body[data-np-open]");
+    await step("a first listing sent back says Changes needed, and who has the email (plan 102)", async () => {
+      await page.waitForSelector("#listingDeclinedNotice");
+      const notice = await page.textContent("#listingDeclinedNotice");
+      has(notice, "Changes needed. We have looked at your listing", "the notice");
+      has(notice, "the person who created your account", "who has the email");
+      eq(notice.trim(), "Changes needed. We have looked at your listing and it needs a few changes before it can go live. " +
+        "We have emailed what to change to the person who created your account. " +
+        "Change your listing and send it back to us. Nothing is listed in the meantime. " +
+        "If you cannot find the email, write to hello@nexpoint.co.uk.", "the notice in full");
+      return eq(await page.getAttribute("#listingDeclinedNotice a", "href"), "mailto:hello@nexpoint.co.uk", "the address is a link");
+    });
+    await step("it shows what was sent, under What you sent us, and none of the old words (plan 102)", async () => {
+      const text = await page.textContent("#hostAppBody");
+      has(text, "What you sent us", "the heading"); has(text, "1 Works Road", "the address"); has(text, "HP MJF 5200", "the machine");
+      eq(text.includes("not approved"), false, "the old not approved line");
+      eq(text.includes("Edit and resubmit"), false, "the old button");
+      return eq((await page.textContent("#listingDeclinedEdit")).trim(), "Change your listing and send it back", "the button");
+    });
+    await step("the button opens the form filled with what was sent: address, town, machine and the yearly choice (plan 102)", async () => {
+      await page.click("#listingDeclinedEdit");
+      await page.waitForSelector("#listingForm");
+      eq(await page.inputValue("#siteAddress1"), "1 Works Road", "the address line");
+      eq(await page.inputValue("#siteTown"), "Leeds", "the town");
+      eq(await page.inputValue("#m-1-machine"), "HP MJF 5200", "the first machine's name");
+      return eq(await page.isChecked('#hostMembership input[name="billing"][value="annual"]'), true, "Yearly is chosen");
+    });
+    clean(world, errors, "the listing sent back for changes");
+    await context.close();
+  }
 }
 
 async function walkAccount() {
@@ -2577,7 +2884,8 @@ async function walkAccount() {
       const closedChains = chains.filter((c) => c.labels[3] === "Closed");
       eq(closedChains.length, 2, "the closed chains (a provider row and a seeker pick)");
       for (const c of closedChains) eq(JSON.stringify(c.classes), JSON.stringify(["is-done", "is-done", "is-done", "is-stop"]), "a closed chain's classes");
-      const rows = await page.$$eval("#introductions .acct-row__meta", (els) => els.map((e) => ({ ref: e.querySelector("b").textContent, line: e.querySelector(":scope > span").textContent })));
+      /* plan 106: a hub row is the introduction card, whose status is a line of its own; a stage the page does not know has none */
+      const rows = await page.$$eval("#introductions .acct-row__meta", (els) => els.map((e) => ({ ref: e.querySelector("b").textContent, line: (e.querySelector(":scope > span") || { textContent: "" }).textContent })));
       const line = (ref) => (rows.find((r) => r.ref.includes(ref)) || { line: null }).line;
       eq(line("INT-0021"), "Closed.", "the closed provider row");
       eq(line("INT-0022"), "", "an unknown stage's line");
@@ -2629,6 +2937,7 @@ async function walkAccount() {
         { introduction_id: 43, ref: "INTRO-0043", hub: "print", since: "2026-09-03T10:00:00Z", first_order_at: "2026-10-01" },
         { introduction_id: 44, ref: "INTRO-0044", hub: "opportunities", since: "2026-09-03T10:00:00Z", first_order_at: "2026-10-01" },
         { introduction_id: 45, ref: "INTRO-0045", hub: "opportunities", since: "2026-09-03T10:00:00Z", first_order_at: null }],
+      open_strikes: [{ opened_at: "2026-11-16T09:00:00Z", cure_by: "2026-11-30", notes: "15 days after the month closed" }],
       hubs_used: ["print"],
     }) });
     const seeker = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
@@ -2647,17 +2956,18 @@ async function walkAccount() {
         eq(await page.locator("#waiting .acct-action").count(), 0, "actions");
         eq(await page.locator("#acctNav .acct-nav__dot").count(), 0, "dots");
       });
-      if (who === "a host") await step("a host's Fees and standing lists its introduced customers, and the first order the five fee years run from (plan 078)", async () => {
+      /* Plan 106: "Introduced customers" has gone (each introduction's fee year
+         and first order are on its own card), and a host is never shown a
+         strike (D27), whatever the worker still sends. Its score stays. */
+      if (who === "a host") await step("a host's Fees and standing has its statements and its score, and no list of introduced customers or of strikes (plan 106)", async () => {
         await page.waitForSelector("#fees:not([hidden])");
         const subs = await page.$$eval("#fees .acct-sub", (els) => els.map((e) => e.textContent.trim()));
-        eq(subs, ["Introduced customers", "Statements", "Open strikes"], "the sub-headings, in order");
-        const text = await page.textContent("#fees .acct-list");
-        has(text, "INTRO-0042", "the ref");
-        has(text, "No order yet. The five fee years start with the first order.", "with no order");
-        has(text, "First order October 2026. The five fee years run from there.", "with an order");
-        eq(text.includes("Relationship since"), false, "the old line");
-        const lines = await page.$$eval("#fees .acct-list .acct-row__meta > span", (els) => els.map((e) => e.textContent));
-        eq(lines.slice(2, 4), ["First order October 2026.", "No order yet."], "a board row promises no five years (Host §10)");
+        eq(subs, ["Statements"], "the sub-headings");
+        const text = await page.textContent("#fees");
+        has(text, "Follow-through: not scored yet.", "the score line");
+        has(text, "Fees appear here once a statement is issued.", "the empty statements");
+        for (const gone of ["Introduced customers", "INTRO-0042", "The five fee years", "Relationship since"]) eq(text.includes(gone), false, `"${gone}"`);
+        eq(/strike/i.test(await page.evaluate(() => document.body.innerText)), false, "the word strike anywhere on the page");
       });
       clean(world, errors, `${who}'s quiet page`);
       await context.close();
@@ -2691,6 +3001,305 @@ async function walkAccount() {
     });
     clean(world, errors, "the page with an introduction to answer");
     await context.close();
+  }
+
+  area = "The account page (a listing that is not showing, plan 095)";
+  {
+    // The audit of 14 November 2026: a paused host read "Live since" with a
+    // green dot, and a host hidden for an unpaid membership invoice was told
+    // to email and "we will put it back". The page now tells the two apart.
+    const hostWith = (site, extra) => newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+      org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "active", host_print: "approved", host_mill: "none" },
+      site: Object.assign({ org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
+        sub_status: "active", verified: true }, site),
+      listings: [{ hub: "print", status: "live", live: { approved_at: "2026-10-01T09:00:00Z" } }],
+      hubs_used: ["print"],
+    }, extra || {}) });
+    const payUrl = "https://api.nexpoint.co.uk/membership/pay/" + "ab".repeat(32);
+    const invoice = { number: "INV-0042", amount_text: "£1,000", due_on: "2026-11-18", pay_url: payUrl };
+    const PAUSED = "NexPoint has paused your listing, so nobody searching the hubs can see it. Email hello@nexpoint.co.uk and we will tell you why and what happens next.";
+    const notShown = async (page) => {
+      const row = await page.textContent("#profile .acct-list");
+      eq(row.includes("Live since"), false, "the listing row reads Live since");
+      has(row, "Approved 1 Oct 2026. Hidden from seekers for now.", "the listing row");
+      eq(await page.locator("#profile .acct-dot.is-live").count(), 0, "green dots");
+    };
+
+    {
+      const world = hostWith({ paused: true, paused_by_desk: true, hidden_unpaid: false });
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a host NexPoint has paused reads the paused words, and its listing does not read as live", async () => {
+        await page.waitForSelector("#profile .acct-notice");
+        eq((await page.textContent("#profile .acct-notice")).trim(), PAUSED, "the notice");
+        eq(await page.getAttribute("#profile .acct-notice a", "href"), "mailto:hello@nexpoint.co.uk", "the address is a link");
+        eq(await page.locator("#profile a", { hasText: "Pay the invoice" }).count(), 0, "Pay the invoice buttons");
+        eq((await page.textContent("#profile")).includes("we will put it back"), false, "the old advice");
+        await notShown(page);
+      });
+      clean(world, errors, "the paused host's page");
+      await context.close();
+    }
+    {
+      const world = hostWith({ paused: true, paused_by_desk: false, hidden_unpaid: true, sub_status: "hidden" }, { membership_invoice: invoice });
+      world.summary.org.sub_status = "hidden";
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a host hidden for an unpaid membership invoice reads the invoice, and Pay the invoice goes to the link the worker sent", async () => {
+        await page.waitForSelector("#profile .acct-notice");
+        eq((await page.textContent("#profile .acct-notice")).trim(),
+          "Your listing is hidden from the hubs because membership invoice INV-0042 for £1,000 is unpaid. Nothing has been deleted, and your listing comes back once the payment reaches us.", "the notice");
+        const pay = page.locator("#profile a", { hasText: "Pay the invoice" });
+        eq(await pay.count(), 1, "Pay the invoice buttons");
+        eq(await pay.getAttribute("href"), payUrl, "where the button goes");
+        eq(await pay.getAttribute("target"), "_blank", "the button opens a new tab");
+        has(await page.textContent("#profile"), "Paid already? A payment can take a few working days to reach us.", "the line under the button");
+        eq((await page.textContent("#profile")).includes("we will put it back"), false, "the old advice");
+        await notShown(page);
+      });
+      clean(world, errors, "the unpaid host's page");
+      await context.close();
+    }
+    {
+      // Follow-up of 14 November: a pay link that is not on the API address the
+      // page talks to draws no button, though its path and token look right.
+      const world = hostWith({ paused: true, paused_by_desk: false, hidden_unpaid: true, sub_status: "hidden" },
+        { membership_invoice: { ...invoice, pay_url: "https://elsewhere.example/membership/pay/" + "ab".repeat(32) } });
+      world.summary.org.sub_status = "hidden";
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a pay link on another address draws no Pay the invoice button", async () => {
+        await page.waitForSelector("#profile .acct-notice");
+        has(await page.textContent("#profile .acct-notice"), "membership invoice INV-0042 for £1,000 is unpaid", "the notice");
+        eq(await page.locator("#profile a", { hasText: "Pay the invoice" }).count(), 0, "Pay the invoice buttons");
+      });
+      clean(world, errors, "the unpaid host's page with a pay link elsewhere");
+      await context.close();
+    }
+    {
+      // A worker from before plan 095: paused is true for either reason, and
+      // there are no new keys. The page works the pause out from what it has.
+      const world = hostWith({ paused: true });
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("with a worker from before plan 095 (paused, no new keys), the paused words still show", async () => {
+        await page.waitForSelector("#profile .acct-notice");
+        eq((await page.textContent("#profile .acct-notice")).trim(), PAUSED, "the notice");
+        await notShown(page);
+      });
+      clean(world, errors, "the paused host's page on an old worker");
+      await context.close();
+    }
+    {
+      const world = hostWith({ paused: false, paused_by_desk: false, hidden_unpaid: false });
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a host with nothing wrong reads no notice, and its listing reads Live since", async () => {
+        await page.waitForSelector("#profile .acct-list");
+        eq(await page.locator("#profile .acct-notice").count(), 0, "notices");
+        has(await page.textContent("#profile .acct-list"), "Live since 1 Oct 2026", "the listing row");
+        eq(await page.locator("#profile .acct-dot.is-live").count(), 1, "green dots");
+      });
+      clean(world, errors, "the live host's page");
+      await context.close();
+    }
+  }
+
+  area = "The account page (a first listing sent back for changes, plan 102)";
+  {
+    // R7-02: the decline leaves the hub's host state at applied, so the badge
+    // read "Host application in review" and the row "Not listed" while the
+    // email said to change the listing and send it back.
+    const sentBack = (status) => newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+      org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "active", host_print: "applied", host_mill: "none" },
+      site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "applied", host_mill: "none",
+        sub_status: "active", verified: false },
+      listings: [{ hub: "print", status, live: null, pending: null }],
+      hubs_used: ["print"],
+    }) });
+    {
+      const world = sentBack("declined");
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a first listing sent back reads Listing changes needed, the row says so, and the link reads Change your listing", async () => {
+        await page.waitForSelector("#profile .acct-list");
+        const text = await page.textContent("#profile");
+        has(text, "Listing changes needed · 3D Print Hub", "the badge");
+        has(text, "Changes needed. We have emailed what to change.", "the listing row");
+        eq(text.includes("Host application in review"), false, "the old badge");
+        eq(text.includes("Not listed"), false, "the old row");
+        const link = page.locator("#profile .acct-row__actions a");
+        eq(await link.count(), 1, "links on the row");
+        eq((await link.textContent()).trim(), "Change your listing", "the link's words");
+        eq(await link.getAttribute("href"), "https://printhub.nexpoint.co.uk/offer.html", "where the link goes");
+        eq(await page.locator("#profile .acct-dot.is-live").count(), 0, "green dots");
+        return eq(await page.locator("#profile .acct-dot.is-pending").count(), 0, "amber dots");
+      });
+      clean(world, errors, "the account page of a listing sent back");
+      await context.close();
+    }
+    {
+      const world = sentBack("pending");
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a first listing that is waiting still reads Host application in review", async () => {
+        await page.waitForSelector("#profile .acct-list");
+        const text = await page.textContent("#profile");
+        has(text, "Host application in review · 3D Print Hub", "the badge");
+        eq(text.includes("Listing changes needed"), false, "the sent-back badge");
+        eq(text.includes("Change your listing"), false, "the sent-back link");
+        return has(text, "Pending review since", "the listing row");
+      });
+      clean(world, errors, "the account page of a listing that is waiting");
+      await context.close();
+    }
+  }
+
+  area = "The account page (the introduction email that did not go, plan 095)";
+  {
+    // The worker's summary says whether the email that gives both sides each
+    // other's details went. Only the host's route can send it again.
+    const INBOX = "The introduction is in your inbox; reply to all to carry on.";
+    const hostRow = (release) => {
+      const intro = { id: 12, ref: "INTRO-0012", hub: "print", stage: "introduced", seeker_request_id: 3, accepted_a_at: "2026-11-10T09:00:00Z",
+        accepted_b_at: "2026-11-10T10:00:00Z", acceptance_expires_at: null, declined_at: null, created_at: "2026-11-09T09:00:00Z", role: "provider",
+        introduced_at: "2026-11-10T10:00:00Z" };
+      if (release !== undefined) intro.release = release;
+      return newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+        org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "active", host_print: "approved", host_mill: "none" },
+        site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none", verified: true },
+        introductions: [intro],
+        hubs_used: ["print"],
+      }) });
+    };
+    {
+      const world = hostRow("failed");
+      world.api["POST /introductions/:id/resend"] = () => [200, { ok: true }];
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      const button = '#intro-12 [data-act="intro-resend"][data-intro="12"]';
+      await step("a host whose introduction email did not go is told so, and offered Send the introduction email again", async () => {
+        await page.waitForSelector("#intro-12");
+        const row = await page.textContent("#intro-12");
+        eq(row.includes("is in your inbox"), false, "the row says the email is in the inbox");
+        has(row, "The email that gives you both each other's details did not go. Send it again with the button here, or email hello@nexpoint.co.uk and we will send it by hand.", "the row");
+        eq(await page.locator(button).count(), 1, "buttons");
+        eq((await page.textContent(button)).trim(), "Send the introduction email again", "the button");
+      });
+      await step("pressed again too soon after an attempt that did not go, it says so and never says Sent (follow-up of 14 November)", async () => {
+        world.api["POST /introductions/:id/resend"] = () => [429, { error: "too_soon" }];
+        await page.click(button);
+        await page.waitForSelector("#introMsg-12:not([hidden])");
+        eq((await page.textContent("#introMsg-12")).trim(), "We tried a moment ago. Try again in two minutes.", "the message");
+        eq(await page.isDisabled(button), false, "the button is disabled");
+        world.api["POST /introductions/:id/resend"] = () => [200, { ok: true }];
+      });
+      await step("pressing it posts the resend for that introduction and says Sent again", async () => {
+        // What the worker says once the email has gone.
+        world.summary.introductions[0].release = "sent";
+        await page.click(button);
+        await page.waitForFunction(() => /Sent again/.test(document.getElementById("introMsg-12").textContent));
+        eq(apiCalls(world, "POST /introductions/12/resend").length, 2, "resends sent");
+        eq(await page.isDisabled(button), true, "the button is spent");
+      });
+      await step("then the account is read again, and the row stops saying the email did not go (follow-up of 14 November)", async () => {
+        await until(() => apiCalls(world, "GET /account/summary").length >= 2, "the second summary read");
+        await page.waitForFunction(() => /is in your inbox/.test((document.getElementById("intro-12") || {}).textContent || ""));
+        const row = await page.textContent("#intro-12");
+        eq(row.includes("did not go"), false, "the row still says did not go");
+        eq(await page.locator(button).count(), 0, "buttons");
+      });
+      clean(world, errors, "the host's page with an email that did not go");
+      await context.close();
+    }
+    for (const [what, release] of [["went", "sent"], ["is not reported (a worker from before plan 095)", undefined]]) {
+      const world = hostRow(release);
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step(`a host whose introduction email ${what} reads the inbox line as before, with no button`, async () => {
+        await page.waitForSelector("#intro-12");
+        has(await page.textContent("#intro-12"), INBOX, "the row");
+        eq(await page.locator('#intro-12 [data-act="intro-resend"]').count(), 0, "buttons");
+      });
+      clean(world, errors, `the host's page with an email that ${what}`);
+      await context.close();
+    }
+    {
+      const world = hostRow("waiting");
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a host whose introduction email is still on its way reads that, with no button", async () => {
+        await page.waitForSelector("#intro-12");
+        const row = await page.textContent("#intro-12");
+        has(row, "The introduction email is on its way.", "the row");
+        eq(row.includes("is in your inbox"), false, "the row says the email is in the inbox");
+        eq(await page.locator('#intro-12 [data-act="intro-resend"]').count(), 0, "buttons");
+      });
+      clean(world, errors, "the host's page with an email on its way");
+      await context.close();
+    }
+    {
+      // The seeker's side (decision D5): told the truth, with no button.
+      const world = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+        org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "none", host_print: "none", host_mill: "none" },
+        introductions: [{ id: 9, ref: "INTRO-0009", hub: "print", stage: "introduced", seeker_request_id: 3, accepted_a_at: "2026-11-10T09:00:00Z",
+          accepted_b_at: "2026-11-10T10:00:00Z", acceptance_expires_at: null, declined_at: null, created_at: "2026-11-09T09:00:00Z", role: "seeker",
+          introduced_at: "2026-11-10T10:00:00Z", release: "failed" }],
+        requests: [{ id: 3, ref: "PS-0050", hub: "print", material: "pa12_nylon12", quantity: 10, cadence: "once", status: "picked",
+          created_at: "2026-11-09T09:00:00Z", no_match: false,
+          picks: [{ introduction_id: 9, ref: "INTRO-0009", stage: "introduced", card: { town: "Derby", country: "United Kingdom", materials: ["pa12_nylon12"] } }] }],
+        hubs_used: ["print"],
+      }) });
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("the seeker of an introduction whose email did not go is told NexPoint will send it, and has no button", async () => {
+        await page.waitForSelector("#introductions .acct-pick");
+        const text = await page.textContent("#introductions");
+        has(text, "The email with each other's details has not gone yet. NexPoint has been told and will send it.", "the pick");
+        eq(text.includes("is in your inbox"), false, "the page says the email is in the inbox");
+        eq(await page.locator('#introductions [data-act="intro-resend"]').count(), 0, "buttons");
+      });
+      clean(world, errors, "the seeker's page with an email that did not go");
+      await context.close();
+    }
+    {
+      // Follow-up of 14 November: "unrecorded" is no attempt on the log at all,
+      // so nothing says NexPoint was told. The host can still send it again;
+      // the seeker keeps the line it read before, with no such claim.
+      const world = hostRow("unrecorded");
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a host whose introduction email has no record of a send is offered Send the introduction email again", async () => {
+        await page.waitForSelector("#intro-12");
+        eq(await page.locator('#intro-12 [data-act="intro-resend"][data-kind="release"]').count(), 1, "buttons");
+        eq((await page.textContent("#intro-12")).includes("is in your inbox"), false, "the row says the email is in the inbox");
+      });
+      clean(world, errors, "the host's page with an email that has no record");
+      await context.close();
+    }
+    {
+      const world = newWorld({ user: USER, summary: Object.assign({}, EMPTY_SUMMARY, {
+        org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "none", host_print: "none", host_mill: "none" },
+        introductions: [{ id: 9, ref: "INTRO-0009", hub: "print", stage: "introduced", seeker_request_id: 3, accepted_a_at: "2026-11-10T09:00:00Z",
+          accepted_b_at: "2026-11-10T10:00:00Z", acceptance_expires_at: null, declined_at: null, created_at: "2026-11-09T09:00:00Z", role: "seeker",
+          introduced_at: "2026-11-10T10:00:00Z", release: "unrecorded" }],
+        requests: [{ id: 3, ref: "PS-0050", hub: "print", material: "pa12_nylon12", quantity: 10, cadence: "once", status: "picked",
+          created_at: "2026-11-09T09:00:00Z", no_match: false,
+          picks: [{ introduction_id: 9, ref: "INTRO-0009", stage: "introduced", card: { town: "Derby", country: "United Kingdom", materials: ["pa12_nylon12"] } }] }],
+        hubs_used: ["print"],
+      }) });
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("the seeker of an introduction with no record of a send keeps its earlier line, and is never told NexPoint has been told", async () => {
+        await page.waitForSelector("#introductions .acct-pick");
+        const text = await page.textContent("#introductions");
+        has(text, INBOX, "the pick");
+        eq(text.includes("NexPoint has been told"), false, "the page says NexPoint has been told");
+        eq(await page.locator('#introductions [data-act="intro-resend"]').count(), 0, "buttons");
+      });
+      clean(world, errors, "the seeker's page with an email that has no record");
+      await context.close();
+    }
   }
 }
 
@@ -2789,12 +3398,14 @@ async function walkAccountAnswers() {
   // Plan 055, decision 7: the worker sends an offer for every provider introduction, whatever its stage.
   const offer = (id) => ({ introduction_id: id, ref: `INTRO-000${id}`, hub: "print", acceptance_expires_at: id === 8 ? null : soon,
     request: { material: "pa12_nylon12", process: "mjf", quantity: 40, cadence: "one_off", max_lead_time_days: 10, needed_by: "2026-11-03",
-      services: ["finishing_dyeing"], notes: "Pairs, boxed per patient.", town: "Bristol", country: "United Kingdom", point: { lat: 51.45, lng: -2.59 } },
+      services: ["finishing_dyeing"], notes: "Pairs, boxed per patient.\n\nVolume: 40 units, one off.", notes_own: "Pairs, boxed per patient.",
+      town: "Bristol", country: "United Kingdom", point: { lat: 51.45, lng: -2.59 } },
     site: { town: "Leeds", country: "United Kingdom", point: { lat: 53.8, lng: -1.55 } } });
-  const summary = (intros, offers) => Object.assign({}, EMPTY_SUMMARY, {
+  /* The third argument is merged over the site (plan 104: a paused or hidden listing). */
+  const summary = (intros, offers, site = {}) => Object.assign({}, EMPTY_SUMMARY, {
     org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", founding: true, host_print: "approved", host_mill: "none", fee_exempt_note: null },
-    site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
-      sub_status: "trial", founding: true, paused: false, removed: false, verified: true },
+    site: Object.assign({ org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "none",
+      sub_status: "trial", founding: true, paused: false, removed: false, verified: true }, site),
     introductions: intros, offers, hubs_used: ["print"],
   });
   const world = newWorld({
@@ -2826,11 +3437,12 @@ async function walkAccountAnswers() {
     eq(pins.filter((p) => /np-pin--ask/.test(p.cls)).map((p) => p.text), ["Request"], "the request's pin");
     const titles = await page.$$eval("#pairMap-7 .leaflet-marker-icon", (els) => els.map((e) => e.getAttribute("title") || ""));
     has(titles.join(" | "), "Leeds", "the site's town in a pin title");
-    has(titles.join(" | "), "Bristol", "the request's town in a pin title");
+    /* plan 106: the Request pin opens the need box, and says so; the request's town is in the box */
+    has(titles.join(" | "), "Show what they need", "the Request pin's title");
     eq(await page.locator("#pairMap-7 [data-choose]").count(), 0, "Choose buttons on the pair map");
     eq(await page.locator("#introductions .acct-tag").count(), 0, "side tags on an account that is only asked");
   });
-  await step("the need box is open on the Request pin: what they need, row by row, inside the map, with no close button (plan 055, decision 7)", async () => {
+  await step("the need box is open on the Request pin: what they need, row by row, inside the map, with its own cross and only the seeker's own notes (plan 055, decision 7; plan 106)", async () => {
     await page.waitForSelector("#pairMap-7 .leaflet-popup .np-need");
     const need = await page.$eval("#pairMap-7 .leaflet-popup .np-need", (e) => ({
       head: e.querySelector(".np-need__head").textContent, where: e.querySelector(".np-need__where").textContent,
@@ -2845,15 +3457,19 @@ async function walkAccountAnswers() {
     eq(by["Lead time"], "within 10 days", "the lead time");
     eq(by["Needed by"], "3 Nov 2026", "the date");
     for (const v of Object.values(by)) if (v.includes("_")) throw new Error(`a raw term in the box: ${v}`);
-    has(need.notes, "Pairs, boxed per patient.", "the notes");
-    eq(await page.locator("#pairMap-7 .leaflet-popup-close-button").count(), 0, "close buttons");
+    eq(need.notes, "NotesPairs, boxed per patient.", "the notes: what the seeker typed, and nothing the form composed");
+    eq(await page.locator("#pairMap-7 .leaflet-popup-close-button").count(), 0, "Leaflet's own close buttons");
+    eq(await page.locator("#pairMap-7 .np-need [data-np-need-close]").count(), 1, "the box's own cross (plan 106)");
     const map = await page.locator("#pairMap-7").boundingBox();
     const pop = await page.locator("#pairMap-7 .leaflet-popup").boundingBox();
     if (pop.y < map.y || pop.y + pop.height > map.y + map.height || pop.x < map.x || pop.x + pop.width > map.x + map.width)
       throw new Error(`the box (${Math.round(pop.x)},${Math.round(pop.y)} ${Math.round(pop.width)}x${Math.round(pop.height)}) clips the map (${Math.round(map.x)},${Math.round(map.y)} ${Math.round(map.width)}x${Math.round(map.height)})`);
   });
-  await step("an introduced row shows the pair map and the open need box too (plan 055, decision 7)", async () => {
-    await page.waitForSelector("#pairMap-8:not([hidden]) .leaflet-popup .np-need");
+  await step("an introduced row's map is folded away, and Show map opens it with the need box (plan 055, decision 7; plan 106)", async () => {
+    await page.waitForSelector("#mapFold-8:not([hidden])");
+    eq(await page.locator("#mapOpen-8:not([hidden])").count(), 0, "the open map before it is asked for");
+    await page.click('#mapFold-8 [data-act="map-toggle"]');
+    await page.waitForSelector("#mapOpen-8:not([hidden]) #pairMap-8 .leaflet-popup .np-need");
     const pins = await page.$$eval("#pairMap-8 .np-pin", (els) => els.map((e) => e.textContent.trim()));
     eq(pins.sort(), ["Request", "You"], "the pins");
     has(await page.textContent("#pairMap-8 .np-need"), "What they need", "the box");
@@ -2877,6 +3493,13 @@ async function walkAccountAnswers() {
     eq(apiCalls(world, "GET /terms/current").length, 0, "terms read");
     await page.waitForFunction(() => document.querySelectorAll('[data-act="intro-accept-open"][data-intro="7"]').length === 0, null, { timeout: 5000 });
     has(await page.textContent("#introductions"), "The introduction is in your inbox", "the inbox line after accepting");
+    /* plan 106: the answer is a notice that fills the page; with no company from the worker it names nobody */
+    await page.waitForSelector("#approved:not([hidden]) .approved__box");
+    has(await page.textContent("#approved"), "Introduction approved", "the notice");
+    has(await page.textContent("#approved"), "You have both been introduced.", "the notice with no company named");
+    has(await page.textContent("#approved"), "Walk, please declare this introduction's orders on your hub account page each month", "the small print with no company named");
+    await page.click('#approved [data-act="approved-close"]');
+    await page.waitForSelector("#approved", { state: "hidden" });
   });
   await step("Decline opens a reason box; sending it posts the introduction and the reason", async () => {
     await page.click('[data-act="intro-decline-open"][data-intro="9"]');
@@ -2888,6 +3511,63 @@ async function walkAccountAnswers() {
   });
   clean(world, errors, "answering on the account page");
   await context.close();
+
+  /* Plan 104 (R7-18): a host whose listing is paused by the desk, or hidden
+     for an unpaid membership invoice, may not answer an open offer (the
+     worker refuses, by design). The page used to draw Accept and Decline all
+     the same. It now draws no button the worker would refuse, and says when
+     the offer can be answered. */
+  const introduced8 = intro(8, { stage: "introduced", accepted_a_at: "2026-10-07T10:00:00Z",
+    introduced_at: "2026-10-07T10:00:00Z", acceptance_expires_at: null });
+  const heldButtons = async (page) => [
+    await page.locator('#intro-7 [data-act="intro-accept-open"]').count(),
+    await page.locator('#intro-7 [data-act="intro-decline-open"]').count(),
+    await page.locator('#intro-7 [data-act="intro-resend"]').count(),
+  ];
+  {
+    const world = newWorld({ user: USER, terms: TERMS_STATE({ host: HELD(32) }),
+      summary: summary([intro(7), introduced8], [offer(7), offer(8)], { paused: true, paused_by_desk: true, hidden_unpaid: false }) });
+    const { context, page, errors } = await visit(world);
+    await step("a host paused by the desk is offered no Accept, Decline or Send the email again, and the row says when it can answer (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("#intro-7");
+      eq(await heldButtons(page), [0, 0, 0], "Accept, Decline and Send the email again in the row");
+      has(await page.textContent("#intro-7"), "You can answer this introduction once your listing is back on the hubs.", "the row");
+      const waiting = await page.textContent("#waiting");
+      has(waiting, "1 introduction is waiting for your answer. You can answer it once your listing is back on the hubs.", "Waiting on you");
+      eq(waiting.includes("Answer 1 introduction"), false, "the Answer action");
+      return eq(apiCalls(world, "POST /introductions/accept").length, 0, "accepts sent");
+    });
+    clean(world, errors, "the account page of a paused host with an offer waiting");
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER, terms: TERMS_STATE({ host: HELD(32) }),
+      summary: summary([introduced8], [offer(8)], { paused: true, paused_by_desk: true, hidden_unpaid: false }) });
+    const { context, page, errors } = await visit(world);
+    await step("a paused host with nothing waiting is not told its listing is live (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("#intro-8");
+      const waiting = await page.textContent("#waiting");
+      has(waiting, "Nothing waiting on you. Your listing is not showing on the hubs for now.", "Waiting on you");
+      return eq(waiting.includes("Your listing is live"), false, "the live line");
+    });
+    clean(world, errors, "the account page of a paused host with nothing waiting");
+    await context.close();
+  }
+  {
+    const world = newWorld({ user: USER, terms: TERMS_STATE({ host: HELD(32) }),
+      summary: summary([intro(7)], [offer(7)], { paused: true, paused_by_desk: false, hidden_unpaid: true, sub_status: "hidden" }) });
+    const { context, page, errors } = await visit(world);
+    await step("a host hidden for an unpaid membership invoice is offered no buttons either, with the same sentence (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector("#intro-7");
+      eq(await heldButtons(page), [0, 0, 0], "Accept, Decline and Send the email again in the row");
+      return has(await page.textContent("#intro-7"), "You can answer this introduction once your listing is back on the hubs.", "the row");
+    });
+    clean(world, errors, "the account page of a host hidden for an unpaid invoice");
+    await context.close();
+  }
 
   area = "The account page (sent to one introduction)";
   {
@@ -3495,131 +4175,47 @@ async function walkTerms() {
     await context.close();
   }
 
-  /* ── the Platform gate ── */
-  {
-    const world = termsWorld({ terms: TERMS_STATE({ platform: { id: 10, version: "1.9", accepted: false } }), summary: EMPTY_SUMMARY });
-    world.api["POST /terms/platform/accept"] = (w, req) => {
-      if (w.platformStale) { w.platformStale = false; return [422, { error: "stale_terms", layer: "platform" }]; }
-      w.terms = TERMS_STATE({ platform: HELD(req.body.terms_version_id) });
-      return [200, { ok: true }];
-    };
-    const { context, page, errors } = await visit(world);
-    await step("46 the Platform gate opens when accepted is false, with its words, the document and a copy", async () => {
-      await page.goto(`${APEX}/hub/account/`);
-      await page.waitForSelector("#npTermsGate [data-np-gate-tick]");
-      const text = await page.textContent("#npTermsGate");
-      has(text, "Our Platform Terms have changed", "the heading");
-      has(text, "Read the new version and accept it to carry on.", "the line");
-      has(text, DOC_WORDS.platform, "the document");
-      has(text, "I accept the Platform Terms, version 2.0", "the tick");
-      eq((await page.textContent("[data-np-gate-go]")).trim(), "Accept and continue", "the button");
-      eq(await page.getAttribute("#npTermsGate a.np-terms-dl", "href"), "https://api.nexpoint.co.uk/terms/platform/2.0.pdf", "Download a copy");
-      eq(await page.isDisabled("[data-np-gate-go]"), true, "the button before the tick");
-      await shot(page, "platform-gate");
-    });
-    await step("46 it cannot be closed but by accepting: not Escape, not a click outside, not the page's closeAll", async () => {
-      await page.keyboard.press("Escape");
-      await page.mouse.click(5, 5);
-      await page.evaluate(() => { if (window.closeAll) window.closeAll(); });
-      await page.waitForTimeout(100);
-      eq(await page.locator("#npTermsGate").isVisible(), true, "the gate");
-      eq(apiCalls(world, "POST /terms/platform/accept").length, 0, "accepts sent");
-      for (let n = 0; n < 8; n += 1) await page.keyboard.press("Tab");
-      eq(await page.evaluate(() => !!document.activeElement.closest("#npTermsGate")), true, "the keyboard stays inside");
-    });
-    await step("57 at 375 pixels wide the Platform gate has no sideways scroll and its button can be reached", async () => {
-      await phone(page);
-      await noSideways(page, "the Platform gate");
-      const box = await page.evaluate(() => {
-        const r = document.querySelector("#npTermsGate .np-gate__box").getBoundingClientRect();
-        return { left: r.left, right: r.right };
-      });
-      eq(box.left >= 0 && box.right <= 375, true, "the box inside the window");
-      await page.locator("[data-np-gate-go]").scrollIntoViewIfNeeded();
-      eq(await page.locator("[data-np-gate-go]").isVisible(), true, "the button");
-      await page.setViewportSize({ width: 1280, height: 900 });
-    });
-    await step("46 a version that moved on while it was open draws the new words, unticked, and says why", async () => {
-      world.platformStale = true;
-      await page.check("[data-np-gate-tick]");
-      await page.click("[data-np-gate-go]");
-      await page.waitForFunction(() => /The Platform Terms have been updated/.test(document.getElementById("npTermsGate").textContent));
-      eq(await page.isChecked("[data-np-gate-tick]"), false, "the tick");
-    });
-    await step("46 accepting posts the version, closes the gate, and the next page does not ask", async () => {
-      await page.check("[data-np-gate-tick]");
-      const summaries = apiCalls(world, "GET /account/summary").length;
-      await page.click("[data-np-gate-go]");
-      await until(() => apiCalls(world, "POST /terms/platform/accept").length === 2, "the accept");
-      eq(apiCalls(world, "POST /terms/platform/accept")[1].body, { terms_version_id: TERMS_ID.platform }, "the body");
-      await page.waitForFunction(() => !document.getElementById("npTermsGate"));
-      await until(() => apiCalls(world, "GET /account/summary").length > summaries, "the account page drawing again");
-      await page.reload();
-      await page.waitForSelector("body[data-np-open]");
-      await settled(page);
-      eq(await page.locator("#npTermsGate").count(), 0, "the gate on the next page");
-    });
-    clean(world, errors, "the Platform gate");
-    await context.close();
-  }
-  for (const [what, over] of [
-    ["terms: null", { terms: null }],
-    ["a closed account", { closed: { at: "2026-10-22T09:00:00Z" } }],
-    ["an account holding the version", { terms: TERMS_STATE() }],
+  /* ── no pop-up for a new version of the Platform Terms ──
+     Will, 12 November 2026: the Platform Terms are accepted when an account is
+     made or joined, and nowhere else. An account that holds an older version
+     is not stopped by a pop-up on any page, and nothing reads the document or
+     sends an acceptance by itself. */
+  for (const [what, address, ready] of [
+    ["the account page", `${APEX}/hub/account/`, "body[data-np-open]"],
+    ["the main site", `${APEX}/`, null],
   ]) {
-    const world = termsWorld(Object.assign({ summary: EMPTY_SUMMARY,
-      terms: TERMS_STATE({ platform: { id: 10, version: "1.9", accepted: false } }) }, over));
+    const world = termsWorld({ terms: TERMS_STATE({ platform: { id: 10, version: "1.9", accepted: false } }), summary: EMPTY_SUMMARY });
     const { context, page, errors } = await visit(world);
-    await step(`46 ${what} sees no Platform gate`, async () => {
-      await page.goto(`${APEX}/hub/account/`);
-      await page.waitForSelector("body[data-np-open]");
+    await step(`an account holding an older Platform version sees no pop-up on ${what}`, async () => {
+      await page.goto(address);
+      if (ready) await page.waitForSelector(ready);
+      await page.waitForFunction(() => window.NPAccount && NPAccount.ready);
+      await page.evaluate(() => NPAccount.ready);
       await settled(page);
-      eq(await page.locator("#npTermsGate").count(), 0, "the gate");
+      await page.waitForTimeout(300);
+      eq(await page.locator("#npTermsGate").count(), 0, "the pop-up");
+      eq(await page.evaluate(() => document.documentElement.style.overflow), "", "the page still scrolls");
+      eq(apiCalls(world, "GET /terms/current").filter((c) => c.query.layer === "platform").length, 0, "reads of the Platform Terms");
+      eq(apiCalls(world, "POST /terms/platform/accept").length, 0, "accepts sent");
     });
-    clean(world, errors, `no Platform gate for ${what}`);
-    await context.close();
-  }
-  {
-    const world = termsWorld({ terms: TERMS_STATE({ platform: { id: 10, version: "1.9", accepted: false } }) });
-    world.api["GET /terms/current"] = (w, req) => (req.query.layer === "platform" ? [500, { error: "http_500" }] : docTerms(w, req));
-    const { context, page, errors } = await visit(world);
-    await step("words that cannot be read do not trap anybody: no gate until they can be", async () => {
-      await page.goto(`${APEX}/`);
-      await until(() => apiCalls(world, "GET /terms/current").length > 0, "the read");
-      await settled(page);
-      eq(await page.locator("#npTermsGate").count(), 0, "the gate");
-    });
-    clean(world, errors, "Platform Terms that cannot be read");
-    await context.close();
-  }
-  {
-    const world = termsWorld({ terms: TERMS_STATE({ platform: { id: 10, version: "1.9", accepted: false } }) });
-    const { context, page, errors } = await visit(world);
-    await step("the main site, which has no portal.css, shows the same gate, styled", async () => {
-      await page.goto(`${APEX}/`);
-      await page.waitForSelector("#npTermsGate [data-np-gate-tick]");
-      const look = await page.evaluate(() => ({
-        position: getComputedStyle(document.getElementById("npTermsGate")).position,
-        bg: getComputedStyle(document.querySelector("#npTermsGate .np-gate__box")).backgroundColor,
-        scroll: getComputedStyle(document.querySelector("#npTermsGate .terms-scroll")).overflowY,
-      }));
-      eq(look, { position: "fixed", bg: "rgb(255, 255, 255)", scroll: "auto" }, "the gate's own styles");
-    });
-    clean(world, errors, "the Platform gate on the main site");
+    clean(world, errors, `no Platform pop-up on ${what}`);
     await context.close();
   }
   {
     const world = termsWorld({ user: null, terms: TERMS_STATE({ platform: { id: 10, version: "1.9", accepted: false } }) });
     const { context, page, errors } = await visit(world);
-    await step("signing in reads the terms again, so the Platform gate opens on the page the sign-in was made on", async () => {
+    await step("signing in with an older Platform version opens no pop-up either", async () => {
       await page.goto(`${APEX}/hub/`);
       await page.waitForFunction(() => window.NPAccount && NPAccount.ready);
       await page.evaluate(() => NPAccount.ready);
-      eq(await page.locator("#npTermsGate").count(), 0, "the gate while signed out");
       await page.evaluate(([e, p]) => NPAccount.signIn(e, p), [USER.email, PASSWORD]);
-      await page.waitForSelector("#npTermsGate [data-np-gate-tick]");
+      await until(() => apiCalls(world, "GET /auth/me").length > 1, "the terms read after the sign-in");
+      await settled(page);
+      await page.waitForTimeout(300);
+      eq(await page.locator("#npTermsGate").count(), 0, "the pop-up");
+      eq(apiCalls(world, "POST /terms/platform/accept").length, 0, "accepts sent");
     });
-    clean(world, errors, "the Platform gate after a sign-in");
+    clean(world, errors, "no Platform pop-up after a sign-in");
     await context.close();
   }
 
@@ -3955,18 +4551,44 @@ async function walkTerms() {
     const world = termsWorld({ summary: Object.assign({}, EMPTY_SUMMARY, hostOrg, { declarations: decl }) });
     world.api["POST /declarations"] = () => [200, { ok: true }];
     const { context, page, errors } = await visit(world);
-    await step("31 a declaration by a seller holding nothing shows the Host Agreement, and the tick goes with it, nil return or not", async () => {
+    /* Plan 098: an untouched form is not a nil return. The row is answered
+       first, then the Host Agreement, then a month with no orders asks once
+       more; only the confirm press sends it. */
+    await step("31 a declaration by a seller holding nothing shows the Host Agreement; an untouched form sends nothing; a nil return is asked once more, and the tick goes with it", async () => {
       await page.goto(`${APEX}/hub/account/`);
       await page.waitForSelector("#declTerms [data-np-terms-tick]");
       has(await page.textContent("#declTerms"), DOC_WORDS.host, "the document");
+      has(await page.textContent("#declarations .acct-card"), "One line per introduction. Enter what came through, or tick Nothing where no orders came through. Every introduction needs one or the other.", "the hint");
+      // Plan 104 (R7-16): what to do about a currency the form does not offer.
+      has(await page.textContent("#declarations .acct-card"), "If you invoiced in any currency that is not on the list, email hello@nexpoint.co.uk before you send this declaration.", "the line about another currency");
       await shot(page, "declaration-host-agreement", "#declTerms");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /Answer INTRO-0007/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "Answer INTRO-0007: enter a value, or tick Nothing if no orders came through.", "the blank row's words");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.id), "decl-2026-10-7-value", "the focus");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations from an untouched form");
+      await page.check("#decl-2026-10-7-nothing");
       await page.click('[data-act="decl-submit"]');
       await page.waitForFunction(() => /tick to accept it/.test(document.getElementById("declMsg-2026-10").textContent));
       eq(apiCalls(world, "POST /declarations").length, 0, "declarations unticked");
       await page.check("#declTerms [data-np-terms-tick]");
       await page.click('[data-act="decl-submit"]');
+      await page.waitForSelector("#declNil-2026-10:not([hidden])");
+      eq(await page.textContent("#declMsg-2026-10"), "You are declaring that no orders came through any of your 3D Print Hub introductions in October 2026. Your declaration is the record. Confirm it, or go back and enter what came through.", "the question");
+      eq((await page.textContent('#declNil-2026-10 [data-act="decl-nil-confirm"]')).trim(), "Confirm no orders on the 3D Print Hub in October 2026", "the confirm button");
+      eq((await page.textContent('#declNil-2026-10 [data-act="decl-nil-back"]')).trim(), "Go back to the form", "the way back");
+      eq(await page.isVisible("#declSubmit-2026-10"), false, "the Send button while the question shows");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations before the nil return is confirmed");
+      await shot(page, "declaration-nil-question", "#declarations");
+      await page.click('[data-act="decl-nil-confirm"]');
       await until(() => apiCalls(world, "POST /declarations").length === 1, "the declaration");
-      eq(apiCalls(world, "POST /declarations")[0].body.terms_version_id, TERMS_ID.host, "the version");
+      const sent = apiCalls(world, "POST /declarations")[0].body;
+      eq(sent.terms_version_id, TERMS_ID.host, "the version");
+      eq(sent.nothing_this_month, true, "the nil flag");
+      eq(sent.lines, [], "the lines");
+      eq(sent.nothing_for, [7], "the introductions ticked Nothing");
+      await page.waitForFunction(() => /^Sent\./.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "Sent. No orders declared on the 3D Print Hub for October 2026.", "the words after a nil return");
     });
     clean(world, errors, "a declaration while holding nothing");
     await context.close();
@@ -3976,16 +4598,151 @@ async function walkTerms() {
     const world = termsWorld({ terms: TERMS_STATE({ host: HELD(TERMS_ID.host) }), summary: Object.assign({}, EMPTY_SUMMARY, hostOrg, { declarations: decl }) });
     world.api["POST /declarations"] = () => [200, { ok: true }];
     const { context, page, errors } = await visit(world);
-    await step("a declaration by a host holding the version shows no block and sends no version", async () => {
+    /* Plan 104 (R7-25): the worker refuses a decimal in Units with a code the
+       page had no words for. The page now refuses it first, in words, and
+       sends nothing. The step after this one opens the page afresh. */
+    await step("a decimal in Units is refused on the page in words, the focus goes to the Units box, and nothing is sent (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector('[data-act="decl-submit"]');
+      await settled(page);
+      await page.fill("#decl-2026-10-7-units", "1.5");
+      await page.fill("#decl-2026-10-7-value", "120");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /Enter Units/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "Enter Units for INTRO-0007 as a whole number, such as 12, or leave Units empty.", "the words for a decimal in Units");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.id), "decl-2026-10-7-units", "the focus");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations sent");
+    });
+    await step("a declaration by a host holding the version shows no block and sends no version; a value goes on the first press", async () => {
       await page.goto(`${APEX}/hub/account/`);
       await page.waitForSelector('[data-act="decl-submit"]');
       await settled(page);
       eq(await page.locator("#declTerms .terms-scroll, #declTerms [data-np-terms-tick]").count(), 0, "a terms block");
+      eq(await page.locator('[data-act="decl-keep"]').count(), 0, "Keep what I sent on a month not yet sent");
+      await page.fill("#decl-2026-10-7-value", "120");
       await page.click('[data-act="decl-submit"]');
       await until(() => apiCalls(world, "POST /declarations").length === 1, "the declaration");
-      eq("terms_version_id" in apiCalls(world, "POST /declarations")[0].body, false, "a version");
+      const sent = apiCalls(world, "POST /declarations")[0].body;
+      eq("terms_version_id" in sent, false, "a version");
+      eq(sent.nothing_this_month, false, "the nil flag");
+      eq(sent.lines, [{ introduction_id: 7, units: null, value: 120, currency: "GBP" }], "the lines");
+      eq(sent.nothing_for, [], "the introductions ticked Nothing");
+      await page.waitForFunction(() => /^Sent\./.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "Sent. Thank you.", "the words after a declaration with lines");
     });
     clean(world, errors, "a declaration while holding the version");
+    await context.close();
+  }
+  {
+    /* Plan 098: the way back from the nil-return question, and a row that
+       carries both figures and a Nothing tick. */
+    /* On the Mill Hub, so the nil-return words are seen naming the other hub. */
+    const decl = { due_state: "due", period_open: "2026-10", hub: "mill", history: [], items: [{ introduction_id: 7, ref: "INTRO-0007" }] };
+    const world = termsWorld({ terms: TERMS_STATE({ host: HELD(TERMS_ID.host) }), summary: Object.assign({}, EMPTY_SUMMARY, hostOrg, { declarations: decl }) });
+    world.api["POST /declarations"] = () => [200, { ok: true }];
+    const { context, page, errors } = await visit(world);
+    await step("a nil return can be stepped back from: Go back to the form returns the Send button and sends nothing; figures beside a Nothing tick are refused; the value then goes as a line", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector('[data-act="decl-submit"]');
+      await settled(page);
+      await page.check("#decl-2026-10-7-nothing");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForSelector("#declNil-2026-10:not([hidden])");
+      eq(await page.textContent("#declMsg-2026-10"), "You are declaring that no orders came through any of your Mill Hub introductions in October 2026. Your declaration is the record. Confirm it, or go back and enter what came through.", "the question on the Mill Hub");
+      eq((await page.textContent('#declNil-2026-10 [data-act="decl-nil-confirm"]')).trim(), "Confirm no orders on the Mill Hub in October 2026", "the confirm button on the Mill Hub");
+      eq(await page.isVisible("#declSubmit-2026-10"), false, "the Send button while the question shows");
+      await page.click('[data-act="decl-nil-back"]');
+      await page.waitForSelector("#declSend-2026-10:not([hidden])");
+      eq(await page.isVisible("#declSubmit-2026-10"), true, "the Send button after going back");
+      eq(await page.isVisible("#declNil-2026-10"), false, "the confirm buttons after going back");
+      eq(await page.isVisible("#declMsg-2026-10"), false, "the question after going back");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations after going back");
+      await page.fill("#decl-2026-10-7-value", "250");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /Nothing tick/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "INTRO-0007 has figures and a Nothing tick. Clear the figures or untick Nothing.", "the words for figures beside a tick");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations with figures beside a tick");
+      await page.uncheck("#decl-2026-10-7-nothing");
+      await page.click('[data-act="decl-submit"]');
+      await until(() => apiCalls(world, "POST /declarations").length === 1, "the declaration");
+      const sent = apiCalls(world, "POST /declarations")[0].body;
+      eq(sent.nothing_this_month, false, "the nil flag");
+      eq(sent.hub, "mill", "the hub");
+      eq(sent.lines, [{ introduction_id: 7, units: null, value: 250, currency: "GBP" }], "the lines");
+      eq(sent.nothing_for, [], "the introductions ticked Nothing");
+    });
+    clean(world, errors, "a nil return stepped back from");
+    await context.close();
+  }
+  {
+    /* Plan 098, decision 4: a sent declaration can be changed. The form opens
+       empty under a note that says what a second send does. */
+    const decl = { due_state: "submitted", period_open: "2026-10", hub: "print", history: [{ period: "2026-10", hub: "print", status: "nothing", submitted_at: "2026-11-02T09:00:00Z" }],
+      items: [{ introduction_id: 7, ref: "INTRO-0007", seeker_town: "Bristol", seeker_country: "United Kingdom" }] };
+    const world = termsWorld({ terms: TERMS_STATE({ host: HELD(TERMS_ID.host) }), summary: Object.assign({}, EMPTY_SUMMARY, hostOrg, { declarations: decl }) });
+    world.api["POST /declarations"] = () => [200, { ok: true }];
+    const { context, page, errors } = await visit(world);
+    await step("a sent declaration offers Change this declaration; the form opens empty with the replace note, and what is sent replaces the month", async () => {
+      await page.goto(`${APEX}/hub/account/`);
+      await page.waitForSelector('[data-act="decl-change"]');
+      await settled(page);
+      has(await page.textContent("#declarations"), "Declared for October 2026. Nothing else to send.", "the sent line");
+      eq((await page.textContent('[data-act="decl-change"]')).trim(), "Change this declaration", "the button");
+      eq(await page.locator('[data-act="decl-submit"]').count(), 0, "a form before it is asked for");
+      await shot(page, "declaration-sent-change", "#declarations");
+      await page.click('[data-act="decl-change"]');
+      await page.waitForSelector('[data-act="decl-submit"]');
+      const text = await page.textContent("#declarations");
+      has(text, "You are changing your declaration for October 2026. What you send now replaces what you sent before, so answer every introduction again.", "the replace note");
+      eq(/Open now|Overdue|sent a reminder/.test(text), false, "a due line on a month that is being changed");
+      eq(await page.inputValue("#decl-2026-10-7-value"), "", "the value the form opens with");
+      eq(await page.isChecked("#decl-2026-10-7-nothing"), false, "the Nothing tick the form opens with");
+      eq((await page.textContent('#declSend-2026-10 [data-act="decl-keep"]')).trim(), "Keep what I sent", "the way back");
+      await shot(page, "declaration-being-changed", "#declarations");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /Answer INTRO-0007/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations from the empty reopened form");
+      await page.fill("#decl-2026-10-7-units", "4");
+      await page.fill("#decl-2026-10-7-value", "980.50");
+      await page.click('[data-act="decl-submit"]');
+      await until(() => apiCalls(world, "POST /declarations").length === 1, "the changed declaration");
+      const sent = apiCalls(world, "POST /declarations")[0].body;
+      eq(sent.period, "2026-10", "the month");
+      eq(sent.nothing_this_month, false, "the nil flag");
+      eq(sent.lines, [{ introduction_id: 7, units: 4, value: 980.5, currency: "GBP" }], "the lines");
+      eq(sent.nothing_for, [], "the introductions ticked Nothing");
+      await page.waitForFunction(() => /^Sent\./.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "Sent. Your declaration for October 2026 has been replaced.", "the words after a change");
+      /* The page reloads the summary: the sent line and the button return. */
+      await page.waitForSelector('[data-act="decl-change"]');
+      eq(await page.locator('[data-act="decl-submit"]').count(), 0, "a form after the change is sent");
+    });
+    await step("a month already on a statement says so when a change is sent, and keeps the form", async () => {
+      world.api["POST /declarations"] = () => [409, { error: "statement_issued" }];
+      await page.click('[data-act="decl-change"]');
+      await page.waitForSelector('[data-act="decl-submit"]');
+      await page.fill("#decl-2026-10-7-value", "50");
+      await page.click('[data-act="decl-submit"]');
+      await page.waitForFunction(() => /already on a statement/.test(document.getElementById("declMsg-2026-10").textContent));
+      eq(await page.textContent("#declMsg-2026-10"), "That month is already on a statement and cannot be changed. Email hello@nexpoint.co.uk if something is wrong.", "the refusal");
+      eq(await page.inputValue("#decl-2026-10-7-value"), "50", "the value after the refusal");
+    });
+    await step("Keep what I sent leaves a reopened form, after a refusal too, sends nothing, and the sent line returns", async () => {
+      const before = apiCalls(world, "POST /declarations").length;
+      await page.click('[data-act="decl-keep"]');
+      await page.waitForSelector('[data-act="decl-change"]');
+      has(await page.textContent("#declarations"), "Declared for October 2026. Nothing else to send.", "the sent line");
+      eq(await page.locator('[data-act="decl-submit"], [data-act="decl-keep"]').count(), 0, "a form after Keep what I sent");
+      eq(apiCalls(world, "POST /declarations").length, before, "declarations from Keep what I sent");
+      /* And straight back without a send: Change, then Keep. */
+      await page.click('[data-act="decl-change"]');
+      await page.waitForSelector('[data-act="decl-keep"]');
+      await page.click('[data-act="decl-keep"]');
+      await page.waitForSelector('[data-act="decl-change"]');
+      eq(await page.locator('[data-act="decl-submit"]').count(), 0, "a form after Change then Keep");
+      eq(apiCalls(world, "POST /declarations").length, before, "declarations from Change then Keep");
+    });
+    clean(world, errors, "changing a sent declaration");
     await context.close();
   }
   {
@@ -4235,22 +4992,331 @@ async function walkLandings() {
     const world = newWorld();
     const { context, page, errors } = await visit(world);
     const back = `${PRINT}/find.html`;
-    await step("a confirmation link confirms, and offers the way back to where they were", async () => {
+    /* Plan 093 (14 November 2026): the link opens a page that asks for the
+       password, and nothing is posted until the button is pressed. The
+       password a new account has is the one typed here, by the person who
+       opened the link. */
+    const errLine = async (needle) => {
+      await page.waitForFunction((n) => (document.getElementById("formErr") || {}).textContent.includes(n), needle);
+      return true;
+    };
+    await step("a confirmation link asks for a password, and posts nothing until the button is pressed", async () => {
       await page.goto(`${APEX}/hub/confirm.html?t=walk-token&type=signup&return=${encodeURIComponent(back)}`);
+      await page.waitForSelector("#setBtn");
+      has(await page.textContent("#confirmBody h1"), "Choose your password.", "the heading");
+      has(await page.textContent("#confirmBody"), "You are one step from your hub account. Choose a password of at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol. We then confirm your email and sign you in on this device.", "the line");
+      has(await page.textContent("#setBtn"), "Confirm and sign in", "the button");
+      eq([await page.getAttribute("#pass1", "minlength"), await page.getAttribute("#pass2", "minlength")], ["8", "8"], "the two boxes' minimum");
+      await page.waitForTimeout(300);
+      return eq(apiCalls(world, "POST /auth/confirm").length, 0, "confirmations sent on opening the link");
+    });
+    await step("the eye shows the password and hides it again (plan 046)", async () => {
+      await page.fill("#pass1", "Walk-1!");
+      eq(await page.getAttribute("#pass1", "type"), "password", "before the eye");
+      await page.click("#confirmBody .field:has(#pass1) .np-eye__btn");
+      eq(await page.getAttribute("#pass1", "type"), "text", "after one press");
+      eq(await page.getAttribute("#confirmBody .field:has(#pass1) .np-eye__btn", "aria-pressed"), "true", "the eye's state");
+      await page.click("#confirmBody .field:has(#pass1) .np-eye__btn");
+      eq(await page.getAttribute("#pass1", "type"), "password", "after the second press");
+      return eq(await page.locator("#confirmBody .np-eye__btn").count(), 2, "eyes on the page");
+    });
+    await step("seven characters, or two passwords that differ, post nothing and say why", async () => {
+      await page.fill("#pass2", "Walk-1!");
+      await page.click("#setBtn");
+      await errLine("Use at least 8 characters.");
+      await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD + "x");
+      await page.click("#setBtn");
+      await errLine("The two passwords do not match.");
+      await page.fill("#pass1", "a".repeat(73)); await page.fill("#pass2", "a".repeat(73));
+      await page.click("#setBtn");
+      await errLine("Use 72 characters or fewer.");
+      return eq(apiCalls(world, "POST /auth/confirm").length, 0, "confirmations sent");
+    });
+    /* The live rule (plan 093, 14 November 2026): each missing kind is named
+       on the page, the first one missing, and nothing is sent. */
+    await step("a password with no symbol, no capital, no number or no lower-case letter is refused on the page, and nothing is sent", async () => {
+      for (const [pw, line] of [["Walkpassword1", "Add a symbol."], ["walk-password-1", "Add a capital letter."],
+        ["Walk-password", "Add a number."], ["WALK-PASSWORD-1", "Add a lower-case letter."]]) {
+        await page.fill("#pass1", pw); await page.fill("#pass2", pw);
+        await page.click("#setBtn");
+        await errLine(line);
+        eq((await page.textContent("#formErr")).trim(), line, `the line for ${pw}`);
+      }
+      return eq(apiCalls(world, "POST /auth/confirm").length, 0, "confirmations sent");
+    });
+    await step("a good pair, with all four kinds, posts the link with the password once, confirms, and offers the way back", async () => {
+      await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
+      await page.click("#setBtn");
       await page.waitForSelector("text=You're confirmed.");
-      eq(apiCalls(world, "POST /auth/confirm").map((c) => c.body), [{ token_hash: "walk-token", type: "signup" }], "confirmations sent");
+      eq(apiCalls(world, "POST /auth/confirm").map((c) => c.body), [{ token_hash: "walk-token", type: "signup", password: PASSWORD }], "confirmations sent");
       eq(await page.getAttribute("a.btn.yes", "href"), back, "the way back");
     });
     clean(world, errors, "the confirmation page");
     await context.close();
   }
+  /* The rest of the confirmation page's answers (plan 093). Each opens the
+     link, types a good pair and presses the button. */
+  const openAndPress = async (page, query = "") => {
+    await page.goto(`${APEX}/hub/confirm.html?t=walk-token&type=signup${query}`);
+    await page.waitForSelector("#setBtn");
+    await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
+    await page.click("#setBtn");
+  };
+  const errShows = (page, needle) =>
+    page.waitForFunction((n) => (document.getElementById("formErr") || {}).textContent.includes(n), needle);
   {
     const world = newWorld();
     const { context, page } = await visit(world);
     await step("a confirmation link with a return address on localhost offers the account page only", async () => {
-      await page.goto(`${APEX}/hub/confirm.html?t=walk-token&type=signup&return=${encodeURIComponent("http://localhost:8080/anything")}`);
+      await openAndPress(page, `&return=${encodeURIComponent("http://localhost:8080/anything")}`);
       await page.waitForSelector("text=You're confirmed.");
       eq(await page.locator('a[href*="localhost"]').count(), 0, "links to localhost");
+    });
+    await context.close();
+  }
+  {
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = () => [422, { error: "password_too_short" }];
+    const { context, page, errors } = await visit(world);
+    await step("a password the worker finds too short is said, and the link is posted again on the next press", async () => {
+      await openAndPress(page);
+      await errShows(page, "Use at least 8 characters.");
+      eq(await page.isDisabled("#setBtn"), false, "the button afterwards");
+      delete world.api["POST /auth/confirm"];
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      const sent = apiCalls(world, "POST /auth/confirm").map((c) => c.body);
+      eq(sent.length, 2, "confirmations sent");
+      return eq(sent[1], { token_hash: "walk-token", type: "signup", password: PASSWORD }, "the second post");
+    });
+    clean(world, errors, "the confirmation page, a password too short");
+    await context.close();
+  }
+  {
+    /* The worker checks the rule too, before the link is spent (a page a
+       browser kept from before the rule changed). Its refusal shows the
+       rule's full sentence, and the next press posts the link again. */
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = () => [422, { error: "password_needs_each_kind" }];
+    const { context, page, errors } = await visit(world);
+    await step("the worker's password_needs_each_kind shows the rule, and the link is posted again on the next press", async () => {
+      await openAndPress(page);
+      await errShows(page, "Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.");
+      delete world.api["POST /auth/confirm"];
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      return eq(apiCalls(world, "POST /auth/confirm").length, 2, "confirmations sent");
+    });
+    clean(world, errors, "the confirmation page, the worker's rule");
+    await context.close();
+  }
+  {
+    /* The address is confirmed and the device signed in, but the sign-in
+       service refused the password: the link is spent, so the next press
+       goes up on the session alone, to the reset route. */
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = (w) => { w.user = USER; return [422, { error: "weak_password",
+      detail: "Password should contain at least one character of each: abc, ABC, 123.", confirmed: true, member: USER, return_to: null }]; };
+    world.api["POST /auth/reset-confirm"] = () => [200, { ok: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    await step("a password the sign-in service refuses for its characters is named in our words, and the button comes back", async () => {
+      await openAndPress(page);
+      await errShows(page, "That password does not meet the rules for hub passwords. Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.");
+      eq((await page.textContent("#formErr")).includes("abc, ABC"), false, "the sign-in service's list of characters");
+      eq(await page.isDisabled("#setBtn"), false, "the button afterwards");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session so far");
+    });
+    await step("the next press sends the new password on the session alone, and ends on You're confirmed", async () => {
+      await page.fill("#pass1", "Walk-password-2"); await page.fill("#pass2", "Walk-password-2");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ password: "Walk-password-2" }], "the retry");
+      eq(apiCalls(world, "POST /auth/confirm").length, 1, "times the link was posted");
+      return has(await page.textContent("#confirmBody"), USER.email, "the account named");
+    });
+    clean(world, errors, "the confirmation page, a refused password");
+    await context.close();
+  }
+  {
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = (w) => { w.user = USER; return [502, { error: "password_not_set", confirmed: true, member: USER, return_to: null }]; };
+    world.api["POST /auth/reset-confirm"] = () => [400, { error: "weak_password", detail: "Password should be at least 14 characters." }];
+    const { context, page, errors } = await visit(world);
+    await step("a password that did not save says the email is confirmed and asks for another try", async () => {
+      await openAndPress(page);
+      await errShows(page, "Your email is confirmed, but the password did not save. Try again.");
+      return eq(await page.isDisabled("#setBtn"), false, "the button afterwards");
+    });
+    await step("a retry the sign-in service refuses shows the rules line again", async () => {
+      await page.click("#setBtn");
+      await errShows(page, "That password does not meet the rules for hub passwords. Password should be at least 14 characters.");
+      return eq(await page.isDisabled("#setBtn"), false, "the button afterwards");
+    });
+    await step("a retry after the fifteen minutes points to Forgotten your password, with the way to sign in", async () => {
+      world.api["POST /auth/reset-confirm"] = () => [400, { error: "current_password_required" }];
+      await page.click("#setBtn");
+      await page.waitForSelector("text=Your email is confirmed.");
+      has(await page.textContent("#confirmBody"), "To choose your password, use Forgotten your password on the sign-in box.", "the line");
+      eq(await page.locator("#setBtn").count(), 0, "the form");
+      return has(await page.getAttribute("#confirmBody a.btn.yes", "href"), "/hub/?signin=1", "the Sign in link");
+    });
+    clean(world, errors, "the confirmation page, a password that did not save");
+    await context.close();
+  }
+  {
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = () => [401, { error: "invalid_or_expired" }];
+    const { context, page, errors } = await visit(world);
+    await step("a link already used or expired says so once the button is pressed, with both ways on", async () => {
+      await openAndPress(page);
+      await page.waitForSelector("text=This link has been used or has expired.");
+      eq(await page.locator("#needLink").count(), 1, "the way to a new link");
+      return has(await page.getAttribute("#confirmBody a.btn.yes", "href"), "/hub/?signin=1", "the Sign in link");
+    });
+    await step("the resend from there says what is true whether or not a link went", async () => {
+      await page.click("#needLink");
+      await page.fill("#resendEmail", "walk@example.com");
+      await page.click("#resendBtn");
+      await page.waitForSelector("text=Check your inbox");
+      eq(apiCalls(world, "POST /auth/resend-confirmation").map((c) => c.body), [{ email: "walk@example.com" }], "the resend");
+      return has(await page.textContent("#confirmBody"),
+        "If that address still needs confirming, a fresh link is on its way; if one was sent in the last two minutes, use that one. If it is already confirmed, sign in instead.", "the line");
+    });
+    clean(world, errors, "the confirmation page, a used link");
+    await context.close();
+  }
+  {
+    /* Plan 093 review: a link opened a second time on a device that the
+       first open signed in. The form is shown, a password is typed, and the
+       link comes back refused: that password went nowhere, and the page says
+       so rather than "You're confirmed" alone. */
+    const world = newWorld();
+    world.api["POST /auth/confirm"] = () => [401, { error: "invalid_or_expired" }];
+    world.api["GET /auth/me"] = () => [200, { ok: true, signed_in: true, confirmed: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    await step("a link already used on a signed-in device says the password just typed was not saved", async () => {
+      await openAndPress(page);
+      await page.waitForSelector("text=You're confirmed.");
+      has(await page.textContent("#confirmBody"),
+        "This link was already used, so the password you typed just now was not saved. If you need a new one, use Forgotten your password on the sign-in box.", "the line");
+      eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session");
+      return has(await page.textContent("#confirmBody"), USER.email, "the account named");
+    });
+    clean(world, errors, "the confirmation page, a link used on this device");
+    await context.close();
+  }
+  /* The first press reached the worker and its answer was lost: the address
+     is confirmed and the device signed in, but the page never heard. The
+     second press finds the link spent. The worker signs the device in only
+     once the link has been posted, so /auth/me says nobody until then. */
+  const signedInOnceConfirmed = (who = USER) => (w) =>
+    (apiCalls(w, "POST /auth/confirm").length
+      ? [200, { ok: true, signed_in: true, confirmed: true, member: who }]
+      : [200, { ok: true, signed_in: false }]);
+  const lostAnswerWorld = (resetAnswer) => {
+    const world = newWorld();
+    world.dropOnce = new Set(["POST /auth/confirm"]);
+    world.api["POST /auth/confirm"] = () => [401, { error: "invalid_or_expired" }];
+    world.api["GET /auth/me"] = signedInOnceConfirmed();
+    world.api["POST /auth/reset-confirm"] = resetAnswer;
+    return world;
+  };
+  {
+    const world = lostAnswerWorld(() => [200, { ok: true, member: USER }]);
+    const { context, page } = await visit(world);
+    await step("a press whose answer was lost: the next press sets the password on the session and ends on You're confirmed", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send. Check your connection and try again.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/confirm").length, 2, "times the link was posted");
+      eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ password: PASSWORD }], "the password sent on the session");
+      return eq((await page.textContent("#confirmBody")).includes("If your password does not work next time"), false, "the caution line");
+    });
+    await context.close();
+  }
+  {
+    const world = lostAnswerWorld(() => [400, { error: "current_password_required" }]);
+    const { context, page } = await visit(world);
+    await step("and when that last send is refused, it says where to choose a password next time", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/reset-confirm").length, 1, "passwords sent on the session");
+      return has(await page.textContent("#confirmBody"), "If your password does not work next time, use Forgotten your password on the sign-in box.", "the caution line");
+    });
+    await context.close();
+  }
+  /* Plan 093 review: a device already signed in to an account when the link
+     was opened must never have that account's password changed by the
+     retry. Who was signed in is read once, before the form is shown. */
+  {
+    const world = lostAnswerWorld(() => [200, { ok: true, member: USER }]);
+    world.api["GET /auth/me"] = () => [200, { ok: true, signed_in: true, confirmed: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    await step("a device signed in as the same account at load sends no password on the session, and says where to choose one", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/confirm").length, 2, "times the link was posted");
+      eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session");
+      return has(await page.textContent("#confirmBody"), "If your password does not work next time, use Forgotten your password on the sign-in box.", "the caution line");
+    });
+    /* The browser's own line for the press the walk dropped on purpose is
+       left out; anything the page itself threw still counts. */
+    clean(world, errors.filter((e) => !/net::ERR_FAILED/.test(e)), "the confirmation page, signed in at load");
+    await context.close();
+  }
+  {
+    /* Signed in as another account at load; the lost press then signed the
+       device in as the link's own address, so the retry is this page's. */
+    const OTHER = Object.assign({}, USER, { email: "other.member@example.com", name: "Other Member" });
+    const world = lostAnswerWorld(() => [200, { ok: true, member: USER }]);
+    world.api["GET /auth/me"] = (w) => (apiCalls(w, "POST /auth/confirm").length
+      ? [200, { ok: true, signed_in: true, confirmed: true, member: USER }]
+      : [200, { ok: true, signed_in: true, confirmed: true, member: OTHER }]);
+    const { context, page } = await visit(world);
+    await step("a device signed in as another account at load still finishes the link's own account", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ password: PASSWORD }], "the password sent on the session");
+    });
+    await context.close();
+  }
+  {
+    /* Signed in as another account at load, and the first press never
+       reached the worker: the session is still that other account's, so
+       nothing is sent on it. */
+    const OTHER = Object.assign({}, USER, { email: "other.member@example.com", name: "Other Member" });
+    const world = lostAnswerWorld(() => [200, { ok: true, member: OTHER }]);
+    world.api["GET /auth/me"] = () => [200, { ok: true, signed_in: true, confirmed: true, member: OTHER }];
+    const { context, page } = await visit(world);
+    await step("a device signed in as another account whose press never arrived leaves that account's password alone", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session");
+      return has(await page.textContent("#confirmBody"), "If your password does not work next time", "the caution line");
+    });
+    await context.close();
+  }
+  {
+    /* Who was signed in could not be read at load: nobody can say whose
+       session it is, so nothing is sent on it. */
+    const world = lostAnswerWorld(() => [200, { ok: true, member: USER }]);
+    world.meFailures = 1;
+    const { context, page } = await visit(world);
+    await step("a device that could not say who was signed in at load sends no password on the session", async () => {
+      await openAndPress(page);
+      await errShows(page, "That did not send.");
+      await page.click("#setBtn");
+      await page.waitForSelector("text=You're confirmed.");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "passwords sent on the session");
     });
     await context.close();
   }
@@ -4281,6 +5347,57 @@ async function walkLandings() {
       eq(got, WRAPPED_HTML, "the shared reader's output");
     });
     clean(world, errors, "the shared reader");
+    await context.close();
+  }
+  {
+    /* The reset page says the same rule and checks it the same way (plan 093,
+       14 November 2026). */
+    const world = newWorld();
+    world.api["POST /auth/reset-confirm"] = () => [200, { ok: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    const resetErr = (n) => page.waitForFunction((t) => (document.getElementById("formErr") || {}).textContent.includes(t), n);
+    await step("the reset page says the rule above the boxes, with a minimum of 8 on both", async () => {
+      await page.goto(`${APEX}/hub/reset.html?t=walk-reset`);
+      await page.waitForSelector("#setBtn");
+      has(await page.textContent("#resetBody"), "Choose a new password for your hub account. Use at least 8 characters, with a lower-case letter, a capital letter, a number and a symbol.", "the line");
+      return eq([await page.getAttribute("#pass1", "minlength"), await page.getAttribute("#pass2", "minlength")], ["8", "8"], "the two boxes' minimum");
+    });
+    await step("a reset password with no symbol is refused on the page, and nothing is sent", async () => {
+      await page.fill("#pass1", "Walkpassword1"); await page.fill("#pass2", "Walkpassword1");
+      await page.click("#setBtn");
+      await resetErr("Add a symbol.");
+      await page.fill("#pass1", "Walk-1!"); await page.fill("#pass2", "Walk-1!");
+      await page.click("#setBtn");
+      await resetErr("Use at least 8 characters.");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").length, 0, "resets sent");
+    });
+    await step("a reset password with all four kinds is sent once, with the link", async () => {
+      await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
+      await page.click("#setBtn");
+      await page.waitForSelector("text=Your password is set.");
+      return eq(apiCalls(world, "POST /auth/reset-confirm").map((c) => c.body), [{ token_hash: "walk-reset", password: PASSWORD }], "resets sent");
+    });
+    clean(world, errors, "the reset page's password");
+    await context.close();
+  }
+  {
+    /* Plan 104 (R7-25): a second Enter while the first send was in flight
+       spent a link the first had already spent, and the page could end on
+       "That link has expired" over a password that was set. Both presses go
+       in one turn of the page, so no answer can land between them. */
+    const world = newWorld();
+    world.api["POST /auth/reset-confirm"] = () => [200, { ok: true, member: USER }];
+    const { context, page, errors } = await visit(world);
+    await step("Enter pressed twice on the reset page sends the password once (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/reset.html?t=walk-reset`);
+      await page.waitForSelector("#setBtn");
+      await page.fill("#pass1", PASSWORD); await page.fill("#pass2", PASSWORD);
+      await page.evaluate(() => { const box = document.getElementById("pass2"); for (let n = 0; n < 2; n += 1) box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); });
+      await page.waitForSelector("text=Your password is set.");
+      await page.waitForTimeout(300);
+      return eq(apiCalls(world, "POST /auth/reset-confirm").length, 1, "resets sent");
+    });
+    clean(world, errors, "the reset page, Enter twice");
     await context.close();
   }
   for (const [name, url, sign] of [
@@ -5894,6 +7011,10 @@ async function walkPeople() {
       : [400, { error: "invite_invalid" }]);
     world.api["POST /auth/register-invited"] = () => [200, { ok: true, confirm_required: true }];
     const { context, page, errors } = await visit(world);
+    /* Plan 102 (R7-01): the card after Join carries a Resend that waits the
+       worker's two minutes out. The clock is the walk's from the press on
+       Join, so the wait takes no time. */
+    await page.clock.install();
     await page.goto(`${APEX}/hub/invite.html?t=${INVITE_TOKEN}`);
     await step("the page names the account, who invited, and the address", async () => {
       await page.waitForSelector("#invName");
@@ -5906,24 +7027,109 @@ async function walkPeople() {
       has(await page.textContent("#invTerms"), "I accept the Platform Terms, version 1.0", "the tick's words");
       eq(await page.getAttribute("#invTerms .terms-dl a", "href"), "https://api.nexpoint.co.uk/terms/platform/1.0.pdf", "Download a copy");
       await page.fill("#invName", "Cal League");
-      await page.fill("#invPass", "a-good-password");
       await page.click("#joinBtn");
       has(await page.textContent("#formErr"), "accept the Platform Terms", "the message");
       return eq(apiCalls(world, "POST /auth/register-invited").length, 0, "registrations sent");
     });
-    await step("Join posts the token, the name, the password and the terms version, then says check your inbox", async () => {
+    /* Plan 093 (audit of 14 November 2026, item 7): the page took a password
+       the sign-in service could refuse, with no words for the refusal, so a
+       colleague whose password was refused could never join. It asks for
+       none now. */
+    await step("the invitation page asks for no password, and says where it is chosen (plan 093)", async () => {
+      eq(await page.locator("#invPass").count(), 0, "the old password box");
+      eq(await page.locator('#inviteBody input[type="password"]').count(), 0, "password boxes on the page");
+      return has(await page.textContent("#inviteBody"),
+        "Tell us your name; we then send one email to confirm the address, and you choose your password there.", "the opening line");
+    });
+    await step("Join posts the token, the name and the terms version, with no password, then says check your inbox", async () => {
       await page.check("#invTick");
+      /* From here time moves only when the walk moves it. */
+      await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
       await page.click("#joinBtn");
       await page.waitForFunction(() => /Check your inbox/.test(document.body.textContent));
       const b = apiCalls(world, "POST /auth/register-invited").pop().body;
-      return eq([b.token, b.name, b.password, b.terms_version_id], [INVITE_TOKEN, "Cal League", "a-good-password", 12], "the body");
+      eq("password" in b, false, "a password on the body");
+      has(await page.textContent("#inviteBody"), "Open the link in it, choose your password, and you are in.", "the card");
+      return eq([b.token, b.name, b.terms_version_id], [INVITE_TOKEN, "Cal League", 12], "the body");
     });
+    /* Plan 102 (R7-01): an invited colleague who missed the confirmation
+       email had no way to ask for another. The card now carries the
+       registration card's Resend: disabled for 2:10 because the worker has
+       just sent one email and sends no second inside two minutes, then one
+       press for a fresh link, and it stays for another try. */
+    {
+      const resend = "#resendBtn";
+      const label = async () => (await page.textContent(resend)).trim();
+      await step("the card's Resend starts disabled, counting down from 2:10, and nothing is sent (plan 102)", async () => {
+        eq(await label(), "Resend the email in 2:10", "the button");
+        eq(await page.isDisabled(resend), true, "the button is disabled");
+        eq(await page.isHidden("#resendNote"), true, "the line is hidden until it has words");
+        return eq(apiCalls(world, "POST /auth/resend-confirmation").length, 0, "resends sent");
+      });
+      await step("after 2:10 the Resend can be pressed (plan 102)", async () => {
+        await page.clock.runFor(130000);
+        eq(await label(), "Resend the email", "the button");
+        return eq(await page.isDisabled(resend), false, "the button is disabled");
+      });
+      await step("a press sends the invited address once, says so, and counts down again (plan 102)", async () => {
+        await page.click(resend);
+        await page.waitForFunction(() => /on its way/.test((document.getElementById("resendNote") || {}).textContent || ""));
+        eq(apiCalls(world, "POST /auth/resend-confirmation").map((c) => c.body), [{ email: "cal@example.com" }], "the resend");
+        eq((await page.textContent("#resendNote")).trim(),
+          "If that address still needs confirming, a new link is on its way. It can take a minute to arrive, and it may be in your junk folder.", "the line");
+        eq(await page.getAttribute("#resendNote", "role"), "status", "the line's role");
+        eq(await label(), "Resend the email in 2:10", "the button");
+        return eq(await page.isDisabled(resend), true, "the button is disabled");
+      });
+      await step("a resend that never left the device says so, and gives the button back at once (plan 102)", async () => {
+        await page.clock.runFor(130000);
+        world.dropOnce = new Set(["POST /auth/resend-confirmation"]);
+        await page.click(resend);
+        await page.waitForFunction(() => /That did not send/.test((document.getElementById("resendNote") || {}).textContent || ""));
+        eq((await page.textContent("#resendNote")).trim(), "That did not send. Check your connection and try again.", "the line");
+        eq(await label(), "Resend the email", "the button");
+        return eq(await page.isDisabled(resend), false, "the button is disabled");
+      });
+      await step("the card keeps its own words beside the Resend (plan 102)", async () => {
+        has(await page.textContent("#inviteBody h1"), "Check your inbox.", "the heading");
+        return has(await page.textContent("#inviteBody"),
+          "We have sent one email to cal@example.com. Open the link in it, choose your password, and you are in.", "the card");
+      });
+    }
+    /* The next step runs on a moving clock, as it always has. */
+    await page.clock.resume();
     await page.goto(`${APEX}/hub/invite.html?t=${"b".repeat(64)}`);
     await step("a used or expired invitation says so", async () => {
       await page.waitForFunction(() => /used or has expired/.test(document.body.textContent));
       return true;
     });
-    clean(world, errors, "the invitation page");
+    /* The browser logs a line of its own for the send the walk dropped on
+       purpose; anything the page itself threw still counts. */
+    clean(world, errors.filter((e) => !/net::ERR_FAILED/.test(e)), "the invitation page");
+    await context.close();
+  }
+  {
+    /* Plan 104 (R7-25): a second Enter while the first Join was in flight
+       sent the invitation twice, and the second answer said it was used.
+       Both presses go in one turn of the page. */
+    const world = newWorld();
+    world.api["POST /auth/invite"] = (w, req) => (req.body.token === INVITE_TOKEN
+      ? [200, { ok: true, email: "cal@example.com", company: "ZZ Walk Test Ltd", inviter: "Walk Tester" }]
+      : [400, { error: "invite_invalid" }]);
+    world.api["POST /auth/register-invited"] = () => [200, { ok: true, confirm_required: true }];
+    const { context, page, errors } = await visit(world);
+    await step("Enter pressed twice on the invitation page registers once (plan 104)", async () => {
+      await page.goto(`${APEX}/hub/invite.html?t=${INVITE_TOKEN}`);
+      await page.waitForSelector("#invName");
+      await page.fill("#invName", "Cal League");
+      await page.waitForSelector("#invTick");
+      await page.check("#invTick");
+      await page.evaluate(() => { const box = document.getElementById("invName"); for (let n = 0; n < 2; n += 1) box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); });
+      await page.waitForFunction(() => /Check your inbox/.test(document.body.textContent));
+      await page.waitForTimeout(300);
+      return eq(apiCalls(world, "POST /auth/register-invited").length, 1, "registrations sent");
+    });
+    clean(world, errors, "the invitation page, Enter twice");
     await context.close();
   }
 
@@ -5964,6 +7170,714 @@ function findBrowser() {
 const exe = findBrowser();
 if (!exe) { console.error("walk: no browser found. Set WALK_BROWSER to a Chrome or Chromium binary."); process.exit(2); }
 browser = await chromium.launch({ executablePath: exe, headless: true });
+// ================================================================ plan 106: the account page on the worker's months, and the declaration page
+/* Will's demo notes of 19 November 2026 (plan 106), on the worker that sends
+   CONTRACT 1: a host's introduction card names the company that asked, the map
+   folds, accepting fills the page with "Introduction approved", Declarations is
+   one button to the declaration page, and Fees and standing is a block a month.
+   The declaration page takes the value alone, in one of six currencies (D26),
+   and a host is never shown a strike (D27). Every company here is invented.
+   WALK_SHOTS=<folder> saves a desktop and a phone picture of each screen. */
+async function walkPlan106() {
+  area = "Plan 106 (the introduction card)";
+  const soon = new Date(Date.now() + 3 * 864e5).toISOString();
+  const HOST = {
+    org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "trial", host_print: "approved", host_mill: "approved", fee_exempt_note: null },
+    site: { org_id: 41, name: "ZZ Walk Test Ltd", town: "Leeds", country: "United Kingdom", host_print: "approved", host_mill: "approved",
+      sub_status: "trial", paused: false, removed: false, verified: true },
+    listings: [{ hub: "print", status: "live", live: { approved_at: "2026-03-01T09:00:00Z" } }],
+    hubs_used: ["print", "mill"], score: { value: 98, computed_at: "2026-11-01T09:00:00Z" },
+    /* a worker that still sends the list: the page must not read it (D27) */
+    open_strikes: [{ opened_at: "2026-11-16T09:00:00Z", cure_by: "2026-11-30", notes: "15 days after the month closed" }],
+  };
+  const made = (id, hub, company, rate, year, over) => Object.assign({ id, ref: `INTRO-${id}`, hub, stage: "introduced", role: "provider", asked: true, seller: true,
+    seeker_request_id: id, accepted_a_at: "2026-03-04T09:00:00Z", accepted_b_at: "2026-03-01T09:00:00Z", acceptance_expires_at: null, declined_at: null,
+    created_at: "2026-03-01T09:00:00Z", introduced_at: "2026-03-04T09:00:00Z", company, logo_url: null, fee_year: year, fee_rate: rate,
+    first_order_at: "2026-03-20", next_year_from: "2027-03-01", next_rate: Math.round((rate - 0.01) * 100) / 100 }, over);
+  const asking = (id, company, over) => made(id, "print", company, 0.06, 1, Object.assign({ stage: "awaiting_acceptance", accepted_a_at: null,
+    acceptance_expires_at: soon, introduced_at: null, created_at: new Date().toISOString(), first_order_at: null, next_year_from: null, next_rate: null }, over));
+  const offer = (id, company, over) => ({ introduction_id: id, ref: `INTRO-${id}`, hub: "print", acceptance_expires_at: soon, company, logo_url: null,
+    request: Object.assign({ material: "pa12_nylon12", process: "mjf", quantity: 80, cadence: "one_off", max_lead_time_days: 10, needed_by: null, services: [],
+      notes: "Pairs, boxed per patient.\n\nVolume: 80 units, one off. Materials that would work: PA12, PA11.", notes_own: "Pairs, boxed per patient.",
+      town: "Bristol", country: "United Kingdom", point: { lat: 51.45, lng: -2.59 } }, over),
+    site: { town: "Leeds", country: "United Kingdom", point: { lat: 53.8, lng: -1.55 } } });
+  const due = (id, hub, company, rate, cur) => ({ introduction_id: id, ref: `INTRO-${id}`, company, hub, rate, currency_default: cur });
+  const line = (id, hub, company, value, cur, rate, nothing = false) => ({ introduction_id: id, ref: `INTRO-${id}`, company, hub, nothing,
+    value: nothing ? 0 : value, currency: cur, rate, fee: nothing ? 0 : Math.round(value * rate * 100) / 100 });
+  const inv = (number, cur, raised, dueDate, paid = null) => ({ number, currency: cur, raised_at: raised, due_date: dueDate, paid_at: paid });
+  const A = "ZZ Alder Orthotics", B = "ZZ Birch Podiatry", C = "ZZ Cedar Clinic", D = "ZZ Dune Bracing";
+  /* every one of the seven month states (CONTRACT 1), newest first */
+  const MONTHS = () => {
+    const m = (period, state, over) => Object.assign({ period, state, declare_by: null, sent_at: null, lines: [], totals: [], invoices: [], due: [] }, over);
+    return [
+      m("2026-10", "open", { declare_by: "2026-11-15", due: [due(1011, "print", A, 0.06, "CAD"), due(1012, "print", B, 0.05, "AUD"), due(1020, "mill", C, 0.04, "NZD")] }),
+      m("2026-09", "overdue", { declare_by: "2026-10-15", sent_at: "2026-10-09T10:00:00Z",
+        lines: [line(1011, "print", A, 3848, "CAD", 0.06), line(1012, "print", B, 4056, "AUD", 0.05), line(1020, "mill", C, 3000, "ILS", 0.04)],
+        totals: [{ currency: "CAD", value: 3848, fee: 230.88 }, { currency: "AUD", value: 4056, fee: 202.8 }, { currency: "ILS", value: 3000, fee: 120 }],
+        invoices: [inv("INV-0046", "AUD", "2026-10-09", "2026-11-08"), inv("INV-0047", "CAD", "2026-10-09", "2026-11-08"), inv("INV-0048", "ILS", "2026-10-09", "2026-11-08")] }),
+      m("2026-08", "awaiting_payment", { sent_at: "2026-09-07T10:00:00Z",
+        lines: [line(1011, "print", A, 3680, "CAD", 0.06), line(1012, "print", B, 3680, "CAD", 0.05)],
+        totals: [{ currency: "CAD", value: 7360, fee: 404.8 }], invoices: [inv("INV-0039", "CAD", "2026-09-07", "2026-12-07")] }),
+      m("2026-07", "paid", { sent_at: "2026-08-06T10:00:00Z",
+        lines: [line(1011, "print", A, 3312, "CAD", 0.06), line(1012, "print", B, 0, "CAD", 0.05, true)],
+        totals: [{ currency: "CAD", value: 3312, fee: 198.72 }], invoices: [inv("INV-0031", "CAD", "2026-08-06", "2026-09-05", "2026-08-20")] }),
+      m("2026-06", "invoice_pending", { sent_at: "2026-07-08T10:00:00Z",
+        lines: [line(1011, "print", A, 1000, "CAD", 0.06)], totals: [{ currency: "CAD", value: 1000, fee: 60 }] }),
+      m("2026-05", "nothing", { sent_at: "2026-06-04T10:00:00Z",
+        lines: [line(1011, "print", A, 0, "CAD", 0.06, true), line(1012, "print", B, 0, "CAD", 0.05, true)] }),
+      m("2026-04", "not_declared", { declare_by: "2026-05-15", due: [due(1011, "print", A, 0.06, "CAD"), due(1012, "print", B, 0.05, "CAD")] }),
+    ];
+  };
+  const INTROS = () => [made(1011, "print", A, 0.06, 1), made(1012, "print", B, 0.05, 2), made(1020, "mill", C, 0.04, 3), asking(1030, D)];
+  const OFFERS = () => [offer(1011, A), offer(1030, D)];
+  const summary = (over) => Object.assign({}, EMPTY_SUMMARY, HOST, {
+    introductions: INTROS(), offers: OFFERS(),
+    declarations: { period_open: "2026-10", due_state: "due", hub: "print", items: [], history: [], months: MONTHS() },
+  }, over);
+  const hostWorld = (over) => newWorld(Object.assign({ user: USER, terms: TERMS_STATE({ host: HELD(32) }), summary: summary() }, over));
+  const bothSizes = async (page, name, selector) => {
+    if (!SHOTS) return;
+    for (const [size, viewport] of [["desktop", { width: 1280, height: 900 }], ["phone", { width: 375, height: 760 }]]) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => document.fonts && document.fonts.ready);
+      if (selector) await page.locator(selector).first().evaluate((n) => n.scrollIntoView({ block: "start" })).catch(() => {});
+      await page.waitForTimeout(900);
+      await page.screenshot({ path: join(SHOTS, `106-${name}-${size}.png`) });
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.waitForTimeout(200);
+  };
+  const noSideways = async (page, what) => eq(await page.evaluate(() =>
+    document.documentElement.scrollWidth <= window.innerWidth + 1), true, `${what} scrolling sideways`);
+  /* what a person reads, with the icon names taken out */
+  const reads = (page, selector) => page.evaluate((s) => {
+    const n = document.querySelector(s);
+    if (!n) return "";
+    const c = n.cloneNode(true);
+    c.querySelectorAll(".material-symbols-outlined").forEach((x) => x.remove());
+    return c.textContent.replace(/\s+/g, " ").trim();
+  }, selector);
+  const neverSays = async (page, what) => {
+    const text = await page.evaluate(() => document.body.innerText);
+    for (const bad of [/undefined/, /\bNaN\b/, /\bnull\b/, /strike/i, /\[object/]) {
+      const m = text.match(bad);
+      if (m) throw new Error(`${what} says "${m[0]}"`);
+    }
+    return true;
+  };
+
+  {
+    const world = hostWorld();
+    world.api["POST /introductions/accept"] = (w) => {
+      w.summary = summary({ introductions: INTROS().map((i) => (i.id === 1030 ? made(1030, "print", D, 0.06, 1,
+        { introduced_at: new Date().toISOString(), accepted_a_at: new Date().toISOString(), first_order_at: null, next_year_from: null, next_rate: null }) : i)) });
+      return [200, { ok: true, stage: "introduced", ref: "INTRO-1030" }];
+    };
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/`);
+
+    await step("the page opens on a navy banner behind Your account, the profile card over its lower edge (D6)", async () => {
+      await page.waitForSelector("#profile:not([hidden])");
+      await page.waitForSelector("#intro-1030 .intro-title");
+      eq(await page.$eval(".acct-band", (e) => getComputedStyle(e).backgroundColor), "rgb(14, 22, 38)", "the banner's navy");
+      eq(await page.$eval(".acct-stage .acct-head h1", (e) => getComputedStyle(e).color), "rgb(255, 255, 255)", "the heading, white on it");
+      const band = await page.locator(".acct-band").boundingBox(), card = await page.locator("#profile").boundingBox();
+      if (!(card.y < band.y + band.height && card.y + card.height > band.y + band.height)) throw new Error("the profile card does not sit over the banner's lower edge");
+      await bothSizes(page, "top");
+    });
+    await step("a waiting card names the company that asked, with its initials, the code in brackets and the hub on a navy strip (D12)", async () => {
+      await page.waitForSelector("#intro-1030 .intro-title");
+      eq(await reads(page, "#intro-1030 .intro-name"), `${D} (INTRO-1030)`, "the title");
+      eq(await reads(page, "#intro-1030 .intro-logo"), "ZD", "the initials tile");
+      eq(await page.locator("#intro-1030 .intro-logo img").count(), 0, "a picture where the worker sent no logo");
+      eq(await reads(page, "#intro-1030 .intro-title .acct-hub"), "3D Print Hub", "the hub");
+      eq(await page.$eval("#intro-1030 .intro-title", (e) => getComputedStyle(e).backgroundColor), "rgb(14, 22, 38)", "the strip's navy");
+      eq(await reads(page, "#intro-1030 .year-chip"), "Year 1 (6%)", "the fee year");
+      has(await reads(page, "#intro-1030 .intro-year"), "from the first order", "the year counts from the first order (C1)");
+      has(await reads(page, "#intro-1030 .intro-status"), "Waiting for your answer. Open until ", "the status, at the top");
+      eq(await reads(page, "#intro-1030 .intro-facts"), "PA12 · MJF · 80 · One off · within 10 days · Bristol, United Kingdom", "the facts line");
+      eq(await page.locator("#intro-1030 .status-chain").count(), 1, "the four steps, until the introduction is made (D4)");
+    });
+    await step("nothing on a waiting card is a person, an email address or a phone number", async () => {
+      const text = await page.evaluate(() => document.getElementById("intro-1030").innerText);
+      eq(/@/.test(text), false, "an email address before acceptance");
+      eq(/\+?\d[\d ()-]{8,}\d/.test(text.replace(/INTRO-\d+/g, "")), false, "a phone number before acceptance");
+      eq(await page.locator("#intro-1030 a[href^='mailto:'], #intro-1030 a[href^='tel:']").count(), 0, "mail or phone links");
+    });
+    await step("the map is open while the host has not answered, and the need box names the company and shows only the seeker's own notes", async () => {
+      await page.waitForSelector("#mapOpen-1030:not([hidden]) #pairMap-1030 .leaflet-popup .np-need");
+      eq(await page.locator("#mapFold-1030:not([hidden])").count(), 0, "the folded bar");
+      const need = await page.$eval("#pairMap-1030 .leaflet-popup .np-need", (e) => ({
+        head: e.querySelector(".np-need__head").textContent, company: e.querySelector(".np-need__company span:last-child").textContent,
+        where: e.querySelector(".np-need__where").textContent, notes: (e.querySelector(".np-need__notes") || {}).textContent || "" }));
+      eq(need, { head: "What they need", company: D, where: "Bristol, United Kingdom", notes: "NotesPairs, boxed per patient." }, "the box");
+      const pins = await page.$$eval("#pairMap-1030 .np-pin", (els) => els.map((e) => e.textContent.trim()).sort());
+      eq(pins, ["Request", "You"], "the pins (the host's own keeps the word You, D24)");
+      await bothSizes(page, "card-waiting", "#intro-1030");
+    });
+    await step("the cross closes the need box and shows the map beneath; pressing Request opens it again", async () => {
+      await page.click("#pairMap-1030 [data-np-need-close]");
+      await page.waitForFunction(() => !document.querySelector("#pairMap-1030 .leaflet-popup .np-need"));
+      eq(await reads(page, "#mapHint-1030"), "Press Request to see what they need", "the hint");
+      eq(await page.locator("#mapHint-1030:not([hidden])").count(), 1, "the hint shows");
+      await page.click("#pairMap-1030 .np-pin--ask");
+      await page.waitForSelector("#pairMap-1030 .leaflet-popup .np-need");
+      eq(await page.locator("#mapHint-1030:not([hidden])").count(), 0, "the hint once the box is open");
+    });
+    await step("Hide map folds it away and Show map brings it back", async () => {
+      await page.click('#mapOpen-1030 [data-act="map-toggle"]');
+      await page.waitForSelector("#mapFold-1030:not([hidden])");
+      eq(await page.locator("#mapOpen-1030:not([hidden])").count(), 0, "the open map");
+      has(await reads(page, "#mapFold-1030"), "Bristol, United Kingdom, and your site", "the folded bar's words");
+      await page.click('#mapFold-1030 [data-act="map-toggle"]');
+      await page.waitForSelector("#mapOpen-1030:not([hidden]) .np-pin");
+    });
+    await step("an introduced card: the year and the first order, the status at the top, the map folded, no steps, and what was declared for it", async () => {
+      eq(await reads(page, "#intro-1011 .intro-name"), `${A} (INTRO-1011)`, "the title");
+      eq(await reads(page, "#intro-1011 .intro-year"), "Year 1 (6%)First order March 2026. Year 2 (5%) starts March 2027.", "the year line");
+      eq(await reads(page, "#intro-1011 .acct-released"), "Introduced on 4 Mar 2026, ref INTRO-1011. The introduction is in your inbox; reply to all to carry on.", "the status");
+      eq(await page.$eval("#intro-1011", (e) => {
+        const kids = [...e.querySelector(".acct-row__meta").children];
+        return kids.findIndex((k) => k.classList.contains("acct-released")) < kids.findIndex((k) => k.classList.contains("map-shell"));
+      }), true, "the status sits above the map");
+      eq(await page.locator("#mapFold-1011:not([hidden])").count(), 1, "the map folded once introduced");
+      eq(await page.locator("#intro-1011 .status-chain").count(), 0, "the steps once introduced (D4)");
+      eq(await reads(page, "#intro-1011 .intro-decl summary"), "Declarations for this introduction", "the list's heading");
+      const rows = await page.$$eval("#intro-1011 .intro-decl tbody tr", (trs) => trs.map((tr) => [...tr.children].map((td) => td.textContent.trim()).join(" | ")));
+      eq(rows, ["October 2026 | Not yet declared | 6% | –", "September 2026 | CAD 3,848.00 | 6% | CAD 230.88", "August 2026 | CAD 3,680.00 | 6% | CAD 220.80",
+        "July 2026 | CAD 3,312.00 | 6% | CAD 198.72", "June 2026 | CAD 1,000.00 | 6% | CAD 60.00", "May 2026 | No revenue | 6% | CAD 0.00",
+        "April 2026 | Not declared | 6% | –"], "its months");
+      eq(await page.locator("#intro-1011 .intro-decl input, #intro-1011 .intro-decl select, #intro-1011 .intro-decl button").count(), 0, "anything to type into: it is to look at only");
+      await page.click('#mapFold-1011 [data-act="map-toggle"]');
+      await page.waitForSelector("#mapOpen-1011:not([hidden]) .np-pin");
+      await page.click("#intro-1011 .intro-decl summary");
+      await bothSizes(page, "card-introduced", "#intro-1011");
+    });
+    await step("Declarations is one button to the declaration page: no form, no earlier list, no Keep what I sent (D5)", async () => {
+      await page.waitForSelector("#declarations:not([hidden]) a.acct-declare");
+      eq(await reads(page, "#declarations .acct-declare-row .acct-row__meta"), "October 2026Open now. Declare by 15 November 2026. One line for each of your 3 introductions.", "the row");
+      eq(await reads(page, "#declarations a.acct-declare"), "Declare October 2026", "the button");
+      eq(await page.getAttribute("#declarations a.acct-declare", "href"), "declare/?period=2026-10", "where it goes");
+      eq(await page.locator("#declarations input, #declarations select, #declarations .decl-table, #declarations [data-act]").count(), 0, "a form on the account page");
+      eq((await page.textContent("#declarations")).includes("Earlier declarations"), false, "the earlier list");
+      const acts = await page.$$eval("#waiting .acct-action", (els) => els.map((e) => [e.querySelector("span:nth-child(2)").textContent.trim(), e.getAttribute("href")]));
+      eq(acts, [["Answer 1 introduction", "#intro-1030"], ["Send your declaration for October 2026", "declare/?period=2026-10"]], "Waiting on you");
+    });
+    await step("Fees and standing is a block a month, each with its state, and never the word strike (D27)", async () => {
+      await page.waitForSelector("#fees:not([hidden]) .stmt");
+      eq(await page.$$eval("#fees .acct-sub", (els) => els.map((e) => e.textContent.trim())), ["Monthly statements"], "the sub-headings");
+      has(await reads(page, "#fees .hint"), "Follow-through: 98", "the host still sees its score");
+      const blocks = await page.$$eval("#fees .stmt", (els) => els.map((e) => ({ state: e.getAttribute("data-state"), open: e.open,
+        month: e.querySelector(".stmt__when b").textContent, meta: e.querySelector(".stmt__when span").textContent,
+        pill: e.querySelector("summary .acct-pill").textContent, total: e.querySelector("summary .acct-amount").textContent,
+        red: e.querySelector("summary .acct-amount").classList.contains("is-red") })));
+      eq(blocks.map((b) => [b.month, b.state, b.pill, b.total, b.red]), [
+        ["October 2026", "open", "Declare by 15 Nov", "–", false],
+        ["September 2026", "overdue", "Overdue", "AUD 202.80 + CAD 230.88 + ILS 120.00", true],
+        ["August 2026", "awaiting_payment", "Awaiting payment", "CAD 404.80", false],
+        ["July 2026", "paid", "Paid", "CAD 198.72", false],
+        ["June 2026", "invoice_pending", "Invoice on its way", "CAD 60.00", false],
+        ["May 2026", "nothing", "No revenue", "CAD 0.00", false],
+        ["April 2026", "not_declared", "Not declared", "–", true]], "each month");
+      eq(blocks.map((b) => b.open), [true, false, false, false, false, false, false], "the newest month is open, the rest folded");
+      eq(blocks[1].meta, "Invoices INV-0046, INV-0047, INV-0048 · raised 9 Oct 2026 · was due 8 Nov 2026", "an overdue month's invoice line");
+      eq(blocks[3].meta, "Invoice INV-0031 · raised 6 Aug 2026 · paid 20 Aug 2026", "a paid month's invoice line");
+      eq(blocks[6].meta, "No invoice yet. The declaration was due by 15 May 2026.", "a month not declared");
+      eq(await page.$$eval('#fees .stmt[data-state="open"] thead th', (els) => els.map((e) => e.textContent.trim())),
+        ["Introduction", "Value you declared", "Rate", "Fee", "Payment"], "the columns (C3)");
+      eq(await page.getAttribute('#fees .stmt[data-state="not_declared"] a.acct-declare', "href"), "declare/?period=2026-04", "a month not declared carries its own button (D21)");
+      eq(await page.locator('#fees .stmt[data-state="paid"] a.acct-declare, #fees .stmt[data-state="overdue"] a.acct-declare').count(), 0, "a Declare button on a sent month (D10)");
+      eq((await page.textContent("#fees")).includes("Introduced customers"), false, "Introduced customers");
+      await neverSays(page, "the account page");
+      await page.click('#fees .stmt[data-state="overdue"] summary');
+      await bothSizes(page, "fees", "#fees");
+    });
+    await step("the account page does not scroll sideways on a phone", async () => {
+      await page.setViewportSize({ width: 375, height: 760 });
+      try {
+        await page.waitForTimeout(300);
+        await noSideways(page, "the account page");
+      } finally {
+        /* back to the desktop size whatever happened, so the next step is not measured on a phone */
+        await page.setViewportSize({ width: 1280, height: 900 });
+      }
+    });
+    await step("accepting asks for no Host Agreement of a host that holds one, and fills the page with Introduction approved (CONTRACT 4)", async () => {
+      await page.click('[data-act="intro-accept-open"][data-intro="1030"]');
+      await page.waitForSelector("#introAnswer-1030:not([hidden])");
+      await settled(page);
+      eq(await page.locator("#introAnswer-1030 .terms-scroll, #introAnswer-1030 [data-np-terms-tick]").count(), 0, "a terms box (D13)");
+      has(await reads(page, "#introAnswer-1030 .hint"), `Decline and ${D} is told a site said no, and nothing else.`, "the panel names the company");
+      await page.click('[data-act="intro-accept-send"][data-intro="1030"]');
+      await page.waitForSelector("#approved:not([hidden]) .approved__box");
+      eq(apiCalls(world, "POST /introductions/accept")[0].body, { introduction_id: 1030 }, "the body");
+      eq(await reads(page, "#approved h2"), "Introduction approved", "the heading");
+      eq(await reads(page, "#approved .approved__lead"), `You and ${D} have been introduced.`, "the lead");
+      eq(await reads(page, "#approved .approved__inbox"), "Check your email inbox. We have sent one email to you both, with each other's details. Reply to all to carry on.", "the inbox line");
+      eq(await reads(page, "#approved .approved__small"), `Walk, please declare ${D}'s orders on your hub account page each month, which keeps your listing in good standing.`, "the small print");
+      eq(await reads(page, "#approved button"), "Back to my account", "the one button");
+      const box = await page.locator("#approved").boundingBox();
+      eq([Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height)], [0, 0, 1280, 900], "the notice fills the page");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-act")), "approved-close", "the focus");
+      if ((await page.textContent("#approved")).includes("—")) throw new Error("an em-dash in the notice");
+      await bothSizes(page, "approved");
+    });
+    await step("Escape closes the notice onto the card, now introduced, with its map folded", async () => {
+      await page.keyboard.press("Escape");
+      await page.waitForSelector("#approved", { state: "hidden" });
+      await page.waitForSelector("#intro-1030 .acct-released");
+      has(await reads(page, "#intro-1030 .acct-released"), "ref INTRO-1030. The introduction is in your inbox; reply to all to carry on.", "the status");
+      eq(await page.locator("#mapFold-1030:not([hidden])").count(), 1, "the map folded");
+      eq(await page.locator("#intro-1030 [data-act='intro-accept-open'], #intro-1030 .status-chain").count(), 0, "an answer or the steps on an introduced card");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.id), "intro-1030", "the focus goes to the card");
+    });
+    clean(world, errors, "the account page on the worker's months");
+    await context.close();
+  }
+
+  /* Round 7 on the new card: a paused or hidden host is drawn no answer (plan
+     104, R7-18), and an introduction email that did not go can be sent again
+     from the card (plan 095). */
+  {
+    const world = hostWorld({ summary: summary({ site: Object.assign({}, HOST.site, { paused: true, paused_by_desk: true, hidden_unpaid: false }) }) });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/`);
+    await step("a paused host's card draws no Accept, Decline or Send the email again, and says when it can answer (R7-18)", async () => {
+      await page.waitForSelector("#intro-1030 .intro-title");
+      eq(await page.locator("#intro-1030 [data-act]:not([data-act='map-toggle'])").count(), 0, "buttons the worker would refuse");
+      has(await reads(page, "#intro-1030"), "You can answer this introduction once your listing is back on the hubs.", "the words");
+      eq(await page.locator("#waiting .acct-action[href^='#intro-']").count(), 0, "an Answer action in Waiting on you");
+    });
+    clean(world, errors, "a paused host's card");
+    await context.close();
+  }
+  {
+    const world = hostWorld({ summary: summary({ introductions: INTROS().map((i) => (i.id === 1011 ? Object.assign(i, { release: "failed" }) : i)) }) });
+    world.api["POST /introductions/:id/resend"] = (w) => {
+      w.summary = summary({ introductions: INTROS().map((i) => (i.id === 1011 ? Object.assign(i, { release: "sent" }) : i)) });
+      return [200, { ok: true }];
+    };
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/`);
+    await step("an introduction email that did not go is said on the card, and can be sent again from it (plan 095)", async () => {
+      await page.waitForSelector("#intro-1011 .acct-released");
+      has(await reads(page, "#intro-1011 .acct-released"), "The email that gives you both each other's details did not go.", "the status");
+      eq(await reads(page, '#intro-1011 [data-act="intro-resend"][data-kind="release"]'), "Send the introduction email again", "the button");
+      await page.click('#intro-1011 [data-act="intro-resend"][data-kind="release"]');
+      await until(() => apiCalls(world, "POST /introductions/1011/resend").length === 1, "the resend");
+      await page.waitForFunction(() => /The introduction is in your inbox/.test(document.querySelector("#intro-1011 .acct-released").textContent));
+    });
+    clean(world, errors, "the card whose introduction email did not go");
+    await context.close();
+  }
+
+  area = "Plan 106 (the declaration page)";
+  {
+    const world = hostWorld();
+    world.api["POST /declarations"] = () => [200, { ok: true }];
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/declare/?period=2026-10`);
+    await step("the page names the month and draws a line for each introduction the month is due for, by company", async () => {
+      await page.waitForSelector("#declCard .decl-table tbody tr");
+      eq(await reads(page, "#declTitle"), "Declare October 2026", "the heading");
+      has(await reads(page, "#declLead"), "the net revenue you invoiced that customer in October", "the lead");
+      eq(await page.$$eval("#declCard thead th", (els) => els.map((e) => e.textContent.trim())), ["Introduction", "Value you declared", "Currency", "No revenue", "Rate", "Fee"], "the columns");
+      const rows = await page.$$eval("#declCard tbody tr", (trs) => trs.map((tr) => ({ who: tr.querySelector(".co").textContent.trim(),
+        hub: (tr.querySelector(".acct-hub") || {}).textContent || "", rate: tr.querySelector(".auto").innerText.replace(/\s+/g, " ").trim(),
+        currency: tr.querySelector("select").value, fee: tr.querySelector(".fee").textContent })));
+      eq(rows, [{ who: `${A}(INTRO-1011)`, hub: "3D Print Hub", rate: "6% Year 1", currency: "CAD", fee: "–" },
+        { who: `${B}(INTRO-1012)`, hub: "3D Print Hub", rate: "5% Year 2", currency: "AUD", fee: "–" },
+        { who: `${C}(INTRO-1020)`, hub: "Mill Hub", rate: "4% Year 3", currency: "GBP", fee: "–" }], "the rows");
+      eq(await page.$$eval("#dc-0 option", (els) => els.map((e) => e.value)), ["GBP", "EUR", "USD", "CAD", "AUD", "ILS"], "the six currencies (D26)");
+      eq(await page.$eval("#dv-0", (e) => [e.type, e.inputMode]), ["text", "decimal"], "the value is a text box with a decimal keypad");
+      eq(await page.locator("#declCard input[type='number']").count(), 0, "number boxes");
+      eq((await page.textContent("#declCard")).includes("Units"), false, "a Units column (D2)");
+      has(await reads(page, "#declOther"), "Invoiced in another currency? Email hello@nexpoint.co.uk before you send this.", "the line for any other currency");
+      eq(await page.$eval("#declOther", (e) => e.classList.contains("notice-warn")), true, "the line stands out for a host whose own currency is not offered");
+      has(await reads(page, "#declFoot"), "Declare by 15 November 2026. When you send it, we raise one invoice for the month, due 30 days after its date", "the foot");
+      await bothSizes(page, "declare-empty");
+    });
+    await step("the fee and the total are worked out as the host types, in each line's own currency", async () => {
+      await page.fill("#dv-0", "3,848");
+      eq(await reads(page, "#df-0"), "CAD 230.88", "the first fee");
+      await page.fill("#dv-1", "4056");
+      eq(await reads(page, "#df-1"), "AUD 202.80", "the second fee, in Australian dollars");
+      await page.selectOption("#dc-2", "ILS");
+      await page.fill("#dv-2", "3666.5");
+      eq(await reads(page, "#df-2"), "ILS 146.66", "the third fee, in shekels");
+      eq(await reads(page, "#declTotal"), "AUD 202.80 + CAD 230.88 + ILS 146.66", "the total, one figure a currency");
+    });
+    await step("a line that is not a value is refused in words and nothing is sent", async () => {
+      await page.fill("#dv-1", "four thousand");
+      eq(await page.$eval("#dv-1", (e) => e.classList.contains("is-bad")), true, "the box is marked");
+      await page.click("#declSend");
+      eq(await reads(page, "#declMsg"), 'Type a value on each line, or tick "No revenue".', "the words");
+      eq(await page.evaluate(() => document.activeElement && document.activeElement.id), "dv-1", "the focus");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations sent");
+    });
+    await step("the wheel changes nothing on the page", async () => {
+      await page.fill("#dv-1", "4056");
+      await page.focus("#dv-1");
+      await page.hover("#dv-1");
+      await page.mouse.wheel(0, 240);
+      await page.mouse.wheel(0, -240);
+      eq(await page.inputValue("#dv-1"), "4056", "the value after the wheel");
+    });
+    await step("sending posts once a hub, the value and its currency alone, and names each No revenue line in nothing_for (plan 098)", async () => {
+      await page.check("#dn-1");
+      eq(await page.isDisabled("#dv-1"), true, "the value box of a No revenue line");
+      await page.check("#dn-2");
+      eq(await reads(page, "#declTotal"), "CAD 230.88", "the total");
+      await bothSizes(page, "declare-filled");
+      await page.click("#declSend");
+      await until(() => apiCalls(world, "POST /declarations").length === 2, "the two declarations");
+      const sent = apiCalls(world, "POST /declarations").map((c) => c.body);
+      eq(sent[0], { hub: "print", period: "2026-10", nothing_this_month: false, nothing_for: [1012],
+        lines: [{ introduction_id: 1011, value: 3848, currency: "CAD" }] }, "the 3D Print Hub's declaration");
+      eq(sent[1], { hub: "mill", period: "2026-10", nothing_this_month: true, nothing_for: [1020] }, "the Mill Hub's nil return");
+      eq(JSON.stringify(sent).includes("units"), false, "units in what is sent (D2)");
+      await page.waitForSelector("#declCard .decl-done h2");
+      eq(await reads(page, "#declCard .decl-done h2"), "Declared for October 2026", "the screen after sending");
+      has(await reads(page, "#declCard .decl-done p"), "Your invoice is being raised and will reach you by email, due 30 days after its date.", "the invoice line");
+      eq(await reads(page, "#declCard .decl-done a.btn"), "See it on my account", "the way back");
+      eq(await page.getAttribute("#declCard .decl-done a.btn", "href"), "../", "where it goes");
+      await neverSays(page, "the declaration page");
+      await bothSizes(page, "declare-sent");
+    });
+    clean(world, errors, "the declaration page");
+    await context.close();
+  }
+  {
+    const world = hostWorld();
+    world.api["POST /declarations"] = () => [200, { ok: true }];
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/declare/?period=2026-04`);
+    await step("a month not declared can still be declared (D21); a month of nothing but No revenue is asked once before it goes", async () => {
+      await page.waitForSelector("#declCard .decl-table tbody tr");
+      eq(await reads(page, "#declTitle"), "Declare April 2026", "the heading");
+      has(await reads(page, "#declFoot"), "This declaration was due by 15 May 2026.", "the foot says it is late, from the worker's own date");
+      await page.check("#dn-0");
+      await page.check("#dn-1");
+      await page.click("#declSend");
+      await page.waitForSelector("#declConfirm:not([hidden])");
+      eq(await reads(page, "#declConfirm p"), "Nothing came through any introduction in April? Send a nil return.", "the question");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations before the nil return is confirmed");
+      await bothSizes(page, "declare-nil");
+      await page.click('[data-act="nil-back"]');
+      await page.waitForSelector("#declFoot:not([hidden])");
+      eq(apiCalls(world, "POST /declarations").length, 0, "declarations after going back");
+      await page.click("#declSend");
+      await page.click('[data-act="nil-send"]');
+      await until(() => apiCalls(world, "POST /declarations").length === 1, "the nil return");
+      eq(apiCalls(world, "POST /declarations")[0].body, { hub: "print", period: "2026-04", nothing_this_month: true, nothing_for: [1011, 1012] }, "the body");
+      await page.waitForSelector("#declCard .decl-done h2");
+      has(await reads(page, "#declCard .decl-done p"), "No revenue this month, so there is no invoice.", "the words after a nil return");
+    });
+    clean(world, errors, "the declaration page, a nil return");
+    await context.close();
+  }
+  {
+    const world = hostWorld();
+    world.api["POST /declarations"] = () => [409, { error: "already_sent" }];
+    const { context, page, errors } = await visit(world);
+    await step("a month the worker says was already sent is refused in words (D10)", async () => {
+      await page.goto(`${APEX}/hub/account/declare/?period=2026-10`);
+      await page.waitForSelector("#declCard .decl-table tbody tr");
+      await page.fill("#dv-0", "10"); await page.fill("#dv-1", "10"); await page.fill("#dv-2", "10");
+      await page.click("#declSend");
+      await page.waitForFunction(() => { const m = document.getElementById("declMsg"); return m && !m.hidden && m.textContent; });
+      eq(await reads(page, "#declMsg"), "This month has already been sent. To change it, talk to the desk.", "the words");
+      eq(await page.isDisabled("#declSend"), false, "the button is given back");
+    });
+    await step("a sent month, a month that is not listed and a month with no introduction in it each say so in one sentence, with the way back", async () => {
+      for (const [period, want] of [["2026-09", "September 2026 has already been declared. To change it, talk to the desk."],
+        ["2025-01", "There is no declaration to make for January 2025. Your account page lists the months that are open."]]) {
+        await page.goto(`${APEX}/hub/account/declare/?period=${period}`);
+        await page.waitForSelector("#declCard .decl-done.is-quiet");
+        eq(await reads(page, "#declCard .decl-done p"), want, `the sentence for ${period}`);
+        eq(await page.getAttribute("#declCard .decl-done a.btn", "href"), "../", "the way back");
+        eq(await page.locator("#declCard input, #declCard select").count(), 0, "a form");
+      }
+    });
+    clean(world, errors, "the declaration page, the months that cannot be declared");
+    await context.close();
+  }
+  {
+    /* The engine's emails link to the page with no ?period= (the worker adds
+       one only when the engine sends no link): the page opens on the newest
+       month not yet sent, and with none says so in one sentence. */
+    const sentOnly = MONTHS().filter((m) => m.state !== "open" && m.state !== "not_declared");
+    for (const [who, months, want] of [
+      ["the newest month open", MONTHS(), { title: "Declare October 2026" }],
+      ["a month not declared behind months already sent", MONTHS().slice(1), { title: "Declare April 2026" }],
+      ["every month sent", sentOnly, { text: "Declared for September 2026. Nothing else to send." }]]) {
+      const world = hostWorld({ summary: summary({ declarations: { period_open: "2026-10", due_state: "due", hub: "print", items: [], history: [], months } }) });
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/declare/`);
+      await step(`opened with no month in the address, ${who}: ${want.title || "nothing to declare"}`, async () => {
+        if (want.title) {
+          await page.waitForSelector("#declCard .decl-table tbody tr");
+          eq(await reads(page, "#declTitle"), want.title, "the month it opens on");
+        } else {
+          await page.waitForSelector("#declCard .decl-done.is-quiet");
+          eq(await reads(page, "#declCard .decl-done p"), want.text, "the sentence");
+          eq(await page.locator("#declCard input, #declCard select").count(), 0, "a form");
+          eq(await page.getAttribute("#declCard .decl-done a.btn", "href"), "../", "the way back");
+        }
+        await neverSays(page, "the declaration page");
+      });
+      clean(world, errors, `the declaration page with no month in the address, ${who}`);
+      await context.close();
+    }
+  }
+  {
+    /* A worker from before plan 106 (no months) and a worker that lists an
+       open month without its introductions: neither is an empty form. */
+    const old = hostWorld({ summary: summary({ declarations: { period_open: "2026-10", due_state: "due", hub: "print",
+      items: [{ introduction_id: 1011, ref: "INTRO-1011", seeker_town: "Bristol", seeker_country: "United Kingdom" }], history: [] } }) });
+    const bare = hostWorld({ summary: summary({ declarations: { period_open: "2026-10", due_state: "due", hub: "print", items: [], history: [],
+      months: [{ period: "2026-10", state: "open", declare_by: "2026-11-15", sent_at: null, lines: [], totals: [], invoices: [] }] } }) });
+    for (const [who, world, selector, want] of [
+      ["a worker from before plan 106", old, "#declCard .decl-done p", "Declare from your account page for now."],
+      ["a month the worker lists without its introductions", bare, "#declCard .decl-notice", "We could not list your introductions for October 2026 just now. Try again in a few minutes, or email hello@nexpoint.co.uk."]]) {
+      const { context, page, errors } = await visit(world);
+      await page.goto(`${APEX}/hub/account/declare/`);
+      await step(`${who}: the declaration page says what to do, and draws no form`, async () => {
+        await page.waitForSelector(selector);
+        eq(await reads(page, selector), want, "the sentence");
+        eq(await page.locator("#declCard input, #declCard select").count(), 0, "a form");
+        await neverSays(page, "the declaration page");
+      });
+      clean(world, errors, `the declaration page, ${who}`);
+      await context.close();
+    }
+  }
+
+  area = "Plan 106 (the find form and the listing form)";
+  {
+    /* A number changes only by typing (W5.2): not under the wheel, not on the
+       arrow keys. The logo beside a named site is the worker's signed link, or
+       the company's initials when there is none or it does not load (D14). */
+    const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+    const world = newWorld({ user: USER, terms: TERMS_STATE({ seeker: HELD(TERMS_ID.seeker) }) });
+    world.api["GET /terms/current"] = docTerms;
+    world.api["POST /listings/search"] = () => [200, { ok: true, search_id: 79, no_match: false, terms_version: 12,
+      matches: [Object.assign({}, MATCHES[0], { logo_url: PIXEL }), Object.assign({}, MATCHES[1], { logo_url: "data:image/png;base64,AAAA" }), MATCHES[2], MATCHES[3]],
+      seeker_point: { lat: 53.8, lng: -1.55 }, region: "uk", region_unknown: false }];
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${PRINT}/find.html`);
+    await page.waitForSelector("body[data-np-open]");
+    await page.waitForSelector("#findForm");
+    const unmoved = async (selector, typed, what) => {
+      await page.fill(selector, typed);
+      await page.focus(selector);
+      await page.hover(selector);
+      await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(120);
+      await page.mouse.wheel(0, -300);
+      await page.waitForTimeout(120);
+      eq(await page.inputValue(selector), typed, `${what} after the wheel`);
+      await page.focus(selector);
+      await page.keyboard.press("ArrowUp");
+      await page.keyboard.press("ArrowDown");
+      await page.keyboard.press("ArrowDown");
+      eq(await page.inputValue(selector), typed, `${what} after the arrow keys`);
+      eq(await page.$eval(selector, (e) => e.type), "number", `${what} is still a number box (the phone's number keypad)`);
+    };
+    await step("the find form's How many and lead time change only by typing: the wheel and the arrow keys move nothing", async () => {
+      await unmoved("#fQuantity", "200", "How many");
+      await unmoved("#fMaxLead", "10", "the lead time");
+    });
+    await step("each of the three results shows its company's logo beside its name, or its initials, and never a broken picture (D14)", async () => {
+      await page.click(deviceBox("rigid"));
+      await page.fill("#fNotes", "Boxed per patient.");
+      await page.click("#findSubmit");
+      await page.waitForSelector("#step2:not([hidden]) #capGrid .cap");
+      await page.waitForFunction(() => document.querySelectorAll("#capGrid .cap-logo img").length === 1);
+      const tiles = await page.$$eval("#capGrid .cap", (els) => els.map((e) => ({ name: e.querySelector("h3").textContent.trim(),
+        img: e.querySelectorAll(".cap__name .cap-logo img").length, text: e.querySelector(".cap__name .cap-logo").textContent.trim() })));
+      eq(tiles, [{ name: "Acme Orthotics", img: 1, text: "" }, { name: "Bravo Labs", img: 0, text: "BL" }, { name: "Charlie Print", img: 0, text: "CP" }], "the tiles");
+      eq(await page.$eval("#capGrid .cap-logo img", (i) => i.complete && i.naturalWidth > 0), true, "the one picture drawn has loaded");
+      eq(await page.$eval("#capGrid .cap-logo", (e) => { const s = getComputedStyle(e); return [s.width, s.height]; }), ["72px", "44px"], "the tile's size");
+      eq(await page.$eval("#capGrid .cap-logo img", (e) => getComputedStyle(e).objectFit), "contain", "a logo is never cropped or stretched");
+      await bothSizes(page, "find-results", "#step2");
+    });
+    await step("the pick line tells the seeker its company's name is shown, and the search carried the seeker's own notes beside the composed ones (D12, W5.5)", async () => {
+      await page.click('#capGrid [data-card="listing-a"] .cap__tick');
+      await page.click("#pickContinue");
+      await page.waitForSelector("#step3:not([hidden]) #requestSubmit");
+      has(await page.textContent("#pickSummary"), "Your request goes straight to this site. It sees your company's name with your request. Contact details are exchanged only once it accepts.", "the sentence");
+      eq(await page.locator("#pickSummary .cap-logo--small img").count(), 1, "the picked site's logo leads the line");
+      const body = apiCalls(world, "POST /listings/search")[0].body;
+      eq(body.notes_own, "Boxed per patient.", "notes_own: what the seeker typed, on its own");
+      eq(body.notes, "Boxed per patient.\n\nVolume: 200 pairs, one off.", "the composed notes the desk keeps");
+      await bothSizes(page, "find-pick", "#step3");
+    });
+    clean(world, errors, "the find form (plan 106)");
+    await context.close();
+  }
+  for (const [hub, url] of [["3D Print Hub", `${PRINT}/offer.html`], ["Mill Hub", `${MILL}/offer.html`]]) {
+    const world = newWorld({ user: USER });
+    const { context, page, errors } = await visit(world);
+    await page.goto(url);
+    await page.waitForSelector("body[data-np-open]");
+    await page.waitForSelector("#listingForm");
+    await step(`${hub}: no number on the listing form moves under the wheel or the arrow keys`, async () => {
+      const ids = await page.$$eval('#listingForm input[type="number"]', (els) => els.filter((e) => e.id && e.offsetParent !== null).map((e) => e.id));
+      if (!ids.length) throw new Error("the listing form has no number box to try");
+      for (const id of ids.slice(0, 4)) {
+        const sel = "#" + id;
+        await page.fill(sel, "12");
+        await page.focus(sel);
+        await page.hover(sel);
+        await page.mouse.wheel(0, 300);
+        await page.waitForTimeout(120);
+        await page.mouse.wheel(0, -300);
+        await page.waitForTimeout(120);
+        await page.focus(sel);
+        await page.keyboard.press("ArrowUp");
+        eq(await page.inputValue(sel), "12", `${id} after the wheel and an arrow key`);
+      }
+    });
+    clean(world, errors, `the listing form's numbers, ${hub}`);
+    await context.close();
+  }
+
+  area = "Plan 106 (a worker from before it, and the Opportunities Board)";
+  {
+    /* The pages may land before the worker: no company, no fee year, no
+       notes_own, no months. The card is titled by its reference, the account
+       page keeps the declaration card and the statements it has, and nothing
+       reads "undefined". The worker's list of strikes is still never drawn. */
+    const plain = (i) => { const o = Object.assign({}, i); for (const k of ["company", "logo_url", "fee_year", "fee_rate", "first_order_at", "next_year_from", "next_rate"]) delete o[k]; return o; };
+    const world = hostWorld({ summary: summary({
+      introductions: INTROS().map(plain),
+      offers: OFFERS().map((o) => { const r = Object.assign({}, o.request); delete r.notes_own; return Object.assign(plain(o), { request: r }); }),
+      declarations: { period_open: "2026-10", due_state: "due", hub: "print",
+        items: [{ introduction_id: 1011, ref: "INTRO-1011", seeker_town: "Bristol", seeker_country: "United Kingdom" }],
+        history: [{ period: "2026-09", hub: "print", status: "submitted", submitted_at: "2026-10-09T10:00:00Z", lines: [{ ref: "INTRO-1011", units: 3, value: 3848, currency: "AUD" }] }] },
+      statements: [{ id: 1, quarter: "2026-Q3", issued_at: "2026-10-23T09:00:00Z", paid_at: null, status: "issued", total_fees: 230.88, currency: "ILS", lines: [] }],
+    }) });
+    const { context, page, errors } = await visit(world);
+    await page.goto(`${APEX}/hub/account/`);
+    await step("with no company from the worker the card is titled by its reference, with no year line and no Notes, and nothing reads undefined", async () => {
+      await page.waitForSelector("#intro-1030 .intro-title--ref");
+      has(await reads(page, "#intro-1030 .intro-title--ref"), "INTRO-1030", "the title");
+      eq(await page.locator("#intro-1030 .intro-year, #intro-1030 .intro-logo, #intro-1011 .intro-decl").count(), 0, "a year line, a logo tile or a declarations list");
+      await page.waitForSelector("#pairMap-1030 .leaflet-popup .np-need");
+      eq(await page.locator("#pairMap-1030 .np-need__notes, #pairMap-1030 .np-need__company").count(), 0, "Notes or a company in the need box");
+      has(await reads(page, "#introAnswer-1030 .hint", true), "Decline and the seeker is told a site said no, and nothing else.", "the panel's words with no name");
+      await neverSays(page, "the account page on an older worker");
+    });
+    await step("the account page keeps its declaration card and statements, with six currencies and the line for any other", async () => {
+      await page.waitForSelector('#declarations [data-act="decl-submit"]');
+      eq(await page.$$eval("#decl-2026-10-1011-currency option", (els) => els.map((e) => e.value)), ["GBP", "EUR", "USD", "CAD", "AUD", "ILS"], "the six currencies (D26)");
+      has(await page.textContent("#declarations .acct-card"), "If you invoiced in any currency that is not on the list, email hello@nexpoint.co.uk before you send this declaration.", "the line for any other currency");
+      has(await reads(page, "#declarations .acct-detail"), "A$3,848.00", "an Australian dollar value, with its sign");
+      eq(await page.$$eval("#fees .acct-sub", (els) => els.map((e) => e.textContent.trim())), ["Statements"], "the sub-headings: no list of strikes (D27)");
+      has(await reads(page, "#fees"), "₪230.88", "a shekel fee, with its sign");
+      eq((await page.textContent("#fees")).includes("Introduced customers"), false, "Introduced customers");
+    });
+    clean(world, errors, "the account page on a worker from before plan 106");
+    await context.close();
+  }
+  {
+    /* The worker being built beside this lists the board's months too (C7),
+       with `company` null on every board line (D18): the last case below. The
+       first two are a worker whose months leave the board out: a company that
+       sells through the Opportunities Board and nothing else is sent no month,
+       and keeps the card it has; a host that also sells through the board
+       keeps the board's card under the button. */
+    const boardIntro = { id: 2001, ref: "INTRO-2001", hub: "opportunities", stage: "introduced", role: "provider", asked: false, seller: true,
+      created_at: "2026-08-01T09:00:00Z", introduced_at: "2026-08-04T09:00:00Z", acceptance_expires_at: null,
+      opportunity: { ref: "NX-0007", title: "A distributor for a carbon AFO range" } };
+    const boardDecl = { period_open: "2026-10", due_state: "due", hub: "opportunities",
+      items: [{ introduction_id: 2001, ref: "INTRO-2001", seeker_town: "Lyon", seeker_country: "France" }],
+      history: [{ period: "2026-09", hub: "opportunities", status: "nothing", submitted_at: "2026-10-05T10:00:00Z", lines: [] }] };
+    const alone = newWorld({ user: USER, terms: TERMS_STATE({ host: HELD(32) }), summary: Object.assign({}, EMPTY_SUMMARY, {
+      org: { id: 41, name: "ZZ Walk Test Ltd", role: "owner", sub_status: "none", host_print: "none", host_mill: "none" },
+      introductions: [boardIntro], declarations: Object.assign({ months: [] }, boardDecl), hubs_used: ["opportunities"] }) });
+    const mixed = hostWorld({ summary: summary({ introductions: INTROS().concat([boardIntro]),
+      declarations: Object.assign({ months: MONTHS() }, boardDecl) }) });
+    {
+      const { context, page, errors } = await visit(alone);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a company that sells through the board alone keeps its declaration card when the worker lists no month for it", async () => {
+        await page.waitForSelector('#declarations [data-act="decl-submit"][data-hub="opportunities"]');
+        eq(await page.locator("#declarations a.acct-declare").count(), 0, "a button to the declaration page");
+        has(await reads(page, "#declarations"), "INTRO-2001", "its introduction");
+        eq(/[A-Z]{2} [A-Z]\w+ (Orthotics|Podiatry|Clinic|Bracing)/.test(await reads(page, "#introductions")), false, "a company named on a board row (D18)");
+        await neverSays(page, "the board seller's account page");
+      });
+      await step("the declaration page sends a board seller to its account page", async () => {
+        await page.goto(`${APEX}/hub/account/declare/`);
+        await page.waitForSelector("#declCard .decl-done.is-quiet");
+        eq(await reads(page, "#declCard .decl-done p"), "Declare from your account page for now.", "the sentence");
+      });
+      clean(alone, errors, "the board seller's pages");
+      await context.close();
+    }
+    {
+      const { context, page, errors } = await visit(mixed);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("a host that also sells through the board has the button for its hubs and the board's card beneath it", async () => {
+        await page.waitForSelector("#declarations a.acct-declare");
+        await page.waitForSelector('#declarations [data-act="decl-submit"][data-hub="opportunities"]');
+        eq(await page.$$eval("#declarations .acct-sub", (els) => els.map((e) => e.textContent.trim())), ["Opportunities Board"], "the board's heading");
+        eq(await page.locator("#intro-2001 .intro-title").count(), 0, "the new card on a board row (D18)");
+        const acts = await page.$$eval("#waiting .acct-action", (els) => els.map((e) => e.querySelector("span:nth-child(2)").textContent.trim()));
+        eq(acts, ["Answer 1 introduction", "Send your declaration for October 2026", "Send your Opportunities Board declaration for October 2026"], "Waiting on you");
+      });
+      clean(mixed, errors, "the host that also sells through the board");
+      await context.close();
+    }
+    {
+      /* The worker's months with the board in them: the board's line is named
+         by its reference alone, declared on the declaration page with the rest,
+         and no board card is left on the account page. */
+      const boardDue = { introduction_id: 2001, ref: "INTRO-2001", company: null, hub: "opportunities", rate: 0.06, currency_default: "GBP" };
+      const boardLine = { introduction_id: 2001, ref: "INTRO-2001", company: null, hub: "opportunities", nothing: false, value: 500, currency: "GBP", rate: 0.06, fee: 30 };
+      const months = MONTHS().map((m) => {
+        if (m.period === "2026-10") return Object.assign({}, m, { due: m.due.concat([boardDue]) });
+        if (m.period === "2026-08") return Object.assign({}, m, { lines: m.lines.concat([boardLine]),
+          totals: m.totals.concat([{ currency: "GBP", value: 500, fee: 30 }]) });
+        return m;
+      });
+      const inMonths = hostWorld({ summary: summary({ introductions: INTROS().concat([boardIntro]),
+        declarations: Object.assign({ months }, boardDecl) }) });
+      inMonths.api["POST /declarations"] = () => [200, { ok: true }];
+      const { context, page, errors } = await visit(inMonths);
+      await page.goto(`${APEX}/hub/account/`);
+      await step("with the board's line in the worker's months: one button, no board card, and the line named by its reference alone (D18)", async () => {
+        await page.waitForSelector("#declarations a.acct-declare");
+        eq(await page.locator('#declarations [data-act="decl-submit"]').count(), 0, "a board card beside the button");
+        eq(await reads(page, "#declarations .acct-declare-row .acct-row__meta"), "October 2026Open now. Declare by 15 November 2026. One line for each of your 4 introductions.", "the row");
+        const acts = await page.$$eval("#waiting .acct-action", (els) => els.map((e) => e.querySelector("span:nth-child(2)").textContent.trim()));
+        eq(acts, ["Answer 1 introduction", "Send your declaration for October 2026"], "Waiting on you");
+        await page.click('#fees .stmt[data-state="awaiting_payment"] summary');
+        const rows = await page.$$eval('#fees .stmt[data-state="awaiting_payment"] tbody tr td:first-child', (tds) => tds.map((td) => td.textContent.replace(/\s+/g, " ").trim()));
+        eq(rows[rows.length - 1], "INTRO-2001 Opportunities Board", "the board's line in the statement");
+        await neverSays(page, "the account page with the board in the months");
+      });
+      await step("the declaration page, opened with no month, draws the board's line by reference and sends the board its own declaration", async () => {
+        await page.goto(`${APEX}/hub/account/declare/`);
+        await page.waitForSelector("#declCard .decl-table tbody tr");
+        eq(await reads(page, "#declTitle"), "Declare October 2026", "the month");
+        const last = await page.$eval("#declCard tbody tr:last-child td:first-child", (td) => td.textContent.replace(/\s+/g, " ").trim());
+        eq(last, "INTRO-2001 Opportunities Board", "the board's row: its reference and the board, no company");
+        await page.fill("#dv-0", "100"); await page.fill("#dv-1", "100"); await page.fill("#dv-2", "100"); await page.fill("#dv-3", "500");
+        await page.click("#declSend");
+        await until(() => apiCalls(inMonths, "POST /declarations").length === 3, "the three declarations");
+        const board = apiCalls(inMonths, "POST /declarations").map((c) => c.body).find((b) => b.hub === "opportunities");
+        eq(board, { hub: "opportunities", period: "2026-10", nothing_this_month: false, nothing_for: [],
+          lines: [{ introduction_id: 2001, value: 500, currency: "GBP" }] }, "the board's declaration");
+      });
+      clean(inMonths, errors, "the pages with the board in the worker's months");
+      await context.close();
+    }
+  }
+}
+
 const started = Date.now();
 /* A part that cannot get going (the page it starts on is broken) is one
    failed check with the reason, and the parts after it still run. */
@@ -5989,6 +7903,8 @@ if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountAnswers) + 1, 0, wa
 /* The membership beside the terms and an edit as a change (plan 068) walk straight after the ship picker. */
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkOfferMap) + 1, 0, walkOfferCommit);
 if (ONLY !== "boards") parts.splice(parts.indexOf(walkAccountBoard) + 1, 0, walkTerms);
+/* The account page on the worker's months and the declaration page (plan 106) walk straight after the terms. */
+if (ONLY !== "boards") parts.splice(parts.indexOf(walkTerms) + 1, 0, walkPlan106);
 /* The Consultancy agreements page (plan 086) walks straight after the Inbox and System. */
 if (ONLY !== "public") parts.splice(parts.indexOf(walkInboxAndSystem) + 1, 0, walkConsultancy);
 if (ONLY === "sign") parts.splice(0, parts.length, walkSign);

@@ -257,6 +257,7 @@
     current_password_wrong: 'That is not your current password.',
     too_many_attempts: 'Too many wrong passwords. Wait ten minutes, then try again.',
     too_soon: 'A link went out in the last two minutes. Check that inbox, including spam, before asking again.',
+    too_many_today: 'You have asked to change your email address five times in the last day. Try again tomorrow, or email ' + HELLO + '.',
   };
   function changeEmail() {
     var msg = el('youEmailMsg');

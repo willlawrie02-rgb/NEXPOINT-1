@@ -293,6 +293,9 @@
     }) : null;
     if (!TA.fCountry && el('fCountry')) el('fCountry').value = country;
 
+    /* Plan 106 (W5.2): "How many" and the lead time change only by typing,
+       never under the wheel or the arrow keys (typed-numbers.js). */
+    if (window.NPTypedNumbers) NPTypedNumbers.guard(el('findForm'));
     wireDevice();
     wireGroup('fCadence', 'fCadence');
     wireGroup('fLeadMode', 'fLeadMode');
@@ -474,6 +477,10 @@
       country: country,
       services: services,
       notes: notesWithVolume(notes, materials, quantity, quantityUnit, cadence),
+      /* Plan 106 (W5.5): what the seeker typed in the notes box, on its own.
+         The host is shown this and nothing the form composed above; the desk
+         keeps the composed notes. Null when nothing was typed. */
+      notes_own: notes || null,
     } };
   }
 
@@ -721,10 +728,14 @@
       seeker: seekerPoint,
       /* every ranked site, so a pin's number is the site's rank and the
          cards say the same; the best three are flagged for their pins */
+      /* Plan 106 (C9): a named site carries its company and logo onto its
+         pin; the worker names three and no more, so the rest stay "Site N" */
       sites: matches.map((c, i) => ({
         listing_id: c.listing_id, position: i + 1, town: c.town, country: c.country,
         point: c.point || null, lead: c.min_lead_time_days, distance: c.distance_km,
         best: isBest(c.listing_id),
+        company: companyOf(c) || null,
+        logo_url: companyOf(c) ? logoUrlOf(c) : null,
       })),
       onPick: chooseFromMap,
     });
@@ -753,6 +764,7 @@
     const grid = el('capGrid');
     if (grid) {
       grid.innerHTML = visibleMatches().map((m) => cardHtml(m.card, m.position, isBest(m.card.listing_id))).join('');
+      wireLogos(grid);
       grid.querySelectorAll('input[data-pick]').forEach((box) => {
         /* a re-render keeps the pick */
         box.checked = picks.indexOf(box.getAttribute('data-pick')) !== -1;
@@ -842,6 +854,41 @@
     }
   }
 
+  /* ── the company's name and logo (plan 106, D14) ─────────────────────
+     The worker names the three best and sends each one's logo as a link
+     signed for a minute, or null. A logo is drawn on a white tile, whole
+     (contain, never cropped or stretched); with no link, or a link that
+     fails (a minute has passed, a file has gone), the tile shows the
+     company's initials instead, never a broken picture. */
+  function companyOf(card) {
+    return card && typeof card.company === 'string' && card.company.trim() ? card.company.trim() : '';
+  }
+  function logoUrlOf(card) {
+    const u = card && typeof card.logo_url === 'string' ? card.logo_url.trim() : '';
+    return /^(https?:\/\/|data:image\/)/i.test(u) ? u : '';
+  }
+  function initials(name) {
+    const w = String(name || '').replace(/[^A-Za-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+    return ((w[0] || '').charAt(0) + (w[1] || '').charAt(0)).toUpperCase() || 'N';
+  }
+  function logoTile(company, url, size) {
+    const ini = initials(company);
+    return '<span class="cap-logo' + (size === 'small' ? ' cap-logo--small' : '') + '" aria-hidden="true" data-initials="' + esc(ini) + '">' +
+      (url ? '<img src="' + esc(url) + '" alt="" data-np-logo>' : esc(ini)) + '</span>';
+  }
+  /* A picture that fails gives its tile back to the initials. Wired after
+     the markup is written, in the same task: a load's error is a task of
+     its own, so it cannot fire before the listener is on. */
+  function wireLogos(root) {
+    if (!root) return;
+    root.querySelectorAll('img[data-np-logo]').forEach((img) => {
+      img.addEventListener('error', () => {
+        const tile = img.closest('.cap-logo');
+        if (tile) tile.textContent = tile.getAttribute('data-initials') || '';
+      }, { once: true });
+    });
+  }
+
   function cardHtml(card, position, best) {
     const id = String(card.listing_id);
     const rows = [];
@@ -897,7 +944,9 @@
         (exactMatch ? '' : '<span class="badge-nomatch">no exact match</span>') +
       '</span>' +
       (company
-        ? '<h3>' + esc(company) + '</h3>' +
+        /* Plan 106 (D14): the logo, or the initials, beside the name; the
+           heading itself still holds the name alone */
+        ? '<div class="cap__name">' + logoTile(company, logoUrlOf(card)) + '<h3>' + esc(company) + '</h3></div>' +
           /* styled inline: the shared stylesheet is cached for four hours and
              this line is new with the names (the shared-asset cache rule) */
           '<p class="cap__where" style="margin:-10px 0 16px;font:400 13px/1.4 var(--font-body);color:var(--on-surface-var)">' +
@@ -1008,10 +1057,16 @@
     const company = typeof p.card.company === 'string' ? p.card.company.trim() : '';
     const line = 'The ' + siteNoun() + ' you picked: ' + siteNounTitle() + ' ' + p.position +
       (company ? ', ' + company : '') + (where ? ', ' + where : '') + '.';
+    /* Plan 106: the named site's logo leads the line (D14), and the seeker
+       is told the site sees its company's name with the request (D12). */
     box.innerHTML =
-      '<p class="body">' + esc(line) + '</p>' +
+      (company
+        ? '<div class="pick-who">' + logoTile(company, logoUrlOf(p.card), 'small') +
+          '<p class="body">' + esc(line) + '</p></div>'
+        : '<p class="body">' + esc(line) + '</p>') +
       '<p class="np-hint">Your request goes straight to this ' + esc(siteNoun()) +
-      '. Contact details are exchanged once it accepts.</p>';
+      '. It sees your company\'s name with your request. Contact details are exchanged only once it accepts.</p>';
+    wireLogos(box);
     const btn = el('requestSubmit');
     if (btn) btn.textContent = 'Send my request to ' + pickedName();
   }
@@ -1097,6 +1152,7 @@
       quantity: s.quantity, quantity_unit: s.quantity_unit, cadence: s.cadence,
       max_lead_time_days: s.max_lead_time_days, needed_by: s.needed_by,
       town: s.town, country: s.country, services: s.services, notes: s.notes,
+      notes_own: s.notes_own || null,
     };
   }
 
@@ -1121,6 +1177,21 @@
     if (e === 'own_listing') {
       return 'That is your own ' + site + ', so we cannot introduce you to it. Pick another ' + site + ' and send again.';
     }
+    /* Plan 104 (R7-20): the worker refuses a pick of a company the account
+       already has an offer waiting with, or an introduction to, on either hub
+       (so "company", not the hub's own word), and an eleventh request in 24
+       hours. */
+    if (e === 'already_introduced') {
+      return d.waiting
+        ? 'You have already asked this company, and it has not answered yet. You will hear by email when it does. Pick another ' + site + ', or search again.'
+        : 'You already have an introduction with this company' + (d.ref ? ' (' + d.ref + ')' : '') +
+          '. Its details are in the introduction email we sent you. Pick another ' + site + ', or search again.';
+    }
+    if (e === 'too_many_picks_today') {
+      return 'Your account has sent ' + (typeof d.limit === 'number' ? d.limit : 10) +
+        ' requests in the last 24 hours, which is the most allowed in a day. Try again tomorrow, or email hello@nexpoint.co.uk.';
+    }
+    if (e === 'lookup failed') return 'We could not check that just now. Try again in a minute, or email hello@nexpoint.co.uk.';
     if (e === 'request_not_open') {
       return 'This request is no longer open. Tell the desk and we will pick it up by hand.';
     }
