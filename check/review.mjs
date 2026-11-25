@@ -431,13 +431,13 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
   };
 
   // R7-16: the declaration form says what to do about a currency it does not offer.
-  // Plan 106 (D26) offers six currencies, so the line no longer names three: the
+  // Plan 106 (D26) offers five currencies (six until 25 November 2026), so the line no longer names three: the
   // account page's own card (kept for the Opportunities Board and for a worker
   // from before plan 106) and the declaration page each carry it.
-  wordsIn(DASH, dash, ["If you invoiced in any currency that is not on the list, email "], "R7-16");
-  wordsIn("hub/assets/declare.js", read("hub/assets/declare.js"), ["Invoiced in another currency? Email "], "R7-16");
+  wordsIn(DASH, dash, ["If you invoiced in any currency that is not on the list, convert the amount and declare it in US dollars."], "R7-16");
+  wordsIn("hub/assets/declare.js", read("hub/assets/declare.js"), ["Invoiced in another currency? Convert the amount and declare it in US dollars."], "R7-16");
   for (const f of [DASH, "hub/assets/declare.js"]) {
-    if (read(f).includes("pounds, euros or US dollars")) fail(`${f}: still names three currencies; six are offered (plan 106, D26)`);
+    if (read(f).includes("pounds, euros or US dollars")) fail(`${f}: still names three currencies; five are offered (plan 106, D26)`);
   }
 
   // R7-25: four small slips where a person is told the wrong thing.
@@ -611,11 +611,12 @@ returnCheck("assets/hub-account.js", "safeReturn", "safeReturn(ret)");
   const declPage = read("hub/account/declare/index.html"), acctPage = read("hub/account/index.html");
   const code = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
 
-  // D26: six currencies, the same six on the account page and the declaration page.
-  const SIX = "['GBP', 'EUR', 'USD', 'CAD', 'AUD', 'ILS']";
+  // D26: five currencies since 25 November 2026 (shekels dropped), the same five
+  // on the account page and the declaration page.
+  const SIX = "['GBP', 'EUR', 'USD', 'CAD', 'AUD']";
   for (const [f, t] of [[DASH, dash], [DECL, decl]]) {
     const m = t.match(/var CURRENCIES = (\[[^\]]*\]);/);
-    if (!m || m[1] !== SIX) fail(`${f}: CURRENCIES is ${m ? m[1] : "not found"}; plan 106 (D26) offers GBP, EUR, USD, CAD, AUD and ILS`);
+    if (!m || m[1] !== SIX) fail(`${f}: CURRENCIES is ${m ? m[1] : "not found"}; plan 106 (D26) offers GBP, EUR, USD, CAD and AUD (shekels dropped 25 November 2026)`);
   }
   // money(), lifted out: each of the six has its own sign, and a currency the
   // page does not know keeps its code, never "undefined".
