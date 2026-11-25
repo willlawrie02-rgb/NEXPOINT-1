@@ -281,6 +281,20 @@ export async function signIn(ctx, role, { account } = {}) {
      stays away. */
   return w;
 }
+/* A company's name as a page shows it, without its tile. The admin's shell puts
+   a tile of initials inside every element that names a company (crm-shell.js,
+   tiles: the company page's own heading, a link to a company page, a row, a
+   card), so the element's text reads "ZFZZ Full Test Host". The tile is a
+   span.tile, hidden from a screen reader; it is taken out of a copy and the
+   rest is read. Twice a run refused to act on its own ZZ account over this
+   (13 and 25 November 2026). */
+export async function nameOf(locator) {
+  return locator.first().evaluate((el) => {
+    const copy = el.cloneNode(true);
+    copy.querySelectorAll(".tile").forEach((x) => x.remove());
+    return String(copy.textContent || "").trim();
+  });
+}
 export async function signOut(w) {
   /* The window may be on a page with no account chip: the "You're confirmed."
      page a confirmation link leaves it on has none (the first live run of 25

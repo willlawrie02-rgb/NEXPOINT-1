@@ -1,6 +1,6 @@
 // The full test: the consultancy sign-up and the admin boards.
 import { APEX, PRINT, MILL, OPPS, API, Refused, Soft, mustBeZZ, isZZ, isZZSlug, differs, wait, skip, hand, askEnter, askLine } from "./core.mjs";
-import { windowFor, go, see, shows, text, whoAmI, apiGet, signIn, signOut, adminWindow, adminGo, saveVia, wantDirect, ADMIN, allow, pollUntil, invoiceRaised } from "./browser.mjs";
+import { windowFor, go, see, shows, text, whoAmI, apiGet, signIn, signOut, adminWindow, adminGo, saveVia, wantDirect, ADMIN, allow, pollUntil, invoiceRaised, nameOf } from "./browser.mjs";
 import { same, made, acct, today, MARK, stampOf, newcomer, pageErrors, typeahead, fillIfEmpty, emailLink, pdfOk, nearest, termsOf, HUBS, openAnswer, answer, findForm, search, cardOf, companyPage, prospectName, prospectRow, openProspect, fits, registerByHand, choosePassword } from "./kit.mjs";
 
 /* What these journeys send, beyond what browser.mjs opens for every run. The
@@ -1090,7 +1090,7 @@ async function orgPress(ctx, org, name, act, field, confirm) {
      account's name as the page's one heading, with no badge and no name row. The first
      live run of 25 November 2026 read "" there and refused to take the new ZZ account off. */
   const plain = !(await w.page.locator(".co-name-row").count());
-  const heading = await text(w.page, plain ? "#page h1" : ".co-name-row h1").catch(() => "");
+  const heading = await nameOf(w.page.locator(plain ? "#page h1" : ".co-name-row h1")).catch(() => "");
   mustBeZZ(heading, "the company page");
   await w.page.click(sel);
   if (field) await w.page.fill(field, `${MARK} ${ctx.stamp}: removed at the end of the full test, so no ZZ site stays in front of seekers`);
