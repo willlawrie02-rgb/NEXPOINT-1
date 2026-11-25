@@ -182,7 +182,15 @@ export async function windowFor(ctx, role, { fresh = false } = {}) {
 export async function go(page, url) {
   const host = new URL(url).hostname;
   if (!OUR_HOSTS.has(host)) throw new Refused(`refused: ${host} is not one of our pages`);
+  /* A move to the page the window is already on, with a #part in the address,
+     is no load at all: the browser only scrolls, and the page keeps what it
+     read before. The account page is opened this way (#intro-12, #fees) and
+     reads its summary once, at load, so a row an admin has since reopened, or
+     a month just declared, would not be on it. Such a move is loaded again. */
+  const bare = (u) => String(u).split("#")[0];
+  const samePage = url.includes("#") && bare(page.url()) === bare(url);
   await page.goto(url, { waitUntil: "domcontentloaded" });
+  if (samePage) await page.reload({ waitUntil: "domcontentloaded" });
 }
 export async function shot(ctx, name) {
   mkdirSync(ctx.shotsDir, { recursive: true });
