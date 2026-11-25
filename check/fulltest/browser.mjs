@@ -282,6 +282,14 @@ export async function signIn(ctx, role, { account } = {}) {
   return w;
 }
 export async function signOut(w) {
+  /* The window may be on a page with no account chip: the "You're confirmed."
+     page a confirmation link leaves it on has none (the first live run of 25
+     November 2026 timed out here, straight after the seeker was confirmed).
+     The hub's own page always carries the chip for a signed-in window. */
+  if (!(await w.page.locator(".np-chip__out").count())) {
+    await go(w.page, `${APEX}/hub/`);
+    await w.page.locator(".np-chip__out").first().waitFor({ state: "visible", timeout: 25000 });
+  }
   await w.page.click(".np-chip__out");
   await w.page.locator("[data-np-account-slot] [data-np-signin]").first().waitFor({ state: "visible" });
   w.signedIn = false; w.proved = false;
